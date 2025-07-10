@@ -1,0 +1,319 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id              String   @id @default(uuid())
+  name            String
+  slug            String   @unique
+  address         String
+  phone           String?
+  email           String?
+  timezone        String   @default("UTC")
+  currency        String   @default("USD")
+  taxRate         Decimal  @default(0.0000) @db.Decimal(5, 4)
+  serviceChargeRate Decimal @default(0.0000) @db.Decimal(5, 4)
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  tables         Table[]
+  menuItems      MenuItem[]
+  categories     MenuCategory[]
+  orders         Order[]
+  staff          Staff[]
+
+  @@map("restaurants")
+}
+
+model Table {
+  id            String   @id @default(uuid())
+  restaurantId  String
+  tableNumber   String
+  tableName     String?
+  qrCodeToken   String   @unique
+  capacity      Int      @default(4)
+  status        String   @default("available")
+  locationDescription String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders          Order[]
+  customerSessions CustomerSession[]
+
+  @@unique([restaurantId, tableNumber])
+  @@map("tables")
+}
+
+model MenuCategory {
+  id           String   @id @default(uuid())
+  restaurantId String
+  name         String
+  description  String?
+  displayOrder Int      @default(0)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id           String   @id @default(uuid())
+  restaurantId String
+  categoryId   String
+  name         String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  costPrice    Decimal? @db.Decimal(10, 2)
+  imageUrl     String?
+  preparationTime Int   @default(0)
+  calories     Int?
+  allergens    String[]
+  dietaryInfo  String[]
+  isAvailable  Boolean  @default(true)
+  isFeatured   Boolean  @default(false)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+  variations MenuItemVariation[]
+
+  @@map("menu_items")
+}
+
+model MenuItemVariation {
+  id           String  @id @default(uuid())
+  menuItemId   String
+  name         String
+  priceModifier Decimal @default(0.00) @db.Decimal(10, 2)
+  variationType String
+  isRequired   Boolean @default(false)
+  maxSelections Int    @default(1)
+  displayOrder Int     @default(0)
+  createdAt    DateTime @default(now())
+
+  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  orderItemVariations OrderItemVariation[]
+
+  @@map("menu_item_variations")
+}
+
+model StaffRole {
+  id          String @id @default(uuid())
+  name        String
+  description String?
+  permissions Json   @default("{}")
+  createdAt   DateTime @default(now())
+
+  staff Staff[]
+
+  @@map("staff_roles")
+}
+
+model Staff {
+  id               String    @id @default(uuid())
+  restaurantId     String
+  roleId           String
+  email            String    @unique
+  username         String    @unique
+  passwordHash     String
+  firstName        String
+  lastName         String
+  phone            String?
+  isActive         Boolean   @default(true)
+  lastLoginAt      DateTime?
+  passwordChangedAt DateTime @default(now())
+  failedLoginAttempts Int    @default(0)
+  lockedUntil      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  role       StaffRole  @relation(fields: [roleId], references: [id])
+  orders     Order[]
+  sessions   StaffSession[]
+
+  @@map("staff")
+}
+
+model StaffSession {
+  id              String   @id @default(uuid())
+  staffId         String
+  sessionToken    String   @unique
+  ipAddress       String?
+  userAgent       String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@map("staff_sessions")
+}
+
+model CustomerSession {
+  id           String    @id @default(uuid())
+  tableId      String
+  sessionToken String    @unique
+  customerName String?
+  customerPhone String?
+  customerEmail String?
+  ipAddress    String?
+  userAgent    String?
+  startedAt    DateTime  @default(now())
+  expiresAt    DateTime
+  endedAt      DateTime?
+  status       String    @default("active")
+
+  table  Table   @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@map("customer_sessions")
+}
+
+model Order {
+  id               String   @id @default(uuid())
+  orderNumber      String   @unique
+  restaurantId     String
+  tableId          String
+  customerSessionId String
+  subtotal         Decimal  @default(0.00) @db.Decimal(10, 2)
+  taxAmount        Decimal  @default(0.00) @db.Decimal(10, 2)
+  serviceCharge    Decimal  @default(0.00) @db.Decimal(10, 2)
+  discountAmount   Decimal  @default(0.00) @db.Decimal(10, 2)
+  totalAmount      Decimal  @default(0.00) @db.Decimal(10, 2)
+  status           String   @default("pending")
+  paymentStatus    String   @default("pending")
+  takenBy          String?
+  confirmedBy      String?
+  servedBy         String?
+  specialInstructions String?
+  estimatedReadyTime DateTime?
+  createdAt        DateTime @default(now())
+  confirmedAt      DateTime?
+  readyAt          DateTime?
+  servedAt         DateTime?
+  updatedAt        DateTime @updatedAt
+
+  restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table           Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  customerSession CustomerSession @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  takenByStaff    Staff?          @relation(fields: [takenBy], references: [id])
+  items           OrderItem[]
+  payments        Payment[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id              String   @id @default(uuid())
+  orderId         String
+  menuItemId      String
+  quantity        Int
+  unitPrice       Decimal  @db.Decimal(10, 2)
+  totalPrice      Decimal  @db.Decimal(10, 2)
+  specialInstructions String?
+  status          String   @default("pending")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variations OrderItemVariation[]
+
+  @@map("order_items")
+}
+
+model OrderItemVariation {
+  id           String  @id @default(uuid())
+  orderItemId  String
+  variationId  String
+  quantity     Int     @default(1)
+  unitPrice    Decimal @db.Decimal(10, 2)
+  totalPrice   Decimal @db.Decimal(10, 2)
+  createdAt    DateTime @default(now())
+
+  orderItem OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  variation MenuItemVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
+
+  @@map("order_item_variations")
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  orderId           String
+  paymentMethod     String
+  paymentProcessor  String?
+  amount            Decimal  @db.Decimal(10, 2)
+  processingFee     Decimal  @default(0.00) @db.Decimal(10, 2)
+  netAmount         Decimal  @db.Decimal(10, 2)
+  status            String   @default("pending")
+  externalPaymentId String?
+  externalTransactionId String?
+  paymentMetadata   Json     @default("{}")
+  failureReason     String?
+  refundReason      String?
+  createdAt         DateTime @default(now())
+  processedAt       DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  updatedAt         DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model SecurityEvent {
+  id          String   @id @default(uuid())
+  eventType   String
+  severity    String
+  tableId     String?
+  staffId     String?
+  customerSessionId String?
+  orderId     String?
+  ipAddress   String?
+  userAgent   String?
+  requestPath String?
+  requestMethod String?
+  eventData   Json     @default("{}")
+  description String?
+  resolved    Boolean  @default(false)
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  resolutionNotes String?
+  createdAt   DateTime @default(now())
+
+  @@map("security_events")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tableName  String
+  recordId   String
+  operation  String
+  oldValues  Json?
+  newValues  Json?
+  changedBy  String?
+  changedAt  DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+
+  @@map("audit_logs")
+}
