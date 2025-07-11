@@ -3,9 +3,12 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MenuCategory, Table } from '@/types/menu';
+import { OrderResponse } from '@/types/order';
 import { useCart } from '@/hooks/useCart';
 import { MenuCard } from '@/components/menu/MenuCard';
 import { CartSummary } from '@/components/cart/CartSummary';
+import { CheckoutForm } from '@/components/checkout/CheckoutForm';
+import { OrderConfirmation } from '@/components/order/OrderConfirmation';
 import { Button } from '@/components/ui/Button';
 
 export default function QRMenuPage() {
@@ -18,12 +21,20 @@ export default function QRMenuPage() {
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
 
-  const { cart, addToCart, updateCartItem, removeFromCart, getItemCount } =
-    useCart(
-      table?.restaurant.taxRate || 0.085,
-      table?.restaurant.serviceChargeRate || 0.12
-    );
+  const {
+    cart,
+    addToCart,
+    updateCartItem,
+    removeFromCart,
+    getItemCount,
+    clearCart,
+  } = useCart(
+    table?.restaurant.taxRate || 0.085,
+    table?.restaurant.serviceChargeRate || 0.12
+  );
 
   useEffect(() => {
     if (token) {
@@ -70,8 +81,20 @@ export default function QRMenuPage() {
   };
 
   const handleCheckout = () => {
-    // TODO: Implement checkout flow
-    alert('Checkout functionality will be implemented in the next phase!');
+    setShowCheckout(true);
+    setShowCart(false);
+  };
+
+  const handleOrderCreate = (order: OrderResponse) => {
+    setCurrentOrder(order);
+    setShowCheckout(false);
+    clearCart();
+  };
+
+  const handleNewOrder = () => {
+    setCurrentOrder(null);
+    setShowCheckout(false);
+    setShowCart(false);
   };
 
   if (loading) {
@@ -172,7 +195,19 @@ export default function QRMenuPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {showCart ? (
+            {currentOrder ? (
+              <OrderConfirmation
+                order={currentOrder}
+                onNewOrder={handleNewOrder}
+              />
+            ) : showCheckout ? (
+              <CheckoutForm
+                cart={cart}
+                tableId={table.id}
+                onOrderCreate={handleOrderCreate}
+                onCancel={() => setShowCheckout(false)}
+              />
+            ) : showCart ? (
               <CartSummary
                 cart={cart}
                 onUpdateItem={updateCartItem}
@@ -218,7 +253,7 @@ export default function QRMenuPage() {
       </div>
 
       {/* Mobile Cart Button */}
-      {getItemCount() > 0 && !showCart && (
+      {getItemCount() > 0 && !showCart && !showCheckout && !currentOrder && (
         <div className="fixed bottom-4 right-4 lg:hidden">
           <Button
             onClick={() => setShowCart(true)}

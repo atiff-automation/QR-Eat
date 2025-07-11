@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SECURITY_HEADERS } from './lib/auth';
+import { AuthService, SECURITY_HEADERS } from './lib/auth';
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -12,14 +12,7 @@ export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Public routes that don't require authentication
-  const publicRoutes = [
-    '/',
-    '/qr',
-    '/api/health',
-    '/test-login.html',
-    '/test',
-    '/simple-login',
-  ];
+  const publicRoutes = ['/', '/qr', '/api/health'];
   const isPublicRoute = publicRoutes.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`)
   );
@@ -44,7 +37,9 @@ export function middleware(request: NextRequest) {
   }
 
   // Check for authentication token
-  const token = request.cookies.get('qr_auth_token')?.value;
+  const token =
+    request.cookies.get('qr_auth_token')?.value ||
+    AuthService.extractTokenFromHeader(request.headers.get('authorization'));
 
   if (!token) {
     if (isProtectedApiRoute) {
@@ -59,16 +54,26 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // For now, if there's a token, assume it's valid
-  // We'll verify it properly in the API routes or page components
-  if (token && isAdminRoute) {
-    // Let the dashboard handle token verification
-    return response;
+  // Verify token
+  const payload = AuthService.verifyToken(token!);
+  if (!payload) {
+    if (isProtectedApiRoute) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401, headers: response.headers }
+      );
+    }
+
+    if (isAdminRoute) {
+      return NextResponse.redirect(new URL('/login', request.url));
+    }
   }
 
-  // Add user context to request headers for API routes (if token exists)
-  if (token && isProtectedApiRoute) {
-    response.headers.set('x-has-token', 'true');
+  // Add user context to request headers for API routes
+  if (payload && isProtectedApiRoute) {
+    response.headers.set('x-staff-id', payload.staffId);
+    response.headers.set('x-restaurant-id', payload.restaurantId);
+    response.headers.set('x-role-id', payload.roleId);
   }
 
   return response;
@@ -78,4 +83,5 @@ export const config = {
   matcher: [
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
+  runtime: 'nodejs',
 };

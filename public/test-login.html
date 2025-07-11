@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 400px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background: #007bff;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #0056b3;
+        }
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        .message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            background: #e7f3ff;
+            border: 1px solid #b3d9ff;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Test Login - Direct HTML</h1>
+        
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" placeholder="Enter email">
+        </div>
+
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" placeholder="Enter password">
+        </div>
+
+        <button type="button" class="btn-secondary" onclick="fillCredentials()">
+            Fill Manager Credentials
+        </button>
+
+        <button type="button" class="btn-primary" onclick="attemptLogin()">
+            Login
+        </button>
+
+        <div id="message"></div>
+
+        <div style="margin-top: 20px; font-size: 14px; color: #666;">
+            <p><strong>Test Credentials:</strong></p>
+            <p>manager@marios-local.com / password123</p>
+        </div>
+    </div>
+
+    <script>
+        function showMessage(text, type = 'info') {
+            console.log('Message:', text);
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerHTML = text;
+            messageDiv.className = 'message';
+            if (type === 'error') {
+                messageDiv.style.background = '#ffe7e7';
+                messageDiv.style.borderColor = '#ffb3b3';
+            } else if (type === 'success') {
+                messageDiv.style.background = '#e7ffe7';
+                messageDiv.style.borderColor = '#b3ffb3';
+            }
+        }
+
+        function fillCredentials() {
+            console.log('Filling credentials...');
+            document.getElementById('email').value = 'manager@marios-local.com';
+            document.getElementById('password').value = 'password123';
+            showMessage('Credentials filled! Now click Login.', 'success');
+        }
+
+        async function attemptLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+
+            console.log('Attempting login with:', { email, password });
+            showMessage('Attempting login...');
+
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password }),
+                });
+
+                const data = await response.json();
+                console.log('Login response:', data);
+
+                if (response.ok) {
+                    showMessage('Login successful! Checking cookies...', 'success');
+                    
+                    // Check if cookie was set
+                    const cookies = document.cookie;
+                    console.log('All cookies:', cookies);
+                    console.log('Looking for qr_auth_token cookie...');
+                    
+                    if (cookies.includes('qr_auth_token')) {
+                        showMessage('Cookie found! Redirecting to dashboard...', 'success');
+                    } else {
+                        showMessage('WARNING: Login successful but no auth cookie found!', 'error');
+                    }
+                    
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 3000);
+                } else {
+                    showMessage(`Login failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                showMessage(`Network error: ${error.message}`, 'error');
+            }
+        }
+
+        // Test basic JavaScript
+        console.log('Test HTML page loaded successfully!');
+        showMessage('Page loaded. Click "Fill Manager Credentials" then "Login".');
+    </script>
+</body>
+</html>

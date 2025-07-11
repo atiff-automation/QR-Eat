@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService, AUTH_CONSTANTS } from '@/lib/auth';
 import { prisma } from '@/lib/database';
-import { cookies } from 'next/headers';
 
 export async function POST(request: NextRequest) {
   try {
@@ -99,17 +98,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Set HTTP-only cookie
-    const cookieStore = await cookies();
-    cookieStore.set(AUTH_CONSTANTS.COOKIE_NAME, token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 24 * 60 * 60, // 24 hours
-      path: '/',
-    });
-
-    return NextResponse.json({
+    // Create response
+    const response = NextResponse.json({
       message: 'Login successful',
       staff: {
         id: staff.id,
@@ -125,6 +115,12 @@ export async function POST(request: NextRequest) {
         restaurantId: staff.restaurantId,
       },
     });
+
+    // Set cookie using Set-Cookie header
+    const cookieValue = `${AUTH_CONSTANTS.COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${24 * 60 * 60}; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
+    response.headers.set('Set-Cookie', cookieValue);
+
+    return response;
   } catch (error) {
     console.error('Login error:', error);
     return NextResponse.json(

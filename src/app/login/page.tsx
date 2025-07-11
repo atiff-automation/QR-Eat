@@ -1,17 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  const router = useRouter();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('Form submitted!', { email, password });
     setIsLoading(true);
     setError('');
 
@@ -27,11 +26,15 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        router.push('/dashboard');
+        console.log('Login successful:', data);
+        // Force a hard refresh to ensure cookies are properly set
+        window.location.href = '/dashboard';
       } else {
+        console.error('Login failed:', data);
         setError(data.error || 'Login failed');
       }
-    } catch {
+    } catch (error) {
+      console.error('Network error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
@@ -104,6 +107,18 @@ export default function LoginPage() {
             <p>Manager: manager@marios-local.com / password123</p>
             <p>Server: server@marios-local.com / password123</p>
             <p>Kitchen: kitchen@marios-local.com / password123</p>
+
+            <button
+              type="button"
+              onClick={() => {
+                console.log('Test button clicked!');
+                setEmail('manager@marios-local.com');
+                setPassword('password123');
+              }}
+              className="mt-2 text-blue-600 underline"
+            >
+              Fill Manager Credentials
+            </button>
           </div>
         </form>
       </div>
