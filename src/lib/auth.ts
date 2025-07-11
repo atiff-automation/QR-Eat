@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
+import { NextRequest } from 'next/server';
 import { Staff, StaffRole } from '@prisma/client';
+import { prisma } from './prisma';
+import { SecurityUtils } from './security';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-development';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
@@ -22,6 +25,11 @@ export interface StaffWithRole extends Staff {
 
 export class AuthService {
   static async hashPassword(password: string): Promise<string> {
+    // Validate password strength before hashing
+    const validation = SecurityUtils.validatePasswordStrength(password);
+    if (!validation.isValid) {
+      throw new Error(`Password validation failed: ${validation.errors.join(', ')}`);
+    }
     return bcrypt.hash(password, 12);
   }
 
@@ -107,3 +115,85 @@ export const SECURITY_HEADERS = {
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
 } as const;
+
+export interface AuthVerificationResult {
+  isValid: boolean;
+  staff?: Staff & { role: StaffRole };
+  payload?: JWTPayload;
+  error?: string;
+}
+
+export async function verifyAuthToken(request: NextRequest): Promise<AuthVerificationResult> {
+  try {
+    // Log authentication attempt
+    const ip = SecurityUtils.getClientIP(request);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    // Try to get token from cookie first, then from header
+    let token = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
+    
+    if (!token) {
+      const authHeader = request.headers.get(AUTH_CONSTANTS.HEADER_NAME);
+      token = AuthService.extractTokenFromHeader(authHeader) || undefined;
+    }
+
+    if (!token) {
+      SecurityUtils.logSecurityEvent('Authentication attempt without token', { ip, userAgent });
+      return {
+        isValid: false,
+        error: 'No authentication token provided'
+      };
+    }
+
+    // Verify the JWT token
+    const payload = AuthService.verifyToken(token);
+    if (!payload) {
+      return {
+        isValid: false,
+        error: 'Invalid or expired token'
+      };
+    }
+
+    // Get the staff member with role information
+    const staff = await prisma.staff.findUnique({
+      where: { id: payload.staffId },
+      include: {
+        role: true,
+        restaurant: true
+      }
+    });
+
+    if (!staff) {
+      return {
+        isValid: false,
+        error: 'Staff member not found'
+      };
+    }
+
+    if (!staff.isActive) {
+      return {
+        isValid: false,
+        error: 'Staff account is disabled'
+      };
+    }
+
+    // Update last activity
+    await prisma.staff.update({
+      where: { id: staff.id },
+      data: { lastLoginAt: new Date() }
+    });
+
+    return {
+      isValid: true,
+      staff,
+      payload
+    };
+
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    return {
+      isValid: false,
+      error: 'Authentication verification failed'
+    };
+  }
+}

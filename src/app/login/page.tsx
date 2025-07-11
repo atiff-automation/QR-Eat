@@ -1,16 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  
+  // Get redirect URL from query params
+  const [redirectTo, setRedirectTo] = useState('/dashboard');
+  const searchParams = useSearchParams();
+  
+  useEffect(() => {
+    const redirect = searchParams.get('redirect');
+    console.log('Redirect parameter from searchParams:', redirect);
+    
+    // Also try getting it directly from URL as backup
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlRedirect = urlParams.get('redirect');
+      console.log('Redirect parameter from URL:', urlRedirect);
+      
+      const finalRedirect = redirect || urlRedirect;
+      if (finalRedirect) {
+        setRedirectTo(finalRedirect);
+        console.log('Setting redirectTo to:', finalRedirect);
+      }
+    }
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Form submitted!', { email, password });
+    console.log('Current redirectTo at submit:', redirectTo);
     setIsLoading(true);
     setError('');
 
@@ -26,9 +49,22 @@ export default function LoginPage() {
       const data = await response.json();
 
       if (response.ok) {
-        console.log('Login successful:', data);
+        // Check user role and redirect accordingly
+        const staff = data.staff;
+        let finalRedirect = redirectTo;
+        
+        // If specific redirect URL is provided, use it
+        if (redirectTo !== '/dashboard') {
+          finalRedirect = redirectTo;
+        }
+        // Otherwise, check user role for smart defaults
+        else if (staff?.role?.name === 'Kitchen') {
+          finalRedirect = '/dashboard/kitchen';
+        }
+        
+        console.log('Final redirect:', finalRedirect);
         // Force a hard refresh to ensure cookies are properly set
-        window.location.href = '/dashboard';
+        window.location.href = finalRedirect;
       } else {
         console.error('Login failed:', data);
         setError(data.error || 'Login failed');
@@ -51,6 +87,11 @@ export default function LoginPage() {
           <p className="mt-2 text-center text-sm text-gray-600">
             QR Restaurant System
           </p>
+          {redirectTo !== '/dashboard' && (
+            <p className="mt-1 text-center text-xs text-blue-600">
+              Will redirect to: {redirectTo}
+            </p>
+          )}
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
@@ -115,9 +156,20 @@ export default function LoginPage() {
                 setEmail('manager@marios-local.com');
                 setPassword('password123');
               }}
-              className="mt-2 text-blue-600 underline"
+              className="mt-2 text-blue-600 underline mr-4"
             >
               Fill Manager Credentials
+            </button>
+            
+            <button
+              type="button"
+              onClick={() => {
+                setEmail('kitchen@marios-local.com');
+                setPassword('password123');
+              }}
+              className="mt-2 text-blue-600 underline"
+            >
+              Fill Kitchen Credentials
             </button>
           </div>
         </form>

@@ -123,7 +123,7 @@ export function OrderConfirmation({
               {formatPrice(currentOrder.totalAmount)}
             </span>
           </div>
-          <p className="text-sm text-gray-600 mt-2">
+          <p className="text-sm text-gray-800 mt-2">
             Payment:{' '}
             {currentOrder.paymentStatus === 'pending'
               ? 'Pay when ready'
@@ -150,7 +150,7 @@ export function OrderConfirmation({
           <div className="space-y-2">
             <div className="flex items-center">
               <div className="w-4 h-4 bg-green-500 rounded-full mr-3"></div>
-              <span className="text-sm text-gray-600">Order placed</span>
+              <span className="text-sm text-gray-800">Order placed</span>
             </div>
             <div className="flex items-center">
               <div
@@ -162,7 +162,7 @@ export function OrderConfirmation({
                     : 'bg-gray-300'
                 }`}
               ></div>
-              <span className="text-sm text-gray-600">Order confirmed</span>
+              <span className="text-sm text-gray-800">Order confirmed</span>
             </div>
             <div className="flex items-center">
               <div
@@ -172,7 +172,7 @@ export function OrderConfirmation({
                     : 'bg-gray-300'
                 }`}
               ></div>
-              <span className="text-sm text-gray-600">Preparing your food</span>
+              <span className="text-sm text-gray-800">Preparing your food</span>
             </div>
             <div className="flex items-center">
               <div
@@ -182,7 +182,7 @@ export function OrderConfirmation({
                     : 'bg-gray-300'
                 }`}
               ></div>
-              <span className="text-sm text-gray-600">Ready for delivery</span>
+              <span className="text-sm text-gray-800">Ready for delivery</span>
             </div>
           </div>
         </div>
@@ -193,7 +193,7 @@ export function OrderConfirmation({
             Order More Items
           </Button>
 
-          <div className="text-center text-sm text-gray-500">
+          <div className="text-center text-sm text-gray-700">
             <p>Need help? Please ask any staff member</p>
             <p className="mt-1">Order ID: {currentOrder.id}</p>
           </div>

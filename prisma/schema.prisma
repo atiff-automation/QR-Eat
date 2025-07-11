@@ -217,6 +217,7 @@ model Order {
   takenByStaff    Staff?          @relation(fields: [takenBy], references: [id])
   items           OrderItem[]
   payments        Payment[]
+  paymentIntents  PaymentIntent[]
 
   @@map("orders")
 }
@@ -253,6 +254,29 @@ model OrderItemVariation {
   variation MenuItemVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
 
   @@map("order_item_variations")
+}
+
+model PaymentIntent {
+  id              String   @id @default(uuid())
+  orderId         String
+  amount          Decimal  @db.Decimal(10, 2)
+  currency        String   @default("USD")
+  paymentMethodId String
+  status          String   @default("pending")
+  reference       String   @unique
+  clientSecret    String?
+  transactionId   String?
+  finalAmount     Decimal? @db.Decimal(10, 2)
+  tip             Decimal  @default(0.00) @db.Decimal(10, 2)
+  metadata        Json     @default("{}")
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  confirmedAt     DateTime?
+  updatedAt       DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("payment_intents")
 }
 
 model Payment {

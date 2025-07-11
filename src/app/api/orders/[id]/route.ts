@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database';
+import { prisma } from '@/lib/prisma';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { orderId } = params;
+    const orderId = params.id;
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -57,10 +57,10 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { orderId } = params;
+    const orderId = params.id;
     const { status, estimatedReadyTime } = await request.json();
 
     if (!status) {

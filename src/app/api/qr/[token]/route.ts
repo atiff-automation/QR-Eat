@@ -9,25 +9,8 @@ export async function GET(
   try {
     const { token } = params;
 
-    // Validate QR token format and age
-    if (!isValidTableToken(token)) {
-      return NextResponse.json(
-        { error: 'Invalid or expired QR code' },
-        { status: 400 }
-      );
-    }
-
-    // Decode QR token to get table information
-    const qrData = decodeQRToken(token);
-    if (!qrData) {
-      return NextResponse.json(
-        { error: 'Invalid QR code format' },
-        { status: 400 }
-      );
-    }
-
-    // Find table by QR token
-    const table = await prisma.table.findUnique({
+    // Try to find table directly by token (for new UUID-based tokens)
+    let table = await prisma.table.findUnique({
       where: { qrCodeToken: token },
       include: {
         restaurant: {
@@ -46,8 +29,38 @@ export async function GET(
       },
     });
 
+    // If not found by direct token, try legacy encoded format
     if (!table) {
-      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
+      if (isValidTableToken(token)) {
+        const qrData = decodeQRToken(token);
+        if (qrData) {
+          table = await prisma.table.findFirst({
+            where: { 
+              id: qrData.tableId,
+              restaurant: { slug: qrData.restaurant }
+            },
+            include: {
+              restaurant: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  address: true,
+                  phone: true,
+                  currency: true,
+                  taxRate: true,
+                  serviceChargeRate: true,
+                  isActive: true,
+                },
+              },
+            },
+          });
+        }
+      }
+    }
+
+    if (!table) {
+      return NextResponse.json({ error: 'Invalid or expired QR code' }, { status: 404 });
     }
 
     if (!table.restaurant.isActive) {
@@ -57,14 +70,7 @@ export async function GET(
       );
     }
 
-    // Check table availability
-    if (table.status !== 'available') {
-      return NextResponse.json(
-        { error: 'Table is not available for new orders' },
-        { status: 409 }
-      );
-    }
-
+    // Return table info (allow menu viewing regardless of status)
     return NextResponse.json({
       table: {
         id: table.id,
@@ -75,6 +81,11 @@ export async function GET(
         locationDescription: table.locationDescription,
         restaurant: table.restaurant,
       },
+      // Include status info for frontend to handle ordering restrictions
+      canOrder: table.status === 'available',
+      statusMessage: table.status === 'available' 
+        ? null 
+        : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`
     });
   } catch (error) {
     console.error('QR code validation error:', error);

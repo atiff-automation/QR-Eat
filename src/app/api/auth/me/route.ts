@@ -50,6 +50,7 @@ export async function GET(request: NextRequest) {
     }
 
     return NextResponse.json({
+      success: true,
       staff: {
         id: staff.id,
         email: staff.email,

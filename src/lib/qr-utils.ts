@@ -1,7 +1,44 @@
+import QRCode from 'qrcode';
+
 interface QRCodeData {
   tableId: string;
   restaurant: string;
   timestamp: number;
+}
+
+export async function generateQRCodeImage(url: string): Promise<string> {
+  try {
+    const qrCodeDataURL = await QRCode.toDataURL(url, {
+      width: 256,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    return qrCodeDataURL;
+  } catch (error) {
+    console.error('Failed to generate QR code:', error);
+    throw new Error('Failed to generate QR code');
+  }
+}
+
+export async function generateQRCodeSVG(url: string): Promise<string> {
+  try {
+    const qrCodeSVG = await QRCode.toString(url, {
+      type: 'svg',
+      width: 256,
+      margin: 2,
+      color: {
+        dark: '#000000',
+        light: '#FFFFFF'
+      }
+    });
+    return qrCodeSVG;
+  } catch (error) {
+    console.error('Failed to generate QR code SVG:', error);
+    throw new Error('Failed to generate QR code SVG');
+  }
 }
 
 export function decodeQRToken(token: string): QRCodeData | null {

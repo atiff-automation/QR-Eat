@@ -207,7 +207,7 @@ export function CheckoutForm({
 
         <div className="text-xs text-gray-500 text-center">
           <p>By placing this order, you agree to our terms of service.</p>
-          <p>Payment will be processed when your order is ready.</p>
+          <p>You'll be able to choose your payment method in the next step.</p>
         </div>
       </form>
     </div>

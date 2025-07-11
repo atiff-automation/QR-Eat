@@ -93,7 +93,7 @@ export default function SimpleLoginPage() {
           <div className="p-3 bg-gray-100 rounded text-center">{message}</div>
         )}
 
-        <div className="text-sm text-gray-600 text-center">
+        <div className="text-sm text-gray-800 text-center">
           <p>Test with: manager@marios-local.com / password123</p>
         </div>
       </div>

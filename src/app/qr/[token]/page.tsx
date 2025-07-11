@@ -4,11 +4,14 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MenuCategory, Table } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
+import { PaymentIntent } from '@/types/payment';
 import { useCart } from '@/hooks/useCart';
 import { MenuCard } from '@/components/menu/MenuCard';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { OrderConfirmation } from '@/components/order/OrderConfirmation';
+import { PaymentForm } from '@/components/payment/PaymentForm';
+import { PaymentSuccess } from '@/components/payment/PaymentSuccess';
 import { Button } from '@/components/ui/Button';
 
 export default function QRMenuPage() {
@@ -22,7 +25,9 @@ export default function QRMenuPage() {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
+  const [showPayment, setShowPayment] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(null);
 
   const {
     cart,
@@ -88,12 +93,20 @@ export default function QRMenuPage() {
   const handleOrderCreate = (order: OrderResponse) => {
     setCurrentOrder(order);
     setShowCheckout(false);
+    setShowPayment(true);
+  };
+
+  const handlePaymentSuccess = (payment: PaymentIntent) => {
+    setPaymentIntent(payment);
+    setShowPayment(false);
     clearCart();
   };
 
   const handleNewOrder = () => {
     setCurrentOrder(null);
+    setPaymentIntent(null);
     setShowCheckout(false);
+    setShowPayment(false);
     setShowCart(false);
   };
 
@@ -102,7 +115,7 @@ export default function QRMenuPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading menu...</p>
+          <p className="text-gray-800">Loading menu...</p>
         </div>
       </div>
     );
@@ -124,7 +137,7 @@ export default function QRMenuPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <p className="text-gray-600">No menu available</p>
+          <p className="text-gray-800">No menu available</p>
         </div>
       </div>
     );
@@ -142,7 +155,7 @@ export default function QRMenuPage() {
               <h1 className="text-xl font-bold text-gray-900">
                 {table.restaurant.name}
               </h1>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-800">
                 Table {table.tableNumber}
                 {table.tableName && ` - ${table.tableName}`}
               </p>
@@ -180,11 +193,11 @@ export default function QRMenuPage() {
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
                       activeCategory === category.id
                         ? 'bg-blue-100 text-blue-700 font-medium'
-                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
                     }`}
                   >
                     {category.name}
-                    <span className="text-xs text-gray-400 block">
+                    <span className="text-xs text-gray-600 block">
                       {category.menuItems.length} items
                     </span>
                   </button>
@@ -195,10 +208,25 @@ export default function QRMenuPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {currentOrder ? (
+            {paymentIntent ? (
+              <PaymentSuccess
+                paymentIntent={paymentIntent}
+                orderNumber={currentOrder?.orderNumber || ''}
+                onNewOrder={handleNewOrder}
+              />
+            ) : currentOrder && !showPayment ? (
               <OrderConfirmation
                 order={currentOrder}
                 onNewOrder={handleNewOrder}
+              />
+            ) : showPayment && currentOrder ? (
+              <PaymentForm
+                order={currentOrder}
+                onPaymentSuccess={handlePaymentSuccess}
+                onCancel={() => {
+                  setShowPayment(false);
+                  setShowCheckout(true);
+                }}
               />
             ) : showCheckout ? (
               <CheckoutForm
@@ -222,7 +250,7 @@ export default function QRMenuPage() {
                       {activeMenuCategory.name}
                     </h2>
                     {activeMenuCategory.description && (
-                      <p className="text-gray-600">
+                      <p className="text-gray-700">
                         {activeMenuCategory.description}
                       </p>
                     )}
@@ -241,7 +269,7 @@ export default function QRMenuPage() {
 
                 {activeMenuCategory?.menuItems.length === 0 && (
                   <div className="text-center py-12">
-                    <p className="text-gray-500">
+                    <p className="text-gray-700">
                       No items available in this category
                     </p>
                   </div>
@@ -253,7 +281,7 @@ export default function QRMenuPage() {
       </div>
 
       {/* Mobile Cart Button */}
-      {getItemCount() > 0 && !showCart && !showCheckout && !currentOrder && (
+      {getItemCount() > 0 && !showCart && !showCheckout && !showPayment && !currentOrder && !paymentIntent && (
         <div className="fixed bottom-4 right-4 lg:hidden">
           <Button
             onClick={() => setShowCart(true)}
