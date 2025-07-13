@@ -1,6 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { 
+  Download, 
+  Copy, 
+  X, 
+  AlertTriangle,
+  ExternalLink,
+  FileText
+} from 'lucide-react';
 
 interface QRCodeDisplayProps {
   tableId: string;
@@ -203,7 +211,7 @@ export function QRCodeDisplay({
             </div>
           ) : error ? (
             <div className="text-center py-8">
-              <div className="text-red-600 text-xl mb-4">⚠️</div>
+              <AlertTriangle className="h-8 w-8 text-red-600 mx-auto mb-4" />
               <p className="text-red-600 mb-4">{error}</p>
               <button
                 onClick={fetchQRCode}
@@ -263,7 +271,8 @@ export function QRCodeDisplay({
                     onClick={() => downloadQRCode('svg')}
                     className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
                   >
-                    📄 Download SVG
+                    <FileText className="h-4 w-4 mr-2" />
+                    Download SVG
                   </button>
                   <button
                     onClick={() => {
@@ -272,7 +281,8 @@ export function QRCodeDisplay({
                     }}
                     className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
                   >
-                    📋 Copy URL
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy URL
                   </button>
                 </div>
                 <button

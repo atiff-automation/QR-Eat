@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getOrderStatusDisplay } from '@/lib/order-utils';
 import { formatCurrency } from '@/lib/payment-utils';
+import { ClipboardList, AlertTriangle, Clock, ChefHat, DollarSign } from 'lucide-react';
 
 interface OrderSummary {
   id: string;
@@ -149,7 +150,7 @@ export function OrdersOverview() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
-                  <span className="text-blue-600 text-sm font-medium">📋</span>
+                  <ClipboardList className="h-4 w-4 text-blue-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -163,7 +164,7 @@ export function OrdersOverview() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-yellow-100 rounded-md flex items-center justify-center">
-                  <span className="text-yellow-600 text-sm font-medium">⏳</span>
+                  <Clock className="h-4 w-4 text-yellow-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -177,7 +178,7 @@ export function OrdersOverview() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-orange-100 rounded-md flex items-center justify-center">
-                  <span className="text-orange-600 text-sm font-medium">👨‍🍳</span>
+                  <ChefHat className="h-4 w-4 text-orange-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -191,7 +192,7 @@ export function OrdersOverview() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
-                  <span className="text-green-600 text-sm font-medium">💰</span>
+                  <DollarSign className="h-4 w-4 text-green-600" />
                 </div>
               </div>
               <div className="ml-4">

@@ -3,6 +3,20 @@
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
+import { 
+  Smartphone, 
+  Copy, 
+  RefreshCw, 
+  Users, 
+  ChefHat, 
+  Plus,
+  Grid3X3,
+  Layout,
+  MoreVertical,
+  Eye,
+  Edit,
+  Trash2
+} from 'lucide-react';
 
 interface Table {
   id: string;
@@ -349,7 +363,8 @@ export default function TablesPage() {
                   onClick={() => showTableQRCode(table)}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  📱 View QR Code
+                  <Smartphone className="h-4 w-4 mr-2" />
+                  View QR Code
                 </button>
                 <button
                   onClick={() => {
@@ -359,7 +374,8 @@ export default function TablesPage() {
                   }}
                   className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  📋 Copy QR URL
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy QR URL
                 </button>
                 <button
                   onClick={() => {
@@ -374,7 +390,8 @@ export default function TablesPage() {
                   onClick={() => regenerateQRCode(table.id)}
                   className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-2 rounded-md text-sm font-medium"
                 >
-                  🔄 Regenerate QR
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Regenerate QR
                 </button>
               </div>
             </div>
@@ -414,7 +431,7 @@ export default function TablesPage() {
                       T{table.tableNumber}
                     </div>
                     <div className="text-xs text-gray-600">
-                      {table.capacity}👥
+                      <Users className="h-3 w-3 mr-1 inline" />{table.capacity}
                     </div>
                     {table.currentOrders > 0 && (
                       <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -454,7 +471,7 @@ export default function TablesPage() {
 
         {tables.length === 0 && !loading && (
           <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">🪑</div>
+            <ChefHat className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No tables found</h3>
             <p className="text-gray-600 mb-4">Get started by adding your first table</p>
             <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">

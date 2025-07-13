@@ -1,19 +1,27 @@
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import { NextRequest } from 'next/server';
-import { Staff, StaffRole } from '@prisma/client';
+import { Staff, StaffRole, PlatformAdmin, RestaurantOwner } from '@prisma/client';
 import { prisma } from './prisma';
 import { SecurityUtils } from './security';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-development';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
+export enum UserType {
+  PLATFORM_ADMIN = 'platform_admin',
+  RESTAURANT_OWNER = 'restaurant_owner',
+  STAFF = 'staff'
+}
+
 export interface JWTPayload {
-  staffId: string;
+  userId: string;
+  userType: UserType;
   email: string;
-  username: string;
-  restaurantId: string;
-  roleId: string;
+  username?: string;
+  restaurantId?: string;
+  roleId?: string;
+  ownerId?: string;
   permissions: Record<string, string[]>;
   iat?: number;
   exp?: number;
@@ -22,6 +30,19 @@ export interface JWTPayload {
 export interface StaffWithRole extends Staff {
   role: StaffRole;
 }
+
+export interface RestaurantOwnerWithRestaurants extends RestaurantOwner {
+  restaurants: Array<{
+    id: string;
+    name: string;
+    slug: string;
+  }>;
+}
+
+export type AuthenticatedUser = 
+  | { type: UserType.PLATFORM_ADMIN; user: PlatformAdmin }
+  | { type: UserType.RESTAURANT_OWNER; user: RestaurantOwnerWithRestaurants }
+  | { type: UserType.STAFF; user: StaffWithRole };
 
 export class AuthService {
   static async hashPassword(password: string): Promise<string> {
@@ -40,15 +61,57 @@ export class AuthService {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  static generateToken(staff: StaffWithRole): string {
-    const payload: JWTPayload = {
-      staffId: staff.id,
-      email: staff.email,
-      username: staff.username,
-      restaurantId: staff.restaurantId,
-      roleId: staff.roleId,
-      permissions: staff.role.permissions as Record<string, string[]>,
-    };
+  static generateToken(user: AuthenticatedUser): string {
+    let payload: JWTPayload;
+
+    switch (user.type) {
+      case UserType.PLATFORM_ADMIN:
+        payload = {
+          userId: user.user.id,
+          userType: UserType.PLATFORM_ADMIN,
+          email: user.user.email,
+          permissions: { 
+            platform: ['read', 'write', 'delete', 'admin'],
+            restaurants: ['read', 'write', 'delete'],
+            users: ['read', 'write', 'delete'],
+            billing: ['read', 'write'],
+            analytics: ['read']
+          },
+        };
+        break;
+
+      case UserType.RESTAURANT_OWNER:
+        payload = {
+          userId: user.user.id,
+          userType: UserType.RESTAURANT_OWNER,
+          email: user.user.email,
+          permissions: {
+            restaurants: ['read', 'write'],
+            staff: ['read', 'write', 'delete'],
+            menu: ['read', 'write', 'delete'],
+            orders: ['read', 'write'],
+            analytics: ['read'],
+            billing: ['read'],
+            subscription: ['read', 'write']
+          },
+        };
+        break;
+
+      case UserType.STAFF:
+        payload = {
+          userId: user.user.id,
+          userType: UserType.STAFF,
+          email: user.user.email,
+          username: user.user.username,
+          restaurantId: user.user.restaurantId,
+          roleId: user.user.roleId,
+          permissions: user.user.role.permissions as Record<string, string[]>,
+        };
+        break;
+
+      default:
+        throw new Error('Invalid user type for token generation');
+    }
 
     return jwt.sign(payload, JWT_SECRET, {
       expiresIn: JWT_EXPIRES_IN,
@@ -70,11 +133,13 @@ export class AuthService {
 
     // Generate new token with same payload but fresh expiration
     const newPayload: JWTPayload = {
-      staffId: payload.staffId,
+      userId: payload.userId,
+      userType: payload.userType,
       email: payload.email,
       username: payload.username,
       restaurantId: payload.restaurantId,
       roleId: payload.roleId,
+      ownerId: payload.ownerId,
       permissions: payload.permissions,
     };
 
@@ -98,6 +163,83 @@ export class AuthService {
     }
     return authHeader.substring(7);
   }
+
+  /**
+   * Find user by email across all user types (platform admin, restaurant owner, staff)
+   */
+  static async findUserByEmail(email: string): Promise<AuthenticatedUser | null> {
+    const normalizedEmail = email.toLowerCase();
+
+    // Try platform admin first
+    const platformAdmin = await prisma.platformAdmin.findUnique({
+      where: { email: normalizedEmail }
+    });
+
+    if (platformAdmin) {
+      return {
+        type: UserType.PLATFORM_ADMIN,
+        user: platformAdmin
+      };
+    }
+
+    // Try restaurant owner
+    const restaurantOwner = await prisma.restaurantOwner.findUnique({
+      where: { email: normalizedEmail },
+      include: {
+        restaurants: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    if (restaurantOwner) {
+      return {
+        type: UserType.RESTAURANT_OWNER,
+        user: restaurantOwner
+      };
+    }
+
+    // Try staff
+    const staff = await prisma.staff.findUnique({
+      where: { email: normalizedEmail },
+      include: { role: true }
+    });
+
+    if (staff) {
+      return {
+        type: UserType.STAFF,
+        user: staff
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Authenticate user with email and password
+   */
+  static async authenticateUser(email: string, password: string): Promise<AuthenticatedUser | null> {
+    const user = await this.findUserByEmail(email);
+    if (!user) return null;
+
+    // Check if account is active
+    if (!user.user.isActive) return null;
+
+    // Check if account is locked (for platform admin and restaurant owner)
+    if ('lockedUntil' in user.user && user.user.lockedUntil && user.user.lockedUntil > new Date()) {
+      return null;
+    }
+
+    // Verify password
+    const isValidPassword = await this.verifyPassword(password, user.user.passwordHash);
+    if (!isValidPassword) return null;
+
+    return user;
+  }
 }
 
 export const AUTH_CONSTANTS = {
@@ -118,9 +260,11 @@ export const SECURITY_HEADERS = {
 
 export interface AuthVerificationResult {
   isValid: boolean;
-  staff?: Staff & { role: StaffRole };
+  user?: AuthenticatedUser;
   payload?: JWTPayload;
   error?: string;
+  // Backward compatibility - deprecated, use user instead
+  staff?: StaffWithRole;
 }
 
 export async function verifyAuthToken(request: NextRequest): Promise<AuthVerificationResult> {
@@ -154,39 +298,85 @@ export async function verifyAuthToken(request: NextRequest): Promise<AuthVerific
       };
     }
 
-    // Get the staff member with role information
-    const staff = await prisma.staff.findUnique({
-      where: { id: payload.staffId },
-      include: {
-        role: true,
-        restaurant: true
-      }
-    });
+    let user: AuthenticatedUser | null = null;
 
-    if (!staff) {
-      return {
-        isValid: false,
-        error: 'Staff member not found'
-      };
+    // Get user based on user type in payload
+    switch (payload.userType) {
+      case UserType.PLATFORM_ADMIN:
+        const platformAdmin = await prisma.platformAdmin.findUnique({
+          where: { id: payload.userId }
+        });
+        if (platformAdmin && platformAdmin.isActive) {
+          user = { type: UserType.PLATFORM_ADMIN, user: platformAdmin };
+          // Update last activity
+          await prisma.platformAdmin.update({
+            where: { id: platformAdmin.id },
+            data: { lastLoginAt: new Date() }
+          });
+        }
+        break;
+
+      case UserType.RESTAURANT_OWNER:
+        const restaurantOwner = await prisma.restaurantOwner.findUnique({
+          where: { id: payload.userId },
+          include: {
+            restaurants: {
+              select: {
+                id: true,
+                name: true,
+                slug: true
+              }
+            }
+          }
+        });
+        if (restaurantOwner && restaurantOwner.isActive) {
+          user = { type: UserType.RESTAURANT_OWNER, user: restaurantOwner };
+          // Update last activity
+          await prisma.restaurantOwner.update({
+            where: { id: restaurantOwner.id },
+            data: { lastLoginAt: new Date() }
+          });
+        }
+        break;
+
+      case UserType.STAFF:
+        const staff = await prisma.staff.findUnique({
+          where: { id: payload.userId },
+          include: {
+            role: true,
+            restaurant: true
+          }
+        });
+        if (staff && staff.isActive) {
+          user = { type: UserType.STAFF, user: staff };
+          // Update last activity
+          await prisma.staff.update({
+            where: { id: staff.id },
+            data: { lastLoginAt: new Date() }
+          });
+        }
+        break;
+
+      default:
+        return {
+          isValid: false,
+          error: 'Invalid user type in token'
+        };
     }
 
-    if (!staff.isActive) {
+    if (!user) {
       return {
         isValid: false,
-        error: 'Staff account is disabled'
+        error: 'User not found or account is disabled'
       };
     }
-
-    // Update last activity
-    await prisma.staff.update({
-      where: { id: staff.id },
-      data: { lastLoginAt: new Date() }
-    });
 
     return {
       isValid: true,
-      staff,
-      payload
+      user,
+      payload,
+      // Backward compatibility: populate staff field if user is staff
+      staff: user.type === UserType.STAFF ? user.user : undefined
     };
 
   } catch (error) {

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { DollarSign } from 'lucide-react';
 
 export default function FinancialReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -211,7 +212,7 @@ export default function FinancialReportPage() {
                   <div className="bg-blue-50 p-4 rounded-lg">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <span className="text-2xl">💵</span>
+                        <DollarSign className="h-8 w-8 text-blue-600" />
                       </div>
                       <div className="ml-3">
                         <p className="text-sm font-medium text-blue-600">Net Revenue</p>

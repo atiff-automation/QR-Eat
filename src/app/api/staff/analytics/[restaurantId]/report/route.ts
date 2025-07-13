@@ -861,7 +861,7 @@ function generateHTMLReport(data: Record<string, unknown>, reportType: string, d
     if (data.topSellingItems && data.topSellingItems.length > 0) {
       htmlContent += `
         <div class="section">
-          <h3>🌟 Top Selling Items</h3>
+          <h3>⭐ Top Selling Items</h3>
           <table>
             <thead>
               <tr><th>Rank</th><th>Item Name</th><th>Quantity Sold</th><th>Revenue</th></tr>

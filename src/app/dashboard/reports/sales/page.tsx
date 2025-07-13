@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AlertTriangle, CheckCircle, DollarSign, ClipboardList, BarChart3, UtensilsCrossed, Building2 } from 'lucide-react';
 
 export default function SalesReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -157,7 +158,7 @@ export default function SalesReportPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <span className="text-red-400 text-xl">⚠️</span>
+                <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
@@ -197,7 +198,7 @@ export default function SalesReportPage() {
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <span className="text-2xl">💰</span>
+                      <DollarSign className="h-8 w-8 text-green-600" />
                     </div>
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-500">Total Revenue</p>
@@ -209,7 +210,7 @@ export default function SalesReportPage() {
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <span className="text-2xl">📋</span>
+                      <ClipboardList className="h-8 w-8 text-blue-600" />
                     </div>
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-500">Total Orders</p>
@@ -221,7 +222,7 @@ export default function SalesReportPage() {
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <span className="text-2xl">📊</span>
+                      <BarChart3 className="h-8 w-8 text-purple-600" />
                     </div>
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-500">Avg Order Value</p>
@@ -233,7 +234,7 @@ export default function SalesReportPage() {
                 <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                   <div className="flex items-center">
                     <div className="flex-shrink-0">
-                      <span className="text-2xl">🏛️</span>
+                      <Building2 className="h-8 w-8 text-indigo-600" />
                     </div>
                     <div className="ml-3">
                       <p className="text-sm font-medium text-gray-500">Total Tax</p>
@@ -292,7 +293,7 @@ export default function SalesReportPage() {
                     <div key={category.categoryId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center">
                         <div className="flex-shrink-0">
-                          <span className="text-lg">🍽️</span>
+                          <UtensilsCrossed className="h-5 w-5 text-gray-600" />
                         </div>
                         <div className="ml-3">
                           <p className="text-sm font-medium text-gray-900">{category.name}</p>
@@ -338,7 +339,7 @@ export default function SalesReportPage() {
               <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                 <div className="flex">
                   <div className="flex-shrink-0">
-                    <span className="text-green-400 text-xl">✅</span>
+                    <CheckCircle className="h-5 w-5 text-green-400" />
                   </div>
                   <div className="ml-3">
                     <h3 className="text-sm font-medium text-green-800">Success</h3>

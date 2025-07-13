@@ -2,6 +2,15 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { 
+  AlertTriangle, 
+  DollarSign, 
+  BarChart3, 
+  ClipboardList, 
+  TrendingUp, 
+  UtensilsCrossed, 
+  CreditCard 
+} from 'lucide-react';
 
 interface RevenueAnalytics {
   period: string;
@@ -129,7 +138,7 @@ export default function RevenueAnalyticsPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <span className="text-red-400 text-xl">⚠️</span>
+                <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
@@ -189,7 +198,7 @@ export default function RevenueAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">💰</span>
+                    <DollarSign className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Total Revenue</p>
@@ -201,7 +210,7 @@ export default function RevenueAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">📊</span>
+                    <BarChart3 className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Avg Order Value</p>
@@ -213,7 +222,7 @@ export default function RevenueAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">📋</span>
+                    <ClipboardList className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Total Orders</p>
@@ -225,7 +234,7 @@ export default function RevenueAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">📈</span>
+                    <TrendingUp className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Growth Rate</p>
@@ -294,7 +303,7 @@ export default function RevenueAnalyticsPage() {
                   <div key={category.categoryId} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                     <div className="flex items-center">
                       <div className="flex-shrink-0">
-                        <span className="text-lg">🍽️</span>
+                        <UtensilsCrossed className="h-4 w-4" />
                       </div>
                       <div className="ml-3">
                         <p className="text-sm font-medium text-gray-900">{category.categoryName}</p>
@@ -319,7 +328,7 @@ export default function RevenueAnalyticsPage() {
                     <div key={method.method} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                       <div className="flex items-center">
                         <div className="flex-shrink-0">
-                          <span className="text-lg">💳</span>
+                          <CreditCard className="h-4 w-4" />
                         </div>
                         <div className="ml-3">
                           <p className="text-sm font-medium text-gray-900 capitalize">{method.method}</p>

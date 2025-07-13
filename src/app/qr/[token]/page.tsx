@@ -13,6 +13,7 @@ import { OrderConfirmation } from '@/components/order/OrderConfirmation';
 import { PaymentForm } from '@/components/payment/PaymentForm';
 import { PaymentSuccess } from '@/components/payment/PaymentSuccess';
 import { Button } from '@/components/ui/Button';
+import { AlertTriangle } from 'lucide-react';
 
 export default function QRMenuPage() {
   const params = useParams();
@@ -125,7 +126,7 @@ export default function QRMenuPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="text-red-600 text-xl mb-4">⚠️</div>
+          <AlertTriangle className="h-8 w-8 text-red-600 mx-auto mb-4" />
           <p className="text-red-600 mb-4">{error}</p>
           <Button onClick={() => window.location.reload()}>Try Again</Button>
         </div>

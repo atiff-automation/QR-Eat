@@ -3,6 +3,18 @@
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { 
+  Home, 
+  ClipboardList, 
+  ChefHat, 
+  UtensilsCrossed, 
+  Users, 
+  BarChart3, 
+  Settings,
+  Menu,
+  X,
+  LogOut
+} from 'lucide-react';
 
 interface Staff {
   id: string;
@@ -48,7 +60,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       const data = await response.json();
 
       if (response.ok) {
-        setStaff(data.staff);
+        // Handle both new multi-user API and legacy staff API
+        const userData = data.user || data.staff;
+        setStaff(userData);
       } else {
         if (response.status === 401) {
           router.push('/login');
@@ -101,48 +115,48 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     {
       name: 'Dashboard',
       href: '/dashboard',
-      icon: '🏠',
+      icon: Home,
       current: pathname === '/dashboard',
     },
     {
       name: 'Orders',
       href: '/dashboard/orders',
-      icon: '📋',
+      icon: ClipboardList,
       current: pathname.startsWith('/dashboard/orders'),
       permissions: ['orders']
     },
     {
       name: 'Tables',
       href: '/dashboard/tables',
-      icon: '🪑',
+      icon: ChefHat,
       current: pathname.startsWith('/dashboard/tables'),
       permissions: ['tables']
     },
     {
       name: 'Menu',
       href: '/dashboard/menu',
-      icon: '🍽️',
+      icon: UtensilsCrossed,
       current: pathname.startsWith('/dashboard/menu'),
       permissions: ['menu']
     },
     {
       name: 'Staff',
       href: '/dashboard/staff',
-      icon: '👥',
+      icon: Users,
       current: pathname.startsWith('/dashboard/staff'),
       permissions: ['staff']
     },
     {
       name: 'Reports',
       href: '/dashboard/reports',
-      icon: '📊',
+      icon: BarChart3,
       current: pathname.startsWith('/dashboard/reports'),
       permissions: ['reports']
     },
     {
       name: 'Settings',
       href: '/dashboard/settings',
-      icon: '⚙️',
+      icon: Settings,
       current: pathname.startsWith('/dashboard/settings'),
       permissions: ['settings']
     },
@@ -150,6 +164,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const hasPermission = (permissions?: string[]) => {
     if (!permissions || permissions.length === 0) return true;
+    if (!staff?.role?.permissions) return false;
     return permissions.some(permission => 
       staff.role.permissions[permission] && 
       staff.role.permissions[permission].length > 0
@@ -170,7 +185,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               onClick={() => setIsSidebarOpen(false)}
               className="text-gray-400 hover:text-gray-600"
             >
-              ✕
+              <X className="h-5 w-5" />
             </button>
           </div>
           <nav className="flex-1 px-4 py-4 space-y-2">
@@ -185,7 +200,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <span className="mr-3">{item.icon}</span>
+                <item.icon className="mr-3 h-5 w-5" />
                 {item.name}
               </Link>
             ))}
@@ -212,7 +227,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                <span className="mr-3">{item.icon}</span>
+                <item.icon className="mr-3 h-5 w-5" />
                 {item.name}
               </Link>
             ))}
@@ -235,8 +250,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             <button
               onClick={handleLogout}
-              className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+              className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
             >
+              <LogOut className="h-4 w-4 mr-2" />
               Logout
             </button>
           </div>
@@ -254,7 +270,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   onClick={() => setIsSidebarOpen(true)}
                   className="lg:hidden mr-4 text-gray-400 hover:text-gray-600"
                 >
-                  <span className="text-xl">☰</span>
+                  <Menu className="h-6 w-6" />
                 </button>
                 <h1 className="text-xl font-semibold text-gray-900">
                   {pathname === '/dashboard' ? 'Dashboard' :
@@ -281,8 +297,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="lg:hidden">
                   <button
                     onClick={handleLogout}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm"
+                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm flex items-center"
                   >
+                    <LogOut className="h-4 w-4 mr-1" />
                     Logout
                   </button>
                 </div>

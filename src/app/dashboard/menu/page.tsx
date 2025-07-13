@@ -2,6 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { ImageUpload } from '@/components/ui/ImageUpload';
+import { 
+  Plus, 
+  RefreshCw, 
+  UtensilsCrossed, 
+  BarChart3, 
+  Edit2, 
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Flame
+} from 'lucide-react';
 
 interface MenuCategory {
   id: string;
@@ -249,8 +263,9 @@ export default function MenuPage() {
             {viewMode !== 'analytics' && (
               <button
                 onClick={() => setShowAddModal(viewMode === 'categories' ? 'category' : 'item')}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
               >
+                <Plus className="h-4 w-4 mr-2" />
                 Add {viewMode === 'categories' ? 'Category' : 'Item'}
               </button>
             )}
@@ -353,7 +368,17 @@ export default function MenuPage() {
                 disabled={refreshing}
                 className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
               >
-                {refreshing ? '🔄 Refreshing...' : '🔄 Refresh'}
+                {refreshing ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-1" />
+                    Refresh
+                  </>
+                )}
               </button>
             </div>
 
@@ -379,8 +404,7 @@ export default function MenuPage() {
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-700">
-                          <span className="text-4xl">🍽️</span>
-                          {console.log('No imageUrl for item:', item.name, 'imageUrl:', item.imageUrl)}
+                          <UtensilsCrossed className="h-10 w-10 text-gray-400" />
                         </div>
                       )}
                       {item.isFeatured && (
@@ -409,8 +433,8 @@ export default function MenuPage() {
                       )}
 
                       <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
-                        <span>⏱️ {item.preparationTime}min</span>
-                        {item.calories && <span>🔥 {item.calories} cal</span>}
+                        <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {item.preparationTime}min</span>
+                        {item.calories && <span className="flex items-center"><Flame className="h-3 w-3 mr-1" /> {item.calories} cal</span>}
                       </div>
 
                       {/* Allergens & Dietary Info */}
@@ -570,7 +594,7 @@ export default function MenuPage() {
               </>
             ) : (
               <div className="text-center py-12">
-                <div className="text-gray-400 text-6xl mb-4">📊</div>
+                <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-gray-900 mb-2">No analytics data</h3>
                 <p className="text-gray-800">Analytics will appear here once you have orders</p>
               </div>
@@ -581,13 +605,14 @@ export default function MenuPage() {
         {/* Empty State */}
         {categories.length === 0 && !loading && (
           <div className="text-center py-12">
-            <div className="text-gray-400 text-6xl mb-4">🍽️</div>
+            <UtensilsCrossed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-900 mb-2">No menu categories found</h3>
             <p className="text-gray-800 mb-4">Get started by creating your first menu category</p>
             <button 
               onClick={() => setShowAddModal('category')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center"
             >
+              <Plus className="h-4 w-4 mr-2" />
               Add Category
             </button>
           </div>
@@ -815,40 +840,24 @@ function AddModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                <input
-                  type="url"
+                <label className="block text-sm font-medium text-gray-700 mb-1">Menu Item Image</label>
+                <ImageUpload
                   value={formData.imageUrl}
-                  onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  placeholder="https://example.com/image.jpg"
+                  onChange={(imageUrl) => setFormData({ ...formData, imageUrl: imageUrl || '' })}
                 />
-                {formData.imageUrl && (
-                  <div className="mt-2">
-                    <div className="text-xs text-gray-700 mb-1">Preview:</div>
-                    <img 
-                      src={formData.imageUrl} 
-                      alt="Preview" 
-                      className="w-32 h-24 object-cover rounded border"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                  </div>
-                )}
               </div>
 
               {/* Allergens */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Allergens</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {formData.allergens.map((allergen, index) => (
+                  {formData.allergens.map((allergen: string, index: number) => (
                     <span key={index} className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
                       {allergen}
                       <button
                         type="button"
                         onClick={() => {
-                          const newAllergens = formData.allergens.filter((_, i) => i !== index);
+                          const newAllergens = formData.allergens.filter((_: string, i: number) => i !== index);
                           setFormData({ ...formData, allergens: newAllergens });
                         }}
                         className="ml-1 text-red-500 hover:text-red-700"
@@ -895,13 +904,13 @@ function AddModal({
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Dietary Information</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {formData.dietaryInfo.map((info, index) => (
+                  {formData.dietaryInfo.map((info: string, index: number) => (
                     <span key={index} className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
                       {info}
                       <button
                         type="button"
                         onClick={() => {
-                          const newDietaryInfo = formData.dietaryInfo.filter((_, i) => i !== index);
+                          const newDietaryInfo = formData.dietaryInfo.filter((_: string, i: number) => i !== index);
                           setFormData({ ...formData, dietaryInfo: newDietaryInfo });
                         }}
                         className="ml-1 text-green-500 hover:text-green-700"
@@ -1129,27 +1138,11 @@ function EditItemModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-            <input
-              type="url"
+            <label className="block text-sm font-medium text-gray-700 mb-1">Menu Item Image</label>
+            <ImageUpload
               value={formData.imageUrl}
-              onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              placeholder="https://example.com/image.jpg"
+              onChange={(imageUrl) => setFormData({ ...formData, imageUrl: imageUrl || '' })}
             />
-            {formData.imageUrl && (
-              <div className="mt-2">
-                <div className="text-xs text-gray-700 mb-1">Preview:</div>
-                <img 
-                  src={formData.imageUrl} 
-                  alt="Preview" 
-                  className="w-32 h-24 object-cover rounded border"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).style.display = 'none';
-                  }}
-                />
-              </div>
-            )}
           </div>
 
           {/* Allergens */}

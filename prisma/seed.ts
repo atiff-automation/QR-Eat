@@ -4,149 +4,527 @@ import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Starting database seeding...');
+  console.log('🌱 Starting multi-tenant SaaS database seeding...');
 
-  // Create test restaurant
-  const restaurant = await prisma.restaurant.create({
-    data: {
-      name: "Mario's Local Test Restaurant",
-      slug: 'marios-local',
-      address: '123 Test Street, Local City, LC 12345',
-      phone: '+1-555-123-4567',
-      email: 'info@marios-local.com',
-      timezone: 'America/New_York',
-      currency: 'USD',
-      taxRate: 0.085, // 8.5%
-      serviceChargeRate: 0.12, // 12%
+  // ==============================================
+  // 1. CREATE PLATFORM ADMIN
+  // ==============================================
+  const hashedPassword = await bcrypt.hash('admin123', 12);
+  
+  const platformAdmin = await prisma.platformAdmin.upsert({
+    where: { email: 'admin@qrorder.com' },
+    update: {},
+    create: {
+      email: 'admin@qrorder.com',
+      passwordHash: hashedPassword,
+      firstName: 'Platform',
+      lastName: 'Administrator',
+      role: 'super_admin',
+      isActive: true,
     },
   });
 
-  console.log('✅ Created restaurant:', restaurant.name);
+  console.log('✅ Created platform admin:', platformAdmin.email);
 
-  // Create staff roles
-  const managerRole = await prisma.staffRole.create({
-    data: {
-      name: 'Manager',
-      description: 'Restaurant manager with full access',
-      permissions: {
-        orders: ['read', 'write', 'delete'],
-        menu: ['read', 'write', 'delete'],
-        staff: ['read', 'write'],
-        reports: ['read'],
-        settings: ['read', 'write'],
+  // ==============================================
+  // 2. CREATE SUBSCRIPTION PLANS
+  // ==============================================
+  const subscriptionPlans = await Promise.all([
+    prisma.subscriptionPlan.upsert({
+      where: { name: 'Basic' },
+      update: {},
+      create: {
+        name: 'Basic',
+        monthlyFee: 99.00,
+        transactionFeeRate: 0.029, // 2.9%
+        maxTables: 10,
+        maxStaff: 5,
+        features: {
+          analytics: 'basic',
+          customBranding: false,
+          multiLocation: false,
+          apiAccess: false,
+          prioritySupport: false,
+        },
+        sortOrder: 1,
       },
-    },
-  });
-
-  const serverRole = await prisma.staffRole.create({
-    data: {
-      name: 'Server',
-      description: 'Server with order management access',
-      permissions: {
-        orders: ['read', 'write'],
-        menu: ['read'],
-        tables: ['read', 'write'],
+    }),
+    prisma.subscriptionPlan.upsert({
+      where: { name: 'Pro' },
+      update: {},
+      create: {
+        name: 'Pro',
+        monthlyFee: 199.00,
+        transactionFeeRate: 0.025, // 2.5%
+        maxTables: 25,
+        maxStaff: 15,
+        features: {
+          analytics: 'advanced',
+          customBranding: true,
+          multiLocation: true,
+          apiAccess: false,
+          prioritySupport: true,
+        },
+        sortOrder: 2,
       },
-    },
-  });
-
-  const kitchenRole = await prisma.staffRole.create({
-    data: {
-      name: 'Kitchen',
-      description: 'Kitchen staff with order preparation access',
-      permissions: {
-        orders: ['read', 'write'],
-        kitchen: ['read', 'write'],
+    }),
+    prisma.subscriptionPlan.upsert({
+      where: { name: 'Enterprise' },
+      update: {},
+      create: {
+        name: 'Enterprise',
+        monthlyFee: 399.00,
+        transactionFeeRate: 0.020, // 2.0%
+        maxTables: null, // unlimited
+        maxStaff: null, // unlimited
+        features: {
+          analytics: 'premium',
+          customBranding: true,
+          multiLocation: true,
+          apiAccess: true,
+          prioritySupport: true,
+          dedicatedManager: true,
+        },
+        sortOrder: 3,
       },
-    },
-  });
-
-  console.log('✅ Created staff roles:', [
-    managerRole.name,
-    serverRole.name,
-    kitchenRole.name,
+    }),
   ]);
+
+  console.log('✅ Created subscription plans:', subscriptionPlans.map(p => p.name));
+
+  // ==============================================
+  // 3. CREATE STAFF ROLES (SYSTEM ROLES)
+  // ==============================================
+  const staffRoles = await Promise.all([
+    prisma.staffRole.upsert({
+      where: { name: 'Manager' },
+      update: {},
+      create: {
+        name: 'Manager',
+        description: 'Restaurant manager with full operational access',
+        isSystemRole: true,
+        level: 9,
+        permissions: {
+          menu: ['read', 'write', 'delete'],
+          orders: ['read', 'write', 'delete'],
+          staff: ['read', 'write', 'delete'],
+          reports: ['read', 'write'],
+          settings: ['read', 'write'],
+          tables: ['read', 'write', 'delete'],
+          kitchen: ['read', 'write'],
+          analytics: ['read'],
+        },
+      },
+    }),
+    prisma.staffRole.upsert({
+      where: { name: 'Assistant Manager' },
+      update: {},
+      create: {
+        name: 'Assistant Manager',
+        description: 'Assistant manager with limited management access',
+        isSystemRole: true,
+        level: 7,
+        permissions: {
+          menu: ['read', 'write'],
+          orders: ['read', 'write', 'delete'],
+          staff: ['read'],
+          reports: ['read'],
+          settings: ['read'],
+          tables: ['read', 'write'],
+          kitchen: ['read', 'write'],
+        },
+      },
+    }),
+    prisma.staffRole.upsert({
+      where: { name: 'Waiter' },
+      update: {},
+      create: {
+        name: 'Waiter',
+        description: 'Server with order and table management access',
+        isSystemRole: true,
+        level: 5,
+        permissions: {
+          menu: ['read'],
+          orders: ['read', 'write'],
+          tables: ['read', 'write'],
+          reports: ['read'],
+        },
+      },
+    }),
+    prisma.staffRole.upsert({
+      where: { name: 'Kitchen' },
+      update: {},
+      create: {
+        name: 'Kitchen',
+        description: 'Kitchen staff with order preparation access',
+        isSystemRole: true,
+        level: 4,
+        permissions: {
+          orders: ['read', 'write'],
+          kitchen: ['read', 'write'],
+          menu: ['read'],
+        },
+      },
+    }),
+    prisma.staffRole.upsert({
+      where: { name: 'Cashier' },
+      update: {},
+      create: {
+        name: 'Cashier',
+        description: 'Cashier with payment processing access',
+        isSystemRole: true,
+        level: 3,
+        permissions: {
+          orders: ['read', 'write'],
+          payments: ['read', 'write'],
+          menu: ['read'],
+        },
+      },
+    }),
+  ]);
+
+  console.log('✅ Created staff roles:', staffRoles.map(r => r.name));
+
+  // ==============================================
+  // 4. CREATE RESTAURANT OWNERS
+  // ==============================================
+  const ownerPassword = await bcrypt.hash('owner123', 12);
+  
+  const restaurantOwners = await Promise.all([
+    // Owner 1: Single Location Owner
+    prisma.restaurantOwner.upsert({
+      where: { email: 'mario@rossigroup.com' },
+      update: {},
+      create: {
+        email: 'mario@rossigroup.com',
+        passwordHash: ownerPassword,
+        firstName: 'Mario',
+        lastName: 'Rossi',
+        phone: '+1-555-100-0001',
+        companyName: 'Rossi Restaurant Group',
+        isActive: true,
+        emailVerified: true,
+      },
+    }),
+    // Owner 2: Chain Owner
+    prisma.restaurantOwner.upsert({
+      where: { email: 'john@tastychainfood.com' },
+      update: {},
+      create: {
+        email: 'john@tastychainfood.com',
+        passwordHash: ownerPassword,
+        firstName: 'John',
+        lastName: 'Smith',
+        phone: '+1-555-200-0001',
+        companyName: 'Tasty Chain Food Corp',
+        isActive: true,
+        emailVerified: true,
+      },
+    }),
+  ]);
+
+  console.log('✅ Created restaurant owners:', restaurantOwners.map(o => o.email));
+
+  // ==============================================
+  // 5. CREATE RESTAURANTS
+  // ==============================================
+  const restaurants = await Promise.all([
+    // Mario's Restaurant (Basic Plan)
+    prisma.restaurant.create({
+      data: {
+        ownerId: restaurantOwners[0].id,
+        name: "Mario's Authentic Italian",
+        slug: 'marios-authentic-italian',
+        address: '123 Little Italy Street, New York, NY 10013',
+        phone: '+1-555-123-4567',
+        email: 'info@marios-authentic.com',
+        timezone: 'America/New_York',
+        currency: 'USD',
+        taxRate: 0.0875, // NYC tax rate
+        serviceChargeRate: 0.18, // 18% service charge
+        businessType: 'restaurant',
+        brandingConfig: {
+          colors: {
+            primary: '#c41e3a',
+            secondary: '#228b22',
+            background: '#ffffff',
+            text: '#333333',
+          },
+          logo: null,
+          theme: 'classic',
+        },
+      },
+    }),
+    // Tasty Burger (Pro Plan - Location 1)
+    prisma.restaurant.create({
+      data: {
+        ownerId: restaurantOwners[1].id,
+        name: 'Tasty Burger Downtown',
+        slug: 'tasty-burger-downtown',
+        address: '456 Main Street, Los Angeles, CA 90210',
+        phone: '+1-555-456-7890',
+        email: 'downtown@tastyburger.com',
+        timezone: 'America/Los_Angeles',
+        currency: 'USD',
+        taxRate: 0.0925, // CA tax rate
+        serviceChargeRate: 0.15, // 15% service charge
+        businessType: 'restaurant',
+        brandingConfig: {
+          colors: {
+            primary: '#ff6b35',
+            secondary: '#004d40',
+            background: '#fafafa',
+            text: '#212121',
+          },
+          logo: null,
+          theme: 'modern',
+        },
+      },
+    }),
+    // Tasty Burger (Pro Plan - Location 2)
+    prisma.restaurant.create({
+      data: {
+        ownerId: restaurantOwners[1].id,
+        name: 'Tasty Burger Westside',
+        slug: 'tasty-burger-westside',
+        address: '789 Sunset Blvd, Los Angeles, CA 90028',
+        phone: '+1-555-789-0123',
+        email: 'westside@tastyburger.com',
+        timezone: 'America/Los_Angeles',
+        currency: 'USD',
+        taxRate: 0.0925,
+        serviceChargeRate: 0.15,
+        businessType: 'restaurant',
+        brandingConfig: {
+          colors: {
+            primary: '#ff6b35',
+            secondary: '#004d40',
+            background: '#fafafa',
+            text: '#212121',
+          },
+          logo: null,
+          theme: 'modern',
+        },
+      },
+    }),
+  ]);
+
+  console.log('✅ Created restaurants:', restaurants.map(r => r.name));
+
+  // ==============================================
+  // 6. CREATE SUBSCRIPTIONS
+  // ==============================================
+  const now = new Date();
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  
+  const subscriptions = await Promise.all([
+    // Mario's Basic subscription
+    prisma.subscription.create({
+      data: {
+        restaurantId: restaurants[0].id,
+        planId: subscriptionPlans[0].id, // Basic
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: nextMonth,
+        stripeCustomerId: 'cus_mock_mario',
+        stripeSubscriptionId: 'sub_mock_mario',
+      },
+    }),
+    // Tasty Burger Downtown Pro subscription
+    prisma.subscription.create({
+      data: {
+        restaurantId: restaurants[1].id,
+        planId: subscriptionPlans[1].id, // Pro
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: nextMonth,
+        stripeCustomerId: 'cus_mock_tasty',
+        stripeSubscriptionId: 'sub_mock_tasty_1',
+      },
+    }),
+    // Tasty Burger Westside Pro subscription
+    prisma.subscription.create({
+      data: {
+        restaurantId: restaurants[2].id,
+        planId: subscriptionPlans[1].id, // Pro
+        status: 'active',
+        currentPeriodStart: now,
+        currentPeriodEnd: nextMonth,
+        stripeCustomerId: 'cus_mock_tasty',
+        stripeSubscriptionId: 'sub_mock_tasty_2',
+      },
+    }),
+  ]);
+
+  console.log('✅ Created subscriptions:', subscriptions.length);
+
+  // ==============================================
+  // 7. CREATE ROLE HIERARCHIES FOR EACH RESTAURANT
+  // ==============================================
+  const managerRole = staffRoles.find(r => r.name === 'Manager')!;
+  const waiterRole = staffRoles.find(r => r.name === 'Waiter')!;
+  const kitchenRole = staffRoles.find(r => r.name === 'Kitchen')!;
+
+  for (const restaurant of restaurants) {
+    await Promise.all([
+      // Manager (top level)
+      prisma.staffRoleHierarchy.create({
+        data: {
+          restaurantId: restaurant.id,
+          roleId: managerRole.id,
+          parentId: null,
+          maxCount: 1,
+        },
+      }),
+      // Waiter (reports to manager)
+      prisma.staffRoleHierarchy.create({
+        data: {
+          restaurantId: restaurant.id,
+          roleId: waiterRole.id,
+          parentId: null, // Will be updated later
+          maxCount: 5,
+        },
+      }),
+      // Kitchen (reports to manager)
+      prisma.staffRoleHierarchy.create({
+        data: {
+          restaurantId: restaurant.id,
+          roleId: kitchenRole.id,
+          parentId: null, // Will be updated later
+          maxCount: 3,
+        },
+      }),
+    ]);
+  }
+
+  console.log('✅ Created role hierarchies for all restaurants');
+
+  // ==============================================
+  // 8. CREATE SAMPLE DATA FOR MARIO'S RESTAURANT
+  // ==============================================
+  const marioRestaurant = restaurants[0];
 
   // Create menu categories
   const categories = await Promise.all([
     prisma.menuCategory.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         name: 'Appetizers',
-        description: 'Start your meal right',
+        description: 'Traditional Italian starters',
         displayOrder: 1,
       },
     }),
     prisma.menuCategory.create({
       data: {
-        restaurantId: restaurant.id,
-        name: 'Main Courses',
-        description: 'Hearty and delicious mains',
+        restaurantId: marioRestaurant.id,
+        name: 'Pasta',
+        description: 'Fresh handmade pasta dishes',
         displayOrder: 2,
       },
     }),
     prisma.menuCategory.create({
       data: {
-        restaurantId: restaurant.id,
-        name: 'Desserts',
-        description: 'Sweet endings',
+        restaurantId: marioRestaurant.id,
+        name: 'Pizza',
+        description: 'Wood-fired authentic Italian pizza',
         displayOrder: 3,
       },
     }),
     prisma.menuCategory.create({
       data: {
-        restaurantId: restaurant.id,
-        name: 'Beverages',
-        description: 'Refreshing drinks',
+        restaurantId: marioRestaurant.id,
+        name: 'Desserts',
+        description: 'Traditional Italian desserts',
         displayOrder: 4,
+      },
+    }),
+    prisma.menuCategory.create({
+      data: {
+        restaurantId: marioRestaurant.id,
+        name: 'Beverages',
+        description: 'Italian wines and beverages',
+        displayOrder: 5,
       },
     }),
   ]);
 
-  console.log('✅ Created categories:', categories.length);
+  console.log('✅ Created menu categories for Mario\'s:', categories.length);
 
   // Create menu items
   const menuItems = await Promise.all([
     // Appetizers
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         categoryId: categories[0].id,
-        name: 'Bruschetta',
-        description: 'Toasted bread with tomatoes, garlic, and basil',
-        price: 8.99,
-        preparationTime: 10,
-        calories: 150,
+        name: 'Bruschetta alla Nonna',
+        description: 'Traditional toasted bread with fresh tomatoes, garlic, and basil',
+        price: 12.99,
+        preparationTime: 8,
+        calories: 180,
         allergens: ['gluten'],
         dietaryInfo: ['vegetarian'],
         isAvailable: true,
+        isFeatured: true,
         displayOrder: 1,
       },
     }),
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         categoryId: categories[0].id,
-        name: 'Calamari Rings',
-        description: 'Crispy fried squid with marinara sauce',
-        price: 12.99,
-        preparationTime: 15,
-        calories: 280,
-        allergens: ['seafood', 'gluten'],
+        name: 'Antipasto Misto',
+        description: 'Mixed Italian cured meats, cheeses, and marinated vegetables',
+        price: 18.99,
+        preparationTime: 5,
+        calories: 320,
+        allergens: ['dairy'],
         dietaryInfo: [],
         isAvailable: true,
         displayOrder: 2,
       },
     }),
-    // Main Courses
+    // Pasta
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         categoryId: categories[1].id,
-        name: 'Margherita Pizza',
-        description: 'Fresh tomato sauce, mozzarella, and basil',
-        price: 16.99,
-        preparationTime: 20,
+        name: 'Spaghetti Carbonara',
+        description: 'Classic Roman pasta with eggs, pancetta, and pecorino romano',
+        price: 22.99,
+        preparationTime: 15,
+        calories: 680,
+        allergens: ['gluten', 'dairy', 'eggs'],
+        dietaryInfo: [],
+        isAvailable: true,
+        isFeatured: true,
+        displayOrder: 1,
+      },
+    }),
+    prisma.menuItem.create({
+      data: {
+        restaurantId: marioRestaurant.id,
+        categoryId: categories[1].id,
+        name: 'Penne Arrabbiata',
+        description: 'Spicy tomato sauce with garlic, red chilies, and fresh basil',
+        price: 19.99,
+        preparationTime: 12,
+        calories: 520,
+        allergens: ['gluten'],
+        dietaryInfo: ['vegetarian', 'vegan'],
+        isAvailable: true,
+        displayOrder: 2,
+      },
+    }),
+    // Pizza
+    prisma.menuItem.create({
+      data: {
+        restaurantId: marioRestaurant.id,
+        categoryId: categories[2].id,
+        name: 'Pizza Margherita',
+        description: 'San Marzano tomatoes, fresh mozzarella di bufala, and basil',
+        price: 24.99,
+        preparationTime: 12,
         calories: 650,
         allergens: ['gluten', 'dairy'],
         dietaryInfo: ['vegetarian'],
@@ -157,156 +535,67 @@ async function main() {
     }),
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
-        categoryId: categories[1].id,
-        name: 'Pasta Carbonara',
-        description: 'Spaghetti with eggs, pancetta, and parmesan',
-        price: 18.99,
-        preparationTime: 25,
+        restaurantId: marioRestaurant.id,
+        categoryId: categories[2].id,
+        name: 'Pizza Diavola',
+        description: 'Spicy salami, mozzarella, tomato sauce, and hot peppers',
+        price: 27.99,
+        preparationTime: 12,
         calories: 720,
-        allergens: ['gluten', 'dairy', 'eggs'],
+        allergens: ['gluten', 'dairy'],
         dietaryInfo: [],
         isAvailable: true,
         displayOrder: 2,
-      },
-    }),
-    prisma.menuItem.create({
-      data: {
-        restaurantId: restaurant.id,
-        categoryId: categories[1].id,
-        name: 'Grilled Salmon',
-        description: 'Atlantic salmon with lemon herb butter',
-        price: 24.99,
-        preparationTime: 18,
-        calories: 420,
-        allergens: ['fish'],
-        dietaryInfo: ['gluten-free', 'keto-friendly'],
-        isAvailable: true,
-        displayOrder: 3,
       },
     }),
     // Desserts
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
-        categoryId: categories[2].id,
-        name: 'Tiramisu',
-        description: 'Classic Italian coffee-flavored dessert',
-        price: 7.99,
-        preparationTime: 5,
-        calories: 380,
+        restaurantId: marioRestaurant.id,
+        categoryId: categories[3].id,
+        name: 'Tiramisu della Casa',
+        description: 'Traditional tiramisu with espresso-soaked ladyfingers and mascarpone',
+        price: 9.99,
+        preparationTime: 3,
+        calories: 420,
         allergens: ['dairy', 'eggs', 'gluten'],
         dietaryInfo: [],
         isAvailable: true,
         displayOrder: 1,
-      },
-    }),
-    prisma.menuItem.create({
-      data: {
-        restaurantId: restaurant.id,
-        categoryId: categories[2].id,
-        name: 'Chocolate Lava Cake',
-        description: 'Warm chocolate cake with molten center',
-        price: 8.99,
-        preparationTime: 12,
-        calories: 450,
-        allergens: ['dairy', 'eggs', 'gluten'],
-        dietaryInfo: [],
-        isAvailable: true,
-        displayOrder: 2,
       },
     }),
     // Beverages
     prisma.menuItem.create({
       data: {
-        restaurantId: restaurant.id,
-        categoryId: categories[3].id,
-        name: 'Italian Soda',
-        description: 'Sparkling water with natural fruit flavors',
-        price: 3.99,
+        restaurantId: marioRestaurant.id,
+        categoryId: categories[4].id,
+        name: 'Chianti Classico',
+        description: 'Traditional Tuscan red wine, bottle',
+        price: 45.00,
         preparationTime: 2,
-        calories: 120,
-        allergens: [],
-        dietaryInfo: ['vegan', 'gluten-free'],
+        calories: 125,
+        allergens: ['sulfites'],
+        dietaryInfo: ['vegan'],
         isAvailable: true,
         displayOrder: 1,
       },
     }),
   ]);
 
-  console.log('✅ Created menu items:', menuItems.length);
+  console.log('✅ Created menu items for Mario\'s:', menuItems.length);
 
-  // Add menu item variations for pizza
-  const pizzaSizes = await Promise.all([
-    prisma.menuItemVariation.create({
-      data: {
-        menuItemId: menuItems[2].id, // Margherita Pizza
-        name: 'Small (10")',
-        priceModifier: -2.0,
-        variationType: 'size',
-        isRequired: true,
-        displayOrder: 1,
-      },
-    }),
-    prisma.menuItemVariation.create({
-      data: {
-        menuItemId: menuItems[2].id,
-        name: 'Medium (12")',
-        priceModifier: 0.0,
-        variationType: 'size',
-        isRequired: true,
-        displayOrder: 2,
-      },
-    }),
-    prisma.menuItemVariation.create({
-      data: {
-        menuItemId: menuItems[2].id,
-        name: 'Large (14")',
-        priceModifier: 3.0,
-        variationType: 'size',
-        isRequired: true,
-        displayOrder: 3,
-      },
-    }),
-    // Pizza toppings
-    prisma.menuItemVariation.create({
-      data: {
-        menuItemId: menuItems[2].id,
-        name: 'Extra Cheese',
-        priceModifier: 2.0,
-        variationType: 'topping',
-        isRequired: false,
-        displayOrder: 1,
-      },
-    }),
-    prisma.menuItemVariation.create({
-      data: {
-        menuItemId: menuItems[2].id,
-        name: 'Pepperoni',
-        priceModifier: 3.0,
-        variationType: 'topping',
-        isRequired: false,
-        displayOrder: 2,
-      },
-    }),
-  ]);
-
-  console.log('✅ Created menu variations:', pizzaSizes.length);
-
-  // Create test tables
+  // Create tables for Mario's
   const tables = await Promise.all([
     prisma.table.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         tableNumber: '1',
-        tableName: 'Window Table 1',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'table-1',
-            restaurant: restaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
+        tableName: 'Window Table',
+        qrCodeToken: Buffer.from(JSON.stringify({
+          tableId: 'mario-table-1',
+          restaurant: marioRestaurant.slug,
+          timestamp: Date.now(),
+        })).toString('base64url'),
         capacity: 2,
         status: 'available',
         locationDescription: 'By the front window',
@@ -314,128 +603,146 @@ async function main() {
     }),
     prisma.table.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         tableNumber: '2',
-        tableName: 'Center Table 2',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'table-2',
-            restaurant: restaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
+        tableName: 'Center Table',
+        qrCodeToken: Buffer.from(JSON.stringify({
+          tableId: 'mario-table-2',
+          restaurant: marioRestaurant.slug,
+          timestamp: Date.now(),
+        })).toString('base64url'),
         capacity: 4,
         status: 'available',
-        locationDescription: 'Center of dining room',
+        locationDescription: 'Center dining area',
       },
     }),
     prisma.table.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         tableNumber: '3',
-        tableName: 'Booth 3',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'table-3',
-            restaurant: restaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
-        capacity: 6,
+        tableName: 'Romantic Booth',
+        qrCodeToken: Buffer.from(JSON.stringify({
+          tableId: 'mario-table-3',
+          restaurant: marioRestaurant.slug,
+          timestamp: Date.now(),
+        })).toString('base64url'),
+        capacity: 2,
         status: 'available',
-        locationDescription: 'Cozy corner booth',
-      },
-    }),
-    prisma.table.create({
-      data: {
-        restaurantId: restaurant.id,
-        tableNumber: '4',
-        tableName: 'Patio Table 4',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'table-4',
-            restaurant: restaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
-        capacity: 4,
-        status: 'available',
-        locationDescription: 'Outdoor patio seating',
+        locationDescription: 'Intimate corner booth',
       },
     }),
   ]);
 
-  console.log('✅ Created tables:', tables.length);
+  console.log('✅ Created tables for Mario\'s:', tables.length);
 
-  // Create test staff
-  const hashedPassword = await bcrypt.hash('password123', 10);
+  // Create staff for Mario's
+  const staffPassword = await bcrypt.hash('staff123', 12);
   const staff = await Promise.all([
+    // Manager
     prisma.staff.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         roleId: managerRole.id,
-        email: 'manager@marios-local.com',
-        username: 'manager',
-        passwordHash: hashedPassword,
+        email: 'mario@marios-authentic.com',
+        username: 'mario_manager',
+        passwordHash: staffPassword,
         firstName: 'Mario',
         lastName: 'Rossi',
-        phone: '+1-555-001-0001',
+        phone: '+1-555-123-0001',
+        employeeId: 'EMP001',
+        hireDate: new Date('2024-01-15'),
+        hourlyRate: 25.00,
         isActive: true,
+        emailVerified: true,
       },
     }),
+    // Waiter
     prisma.staff.create({
       data: {
-        restaurantId: restaurant.id,
-        roleId: serverRole.id,
-        email: 'server@marios-local.com',
-        username: 'server1',
-        passwordHash: hashedPassword,
+        restaurantId: marioRestaurant.id,
+        roleId: waiterRole.id,
+        email: 'luigi@marios-authentic.com',
+        username: 'luigi_waiter',
+        passwordHash: staffPassword,
         firstName: 'Luigi',
         lastName: 'Verde',
-        phone: '+1-555-001-0002',
+        phone: '+1-555-123-0002',
+        employeeId: 'EMP002',
+        hireDate: new Date('2024-02-01'),
+        hourlyRate: 18.00,
         isActive: true,
+        emailVerified: true,
       },
     }),
+    // Kitchen
     prisma.staff.create({
       data: {
-        restaurantId: restaurant.id,
+        restaurantId: marioRestaurant.id,
         roleId: kitchenRole.id,
-        email: 'kitchen@marios-local.com',
-        username: 'kitchen1',
-        passwordHash: hashedPassword,
+        email: 'giuseppe@marios-authentic.com',
+        username: 'giuseppe_kitchen',
+        passwordHash: staffPassword,
         firstName: 'Giuseppe',
         lastName: 'Bianchi',
-        phone: '+1-555-001-0003',
+        phone: '+1-555-123-0003',
+        employeeId: 'EMP003',
+        hireDate: new Date('2024-01-20'),
+        hourlyRate: 20.00,
         isActive: true,
+        emailVerified: true,
       },
     }),
   ]);
 
-  console.log('✅ Created staff:', staff.length);
+  console.log('✅ Created staff for Mario\'s:', staff.length);
 
-  console.log('\n🎉 Database seeding completed successfully!');
-  console.log('\n📋 Test Data Summary:');
-  console.log(`Restaurant: ${restaurant.name} (${restaurant.slug})`);
-  console.log(`Menu Categories: ${categories.length}`);
-  console.log(`Menu Items: ${menuItems.length}`);
-  console.log(`Tables: ${tables.length}`);
-  console.log(`Staff Members: ${staff.length}`);
+  // ==============================================
+  // 9. SUMMARY AND TEST CREDENTIALS
+  // ==============================================
+  console.log('\n🎉 Multi-tenant SaaS database seeding completed successfully!');
+  console.log('\n📊 Summary:');
+  console.log(`Platform Admins: 1`);
+  console.log(`Subscription Plans: ${subscriptionPlans.length}`);
+  console.log(`Restaurant Owners: ${restaurantOwners.length}`);
+  console.log(`Restaurants: ${restaurants.length}`);
+  console.log(`Staff Roles: ${staffRoles.length}`);
+  console.log(`Subscriptions: ${subscriptions.length}`);
 
   console.log('\n🔑 Test Credentials:');
-  console.log('Manager: manager@marios-local.com / password123');
-  console.log('Server: server@marios-local.com / password123');
-  console.log('Kitchen: kitchen@marios-local.com / password123');
+  console.log('\n📱 Platform Admin:');
+  console.log('Email: admin@qrorder.com');
+  console.log('Password: admin123');
 
-  console.log('\n📱 Test QR Codes:');
-  tables.forEach((table) => {
-    console.log(
-      `Table ${table.tableNumber}: http://localhost:3000/qr/${table.qrCodeToken}`
-    );
+  console.log('\n🏢 Restaurant Owners:');
+  console.log('Mario (Single Location): mario@rossigroup.com / owner123');
+  console.log('John (Chain Owner): john@tastychainfood.com / owner123');
+
+  console.log('\n👥 Staff (Mario\'s Restaurant):');
+  console.log('Manager: mario@marios-authentic.com / staff123');
+  console.log('Waiter: luigi@marios-authentic.com / staff123');
+  console.log('Kitchen: giuseppe@marios-authentic.com / staff123');
+
+  console.log('\n🍽️ Restaurant Subdomains:');
+  restaurants.forEach(restaurant => {
+    console.log(`${restaurant.name}: http://${restaurant.slug}.localhost:3000`);
   });
 
-  console.log('\n🔧 Development URLs:');
-  console.log('App: http://localhost:3000');
+  console.log('\n📱 Mario\'s QR Codes:');
+  tables.forEach(table => {
+    console.log(`Table ${table.tableNumber}: http://${marioRestaurant.slug}.localhost:3000/table/${table.qrCodeToken}`);
+  });
+
+  console.log('\n🛠️ Admin URLs:');
+  console.log('Platform Admin: http://admin.localhost:3000');
+  console.log('Owner Portal: http://owner.localhost:3000');
   console.log('Prisma Studio: http://localhost:5555 (run: npm run db:studio)');
+
+  console.log('\n💡 Next Steps:');
+  console.log('1. Set up subdomain routing middleware');
+  console.log('2. Implement authentication for each user type');
+  console.log('3. Create admin, owner, and staff portals');
+  console.log('4. Integrate Stripe for subscription billing');
+  console.log('5. Test multi-tenant data isolation');
 }
 
 main()

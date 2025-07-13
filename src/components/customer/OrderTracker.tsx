@@ -1,6 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { 
+  FileText, 
+  CheckCircle, 
+  Bell, 
+  UtensilsCrossed, 
+  XCircle, 
+  Clock,
+  AlertTriangle
+} from 'lucide-react';
 
 interface OrderStatus {
   id: string;
@@ -66,7 +75,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Order Received',
           description: 'Your order has been received and is being reviewed',
-          icon: '📝',
+          icon: FileText,
           color: 'text-yellow-600',
           bgColor: 'bg-yellow-100'
         };
@@ -74,7 +83,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Order Confirmed',
           description: 'Your order has been confirmed and will be prepared soon',
-          icon: '✅',
+          icon: CheckCircle,
           color: 'text-blue-600',
           bgColor: 'bg-blue-100'
         };
@@ -82,7 +91,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Being Prepared',
           description: 'Your delicious meal is currently being prepared',
-          icon: '👨‍🍳',
+          icon: UtensilsCrossed,
           color: 'text-orange-600',
           bgColor: 'bg-orange-100'
         };
@@ -90,7 +99,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Ready for Pickup',
           description: 'Your order is ready! Please come to the counter or wait at your table',
-          icon: '🔔',
+          icon: Bell,
           color: 'text-green-600',
           bgColor: 'bg-green-100'
         };
@@ -98,7 +107,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Order Complete',
           description: 'Enjoy your meal! Thank you for dining with us',
-          icon: '🍽️',
+          icon: CheckCircle,
           color: 'text-gray-600',
           bgColor: 'bg-gray-100'
         };
@@ -106,7 +115,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Order Cancelled',
           description: 'Your order has been cancelled',
-          icon: '❌',
+          icon: XCircle,
           color: 'text-red-600',
           bgColor: 'bg-red-100'
         };
@@ -114,7 +123,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         return {
           title: 'Unknown Status',
           description: 'Unable to determine order status',
-          icon: '❓',
+          icon: AlertTriangle,
           color: 'text-gray-600',
           bgColor: 'bg-gray-100'
         };
@@ -199,7 +208,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
       {/* Current Status */}
       <div className={`${statusInfo.bgColor} rounded-lg p-4 mb-6`}>
         <div className="flex items-center space-x-3">
-          <div className="text-2xl">{statusInfo.icon}</div>
+          <statusInfo.icon className={`h-8 w-8 ${statusInfo.color}`} />
           <div>
             <h3 className={`font-semibold ${statusInfo.color}`}>
               {statusInfo.title}
@@ -212,7 +221,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
         
         {timeRemaining && (
           <div className="mt-3 text-sm font-medium text-gray-800">
-            ⏱️ {timeRemaining}
+            <Clock className="h-4 w-4 mr-1 inline" /> {timeRemaining}
           </div>
         )}
       </div>

@@ -2,6 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { 
+  AlertTriangle, 
+  ClipboardList, 
+  DollarSign, 
+  BarChart3, 
+  CheckCircle 
+} from 'lucide-react';
 
 interface OrderAnalytics {
   period: string;
@@ -115,7 +122,7 @@ export default function OrderAnalyticsPage() {
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
-                <span className="text-red-400 text-xl">⚠️</span>
+                <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-red-800">Error</h3>
@@ -176,7 +183,7 @@ export default function OrderAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">📋</span>
+                    <ClipboardList className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Total Orders</p>
@@ -188,7 +195,7 @@ export default function OrderAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">💰</span>
+                    <DollarSign className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Total Revenue</p>
@@ -200,7 +207,7 @@ export default function OrderAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">📊</span>
+                    <BarChart3 className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Avg Order Value</p>
@@ -212,7 +219,7 @@ export default function OrderAnalyticsPage() {
               <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <span className="text-2xl">✅</span>
+                    <CheckCircle className="h-8 w-8" />
                   </div>
                   <div className="ml-3">
                     <p className="text-sm font-medium text-gray-500">Completed Orders</p>

@@ -4,7 +4,7 @@ import { verifyAuthToken } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await verifyAuthToken(request);
@@ -23,7 +23,7 @@ export async function PATCH(
       );
     }
 
-    const categoryId = params.id;
+    const { id: categoryId } = await params;
     const { name, description, displayOrder, isActive } = await request.json();
 
     // Verify category belongs to restaurant
@@ -66,7 +66,7 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authResult = await verifyAuthToken(request);
@@ -85,7 +85,7 @@ export async function DELETE(
       );
     }
 
-    const categoryId = params.id;
+    const { id: categoryId } = await params;
 
     // Verify category belongs to restaurant
     const existingCategory = await prisma.menuCategory.findUnique({

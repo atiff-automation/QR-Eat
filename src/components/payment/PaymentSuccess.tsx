@@ -3,6 +3,14 @@
 import { PaymentIntent } from '@/types/payment';
 import { formatCurrency, getPaymentStatusDisplay } from '@/lib/payment-utils';
 import { Button } from '@/components/ui/Button';
+import { 
+  CheckCircle, 
+  CreditCard, 
+  Smartphone, 
+  UtensilsCrossed,
+  Clock,
+  DollarSign
+} from 'lucide-react';
 
 interface PaymentSuccessProps {
   paymentIntent: PaymentIntent;
@@ -18,11 +26,25 @@ export function PaymentSuccess({
   const statusDisplay = getPaymentStatusDisplay(paymentIntent.status);
   const tip = (paymentIntent.metadata?.tip as number) || 0;
   const transactionId = paymentIntent.metadata?.transactionId as string;
+  
+  // Get proper icon component based on status
+  const getStatusIcon = () => {
+    switch (paymentIntent.status) {
+      case 'succeeded':
+        return CheckCircle;
+      case 'processing':
+        return Clock;
+      default:
+        return CheckCircle;
+    }
+  };
+  
+  const StatusIcon = getStatusIcon();
 
   return (
     <div className="bg-white rounded-lg p-6 text-center">
       <div className="mb-6">
-        <div className="text-6xl mb-4">{statusDisplay.icon}</div>
+        <StatusIcon className="h-16 w-16 text-green-600 mx-auto mb-4" />
         <h2 className="text-2xl font-bold text-gray-900 mb-2">
           Payment {paymentIntent.status === 'succeeded' ? 'Successful' : 'Processed'}
         </h2>
@@ -83,7 +105,7 @@ export function PaymentSuccess({
       {paymentIntent.paymentMethodId === 'cash' && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-2">
-            <span className="text-blue-600">💵</span>
+            <DollarSign className="h-5 w-5 text-blue-600" />
             <div className="text-sm text-blue-800">
               <p className="font-medium">Cash Payment Confirmed</p>
               <p>Our staff has confirmed receipt of your cash payment.</p>
@@ -95,7 +117,7 @@ export function PaymentSuccess({
       {paymentIntent.paymentMethodId === 'card' && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-2">
-            <span className="text-green-600">💳</span>
+            <CreditCard className="h-5 w-5 text-green-600" />
             <div className="text-sm text-green-800">
               <p className="font-medium">Card Payment Processed</p>
               <p>Your payment has been securely processed.</p>
@@ -107,7 +129,7 @@ export function PaymentSuccess({
       {paymentIntent.paymentMethodId === 'digital_wallet' && (
         <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
           <div className="flex items-start space-x-2">
-            <span className="text-purple-600">📱</span>
+            <Smartphone className="h-5 w-5 text-purple-600" />
             <div className="text-sm text-purple-800">
               <p className="font-medium">Digital Wallet Payment Complete</p>
               <p>Your digital wallet payment was successful.</p>
@@ -120,9 +142,9 @@ export function PaymentSuccess({
       <div className="bg-gray-50 rounded-lg p-4 mb-6">
         <h4 className="font-medium text-gray-900 mb-2">What's Next?</h4>
         <div className="text-sm text-gray-600 space-y-1">
-          <p>✅ Your order is now confirmed and being prepared</p>
-          <p>🍽️ You'll be notified when your food is ready</p>
-          <p>📱 Keep this screen handy for order updates</p>
+          <p className="flex items-center"><CheckCircle className="h-4 w-4 mr-2 text-green-600" /> Your order is now confirmed and being prepared</p>
+          <p className="flex items-center"><UtensilsCrossed className="h-4 w-4 mr-2 text-orange-600" /> You'll be notified when your food is ready</p>
+          <p className="flex items-center"><Smartphone className="h-4 w-4 mr-2 text-blue-600" /> Keep this screen handy for order updates</p>
         </div>
       </div>
 

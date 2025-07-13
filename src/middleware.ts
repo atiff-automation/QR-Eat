@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { SECURITY_HEADERS } from './lib/auth';
+import { AuthService, SECURITY_HEADERS, UserType } from './lib/auth';
+import { 
+  getSubdomainInfo, 
+  shouldHandleSubdomain, 
+  getRestaurantSlugFromSubdomain,
+  logSubdomainInfo,
+  isReservedSubdomain
+} from './lib/subdomain';
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
 
   // Apply security headers to all responses
@@ -10,6 +17,16 @@ export function middleware(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
+  
+  // Log subdomain info in development
+  if (process.env.NODE_ENV === 'development') {
+    logSubdomainInfo(request);
+  }
+
+  // Handle subdomain routing first (but skip for restaurant-not-found page)
+  if (shouldHandleSubdomain(request) && !pathname.includes('/restaurant-not-found')) {
+    return await handleSubdomainRouting(request, response);
+  }
 
   // Public routes that don't require authentication
   const publicRoutes = [
@@ -30,6 +47,8 @@ export function middleware(request: NextRequest) {
     '/api/staff',
     '/api/orders',
     '/api/menu',
+    '/api/restaurants',
+    '/api/debug-auth',
   ];
   const isProtectedApiRoute = protectedApiRoutes.some(
     (route) => pathname.startsWith(route) && pathname !== '/api/auth/login'
@@ -66,12 +85,60 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // Add user context to request headers for API routes (if token exists)
+  // Add basic token indicator for API routes (token verification will be done in API routes)
   if (token && isProtectedApiRoute) {
     response.headers.set('x-has-token', 'true');
   }
 
   return response;
+}
+
+/**
+ * Handle subdomain-specific routing logic
+ */
+async function handleSubdomainRouting(request: NextRequest, response: NextResponse): Promise<NextResponse> {
+  const subdomain = getRestaurantSlugFromSubdomain(request);
+  
+  if (!subdomain) {
+    // No valid subdomain found, redirect to main domain
+    const mainDomainUrl = new URL('/', 'http://localhost:3000');
+    return NextResponse.redirect(mainDomainUrl);
+  }
+
+  // Check if subdomain is reserved
+  if (isReservedSubdomain(subdomain)) {
+    const mainDomainUrl = new URL('/', 'http://localhost:3000');
+    return NextResponse.redirect(mainDomainUrl);
+  }
+
+  try {
+    // For subdomain routing, we need to validate the restaurant exists
+    // We'll do a simpler check here and let the pages handle full tenant resolution
+    
+    // For now, allow all valid subdomains to continue
+    // The actual tenant validation will happen in the API routes and page components
+
+    const pathname = request.nextUrl.pathname;
+    
+    // Handle subdomain-specific routing
+    if (pathname === '/') {
+      // Root path for subdomain should show restaurant's customer menu
+      const menuUrl = new URL(`/restaurant/${subdomain}`, request.url);
+      return NextResponse.rewrite(menuUrl);
+    }
+    
+    // Add tenant context headers for all subdomain requests
+    response.headers.set('x-tenant-slug', subdomain);
+    response.headers.set('x-is-subdomain', 'true');
+    
+    return response;
+
+  } catch (error) {
+    console.error('Error in subdomain routing:', error);
+    
+    // On error, just continue with the request instead of redirecting
+    return response;
+  }
 }
 
 export const config = {

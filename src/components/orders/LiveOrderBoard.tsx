@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { User, UtensilsCrossed, Clock } from 'lucide-react';
 
 interface LiveOrder {
   id: string;
@@ -211,7 +212,7 @@ export function LiveOrderBoard({ refreshInterval = 30000 }: LiveOrderBoardProps)
               )}
               {order.customerSession && (
                 <div className="text-sm text-gray-600">
-                  👤 {order.customerSession.customerName}
+                  <User className="h-3 w-3 mr-1 inline" /> {order.customerSession.customerName}
                 </div>
               )}
             </div>
@@ -254,7 +255,7 @@ export function LiveOrderBoard({ refreshInterval = 30000 }: LiveOrderBoardProps)
             {/* Time Information */}
             <div className="flex justify-between items-center mb-4 text-sm">
               <div className="text-gray-600">
-                ⏱️ {formatTime(order.timeRemaining)}
+                <Clock className="h-3 w-3 mr-1 inline" /> {formatTime(order.timeRemaining)}
                 {order.timeRemaining !== null && ' remaining'}
               </div>
               <div className="text-gray-600">
@@ -282,7 +283,7 @@ export function LiveOrderBoard({ refreshInterval = 30000 }: LiveOrderBoardProps)
       {/* Empty State */}
       {orders.filter(order => !['served', 'cancelled'].includes(order.status)).length === 0 && (
         <div className="text-center py-12">
-          <div className="text-gray-400 text-6xl mb-4">🍽️</div>
+          <UtensilsCrossed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">No active orders</h3>
           <p className="text-gray-600">New orders will appear here in real-time</p>
         </div>

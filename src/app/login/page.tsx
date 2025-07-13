@@ -1,79 +1,90 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { 
+  getClientSubdomainAuthContext, 
+  getLoginFormConfig, 
+  createSubdomainLoginPayload,
+  handlePostLoginRedirect,
+  getSubdomainAuthErrorMessage
+} from '@/lib/subdomain-auth';
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Get redirect URL from query params
+  // Subdomain and redirect handling
   const [redirectTo, setRedirectTo] = useState('/dashboard');
+  const [authContext, setAuthContext] = useState(getClientSubdomainAuthContext());
+  const [formConfig, setFormConfig] = useState(getLoginFormConfig(authContext));
   const searchParams = useSearchParams();
   
   useEffect(() => {
-    const redirect = searchParams.get('redirect');
-    console.log('Redirect parameter from searchParams:', redirect);
+    // Update context when component mounts
+    const context = getClientSubdomainAuthContext();
+    setAuthContext(context);
+    setFormConfig(getLoginFormConfig(context));
     
-    // Also try getting it directly from URL as backup
+    // Handle redirect parameter
+    const redirect = searchParams.get('redirect');
+    
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const urlRedirect = urlParams.get('redirect');
-      console.log('Redirect parameter from URL:', urlRedirect);
       
       const finalRedirect = redirect || urlRedirect;
       if (finalRedirect) {
         setRedirectTo(finalRedirect);
-        console.log('Setting redirectTo to:', finalRedirect);
       }
     }
   }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Current redirectTo at submit:', redirectTo);
     setIsLoading(true);
     setError('');
 
     try {
+      const payload = createSubdomainLoginPayload(email, password, authContext);
+      
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Check user role and redirect accordingly
-        const staff = data.staff;
-        let finalRedirect = redirectTo;
+        // Handle redirect with subdomain awareness
+        const finalRedirect = handlePostLoginRedirect(authContext, data, redirectTo);
         
-        // If specific redirect URL is provided, use it
-        if (redirectTo !== '/dashboard') {
-          finalRedirect = redirectTo;
-        }
-        // Otherwise, check user role for smart defaults
-        else if (staff?.role?.name === 'Kitchen') {
-          finalRedirect = '/dashboard/kitchen';
-        }
-        
-        console.log('Final redirect:', finalRedirect);
         // Force a hard refresh to ensure cookies are properly set
         window.location.href = finalRedirect;
       } else {
-        console.error('Login failed:', data);
-        setError(data.error || 'Login failed');
+        const errorMessage = getSubdomainAuthErrorMessage(
+          data.error || 'Login failed',
+          authContext
+        );
+        setError(errorMessage);
       }
     } catch (error) {
-      console.error('Network error:', error);
       setError('Network error. Please try again.');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const quickLogin = (optionId: string) => {
+    const option = formConfig.quickLoginOptions.find(opt => opt.id === optionId);
+    if (option) {
+      setEmail(option.email);
+      setPassword(option.password);
     }
   };
 
@@ -82,11 +93,16 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Staff Login
+            {formConfig.title}
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            QR Restaurant System
+            {formConfig.subtitle}
           </p>
+          {authContext.isSubdomain && authContext.restaurantSlug && (
+            <p className="mt-1 text-center text-xs text-blue-600">
+              Accessing: {authContext.restaurantSlug}
+            </p>
+          )}
           {redirectTo !== '/dashboard' && (
             <p className="mt-1 text-center text-xs text-blue-600">
               Will redirect to: {redirectTo}
@@ -143,37 +159,54 @@ export default function LoginPage() {
             </button>
           </div>
 
-          <div className="text-center text-sm text-gray-500">
-            <p className="mt-4">Test Credentials:</p>
-            <p>Manager: manager@marios-local.com / password123</p>
-            <p>Server: server@marios-local.com / password123</p>
-            <p>Kitchen: kitchen@marios-local.com / password123</p>
+          {formConfig.showQuickLogin && (
+            <div className="mt-6">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300" />
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-gray-50 text-gray-500">Quick Login</span>
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => {
-                console.log('Test button clicked!');
-                setEmail('manager@marios-local.com');
-                setPassword('password123');
-              }}
-              className="mt-2 text-blue-600 underline mr-4"
-            >
-              Fill Manager Credentials
-            </button>
-            
-            <button
-              type="button"
-              onClick={() => {
-                setEmail('kitchen@marios-local.com');
-                setPassword('password123');
-              }}
-              className="mt-2 text-blue-600 underline"
-            >
-              Fill Kitchen Credentials
-            </button>
-          </div>
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {formConfig.quickLoginOptions.map((option) => (
+                  <button
+                    key={option.id}
+                    type="button"
+                    onClick={() => quickLogin(option.id)}
+                    className="w-full inline-flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-6 text-sm text-gray-600">
+                <p className="font-medium">Test Credentials:</p>
+                {authContext.isSubdomain ? (
+                  <p>• Staff: */staff123</p>
+                ) : (
+                  <>
+                    <p>• Platform Admin: admin@qrorder.com / admin123</p>
+                    <p>• Restaurant Owners: */owner123</p>
+                    <p>• Staff: */staff123</p>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
         </form>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

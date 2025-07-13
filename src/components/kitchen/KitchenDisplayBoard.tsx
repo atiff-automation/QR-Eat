@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getOrderStatusDisplay } from '@/lib/order-utils';
 import { formatCurrency } from '@/lib/payment-utils';
+import { ChefHat } from 'lucide-react';
 
 interface KitchenOrder {
   id: string;
@@ -450,7 +451,7 @@ export function KitchenDisplayBoard() {
 
       {orders.length === 0 && !loading && (
         <div className="text-center py-12">
-          <div className="text-6xl mb-4">👨‍🍳</div>
+          <ChefHat className="h-16 w-16 text-gray-400 mx-auto mb-4" />
           <h3 className="text-xl font-medium text-gray-300 mb-2">Kitchen is All Clear!</h3>
           <p className="text-gray-400">No active orders to prepare</p>
         </div>

@@ -10,27 +10,166 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Restaurant {
+// Platform Administration
+model PlatformAdmin {
   id              String   @id @default(uuid())
-  name            String
-  slug            String   @unique
-  address         String
-  phone           String?
-  email           String?
-  timezone        String   @default("UTC")
-  currency        String   @default("USD")
-  taxRate         Decimal  @default(0.0000) @db.Decimal(5, 4)
-  serviceChargeRate Decimal @default(0.0000) @db.Decimal(5, 4)
+  email           String   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  role            String   @default("admin") // 'super_admin', 'admin', 'support'
   isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  passwordChangedAt DateTime @default(now())
+  failedLoginAttempts Int    @default(0)
+  lockedUntil     DateTime?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  tables         Table[]
-  menuItems      MenuItem[]
-  categories     MenuCategory[]
-  orders         Order[]
-  staff          Staff[]
+  sessions        PlatformAdminSession[]
+  auditLogs       AuditLog[] @relation("AdminAuditLogs")
 
+  @@map("platform_admins")
+}
+
+model PlatformAdminSession {
+  id              String   @id @default(uuid())
+  adminId         String
+  sessionToken    String   @unique
+  ipAddress       String?
+  userAgent       String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@map("platform_admin_sessions")
+}
+
+// Restaurant Owners (Chain Management)
+model RestaurantOwner {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  passwordHash    String
+  firstName       String
+  lastName        String
+  phone           String?
+  companyName     String?
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  passwordChangedAt DateTime @default(now())
+  failedLoginAttempts Int    @default(0)
+  lockedUntil     DateTime?
+  emailVerified   Boolean  @default(false)
+  emailVerificationToken String?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  restaurants     Restaurant[]
+  sessions        RestaurantOwnerSession[]
+  auditLogs       AuditLog[] @relation("OwnerAuditLogs")
+
+  @@map("restaurant_owners")
+}
+
+model RestaurantOwnerSession {
+  id              String   @id @default(uuid())
+  ownerId         String
+  sessionToken    String   @unique
+  ipAddress       String?
+  userAgent       String?
+  expiresAt       DateTime
+  createdAt       DateTime @default(now())
+  lastActivityAt  DateTime @default(now())
+
+  owner RestaurantOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@map("restaurant_owner_sessions")
+}
+
+// Subscription Plans
+model SubscriptionPlan {
+  id                  String   @id @default(uuid())
+  name                String   @unique // 'Basic', 'Pro', 'Enterprise'
+  monthlyFee          Decimal  @db.Decimal(10, 2)
+  transactionFeeRate  Decimal  @db.Decimal(5, 4) // Percentage (e.g., 0.029 for 2.9%)
+  maxTables           Int?     // null for unlimited
+  maxStaff            Int?     // null for unlimited
+  features            Json     @default("{}")
+  isActive            Boolean  @default(true)
+  sortOrder           Int      @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  subscriptions       Subscription[]
+
+  @@map("subscription_plans")
+}
+
+// Restaurant Subscriptions
+model Subscription {
+  id                    String   @id @default(uuid())
+  restaurantId          String   @unique
+  planId                String
+  stripeSubscriptionId  String?  @unique
+  stripeCustomerId      String?
+  status                String   @default("active") // 'active', 'past_due', 'cancelled', 'unpaid', 'trialing'
+  billingCycle          String   @default("monthly") // 'monthly', 'yearly'
+  currentPeriodStart    DateTime
+  currentPeriodEnd      DateTime
+  cancelAtPeriodEnd     Boolean  @default(false)
+  canceledAt            DateTime?
+  trialStart            DateTime?
+  trialEnd              DateTime?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  restaurant            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan                  SubscriptionPlan @relation(fields: [planId], references: [id])
+  transactionFees       TransactionFee[]
+  invoices              Invoice[]
+
+  @@index([restaurantId])
+  @@index([stripeSubscriptionId])
+  @@map("subscriptions")
+}
+
+// Restaurant Locations (Enhanced for Multi-Tenant)
+model Restaurant {
+  id                String   @id @default(uuid())
+  ownerId           String
+  name              String
+  slug              String   @unique // For subdomain routing
+  address           String
+  phone             String?
+  email             String?
+  timezone          String   @default("UTC")
+  currency          String   @default("USD")
+  taxRate           Decimal  @default(0.0000) @db.Decimal(5, 4)
+  serviceChargeRate Decimal  @default(0.0000) @db.Decimal(5, 4)
+  isActive          Boolean  @default(true)
+  brandingConfig    Json     @default("{}")  // Custom themes, logos, colors
+  businessType      String   @default("restaurant") // 'restaurant', 'cafe', 'bar', 'food_truck'
+  maxTables         Int      @default(50)
+  maxStaff          Int      @default(20)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  owner             RestaurantOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  subscription      Subscription?
+  tables            Table[]
+  menuItems         MenuItem[]
+  categories        MenuCategory[]
+  orders            Order[]
+  staff             Staff[]
+  transactionFees   TransactionFee[]
+  roleHierarchy     StaffRoleHierarchy[]
+
+  @@index([ownerId])
+  @@index([slug])
   @@map("restaurants")
 }
 
@@ -114,18 +253,126 @@ model MenuItemVariation {
   @@map("menu_item_variations")
 }
 
+// Transaction Fee Tracking
+model TransactionFee {
+  id               String   @id @default(uuid())
+  restaurantId     String
+  orderId          String   @unique
+  subscriptionId   String
+  orderAmount      Decimal  @db.Decimal(10, 2)
+  feeRate          Decimal  @db.Decimal(5, 4)
+  feeAmount        Decimal  @db.Decimal(10, 2)
+  stripeFee        Decimal  @default(0.00) @db.Decimal(10, 2)
+  netFee           Decimal  @db.Decimal(10, 2)
+  currency         String   @default("USD")
+  processedAt      DateTime @default(now())
+  payoutStatus     String   @default("pending") // 'pending', 'paid', 'failed'
+  payoutDate       DateTime?
+  stripeTransferId String?
+  createdAt        DateTime @default(now())
+
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order            Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subscription     Subscription @relation(fields: [subscriptionId], references: [id])
+
+  @@index([restaurantId])
+  @@index([orderId])
+  @@index([processedAt])
+  @@index([payoutStatus])
+  @@map("transaction_fees")
+}
+
+// Invoice Management
+model Invoice {
+  id                    String   @id @default(uuid())
+  subscriptionId        String
+  stripeInvoiceId       String?  @unique
+  invoiceNumber         String   @unique
+  status                String   @default("draft") // 'draft', 'open', 'paid', 'void', 'uncollectible'
+  currency              String   @default("USD")
+  subtotal              Decimal  @db.Decimal(10, 2)
+  taxAmount             Decimal  @default(0.00) @db.Decimal(10, 2)
+  totalAmount           Decimal  @db.Decimal(10, 2)
+  amountPaid            Decimal  @default(0.00) @db.Decimal(10, 2)
+  amountDue             Decimal  @db.Decimal(10, 2)
+  periodStart           DateTime
+  periodEnd             DateTime
+  dueDate               DateTime?
+  paidAt                DateTime?
+  hostedInvoiceUrl      String?
+  invoicePdf            String?
+  paymentIntentId       String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  items                 InvoiceItem[]
+
+  @@index([subscriptionId])
+  @@index([stripeInvoiceId])
+  @@index([status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id            String   @id @default(uuid())
+  invoiceId     String
+  description   String
+  quantity      Int      @default(1)
+  unitAmount    Decimal  @db.Decimal(10, 2)
+  totalAmount   Decimal  @db.Decimal(10, 2)
+  currency      String   @default("USD")
+  itemType      String   // 'subscription', 'transaction_fees', 'one_time'
+  periodStart   DateTime?
+  periodEnd     DateTime?
+  createdAt     DateTime @default(now())
+
+  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+// Enhanced Staff Role System
 model StaffRole {
   id          String @id @default(uuid())
   name        String
   description String?
   permissions Json   @default("{}")
+  isSystemRole Boolean @default(false) // System roles can't be deleted
+  level       Int    @default(1) // 1=lowest, 10=highest (for hierarchy)
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  staff Staff[]
+  staff       Staff[]
+  hierarchy   StaffRoleHierarchy[]
 
+  @@unique([name])
   @@map("staff_roles")
 }
 
+// Staff Role Hierarchy (Restaurant-Specific)
+model StaffRoleHierarchy {
+  id               String   @id @default(uuid())
+  restaurantId     String
+  roleId           String
+  parentId         String?  // null for top-level roles
+  maxCount         Int?     // Maximum staff per role per restaurant
+  isActive         Boolean  @default(true)
+  createdAt        DateTime @default(now())
+
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  role             StaffRole @relation(fields: [roleId], references: [id])
+  parent           StaffRoleHierarchy? @relation("HierarchyTree", fields: [parentId], references: [id])
+  children         StaffRoleHierarchy[] @relation("HierarchyTree")
+
+  @@unique([restaurantId, roleId])
+  @@index([restaurantId])
+  @@index([parentId])
+  @@map("staff_role_hierarchy")
+}
+
+// Enhanced Staff Model with SaaS Features
 model Staff {
   id               String    @id @default(uuid())
   restaurantId     String
@@ -136,11 +383,22 @@ model Staff {
   firstName        String
   lastName         String
   phone            String?
+  employeeId       String?   // Restaurant-specific employee ID
+  hireDate         DateTime?
+  hourlyRate       Decimal?  @db.Decimal(8, 2)
   isActive         Boolean   @default(true)
   lastLoginAt      DateTime?
   passwordChangedAt DateTime @default(now())
   failedLoginAttempts Int    @default(0)
   lockedUntil      DateTime?
+  permissions      Json      @default("{}")  // Additional custom permissions
+  emailVerified    Boolean   @default(false)
+  emailVerificationToken String?
+  passwordResetToken String?
+  passwordResetExpires DateTime?
+  twoFactorEnabled Boolean   @default(false)
+  twoFactorSecret  String?
+  backupCodes      String[]  @default([])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -148,7 +406,11 @@ model Staff {
   role       StaffRole  @relation(fields: [roleId], references: [id])
   orders     Order[]
   sessions   StaffSession[]
+  auditLogs  AuditLog[] @relation("StaffAuditLogs")
 
+  @@index([restaurantId])
+  @@index([roleId])
+  @@index([email])
   @@map("staff")
 }
 
@@ -218,7 +480,13 @@ model Order {
   items           OrderItem[]
   payments        Payment[]
   paymentIntents  PaymentIntent[]
+  transactionFee  TransactionFee?
 
+  @@index([restaurantId])
+  @@index([tableId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
   @@map("orders")
 }
 
@@ -327,17 +595,42 @@ model SecurityEvent {
   @@map("security_events")
 }
 
+// Enhanced Audit Log for Multi-Tenant SaaS
 model AuditLog {
-  id         String   @id @default(uuid())
-  tableName  String
-  recordId   String
-  operation  String
-  oldValues  Json?
-  newValues  Json?
-  changedBy  String?
-  changedAt  DateTime @default(now())
-  ipAddress  String?
-  userAgent  String?
+  id            String   @id @default(uuid())
+  tableName     String
+  recordId      String
+  operation     String   // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
+  oldValues     Json?
+  newValues     Json?
+  changedBy     String?
+  changedByType String?  // 'platform_admin', 'restaurant_owner', 'staff', 'system'
+  restaurantId  String?  // For tenant-specific logs
+  adminId       String?  // For platform admin actions
+  ownerId       String?  // For restaurant owner actions
+  staffId       String?  // For staff actions
+  severity      String   @default("info") // 'low', 'info', 'warning', 'high', 'critical'
+  category      String   @default("general") // 'auth', 'billing', 'menu', 'orders', 'staff'
+  description   String?
+  metadata      Json     @default("{}")
+  changedAt     DateTime @default(now())
+  ipAddress     String?
+  userAgent     String?
+  sessionId     String?
 
+  // Relations for audit trail
+  admin         PlatformAdmin?    @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  owner         RestaurantOwner?  @relation("OwnerAuditLogs", fields: [ownerId], references: [id])
+  staff         Staff?            @relation("StaffAuditLogs", fields: [staffId], references: [id])
+
+  @@index([tableName])
+  @@index([recordId])
+  @@index([operation])
+  @@index([changedBy])
+  @@index([changedByType])
+  @@index([restaurantId])
+  @@index([severity])
+  @@index([category])
+  @@index([changedAt])
   @@map("audit_logs")
 }

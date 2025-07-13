@@ -39,3 +39,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# uploaded files
+/public/uploads/
+*.log
+cookies.txt
+test_cookies.txt
+server.log

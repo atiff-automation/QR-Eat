@@ -3,6 +3,7 @@
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { OrdersOverview } from '@/components/dashboard/OrdersOverview';
 import Link from 'next/link';
+import { ClipboardList, ChefHat, UtensilsCrossed, BarChart3 } from 'lucide-react';
 
 export default function DashboardPage() {
   return (
@@ -27,7 +28,7 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
-                  <span className="text-blue-600 text-lg">📋</span>
+                  <ClipboardList className="h-5 w-5 text-blue-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -44,7 +45,7 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
-                  <span className="text-green-600 text-lg">🪑</span>
+                  <ChefHat className="h-5 w-5 text-green-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -61,7 +62,7 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-purple-100 rounded-md flex items-center justify-center">
-                  <span className="text-purple-600 text-lg">🍽️</span>
+                  <UtensilsCrossed className="h-5 w-5 text-purple-600" />
                 </div>
               </div>
               <div className="ml-4">
@@ -78,7 +79,7 @@ export default function DashboardPage() {
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-orange-100 rounded-md flex items-center justify-center">
-                  <span className="text-orange-600 text-lg">📊</span>
+                  <BarChart3 className="h-5 w-5 text-orange-600" />
                 </div>
               </div>
               <div className="ml-4">

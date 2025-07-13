@@ -1,27 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { 
+  getTenantContext, 
+  requireAuth, 
+  requirePermission, 
+  createRestaurantFilter 
+} from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // Get tenant context from middleware headers
+    const context = getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'orders', 'read');
 
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
+    const restaurantId = url.searchParams.get('restaurantId'); // For platform admins
 
-    // Build where clause
-    const where: any = {
-      restaurantId: authResult.staff.restaurantId
-    };
+    // Build tenant-aware where clause
+    let where: any = createRestaurantFilter(context!);
+
+    // Platform admins can optionally filter by specific restaurant
+    if (context!.isAdmin && restaurantId) {
+      where = { restaurantId };
+    }
 
     if (status && status !== 'all') {
       where.status = status;
@@ -53,7 +58,15 @@ export async function GET(request: NextRequest) {
               }
             }
           }
-        }
+        },
+        // Include restaurant data for platform admins
+        restaurant: context!.isAdmin ? {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        } : false
       },
       orderBy: {
         createdAt: 'desc'
@@ -73,11 +86,33 @@ export async function GET(request: NextRequest) {
         limit,
         offset,
         hasMore: offset + limit < totalCount
+      },
+      userContext: {
+        userType: context!.userType,
+        isAdmin: context!.isAdmin,
+        restaurantId: context!.restaurantId
       }
     });
 
   } catch (error) {
     console.error('Failed to fetch orders:', error);
+    
+    // Handle tenant context errors
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required')) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      if (error.message.includes('Permission denied')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch orders' },
       { status: 500 }

@@ -44,7 +44,9 @@ export function useStaffAuth(): UseStaffAuthReturn {
       const data = await response.json();
 
       if (response.ok && data.success) {
-        setStaff(data.staff);
+        // Handle both new multi-user API and legacy staff API
+        const userData = data.user || data.staff;
+        setStaff(userData);
         setError(null);
       } else {
         setStaff(null);
