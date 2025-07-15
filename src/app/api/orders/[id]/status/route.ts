@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 import { ORDER_STATUS } from '@/lib/order-utils';
 
@@ -10,14 +10,14 @@ export async function PATCH(
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const { status, estimatedReadyTime, notes } = await request.json();
+    const { status, estimatedReadyTime } = await request.json();
     const orderId = params.id;
 
     // Validate status
@@ -33,29 +33,45 @@ export async function PATCH(
     const currentOrder = await prisma.order.findUnique({
       where: { id: orderId },
       include: {
-        restaurant: true
-      }
+        restaurant: true,
+      },
     });
 
     if (!currentOrder) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    // Check if staff has permission to update this order
-    if (currentOrder.restaurantId !== authResult.staff.restaurantId) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      );
+    // Check if user has permission to update this order
+    let hasPermission = false;
+
+    if (authResult.user.type === 'platform_admin') {
+      hasPermission = true;
+    } else if (authResult.user.type === 'staff') {
+      hasPermission =
+        currentOrder.restaurantId === authResult.user.restaurantId;
+    } else if (authResult.user.type === 'restaurant_owner') {
+      // Check if the restaurant belongs to this owner
+      hasPermission =
+        currentOrder.restaurant.ownerId === authResult.user.user.id;
+    }
+
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: {
+      status: string;
+      updatedAt: Date;
+      confirmedAt?: Date;
+      confirmedBy?: string;
+      readyAt?: Date;
+      servedAt?: Date;
+      servedBy?: string;
+      estimatedReadyTime?: Date;
+    } = {
       status,
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     // Set timestamps based on status changes
@@ -63,7 +79,10 @@ export async function PATCH(
       case ORDER_STATUS.CONFIRMED:
         if (currentOrder.status === ORDER_STATUS.PENDING) {
           updateData.confirmedAt = new Date();
-          updateData.confirmedBy = authResult.staff.id;
+          updateData.confirmedBy =
+            authResult.user.type === 'staff'
+              ? authResult.user.id
+              : authResult.user.user.id;
         }
         break;
       case ORDER_STATUS.READY:
@@ -74,7 +93,10 @@ export async function PATCH(
       case ORDER_STATUS.SERVED:
         if (currentOrder.status === ORDER_STATUS.READY) {
           updateData.servedAt = new Date();
-          updateData.servedBy = authResult.staff.id;
+          updateData.servedBy =
+            authResult.user.type === 'staff'
+              ? authResult.user.id
+              : authResult.user.user.id;
         }
         break;
     }
@@ -92,26 +114,26 @@ export async function PATCH(
         table: {
           select: {
             tableNumber: true,
-            tableName: true
-          }
+            tableName: true,
+          },
         },
         customerSession: {
           select: {
             customerName: true,
-            customerPhone: true
-          }
+            customerPhone: true,
+          },
         },
         items: {
           include: {
             menuItem: {
               select: {
                 name: true,
-                preparationTime: true
-              }
-            }
-          }
-        }
-      }
+                preparationTime: true,
+              },
+            },
+          },
+        },
+      },
     });
 
     // Log the status change
@@ -122,19 +144,22 @@ export async function PATCH(
         operation: 'UPDATE',
         oldValues: { status: currentOrder.status },
         newValues: { status },
-        changedBy: authResult.staff.id,
-        ipAddress: request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') ||
-                   'unknown'
-      }
+        changedBy:
+          authResult.user.type === 'staff'
+            ? authResult.user.id
+            : authResult.user.user.id,
+        ipAddress:
+          request.headers.get('x-forwarded-for') ||
+          request.headers.get('x-real-ip') ||
+          'unknown',
+      },
     });
 
     return NextResponse.json({
       success: true,
       order: updatedOrder,
-      message: `Order status updated to ${status}`
+      message: `Order status updated to ${status}`,
     });
-
   } catch (error) {
     console.error('Failed to update order status:', error);
     return NextResponse.json(
@@ -153,10 +178,10 @@ export async function GET(
 
     // Get order status history
     const statusHistory = await prisma.auditLog.findMany({
-      where: { 
+      where: {
         tableName: 'orders',
         recordId: orderId,
-        operation: 'UPDATE'
+        operation: 'UPDATE',
       },
       include: {
         staff: {
@@ -164,11 +189,11 @@ export async function GET(
             id: true,
             username: true,
             firstName: true,
-            lastName: true
-          }
-        }
+            lastName: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'asc' }
+      orderBy: { createdAt: 'asc' },
     });
 
     // Get current order details
@@ -181,23 +206,19 @@ export async function GET(
         confirmedAt: true,
         readyAt: true,
         servedAt: true,
-        createdAt: true
-      }
+        createdAt: true,
+      },
     });
 
     if (!order) {
-      return NextResponse.json(
-        { error: 'Order not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
     return NextResponse.json({
       success: true,
       order,
-      statusHistory
+      statusHistory,
     });
-
   } catch (error) {
     console.error('Failed to fetch order status:', error);
     return NextResponse.json(
