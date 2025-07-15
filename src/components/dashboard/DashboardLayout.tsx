@@ -15,27 +15,39 @@ import {
   X,
   LogOut
 } from 'lucide-react';
+import { createContext, useContext } from 'react';
 
-interface Staff {
+interface User {
   id: string;
   email: string;
-  username: string;
+  username?: string; // Only for staff
   firstName: string;
   lastName: string;
   phone?: string;
-  role: {
-    id: string;
-    name: string;
-    description: string;
-    permissions: Record<string, string[]>;
-  };
-  restaurant: {
+  userType: 'staff' | 'restaurant_owner' | 'platform_admin';
+  mustChangePassword?: boolean; // Only for staff
+  companyName?: string; // Only for owners
+  restaurants?: Array<{
     id: string;
     name: string;
     slug: string;
     timezone: string;
     currency: string;
-  };
+  }>; // Only for owners
+  role?: {
+    id: string;
+    name: string;
+    description: string;
+    permissions: Record<string, string[]>;
+  }; // Only for staff
+  restaurant?: {
+    id: string;
+    name: string;
+    slug: string;
+    timezone: string;
+    currency: string;
+  }; // Only for staff
+  restaurantId?: string; // Only for staff
   lastLoginAt?: string;
 }
 
@@ -43,8 +55,25 @@ interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
+interface DashboardContextType {
+  user: User | null;
+  selectedRestaurant: any;
+  isOwner: boolean;
+}
+
+const DashboardContext = createContext<DashboardContextType | null>(null);
+
+export const useDashboardContext = () => {
+  const context = useContext(DashboardContext);
+  if (!context) {
+    throw new Error('useDashboardContext must be used within DashboardLayout');
+  }
+  return context;
+};
+
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [staff, setStaff] = useState<Staff | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
@@ -60,12 +89,29 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Handle both new multi-user API and legacy staff API
-        const userData = data.user || data.staff;
-        setStaff(userData);
+        const userData = data.user;
+        
+        // Check if staff member must change password
+        if (userData.userType === 'staff' && userData.mustChangePassword === true) {
+          // Use replace instead of push to avoid back button issues
+          // Don't set isLoading to false here to prevent content flash
+          router.replace('/change-password');
+          return;
+        }
+        
+        setUser(userData);
+        
+        // For restaurant owners, set up restaurant context
+        if (userData.userType === 'restaurant_owner' && userData.restaurants?.length > 0) {
+          // For now, default to first restaurant. Later we can add restaurant selector
+          setSelectedRestaurant(userData.restaurants[0]);
+        } else if (userData.userType === 'staff' && userData.restaurant) {
+          setSelectedRestaurant(userData.restaurant);
+        }
       } else {
         if (response.status === 401) {
-          router.push('/login');
+          router.replace('/login');
+          return;
         }
       }
     } catch (error) {
@@ -95,7 +141,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  if (!staff) {
+  if (!user || !selectedRestaurant) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -111,7 +157,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     );
   }
 
-  const navigation = [
+  // Base navigation items available to all users
+  const baseNavigation = [
     {
       name: 'Dashboard',
       href: '/dashboard',
@@ -162,19 +209,34 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     },
   ];
 
-  const hasPermission = (permissions?: string[]) => {
+  const navigation = baseNavigation;
+
+  const hasPermission = (item: any) => {
+    // Restaurant owners have access to everything
+    if (user.userType === 'restaurant_owner') return true;
+    
+    // Check staff permissions
+    const permissions = item.permissions;
     if (!permissions || permissions.length === 0) return true;
-    if (!staff?.role?.permissions) return false;
-    return permissions.some(permission => 
-      staff.role.permissions[permission] && 
-      staff.role.permissions[permission].length > 0
+    if (!user?.role?.permissions) return false;
+    
+    return permissions.some((permission: string) => 
+      user.role!.permissions[permission] && 
+      user.role!.permissions[permission].length > 0
     );
   };
 
-  const filteredNavigation = navigation.filter(item => hasPermission(item.permissions));
+  const filteredNavigation = navigation.filter(item => hasPermission(item));
+
+  const contextValue: DashboardContextType = {
+    user,
+    selectedRestaurant,
+    isOwner: user?.userType === 'restaurant_owner'
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <DashboardContext.Provider value={contextValue}>
+      <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsSidebarOpen(false)}></div>
@@ -213,8 +275,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex items-center flex-shrink-0 px-4 py-5 border-b border-gray-200">
             <h1 className="text-lg font-semibold text-gray-900">
-              {staff.restaurant.name}
+              {selectedRestaurant.name}
             </h1>
+            {user.userType === 'restaurant_owner' && (
+              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                Owner
+              </span>
+            )}
           </div>
           <nav className="flex-1 px-4 py-4 space-y-2">
             {filteredNavigation.map((item) => (
@@ -237,15 +304,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {staff.firstName[0]}{staff.lastName[0]}
+                    {user.firstName[0]}{user.lastName[0]}
                   </span>
                 </div>
               </div>
               <div className="ml-3 flex-1">
                 <p className="text-sm font-medium text-gray-900">
-                  {staff.firstName} {staff.lastName}
+                  {user.firstName} {user.lastName}
                 </p>
-                <p className="text-xs text-gray-500">{staff.role.name}</p>
+                <p className="text-xs text-gray-500">
+                  {user.userType === 'restaurant_owner' ? 'Owner' : user.role?.name}
+                </p>
               </div>
             </div>
             <button
@@ -285,7 +354,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex items-center space-x-4">
                 <div className="text-sm text-gray-500">
                   {new Date().toLocaleString('en-US', {
-                    timeZone: staff.restaurant.timezone,
+                    timeZone: selectedRestaurant.timezone,
                     weekday: 'short',
                     year: 'numeric',
                     month: 'short',
@@ -314,5 +383,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         </main>
       </div>
     </div>
+    </DashboardContext.Provider>
   );
 }

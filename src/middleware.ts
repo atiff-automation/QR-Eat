@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService, SECURITY_HEADERS, UserType } from './lib/auth';
+import { AuthService, SECURITY_HEADERS, UserType, verifyAuthToken, AUTH_CONSTANTS } from './lib/auth';
 import { 
   getSubdomainInfo, 
   shouldHandleSubdomain, 
@@ -7,6 +7,9 @@ import {
   logSubdomainInfo,
   isReservedSubdomain
 } from './lib/subdomain';
+
+// Force middleware to run in Node.js runtime to support crypto module
+export const runtime = 'nodejs';
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -63,7 +66,18 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for authentication token
-  const token = request.cookies.get('qr_auth_token')?.value;
+  const token = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
+  
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔍 Middleware Token Debug:', {
+      pathname,
+      hasToken: !!token,
+      tokenLength: token?.length,
+      cookieName: AUTH_CONSTANTS.COOKIE_NAME,
+      isAdminRoute,
+      isDashboardRoute: pathname.startsWith('/dashboard')
+    });
+  }
 
   if (!token) {
     if (isProtectedApiRoute) {
@@ -78,10 +92,13 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // For now, if there's a token, assume it's valid
-  // We'll verify it properly in the API routes or page components
+  // Note: Password change check moved to client-side due to Edge Runtime limitations
+  // The mustChangePassword check is now handled in the dashboard components
+
+  // Token verification for admin routes is handled by dashboard components
+  // This ensures proper error handling and user experience
   if (token && isAdminRoute) {
-    // Let the dashboard handle token verification
+    // Dashboard components will verify token and handle invalid tokens appropriately
     return response;
   }
 
@@ -101,13 +118,17 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   
   if (!subdomain) {
     // No valid subdomain found, redirect to main domain
-    const mainDomainUrl = new URL('/', 'http://localhost:3000');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
 
   // Check if subdomain is reserved
   if (isReservedSubdomain(subdomain)) {
-    const mainDomainUrl = new URL('/', 'http://localhost:3000');
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
 
@@ -136,8 +157,11 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   } catch (error) {
     console.error('Error in subdomain routing:', error);
     
-    // On error, just continue with the request instead of redirecting
-    return response;
+    // On critical subdomain error, redirect to main domain for security
+    const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const mainDomainUrl = new URL('/', `${protocol}://${host}`);
+    return NextResponse.redirect(mainDomainUrl);
   }
 }
 
