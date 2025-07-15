@@ -1,23 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { prisma } from '@/lib/database';
+import { verifyAuthToken, UserType } from '@/lib/auth';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
+    // Determine restaurant ID based on user type
+    let restaurantId: string;
+    if (authResult.user.type === UserType.STAFF) {
+      restaurantId = authResult.user.restaurantId!;
+    } else {
+      // For admin/owner, require restaurantId parameter
+      const url = new URL(request.url);
+      const reqRestaurantId = url.searchParams.get('restaurantId');
+      if (!reqRestaurantId) {
+        return NextResponse.json(
+          { error: 'restaurantId parameter required' },
+          { status: 400 }
+        );
+      }
+      restaurantId = reqRestaurantId;
+    }
+
     // Get tables with order counts
     const tables = await prisma.table.findMany({
       where: {
-        restaurantId: authResult.staff.restaurantId
+        restaurantId,
       },
       include: {
         _count: {
@@ -25,34 +42,32 @@ export async function GET(request: NextRequest) {
             orders: {
               where: {
                 status: {
-                  in: ['pending', 'confirmed', 'preparing', 'ready']
-                }
-              }
-            }
-          }
+                  in: ['pending', 'confirmed', 'preparing', 'ready'],
+                },
+              },
+            },
+          },
         },
         orders: {
           where: {
             status: {
-              in: ['pending', 'confirmed', 'preparing', 'ready']
-            }
+              in: ['pending', 'confirmed', 'preparing', 'ready'],
+            },
           },
           orderBy: {
-            createdAt: 'desc'
+            createdAt: 'desc',
           },
           take: 1,
           select: {
-            createdAt: true
-          }
-        }
+            createdAt: true,
+          },
+        },
       },
-      orderBy: [
-        { tableNumber: 'asc' }
-      ]
+      orderBy: [{ tableNumber: 'asc' }],
     });
 
     // Transform the data to include current orders count and last order time
-    const transformedTables = tables.map(table => ({
+    const transformedTables = tables.map((table) => ({
       id: table.id,
       tableNumber: table.tableNumber,
       tableName: table.tableName,
@@ -61,14 +76,13 @@ export async function GET(request: NextRequest) {
       qrCodeToken: table.qrCodeToken,
       locationDescription: table.locationDescription,
       currentOrders: table._count.orders,
-      lastOrderAt: table.orders[0]?.createdAt || null
+      lastOrderAt: table.orders[0]?.createdAt || null,
     }));
 
     return NextResponse.json({
       success: true,
-      tables: transformedTables
+      tables: transformedTables,
     });
-
   } catch (error) {
     console.error('Failed to fetch tables:', error);
     return NextResponse.json(
@@ -82,14 +96,20 @@ export async function POST(request: NextRequest) {
   try {
     // Verify authentication
     const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const { tableNumber, tableName, capacity, locationDescription } = await request.json();
+    const {
+      tableNumber,
+      tableName,
+      capacity,
+      locationDescription,
+      restaurantId: reqRestaurantId,
+    } = await request.json();
 
     // Validate required fields
     if (!tableNumber || !capacity) {
@@ -99,12 +119,27 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Determine restaurant ID based on user type
+    let restaurantId: string;
+    if (authResult.user.type === UserType.STAFF) {
+      restaurantId = authResult.user.restaurantId!;
+    } else {
+      // For admin/owner, require restaurantId parameter
+      if (!reqRestaurantId) {
+        return NextResponse.json(
+          { error: 'restaurantId required' },
+          { status: 400 }
+        );
+      }
+      restaurantId = reqRestaurantId;
+    }
+
     // Check if table number already exists for this restaurant
     const existingTable = await prisma.table.findFirst({
       where: {
-        restaurantId: authResult.staff.restaurantId,
-        tableNumber: tableNumber
-      }
+        restaurantId: restaurantId,
+        tableNumber: tableNumber,
+      },
     });
 
     if (existingTable) {
@@ -120,22 +155,21 @@ export async function POST(request: NextRequest) {
     // Create new table
     const newTable = await prisma.table.create({
       data: {
-        restaurantId: authResult.staff.restaurantId,
+        restaurantId: restaurantId,
         tableNumber,
         tableName,
         capacity: parseInt(capacity),
         locationDescription,
         qrCodeToken,
-        status: 'available'
-      }
+        status: 'available',
+      },
     });
 
     return NextResponse.json({
       success: true,
       table: newTable,
-      message: 'Table created successfully'
+      message: 'Table created successfully',
     });
-
   } catch (error) {
     console.error('Failed to create table:', error);
     return NextResponse.json(
