@@ -44,11 +44,23 @@ export async function PATCH(
     // Check if user has permission to update this order
     let hasPermission = false;
 
+    console.log('Order status permission check:', {
+      userType: authResult.user.type,
+      currentOrderRestaurantId: currentOrder.restaurantId,
+      authUserRestaurantId: authResult.user.restaurantId,
+      authUserUserRestaurantId: authResult.user.user?.restaurantId,
+      restaurantOwnerId: currentOrder.restaurant.ownerId,
+      authUserId: authResult.user.id,
+      authUserUserId: authResult.user.user?.id,
+    });
+
     if (authResult.user.type === 'platform_admin') {
       hasPermission = true;
     } else if (authResult.user.type === 'staff') {
+      // For staff, check both possible restaurant ID locations
       hasPermission =
-        currentOrder.restaurantId === authResult.user.restaurantId;
+        currentOrder.restaurantId === authResult.user.restaurantId ||
+        currentOrder.restaurantId === authResult.user.user?.restaurantId;
     } else if (authResult.user.type === 'restaurant_owner') {
       // Check if the restaurant belongs to this owner
       hasPermission =
@@ -81,7 +93,7 @@ export async function PATCH(
           updateData.confirmedAt = new Date();
           updateData.confirmedBy =
             authResult.user.type === 'staff'
-              ? authResult.user.id
+              ? authResult.user.id || authResult.user.user.id
               : authResult.user.user.id;
         }
         break;
@@ -95,7 +107,7 @@ export async function PATCH(
           updateData.servedAt = new Date();
           updateData.servedBy =
             authResult.user.type === 'staff'
-              ? authResult.user.id
+              ? authResult.user.id || authResult.user.user.id
               : authResult.user.user.id;
         }
         break;
@@ -146,7 +158,7 @@ export async function PATCH(
         newValues: { status },
         changedBy:
           authResult.user.type === 'staff'
-            ? authResult.user.id
+            ? authResult.user.id || authResult.user.user.id
             : authResult.user.user.id,
         ipAddress:
           request.headers.get('x-forwarded-for') ||
