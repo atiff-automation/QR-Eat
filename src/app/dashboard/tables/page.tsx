@@ -31,15 +31,6 @@ function TablesContent() {
   const [showQRCode, setShowQRCode] = useState(false);
   const [selectedTables, setSelectedTables] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (selectedRestaurant?.id) {
-      fetchTables();
-      // Set up real-time updates every 30 seconds
-      const interval = setInterval(fetchTables, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [selectedRestaurant?.id, fetchTables]);
-
   const fetchTables = useCallback(async () => {
     try {
       if (!selectedRestaurant?.id) {
@@ -65,6 +56,15 @@ function TablesContent() {
       setLoading(false);
     }
   }, [selectedRestaurant?.id]);
+
+  useEffect(() => {
+    if (selectedRestaurant?.id) {
+      fetchTables();
+      // Set up real-time updates every 30 seconds
+      const interval = setInterval(fetchTables, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [selectedRestaurant?.id, fetchTables]);
 
   const updateTableStatus = async (tableId: string, status: string) => {
     try {

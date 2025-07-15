@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         restaurantId: table.restaurant.id,
         tableId,
         customerSessionId: customerSession.id,
-        subtotal: totals.subtotal,
+        subtotalAmount: totals.subtotal,
         taxAmount: totals.taxAmount,
         serviceCharge: totals.serviceCharge,
         discountAmount: 0,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
             menuItemId: item.menuItemId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            totalPrice: item.totalPrice,
+            totalAmount: item.totalPrice,
             specialInstructions: item.specialInstructions,
             status: 'pending',
           },
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
                 variationId: variation.variationId,
                 quantity: variation.quantity,
                 unitPrice: variation.variation.priceModifier,
-                totalPrice:
+                totalAmount:
                   variation.variation.priceModifier * variation.quantity,
               },
             })
@@ -148,8 +148,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Order creation error:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined,
+    });
     return NextResponse.json(
-      { error: 'Failed to create order' },
+      {
+        error: `Failed to create order: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      },
       { status: 500 }
     );
   }
