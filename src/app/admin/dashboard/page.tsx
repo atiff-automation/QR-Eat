@@ -33,10 +33,6 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  useEffect(() => {
-    checkAdminAuth();
-  }, [checkAdminAuth]);
-
   const checkAdminAuth = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me');
@@ -61,6 +57,10 @@ export default function AdminDashboardPage() {
       window.location.href = '/login';
     }
   }, []);
+
+  useEffect(() => {
+    checkAdminAuth();
+  }, [checkAdminAuth]);
 
   const fetchRestaurants = async () => {
     try {
