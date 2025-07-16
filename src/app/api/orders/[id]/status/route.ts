@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 import { ORDER_STATUS } from '@/lib/order-utils';
+import { RedisEventManager } from '@/lib/redis';
 
 export async function PATCH(
   request: NextRequest,
@@ -43,16 +44,6 @@ export async function PATCH(
 
     // Check if user has permission to update this order
     let hasPermission = false;
-
-    console.log('Order status permission check:', {
-      userType: authResult.user.type,
-      currentOrderRestaurantId: currentOrder.restaurantId,
-      authUserRestaurantId: authResult.user.restaurantId,
-      authUserUserRestaurantId: authResult.user.user?.restaurantId,
-      restaurantOwnerId: currentOrder.restaurant.ownerId,
-      authUserId: authResult.user.id,
-      authUserUserId: authResult.user.user?.id,
-    });
 
     if (authResult.user.type === 'platform_admin') {
       hasPermission = true;
@@ -166,6 +157,39 @@ export async function PATCH(
           'unknown',
       },
     });
+
+    // Publish Redis event for real-time updates
+    await RedisEventManager.publishOrderStatusChange({
+      orderId,
+      oldStatus: currentOrder.status,
+      newStatus: status,
+      restaurantId: currentOrder.restaurantId,
+      tableId: currentOrder.tableId,
+      orderNumber: currentOrder.orderNumber,
+      timestamp: Date.now(),
+      changedBy: authResult.user.type === 'staff'
+        ? authResult.user.id || authResult.user.user.id
+        : authResult.user.user.id,
+    });
+
+    // Send kitchen notification for status changes
+    if (status === ORDER_STATUS.CONFIRMED) {
+      await RedisEventManager.publishKitchenNotification({
+        type: 'new_order',
+        orderId,
+        restaurantId: currentOrder.restaurantId,
+        message: `New order ${currentOrder.orderNumber} ready for kitchen`,
+        timestamp: Date.now(),
+      });
+    } else if (status === ORDER_STATUS.READY) {
+      await RedisEventManager.publishRestaurantNotification({
+        type: 'order_ready',
+        orderId,
+        restaurantId: currentOrder.restaurantId,
+        message: `Order ${currentOrder.orderNumber} is ready for pickup`,
+        timestamp: Date.now(),
+      });
+    }
 
     return NextResponse.json({
       success: true,

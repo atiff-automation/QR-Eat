@@ -6,6 +6,7 @@ import {
   estimateReadyTime,
 } from '@/lib/order-utils';
 import { CreateOrderRequest } from '@/types/order';
+import { RedisEventManager } from '@/lib/redis';
 
 export async function POST(request: NextRequest) {
   try {
@@ -132,6 +133,25 @@ export async function POST(request: NextRequest) {
     await prisma.table.update({
       where: { id: tableId },
       data: { status: 'occupied' },
+    });
+
+    // Publish Redis event for new order
+    await RedisEventManager.publishOrderCreated({
+      orderId: order.id,
+      restaurantId: table.restaurant.id,
+      tableId: tableId,
+      orderNumber: order.orderNumber,
+      totalAmount: parseFloat(order.totalAmount.toString()),
+      timestamp: Date.now(),
+    });
+
+    // Send kitchen notification for new order
+    await RedisEventManager.publishKitchenNotification({
+      type: 'new_order',
+      orderId: order.id,
+      restaurantId: table.restaurant.id,
+      message: `New order ${order.orderNumber} from table ${table.tableNumber}`,
+      timestamp: Date.now(),
     });
 
     return NextResponse.json({

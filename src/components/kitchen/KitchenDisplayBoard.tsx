@@ -47,17 +47,104 @@ export function KitchenDisplayBoard() {
   const [error, setError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
 
+  const handleRealTimeUpdate = (data: any) => {
+    console.log('Kitchen real-time update received:', data);
+    
+    switch (data.type) {
+      case 'order_status_changed':
+        console.log('Updating order status:', data.data.orderId, 'from', data.data.oldStatus, 'to', data.data.newStatus);
+        
+        // Update specific order status
+        setOrders(prevOrders => {
+          console.log('Current orders before update:', prevOrders.map(o => ({id: o.id, orderNumber: o.orderNumber, status: o.status})));
+          
+          const updated = prevOrders.map(order => {
+            if (order.id === data.data.orderId) {
+              console.log('Found order to update:', order.orderNumber, 'from', order.status, 'to', data.data.newStatus);
+              return { ...order, status: data.data.newStatus };
+            }
+            return order;
+          });
+          
+          console.log('Updated orders:', updated.map(o => ({id: o.id, orderNumber: o.orderNumber, status: o.status})));
+          
+          // If order not found in current list, refresh orders
+          const foundOrder = prevOrders.find(order => order.id === data.data.orderId);
+          if (!foundOrder) {
+            console.log('Order not found in current list, refreshing...');
+            fetchKitchenOrders();
+            return prevOrders;
+          }
+          
+          // Check if the new status should still be displayed in kitchen
+          const kitchenStatuses = ['confirmed', 'preparing', 'ready'];
+          if (!kitchenStatuses.includes(data.data.newStatus)) {
+            console.log('Order status', data.data.newStatus, 'should not be displayed in kitchen, refreshing...');
+            fetchKitchenOrders();
+            return prevOrders;
+          }
+          
+          return updated;
+        });
+        break;
+        
+      case 'order_created':
+        // Refresh orders to get new order
+        console.log('New order created, refreshing kitchen orders...');
+        fetchKitchenOrders();
+        break;
+        
+      case 'kitchen_notification':
+        console.log('Kitchen notification:', data.data.message);
+        // Could show toast notification here
+        break;
+        
+      case 'restaurant_notification':
+        console.log('Restaurant notification:', data.data.message);
+        // Could show toast notification here
+        break;
+        
+      case 'connection':
+        console.log('Kitchen SSE connection established:', data.data.message);
+        break;
+        
+      default:
+        console.log('Unknown kitchen event type:', data.type);
+    }
+  };
+
   useEffect(() => {
     fetchKitchenOrders();
     
-    // Set up polling for real-time updates every 10 seconds
-    const orderInterval = setInterval(fetchKitchenOrders, 10000);
+    // Set up Server-Sent Events for real-time updates
+    const eventSource = new EventSource('/api/events/orders');
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleRealTimeUpdate(data);
+      } catch (error) {
+        console.error('Error parsing SSE data:', error);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      // Fallback to polling if SSE fails
+      const fallbackInterval = setInterval(fetchKitchenOrders, 15000);
+      
+      return () => clearInterval(fallbackInterval);
+    };
+
+    eventSource.onopen = () => {
+      console.log('Kitchen SSE connection established');
+    };
     
     // Update current time every second for timing displays
     const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
     return () => {
-      clearInterval(orderInterval);
+      eventSource.close();
       clearInterval(timeInterval);
     };
   }, []);

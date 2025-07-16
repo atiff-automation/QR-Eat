@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: qr-restaurant-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    networks:
+      - qr-restaurant-network
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: qr-restaurant-redis-commander
+    depends_on:
+      - redis
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - qr-restaurant-network
+
+volumes:
+  redis_data:
+
+networks:
+  qr-restaurant-network:
+    driver: bridge

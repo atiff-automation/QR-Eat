@@ -46,17 +46,98 @@ export function OrdersOverview() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
+  const handleRealTimeUpdate = (data: any) => {
+    console.log('Real-time update received:', data);
+    
+    switch (data.type) {
+      case 'order_status_changed':
+        console.log('Dashboard updating order status:', data.data.orderId, 'from', data.data.oldStatus, 'to', data.data.newStatus);
+        
+        // Update specific order status
+        setOrders(prevOrders => {
+          const updated = prevOrders.map(order => {
+            if (order.id === data.data.orderId) {
+              console.log('Found order to update:', order.orderNumber);
+              return { ...order, status: data.data.newStatus };
+            }
+            return order;
+          });
+          
+          // If order not found in current list, refresh orders
+          const foundOrder = prevOrders.find(order => order.id === data.data.orderId);
+          if (!foundOrder) {
+            console.log('Order not found in current list, refreshing...');
+            fetchOrders();
+            return prevOrders;
+          }
+          
+          return updated;
+        });
+        
+        // Refresh stats to get updated counts
+        fetchStats();
+        break;
+        
+      case 'order_created':
+        // Add new order to the list and refresh stats
+        console.log('New order created, refreshing dashboard orders...');
+        fetchOrders();
+        fetchStats();
+        break;
+        
+      case 'restaurant_notification':
+        console.log('Restaurant notification:', data.data.message);
+        // Could show toast notification here
+        break;
+        
+      case 'kitchen_notification':
+        console.log('Kitchen notification:', data.data.message);
+        // These are meant for kitchen display
+        break;
+        
+      case 'connection':
+        console.log('SSE connection established:', data.data.message);
+        break;
+        
+      default:
+        console.log('Unknown event type:', data.type);
+    }
+  };
+
   useEffect(() => {
     fetchOrders();
     fetchStats();
     
-    // Set up polling for real-time updates
-    const interval = setInterval(() => {
-      fetchOrders();
-      fetchStats();
-    }, 30000); // Update every 30 seconds
+    // Set up Server-Sent Events for real-time updates
+    const eventSource = new EventSource('/api/events/orders');
+    
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleRealTimeUpdate(data);
+      } catch (error) {
+        console.error('Error parsing SSE data:', error);
+      }
+    };
 
-    return () => clearInterval(interval);
+    eventSource.onerror = (error) => {
+      console.error('SSE connection error:', error);
+      // Fallback to polling if SSE fails
+      const fallbackInterval = setInterval(() => {
+        fetchOrders();
+        fetchStats();
+      }, 15000);
+      
+      return () => clearInterval(fallbackInterval);
+    };
+
+    eventSource.onopen = () => {
+      console.log('SSE connection established');
+    };
+
+    return () => {
+      eventSource.close();
+    };
   }, [filter]);
 
   const fetchOrders = async () => {
@@ -105,9 +186,9 @@ export function OrdersOverview() {
       });
 
       if (response.ok) {
-        // Refresh orders
-        fetchOrders();
-        fetchStats();
+        // Immediately refresh orders and stats for responsive updates
+        await Promise.all([fetchOrders(), fetchStats()]);
+        setError(''); // Clear any previous errors
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update order status');
