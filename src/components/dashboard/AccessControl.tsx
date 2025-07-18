@@ -10,11 +10,11 @@ interface AccessControlProps {
   redirectTo?: string;
 }
 
-export function AccessControl({ 
-  children, 
-  requiredPermissions = [], 
+export function AccessControl({
+  children,
+  requiredPermissions = [],
   allowedRoles = [],
-  redirectTo = '/dashboard/kitchen'
+  redirectTo = '/dashboard/kitchen',
 }: AccessControlProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -28,42 +28,56 @@ export function AccessControl({
 
         if (response.ok) {
           const userData = data.user;
-          
+          const currentRole = data.currentRole;
+          const userPermissions = data.permissions || [];
+
           // Always allow restaurant owners
           if (userData.userType === 'restaurant_owner') {
             setAuthorized(true);
             return;
           }
-          
+
           // For staff, check permissions and roles
           if (userData.userType === 'staff') {
-            const role = userData.role;
-            
             // Kitchen staff should be redirected to kitchen display
-            if (role.name.toLowerCase().includes('kitchen')) {
-              router.replace('/dashboard/kitchen');
+            if (
+              currentRole &&
+              currentRole.roleTemplate &&
+              currentRole.roleTemplate.toLowerCase().includes('kitchen')
+            ) {
+              router.replace('/kitchen');
               return;
             }
-            
+
             // Check if role is allowed
-            const roleAllowed = allowedRoles.length === 0 || 
-              allowedRoles.some(allowedRole => 
-                role.name.toLowerCase().includes(allowedRole.toLowerCase())
+            const roleAllowed =
+              allowedRoles.length === 0 ||
+              allowedRoles.some(
+                (allowedRole) =>
+                  currentRole &&
+                  currentRole.roleTemplate &&
+                  currentRole.roleTemplate
+                    .toLowerCase()
+                    .includes(allowedRole.toLowerCase())
               );
-            
+
             // Check if has required permissions
-            const hasPermissions = requiredPermissions.length === 0 || 
-              requiredPermissions.every(permission => 
-                role.permissions[permission] && 
-                role.permissions[permission].length > 0
+            const hasPermissions =
+              requiredPermissions.length === 0 ||
+              requiredPermissions.every((permission) =>
+                userPermissions.includes(permission)
               );
-            
+
             if (roleAllowed && hasPermissions) {
               setAuthorized(true);
             } else {
               // Redirect based on their actual permissions
-              if (role.permissions.orders && !role.permissions.menu && !role.permissions.staff) {
-                router.replace('/dashboard/kitchen');
+              if (
+                userPermissions.includes('orders:fulfill') &&
+                !userPermissions.includes('menu:write') &&
+                !userPermissions.includes('staff:read')
+              ) {
+                router.replace('/kitchen');
               } else {
                 router.replace(redirectTo);
               }
