@@ -4,10 +4,10 @@ import { decodeQRToken, isValidTableToken } from '@/lib/qr-utils';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { token: string } }
+  { params }: { params: Promise<{ token: string }> }
 ) {
   try {
-    const { token } = params;
+    const { token } = await params;
 
     // Try to find table directly by token (for new UUID-based tokens)
     let table = await prisma.table.findUnique({

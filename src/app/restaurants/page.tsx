@@ -26,6 +26,14 @@ export default function RestaurantsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchMode, setSearchMode] = useState<'email' | 'slug'>('email');
+  const [hostname, setHostname] = useState('yourdomain.com');
+
+  // Set hostname on client side to avoid hydration mismatch
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setHostname(window.location.hostname);
+    }
+  }, []);
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -280,7 +288,7 @@ export default function RestaurantsPage() {
           
           <div className="mt-4 pt-4 border-t border-blue-200">
             <p className="text-sm text-blue-700">
-              <strong>Example URL format:</strong> restaurant-name.{typeof window !== 'undefined' ? window.location.hostname : 'yourdomain.com'}
+              <strong>Example URL format:</strong> restaurant-name.{hostname}
             </p>
           </div>
         </div>

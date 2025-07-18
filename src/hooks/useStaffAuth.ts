@@ -30,6 +30,7 @@ interface UseStaffAuthReturn {
   staff: Staff | null;
   loading: boolean;
   error: string | null;
+  redirectingToChangePassword: boolean;
   logout: () => Promise<void>;
 }
 
@@ -37,15 +38,29 @@ export function useStaffAuth(): UseStaffAuthReturn {
   const [staff, setStaff] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [redirectingToChangePassword, setRedirectingToChangePassword] = useState(false);
 
   const fetchStaff = async () => {
     try {
       const response = await fetch('/api/auth/me');
       const data = await response.json();
 
-      if (response.ok && data.success) {
+      if (response.ok) {
         // Handle both new multi-user API and legacy staff API
         const userData = data.user || data.staff;
+        
+        // Check if staff must change password
+        if (userData && userData.userType === 'staff' && userData.mustChangePassword === true) {
+          console.log('🔄 Kitchen staff must change password, redirecting...', {
+            email: userData.email,
+            firstName: userData.firstName,
+            lastName: userData.lastName
+          });
+          setRedirectingToChangePassword(true);
+          window.location.href = '/change-password';
+          return;
+        }
+        
         setStaff(userData);
         setError(null);
       } else {
@@ -79,6 +94,7 @@ export function useStaffAuth(): UseStaffAuthReturn {
     staff,
     loading,
     error,
+    redirectingToChangePassword,
     logout
   };
 }

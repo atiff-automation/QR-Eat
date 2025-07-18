@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+    
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -16,8 +27,8 @@ export async function GET(request: NextRequest) {
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (authResult.user.type === UserType.STAFF) {
-      restaurantId = authResult.user.restaurantId!;
+    if (authResult.user.currentRole.userType === 'staff') {
+      restaurantId = authResult.user.currentRole.restaurantId;
     } else {
       // For admin/owner, require restaurantId parameter
       const url = new URL(request.url);
@@ -94,8 +105,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+    
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -121,8 +143,8 @@ export async function POST(request: NextRequest) {
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (authResult.user.type === UserType.STAFF) {
-      restaurantId = authResult.user.restaurantId!;
+    if (authResult.user.currentRole.userType === 'staff') {
+      restaurantId = authResult.user.currentRole.restaurantId;
     } else {
       // For admin/owner, require restaurantId parameter
       if (!reqRestaurantId) {

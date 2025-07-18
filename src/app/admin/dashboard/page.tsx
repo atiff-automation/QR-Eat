@@ -79,9 +79,14 @@ export default function AdminDashboardPage() {
   const getAuthToken = () => {
     if (typeof document !== 'undefined') {
       const cookies = document.cookie.split(';');
-      const authCookie = cookies.find((cookie) =>
-        cookie.trim().startsWith('qr_auth_token=')
-      );
+      // Check for all possible auth cookie types
+      const authCookie = cookies.find((cookie) => {
+        const trimmed = cookie.trim();
+        return trimmed.startsWith('qr_auth_token=') ||
+               trimmed.startsWith('qr_owner_token=') ||
+               trimmed.startsWith('qr_staff_token=') ||
+               trimmed.startsWith('qr_admin_token=');
+      });
       if (authCookie) {
         const token = authCookie.split('=')[1];
         console.log('Auth token found:', token ? 'Yes' : 'No');

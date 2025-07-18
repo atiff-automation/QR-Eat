@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
       where: baseWhere,
       _sum: {
         quantity: true,
-        totalPrice: true
+        totalAmount: true
       },
       _count: {
         id: true
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
         }
       },
       _sum: {
-        totalPrice: true,
+        totalAmount: true,
         quantity: true
       },
       _count: {
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
           orderCount: 0
         };
 
-        existing.totalRevenue += Number(item._sum.totalPrice || 0);
+        existing.totalRevenue += Number(item._sum.totalAmount || 0);
         existing.totalQuantity += item._sum.quantity || 0;
         existing.orderCount += item._count.id || 0;
 
@@ -217,7 +217,7 @@ export async function GET(request: NextRequest) {
     const avgOrderValue = await prisma.orderItem.aggregate({
       where: baseWhere,
       _avg: {
-        totalPrice: true
+        totalAmount: true
       }
     });
 
@@ -243,7 +243,7 @@ export async function GET(request: NextRequest) {
           }
         },
         select: {
-          totalPrice: true,
+          totalAmount: true,
           quantity: true,
           order: {
             select: {
@@ -264,7 +264,7 @@ export async function GET(request: NextRequest) {
           orders: 0
         };
 
-        existing.revenue += Number(item.totalPrice);
+        existing.revenue += Number(item.totalAmount);
         existing.quantity += item.quantity;
         existing.orders += 1;
 
@@ -285,7 +285,7 @@ export async function GET(request: NextRequest) {
         activeMenuItems,
         itemsOrdered: orderedItemsCount.length,
         itemsNotOrdered: totalMenuItems - orderedItemsCount.length,
-        averageOrderValue: Number(avgOrderValue._avg.totalPrice || 0)
+        averageOrderValue: Number(avgOrderValue._avg.totalAmount || 0)
       },
       topSellingItems: topItemsWithDetails,
       categoryPerformance: categoryStats,

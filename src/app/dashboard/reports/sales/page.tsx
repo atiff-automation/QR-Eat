@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { AlertTriangle, CheckCircle, DollarSign, ClipboardList, BarChart3, UtensilsCrossed, Building2 } from 'lucide-react';
 
 export default function SalesReportPage() {
@@ -91,8 +90,7 @@ export default function SalesReportPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Sales Report</h1>
@@ -350,7 +348,6 @@ export default function SalesReportPage() {
             )}
           </div>
         )}
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }

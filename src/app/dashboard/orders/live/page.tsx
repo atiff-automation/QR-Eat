@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { LiveOrderBoard } from '@/components/orders/LiveOrderBoard';
 
 export default function LiveOrdersPage() {
@@ -16,8 +15,7 @@ export default function LiveOrdersPage() {
   ];
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
@@ -96,7 +94,6 @@ export default function LiveOrdersPage() {
             </div>
           </div>
         </div>
-      </div>
-    </DashboardLayout>
+    </div>
   );
 }

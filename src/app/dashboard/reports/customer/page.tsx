@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, memo } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 
 const CustomerReportPage = memo(function CustomerReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -90,8 +89,7 @@ const CustomerReportPage = memo(function CustomerReportPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Customer Report</h1>
@@ -347,7 +345,6 @@ const CustomerReportPage = memo(function CustomerReportPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 });
 

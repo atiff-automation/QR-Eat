@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 
 export async function GET(
@@ -125,7 +125,7 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
     where: whereClause,
     _sum: {
       quantity: true,
-      totalPrice: true
+      totalAmount: true
     },
     _count: {
       id: true
@@ -163,7 +163,7 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
       category: menuItem?.category.name || 'Unknown',
       price: menuItem?.price || 0,
       quantitySold: item._sum.quantity || 0,
-      totalRevenue: Number(item._sum.totalPrice || 0),
+      totalRevenue: Number(item._sum.totalAmount || 0),
       timesOrdered: item._count.id,
       averageOrderSize: item._count.id > 0 ? (item._sum.quantity || 0) / item._count.id : 0
     };
@@ -193,14 +193,14 @@ async function getTopRevenueItems(restaurantId: string, startDate: Date, endDate
     where: whereClause,
     _sum: {
       quantity: true,
-      totalPrice: true
+      totalAmount: true
     },
     _count: {
       id: true
     },
     orderBy: {
       _sum: {
-        totalPrice: 'desc'
+        totalAmount: 'desc'
       }
     },
     take: limit
@@ -231,9 +231,9 @@ async function getTopRevenueItems(restaurantId: string, startDate: Date, endDate
       category: menuItem?.category.name || 'Unknown',
       price: menuItem?.price || 0,
       quantitySold: item._sum.quantity || 0,
-      totalRevenue: Number(item._sum.totalPrice || 0),
+      totalRevenue: Number(item._sum.totalAmount || 0),
       timesOrdered: item._count.id,
-      averageRevenuePerOrder: item._count.id > 0 ? Number(item._sum.totalPrice || 0) / item._count.id : 0
+      averageRevenuePerOrder: item._count.id > 0 ? Number(item._sum.totalAmount || 0) / item._count.id : 0
     };
   });
 }
@@ -264,7 +264,7 @@ async function getMostFrequentItems(restaurantId: string, startDate: Date, endDa
     },
     _sum: {
       quantity: true,
-      totalPrice: true
+      totalAmount: true
     },
     orderBy: {
       _count: {
@@ -300,7 +300,7 @@ async function getMostFrequentItems(restaurantId: string, startDate: Date, endDa
       price: menuItem?.price || 0,
       orderFrequency: item._count.id,
       quantitySold: item._sum.quantity || 0,
-      totalRevenue: Number(item._sum.totalPrice || 0),
+      totalRevenue: Number(item._sum.totalAmount || 0),
       averageQuantityPerOrder: item._count.id > 0 ? (item._sum.quantity || 0) / item._count.id : 0
     };
   });
@@ -473,7 +473,7 @@ async function getUnderperformingItems(restaurantId: string, startDate: Date, en
     },
     _sum: {
       quantity: true,
-      totalPrice: true
+      totalAmount: true
     },
     _count: {
       id: true
@@ -484,7 +484,7 @@ async function getUnderperformingItems(restaurantId: string, startDate: Date, en
   const itemPerformance = allItems.map(item => {
     const orderInfo = orderData.find(od => od.menuItemId === item.id);
     const quantitySold = orderInfo?._sum.quantity || 0;
-    const revenue = Number(orderInfo?._sum.totalPrice || 0);
+    const revenue = Number(orderInfo?._sum.totalAmount || 0);
     const timesOrdered = orderInfo?._count.id || 0;
 
     return {

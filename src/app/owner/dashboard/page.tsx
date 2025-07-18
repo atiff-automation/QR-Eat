@@ -5,16 +5,25 @@ import { useEffect, useState } from 'react';
 export default function OwnerDashboardPage() {
   const [user, setUser] = useState<any>(null);
   const [restaurants, setRestaurants] = useState<any[]>([]);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Debug: Check cookies on dashboard load
+    console.log('🏠 Owner Dashboard loaded');
+    console.log('🍪 Dashboard cookies:', document.cookie);
+    console.log('🍪 Dashboard cookie count:', document.cookie.split(';').filter(c => c.trim()).length);
+    
     fetchUserData();
     fetchRestaurants();
+    fetchMonthlyRevenue();
   }, []);
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('/api/auth/me');
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include' // Include cookies
+      });
       if (response.ok) {
         const data = await response.json();
         setUser(data.user);
@@ -26,15 +35,42 @@ export default function OwnerDashboardPage() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await fetch('/api/restaurants');
+      const response = await fetch('/api/restaurants/owner', {
+        credentials: 'include',  // Include cookies for authentication
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
       if (response.ok) {
         const data = await response.json();
-        setRestaurants(data.restaurants);
+        setRestaurants(data.restaurants || []);
       }
     } catch (error) {
       console.error('Failed to fetch restaurants:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMonthlyRevenue = async () => {
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      
+      const response = await fetch(`/api/reports/sales?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`, {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMonthlyRevenue(data.data?.summary?.totalRevenue || 0);
+      }
+    } catch (error) {
+      console.error('Failed to fetch monthly revenue:', error);
     }
   };
 
@@ -133,7 +169,7 @@ export default function OwnerDashboardPage() {
                       Monthly Revenue
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      $12,450
+                      ${monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </dd>
                   </dl>
                 </div>
@@ -194,9 +230,46 @@ export default function OwnerDashboardPage() {
                             {restaurant.slug}
                           </p>
                         </div>
-                        <button className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                          Manage
-                        </button>
+                        <div className="flex space-x-2">
+                          {restaurant.isActive ? (
+                            <a 
+                              href="/dashboard"
+                              className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                            >
+                              Manage Restaurant
+                            </a>
+                          ) : (
+                            <div className="group relative">
+                              <button 
+                                disabled
+                                className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed"
+                              >
+                                Manage Restaurant
+                              </button>
+                              <div className="absolute z-50 w-72 p-3 -top-16 left-0 text-sm text-white bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                                <div className="relative">
+                                  Restaurant is inactive. Please contact the platform administrator to reactivate your restaurant.
+                                  {/* Arrow pointing down */}
+                                  <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                          <a 
+                            href={`/owner/restaurant/${restaurant.id}/profile`}
+                            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                          >
+                            Edit Profile
+                          </a>
+                          <a 
+                            href={`http://${restaurant.slug}.localhost:3000`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-3 py-2 border border-blue-300 shadow-sm text-sm leading-4 font-medium rounded-md text-blue-700 bg-blue-50 hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          >
+                            View Public Page
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
-import { UserType, AuthService } from './auth';
-import { prisma } from './prisma';
+import { UserType, AuthService, AUTH_CONSTANTS } from './auth';
+import { prisma } from './database';
 
 export interface TenantContext {
   userId: string;
@@ -34,12 +34,40 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
   const restaurantSlug = request.headers.get('x-restaurant-slug');
   const permissionsHeader = request.headers.get('x-user-permissions');
 
+  // Debug: Log all headers in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 getTenantContext: Received headers:', {
+      'x-user-id': userId,
+      'x-user-type': userType,
+      'x-user-email': email,
+      'x-is-admin': isAdmin,
+      'x-restaurant-id': restaurantId,
+      'x-owner-id': ownerId,
+      'x-restaurant-slug': restaurantSlug,
+      'x-user-permissions': permissionsHeader ? 'present' : 'missing',
+      'all-headers': Object.fromEntries(request.headers.entries())
+    });
+  }
+
   // If middleware headers are available, use them
   if (userId && userType && email) {
     let permissions: Record<string, string[]> = {};
     if (permissionsHeader) {
       try {
-        permissions = JSON.parse(permissionsHeader);
+        const rbacPermissions = JSON.parse(permissionsHeader);
+        // Convert RBAC permissions array to tenant-context format
+        if (Array.isArray(rbacPermissions)) {
+          // Group permissions by resource (e.g., "orders:read" -> { orders: ["read"] })
+          rbacPermissions.forEach(permission => {
+            if (typeof permission === 'string' && permission.includes(':')) {
+              const [resource, action] = permission.split(':', 2);
+              if (!permissions[resource]) {
+                permissions[resource] = [];
+              }
+              permissions[resource].push(action);
+            }
+          });
+        }
       } catch {
         // Fallback to empty permissions if parsing fails
         permissions = {};
@@ -60,7 +88,10 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
 
   // Fallback: Extract token directly and verify
   try {
-    const token = request.cookies.get('qr_auth_token')?.value ||
+    const token = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
+                  request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
+                  request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
+                  request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
                   AuthService.extractTokenFromHeader(request.headers.get('authorization'));
     
     if (!token) {

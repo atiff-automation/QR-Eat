@@ -18,7 +18,7 @@ export interface Order {
   restaurantId: string;
   tableId: string;
   customerSessionId: string;
-  subtotal: number;
+  subtotalAmount: number;
   taxAmount: number;
   serviceCharge: number;
   discountAmount: number;
@@ -43,7 +43,7 @@ export interface OrderItem {
   menuItemId: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
+  totalAmount: number;
   specialInstructions?: string;
   status: string;
   menuItem: {
@@ -59,7 +59,7 @@ export interface OrderItemVariation {
   variationId: string;
   quantity: number;
   unitPrice: number;
-  totalPrice: number;
+  totalAmount: number;
   variation: {
     name: string;
     variationType: string;

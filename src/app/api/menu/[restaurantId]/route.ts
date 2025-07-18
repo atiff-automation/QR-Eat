@@ -3,10 +3,10 @@ import { prisma } from '@/lib/database';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { restaurantId: string } }
+  { params }: { params: Promise<{ restaurantId: string }> }
 ) {
   try {
-    const { restaurantId } = params;
+    const { restaurantId } = await params;
 
     // Get menu categories with items and variations
     const categories = await prisma.menuCategory.findMany({

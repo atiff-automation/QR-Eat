@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService, SECURITY_HEADERS, UserType } from './lib/auth';
+import { AuthService, SECURITY_HEADERS, UserType, AUTH_CONSTANTS } from './lib/auth';
 
 export function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -43,8 +43,11 @@ export function middleware(request: NextRequest) {
     return response;
   }
 
-  // Check for authentication token
-  const token = request.cookies.get('qr_auth_token')?.value;
+  // Check for authentication token - try all user-type specific cookies
+  const token = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
+    request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
+    request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
+    request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value;
 
   if (!token) {
     if (isProtectedApiRoute) {

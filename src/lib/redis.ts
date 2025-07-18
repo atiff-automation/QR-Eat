@@ -13,7 +13,7 @@ const redisConfig = {
   retryDelayOnFailover: 100,
   maxRetriesPerRequest: 3,
   lazyConnect: true,
-  keepAlive: true,
+  keepAlive: 30000,
   connectTimeout: 10000,
   commandTimeout: 5000,
 };

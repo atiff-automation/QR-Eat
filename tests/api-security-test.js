@@ -132,7 +132,7 @@ class APISecurityTester {
       try {
         const headers = token ? { 
           'Authorization': token.startsWith('Bearer ') ? token : `Bearer ${token}`,
-          'Cookie': `qr_auth_token=${token}`
+          'Cookie': `qr_owner_token=${token}` // Use owner token for tests
         } : {};
 
         const response = await this.makeRequest('/api/auth/me', { headers });
@@ -179,7 +179,7 @@ class APISecurityTester {
         const response1 = await this.makeRequest(endpoint, {
           headers: {
             'Authorization': `Bearer ${restaurant1Token}`,
-            'Cookie': `qr_auth_token=${restaurant1Token}`
+            'Cookie': `qr_owner_token=${restaurant1Token}`
           }
         });
 
@@ -187,7 +187,7 @@ class APISecurityTester {
         const response2 = await this.makeRequest(endpoint, {
           headers: {
             'Authorization': `Bearer ${restaurant2Token}`,
-            'Cookie': `qr_auth_token=${restaurant2Token}`
+            'Cookie': `qr_owner_token=${restaurant2Token}`
           }
         });
 
@@ -238,7 +238,7 @@ class APISecurityTester {
         const adminResponse = await this.makeRequest(endpoint, {
           headers: {
             'Authorization': `Bearer ${adminToken}`,
-            'Cookie': `qr_auth_token=${adminToken}`
+            'Cookie': `qr_admin_token=${adminToken}`
           }
         });
 
@@ -246,7 +246,7 @@ class APISecurityTester {
         const staffResponse = await this.makeRequest(endpoint, {
           headers: {
             'Authorization': `Bearer ${staffToken}`,
-            'Cookie': `qr_auth_token=${staffToken}`
+            'Cookie': `qr_staff_token=${staffToken}`
           }
         });
 

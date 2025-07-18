@@ -1,6 +1,19 @@
+/**
+ * RBAC-Enhanced Dashboard Layout
+ * 
+ * This component provides the main dashboard layout with integrated RBAC functionality,
+ * implementing Phase 3.2.1 of the RBAC Implementation Plan.
+ * 
+ * Features:
+ * - Role-based navigation filtering
+ * - Permission-based component rendering
+ * - Role switcher integration
+ * - Restaurant context display
+ */
+
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
@@ -15,112 +28,32 @@ import {
   X,
   LogOut
 } from 'lucide-react';
-import { createContext, useContext } from 'react';
-
-interface User {
-  id: string;
-  email: string;
-  username?: string; // Only for staff
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  userType: 'staff' | 'restaurant_owner' | 'platform_admin';
-  mustChangePassword?: boolean; // Only for staff
-  companyName?: string; // Only for owners
-  restaurants?: Array<{
-    id: string;
-    name: string;
-    slug: string;
-    timezone: string;
-    currency: string;
-  }>; // Only for owners
-  role?: {
-    id: string;
-    name: string;
-    description: string;
-    permissions: Record<string, string[]>;
-  }; // Only for staff
-  restaurant?: {
-    id: string;
-    name: string;
-    slug: string;
-    timezone: string;
-    currency: string;
-  }; // Only for staff
-  restaurantId?: string; // Only for staff
-  lastLoginAt?: string;
-}
+import { useRole } from '@/components/rbac/RoleProvider';
+import { PermissionGuard } from '@/components/rbac/PermissionGuard';
+import { RoleSwitcher } from '@/components/rbac/RoleSwitcher';
+import { NotificationBell } from './NotificationBell';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
 }
 
-interface DashboardContextType {
-  user: User | null;
-  selectedRestaurant: any;
-  isOwner: boolean;
-}
-
-const DashboardContext = createContext<DashboardContextType | null>(null);
-
-export const useDashboardContext = () => {
-  const context = useContext(DashboardContext);
-  if (!context) {
-    throw new Error('useDashboardContext must be used within DashboardLayout');
-  }
-  return context;
-};
-
 export function DashboardLayout({ children }: DashboardLayoutProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, currentRole, restaurantContext, isLoading } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-
-  useEffect(() => {
-    fetchCurrentUser();
-  }, []);
-
-  const fetchCurrentUser = async () => {
-    try {
-      const response = await fetch('/api/auth/me');
-      const data = await response.json();
-
-      if (response.ok) {
-        const userData = data.user;
-        
-        // Check if staff member must change password
-        if (userData.userType === 'staff' && userData.mustChangePassword === true) {
-          // Use replace instead of push to avoid back button issues
-          // Don't set isLoading to false here to prevent content flash
-          router.replace('/change-password');
-          return;
-        }
-        
-        setUser(userData);
-        
-        // For restaurant owners, set up restaurant context
-        if (userData.userType === 'restaurant_owner' && userData.restaurants?.length > 0) {
-          // For now, default to first restaurant. Later we can add restaurant selector
-          setSelectedRestaurant(userData.restaurants[0]);
-        } else if (userData.userType === 'staff' && userData.restaurant) {
-          setSelectedRestaurant(userData.restaurant);
-        }
-      } else {
-        if (response.status === 401) {
-          router.replace('/login');
-          return;
-        }
-      }
-    } catch (error) {
-      console.error('Failed to fetch user data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
+  
+  // Debug logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🏗️ DashboardLayout render:', {
+      isLoading,
+      hasUser: !!user,
+      hasCurrentRole: !!currentRole,
+      user: user,
+      currentRole: currentRole
+    });
+  }
+  
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
@@ -129,7 +62,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       console.error('Logout error:', error);
     }
   };
-
+  
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -140,8 +73,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     );
   }
-
-  if (!user || !selectedRestaurant) {
+  
+  if (!user || !currentRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -156,87 +89,81 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     );
   }
-
-  // Base navigation items available to all users
-  const baseNavigation = [
+  
+  // Navigation items with permission requirements
+  const navigationItems = [
     {
       name: 'Dashboard',
       href: '/dashboard',
       icon: Home,
       current: pathname === '/dashboard',
+      permission: null, // No permission required for dashboard home
     },
     {
       name: 'Orders',
       href: '/dashboard/orders',
       icon: ClipboardList,
       current: pathname.startsWith('/dashboard/orders'),
-      permissions: ['orders']
+      permission: 'orders:read',
     },
     {
       name: 'Tables',
       href: '/dashboard/tables',
       icon: ChefHat,
       current: pathname.startsWith('/dashboard/tables'),
-      permissions: ['tables']
+      permission: 'tables:read',
+    },
+    {
+      name: 'Kitchen',
+      href: '/kitchen',
+      icon: UtensilsCrossed,
+      current: pathname.startsWith('/kitchen'),
+      permission: 'orders:kitchen',
     },
     {
       name: 'Menu',
       href: '/dashboard/menu',
       icon: UtensilsCrossed,
       current: pathname.startsWith('/dashboard/menu'),
-      permissions: ['menu']
+      permission: 'menu:read',
     },
     {
       name: 'Staff',
       href: '/dashboard/staff',
       icon: Users,
       current: pathname.startsWith('/dashboard/staff'),
-      permissions: ['staff']
+      permission: 'staff:read',
     },
     {
       name: 'Reports',
       href: '/dashboard/reports',
       icon: BarChart3,
       current: pathname.startsWith('/dashboard/reports'),
-      permissions: ['reports']
+      permission: 'analytics:read',
     },
     {
       name: 'Settings',
       href: '/dashboard/settings',
       icon: Settings,
       current: pathname.startsWith('/dashboard/settings'),
-      permissions: ['settings']
+      permission: 'settings:read',
     },
   ];
-
-  const navigation = baseNavigation;
-
-  const hasPermission = (item: any) => {
-    // Restaurant owners have access to everything
-    if (user.userType === 'restaurant_owner') return true;
-    
-    // Check staff permissions
-    const permissions = item.permissions;
-    if (!permissions || permissions.length === 0) return true;
-    if (!user?.role?.permissions) return false;
-    
-    return permissions.some((permission: string) => 
-      user.role!.permissions[permission] && 
-      user.role!.permissions[permission].length > 0
-    );
+  
+  const getPageTitle = () => {
+    if (pathname === '/dashboard') return 'Dashboard';
+    if (pathname.includes('/orders')) return 'Orders';
+    if (pathname.includes('/tables')) return 'Tables';
+    if (pathname.includes('/kitchen')) return 'Kitchen Display';
+    if (pathname.includes('/menu')) return 'Menu Management';
+    if (pathname.includes('/staff')) return 'Staff Management';
+    if (pathname.includes('/reports')) return 'Reports';
+    if (pathname.includes('/settings')) return 'Settings';
+    return 'Dashboard';
   };
-
-  const filteredNavigation = navigation.filter(item => hasPermission(item));
-
-  const contextValue: DashboardContextType = {
-    user,
-    selectedRestaurant,
-    isOwner: user?.userType === 'restaurant_owner'
-  };
-
+  
   return (
-    <DashboardContext.Provider value={contextValue}>
-      <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}>
         <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsSidebarOpen(false)}></div>
@@ -251,56 +178,63 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </button>
           </div>
           <nav className="flex-1 px-4 py-4 space-y-2">
-            {filteredNavigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setIsSidebarOpen(false)}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  item.current
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.name}
-              </Link>
+            {navigationItems.map((item) => (
+              <PermissionGuard key={item.name} permission={item.permission}>
+                <Link
+                  href={item.href}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                    item.current
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon className="mr-3 h-5 w-5" />
+                  {item.name}
+                </Link>
+              </PermissionGuard>
             ))}
           </nav>
         </div>
       </div>
-
+      
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
           <div className="flex items-center flex-shrink-0 px-4 py-5 border-b border-gray-200">
-            <h1 className="text-lg font-semibold text-gray-900">
-              {selectedRestaurant.name}
-            </h1>
-            {user.userType === 'restaurant_owner' && (
-              <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                Owner
-              </span>
-            )}
+            <div className="flex-1">
+              <h1 className="text-lg font-semibold text-gray-900">
+                {restaurantContext?.name || 'Dashboard'}
+              </h1>
+              <div className="flex items-center space-x-2 mt-1">
+                <span className="text-xs text-gray-500">Role:</span>
+                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                  {currentRole.roleTemplate.replace('_', ' ')}
+                </span>
+              </div>
+            </div>
           </div>
+          
           <nav className="flex-1 px-4 py-4 space-y-2">
-            {filteredNavigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                  item.current
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                <item.icon className="mr-3 h-5 w-5" />
-                {item.name}
-              </Link>
+            {navigationItems.map((item) => (
+              <PermissionGuard key={item.name} permission={item.permission}>
+                <Link
+                  href={item.href}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                    item.current
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <item.icon className="mr-3 h-5 w-5" />
+                  {item.name}
+                </Link>
+              </PermissionGuard>
             ))}
           </nav>
+          
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="flex items-center">
+            <div className="flex items-center mb-3">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
@@ -313,13 +247,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   {user.firstName} {user.lastName}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {user.userType === 'restaurant_owner' ? 'Owner' : user.role?.name}
+                  {user.email}
                 </p>
               </div>
             </div>
+            
             <button
               onClick={handleLogout}
-              className="mt-3 w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
+              className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Logout
@@ -327,7 +262,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
       </div>
-
+      
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
@@ -342,27 +277,35 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <Menu className="h-6 w-6" />
                 </button>
                 <h1 className="text-xl font-semibold text-gray-900">
-                  {pathname === '/dashboard' ? 'Dashboard' :
-                   pathname.includes('/orders') ? 'Orders' :
-                   pathname.includes('/tables') ? 'Tables' :
-                   pathname.includes('/menu') ? 'Menu Management' :
-                   pathname.includes('/staff') ? 'Staff Management' :
-                   pathname.includes('/reports') ? 'Reports' :
-                   pathname.includes('/settings') ? 'Settings' : 'Dashboard'}
+                  {getPageTitle()}
                 </h1>
               </div>
+              
               <div className="flex items-center space-x-4">
-                <div className="text-sm text-gray-500">
-                  {new Date().toLocaleString('en-US', {
-                    timeZone: selectedRestaurant.timezone,
-                    weekday: 'short',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
-                </div>
+                {/* Role Switcher */}
+                <RoleSwitcher />
+                
+                {/* Notifications */}
+                <PermissionGuard permission="notifications:read">
+                  <NotificationBell />
+                </PermissionGuard>
+                
+                {/* Restaurant Time */}
+                {restaurantContext && (
+                  <div className="text-sm text-gray-500">
+                    {new Date().toLocaleString('en-US', {
+                      timeZone: restaurantContext.timezone,
+                      weekday: 'short',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                )}
+                
+                {/* Mobile logout */}
                 <div className="lg:hidden">
                   <button
                     onClick={handleLogout}
@@ -376,13 +319,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
         </header>
-
+        
         {/* Page content */}
         <main className="flex-1">
           {children}
         </main>
       </div>
     </div>
-    </DashboardContext.Provider>
   );
 }

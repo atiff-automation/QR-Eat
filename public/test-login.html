@@ -142,9 +142,9 @@
                     // Check if cookie was set
                     const cookies = document.cookie;
                     console.log('All cookies:', cookies);
-                    console.log('Looking for qr_auth_token cookie...');
+                    console.log('Looking for authentication cookies...');
                     
-                    if (cookies.includes('qr_auth_token')) {
+                    if (cookies.includes('qr_owner_token') || cookies.includes('qr_staff_token') || cookies.includes('qr_admin_token') || cookies.includes('qr_auth_token')) {
                         showMessage('Cookie found! Redirecting to dashboard...', 'success');
                     } else {
                         showMessage('WARNING: Login successful but no auth cookie found!', 'error');

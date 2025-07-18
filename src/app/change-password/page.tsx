@@ -33,15 +33,22 @@ export default function ChangePasswordPage() {
         
         const data = await response.json();
         
-        // Only staff should be on this page
-        if (data.user.userType !== 'staff') {
+        // Only staff and restaurant owners with mustChangePassword should be on this page
+        if (data.user.userType !== 'staff' && data.user.userType !== 'restaurant_owner') {
           router.push('/dashboard');
           return;
         }
         
-        // If staff doesn't need to change password, redirect to dashboard
+        // If user doesn't need to change password, redirect appropriately
         if (!data.user.mustChangePassword) {
-          router.push('/dashboard');
+          if (data.user.userType === 'restaurant_owner') {
+            router.push('/owner/dashboard');
+          } else if (data.user.userType === 'staff') {
+            // For staff, redirect to their specific dashboard based on role
+            router.push('/dashboard/kitchen');
+          } else {
+            router.push('/dashboard');
+          }
           return;
         }
         

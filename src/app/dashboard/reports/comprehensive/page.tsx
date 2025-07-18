@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, memo } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 
 const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -90,8 +89,7 @@ const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Comprehensive Report</h1>
@@ -380,7 +378,6 @@ const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 });
 

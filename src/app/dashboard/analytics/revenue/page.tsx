@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { 
   AlertTriangle, 
   DollarSign, 
@@ -115,8 +114,7 @@ export default function RevenueAnalyticsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
+      <div className="p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -127,14 +125,12 @@ export default function RevenueAnalyticsPage() {
             <div className="h-64 bg-gray-200 rounded"></div>
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
+      <div className="p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -153,13 +149,11 @@ export default function RevenueAnalyticsPage() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -385,6 +379,5 @@ export default function RevenueAnalyticsPage() {
           </>
         )}
       </div>
-    </DashboardLayout>
   );
 }

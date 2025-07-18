@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService, SECURITY_HEADERS, UserType, verifyAuthToken, AUTH_CONSTANTS } from './lib/auth';
 import { 
   getSubdomainInfo, 
   shouldHandleSubdomain, 
   getRestaurantSlugFromSubdomain,
   logSubdomainInfo,
   isReservedSubdomain
-} from './lib/subdomain';
+} from '@/lib/subdomain';
 
-// Force middleware to run in Node.js runtime to support crypto module
-export const runtime = 'nodejs';
+// Security headers for all responses
+const SECURITY_HEADERS = {
+  'X-Frame-Options': 'DENY',
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'origin-when-cross-origin',
+  'X-XSS-Protection': '1; mode=block',
+} as const;
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next();
@@ -21,6 +25,11 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   
+  // Basic middleware logging
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🔧 Middleware running for:', pathname);
+  }
+  
   // Log subdomain info in development
   if (process.env.NODE_ENV === 'development') {
     logSubdomainInfo(request);
@@ -28,86 +37,101 @@ export async function middleware(request: NextRequest) {
 
   // Handle subdomain routing first (but skip for restaurant-not-found page)
   if (shouldHandleSubdomain(request) && !pathname.includes('/restaurant-not-found')) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🌐 RBAC Middleware: Handling subdomain routing for', pathname);
+    }
     return await handleSubdomainRouting(request, response);
   }
 
-  // Public routes that don't require authentication
-  const publicRoutes = [
-    '/',
-    '/qr',
-    '/api/health',
-    '/test-login.html',
-    '/test',
-    '/simple-login',
-  ];
-  const isPublicRoute = publicRoutes.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
-  );
-
-  // API routes that require authentication
-  const protectedApiRoutes = [
-    '/api/auth',
-    '/api/staff',
-    '/api/orders',
-    '/api/menu',
-    '/api/restaurants',
-    '/api/debug-auth',
-  ];
-  const isProtectedApiRoute = protectedApiRoutes.some(
-    (route) => pathname.startsWith(route) && pathname !== '/api/auth/login'
-  );
-
-  // Admin dashboard routes
-  const isAdminRoute =
-    pathname.startsWith('/admin') || pathname.startsWith('/dashboard');
-
-  if (isPublicRoute && !isProtectedApiRoute && !isAdminRoute) {
+  // Skip middleware for public routes
+  if (isPublicRoute(pathname)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚪 RBAC Middleware: Skipping public route', pathname);
+    }
     return response;
   }
-
-  // Check for authentication token
-  const token = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
+  
+  // Skip middleware for API routes that don't require auth
+  if (isPublicApiRoute(pathname)) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚪 RBAC Middleware: Skipping public API route', pathname);
+    }
+    return response;
+  }
+  
+  // Get authentication token
+  const token = request.cookies.get('qr_rbac_token')?.value || 
+                request.cookies.get('qr_auth_token')?.value;
+  
+  if (!token) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🚫 RBAC Middleware: No token found for', pathname);
+    }
+    return redirectToLogin(request, pathname);
+  }
   
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 Middleware Token Debug:', {
-      pathname,
-      hasToken: !!token,
-      tokenLength: token?.length,
-      cookieName: AUTH_CONSTANTS.COOKIE_NAME,
-      isAdminRoute,
-      isDashboardRoute: pathname.startsWith('/dashboard')
+    console.log('🔑 RBAC Middleware: Token found, validating via API for', pathname);
+  }
+  
+  try {
+    // Validate token by calling our validation API route
+    const validationUrl = new URL('/api/auth/validate-token', request.url);
+    const validationResponse = await fetch(validationUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cookie': request.headers.get('cookie') || '',
+      },
+      body: JSON.stringify({ token, pathname })
     });
-  }
 
-  if (!token) {
-    if (isProtectedApiRoute) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401, headers: response.headers }
-      );
+    if (!validationResponse.ok) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚫 RBAC Middleware: Token validation failed for', pathname);
+      }
+      return redirectToLogin(request, pathname);
     }
 
-    if (isAdminRoute) {
-      return NextResponse.redirect(new URL('/login', request.url));
+    const validationData = await validationResponse.json();
+    
+    if (!validationData.isValid) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚫 RBAC Middleware: Token validation returned invalid for', pathname);
+      }
+      return redirectToLogin(request, pathname);
     }
-  }
 
-  // Note: Password change check moved to client-side due to Edge Runtime limitations
-  // The mustChangePassword check is now handled in the dashboard components
-
-  // Token verification for admin routes is handled by dashboard components
-  // This ensures proper error handling and user experience
-  if (token && isAdminRoute) {
-    // Dashboard components will verify token and handle invalid tokens appropriately
+    // Add user context to request headers for downstream processing
+    const payload = validationData.payload;
+    if (payload) {
+      response.headers.set('x-user-id', payload.userId);
+      response.headers.set('x-user-email', payload.email);
+      response.headers.set('x-user-role', payload.currentRole.roleTemplate);
+      response.headers.set('x-user-type', payload.currentRole.userType);
+      response.headers.set('x-user-permissions', JSON.stringify(payload.permissions));
+      response.headers.set('x-session-id', payload.sessionId);
+      response.headers.set('x-is-admin', (payload.currentRole.roleTemplate === 'platform_admin').toString());
+      
+      if (payload.restaurantContext) {
+        response.headers.set('x-restaurant-id', payload.restaurantContext.id);
+        response.headers.set('x-restaurant-slug', payload.restaurantContext.slug);
+        
+        if (payload.currentRole.roleTemplate === 'restaurant_owner') {
+          response.headers.set('x-owner-id', payload.userId);
+        }
+      }
+    }
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('✅ RBAC Middleware: Token validation successful for', pathname);
+    }
+    
     return response;
+  } catch (error) {
+    console.error('Middleware error:', error);
+    return redirectToLogin(request, pathname);
   }
-
-  // Add basic token indicator for API routes (token verification will be done in API routes)
-  if (token && isProtectedApiRoute) {
-    response.headers.set('x-has-token', 'true');
-  }
-
-  return response;
 }
 
 /**
@@ -133,12 +157,6 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   }
 
   try {
-    // For subdomain routing, we need to validate the restaurant exists
-    // We'll do a simpler check here and let the pages handle full tenant resolution
-    
-    // For now, allow all valid subdomains to continue
-    // The actual tenant validation will happen in the API routes and page components
-
     const pathname = request.nextUrl.pathname;
     
     // Handle subdomain-specific routing
@@ -163,6 +181,67 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
+}
+
+/**
+ * Check if a route is public and doesn't require authentication
+ */
+function isPublicRoute(pathname: string): boolean {
+  const publicRoutes = [
+    '/',
+    '/login',
+    '/register',
+    '/forgot-password',
+    '/reset-password',
+    '/staff-password-help',
+    '/qr/',
+    '/menu/',
+    '/restaurant/',
+    '/_next/',
+    '/favicon.ico',
+    '/test-login.html',
+    '/test',
+    '/simple-login',
+  ];
+  
+  // Exact match for root path, startsWith for others
+  if (pathname === '/') {
+    return true;
+  }
+  
+  return publicRoutes.slice(1).some(route => pathname.startsWith(route));
+}
+
+/**
+ * Check if an API route is public and doesn't require authentication
+ */
+function isPublicApiRoute(pathname: string): boolean {
+  const publicApiRoutes = [
+    '/api/auth/login',
+    '/api/auth/rbac-login',
+    '/api/auth/register',
+    '/api/auth/forgot-password',
+    '/api/auth/reset-password',
+    '/api/auth/staff-password-request',
+    '/api/auth/validate-token', // Our new validation endpoint
+    '/api/qr/',
+    '/api/menu/',
+    '/api/health',
+    '/api/subdomain/',
+  ];
+  
+  return publicApiRoutes.some(route => pathname.startsWith(route));
+}
+
+/**
+ * Redirect to login page with return URL
+ */
+function redirectToLogin(request: NextRequest, currentPath?: string): NextResponse {
+  const redirectUrl = new URL('/login', request.url);
+  if (currentPath && currentPath !== '/login') {
+    redirectUrl.searchParams.set('redirect', currentPath);
+  }
+  return NextResponse.redirect(redirectUrl);
 }
 
 export const config = {

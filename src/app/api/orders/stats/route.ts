@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { prisma } from '@/lib/database';
+import { 
+  getTenantContext, 
+  requireAuth, 
+  requirePermission, 
+  createRestaurantFilter 
+} from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const context = getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'orders', 'read');
 
     const url = new URL(request.url);
     const period = url.searchParams.get('period') || 'today'; // today, week, month
@@ -36,13 +36,16 @@ export async function GET(request: NextRequest) {
         break;
     }
 
-    const where = {
-      restaurantId: authResult.staff.restaurantId,
+    // Apply restaurant filter based on user type
+    let where: any = {
       createdAt: {
         gte: startDate,
         lte: endDate
       }
     };
+
+    const restaurantFilter = createRestaurantFilter(context!);
+    where = { ...where, ...restaurantFilter };
 
     // Get order statistics
     const [
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
 
     const todayOrders = await prisma.order.findMany({
       where: {
-        restaurantId: authResult.staff.restaurantId,
+        ...restaurantFilter,
         createdAt: {
           gte: today,
           lt: tomorrow
@@ -126,7 +129,7 @@ export async function GET(request: NextRequest) {
       },
       _sum: {
         quantity: true,
-        totalPrice: true
+        totalAmount: true
       },
       _count: {
         id: true
@@ -179,6 +182,22 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Failed to fetch order statistics:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required')) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      if (error.message.includes('Permission denied')) {
+        return NextResponse.json(
+          { error: error.message },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: 'Failed to fetch statistics' },
       { status: 500 }

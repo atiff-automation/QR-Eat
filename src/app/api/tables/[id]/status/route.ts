@@ -1,15 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { prisma } from '@/lib/database';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+    
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -43,8 +54,8 @@ export async function PATCH(
       );
     }
 
-    // Check if staff has permission to update this table
-    if (currentTable.restaurantId !== authResult.staff.restaurantId) {
+    // Check if user has permission to update this table
+    if (currentTable.restaurantId !== authResult.user.currentRole.restaurantId) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }
@@ -68,7 +79,7 @@ export async function PATCH(
         operation: 'UPDATE',
         oldValues: { status: currentTable.status },
         newValues: { status },
-        changedBy: authResult.staff.id,
+        changedBy: authResult.user.id,
         ipAddress: request.headers.get('x-forwarded-for') || 
                    request.headers.get('x-real-ip') ||
                    'unknown'

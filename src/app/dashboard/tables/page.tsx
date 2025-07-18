@@ -1,10 +1,20 @@
+/**
+ * Tables Management Page with RBAC Integration
+ * 
+ * This page implements Phase 3.3.2 of the RBAC Implementation Plan,
+ * replacing legacy authentication with the new RBAC system.
+ * 
+ * Features:
+ * - RBAC-based permission checking
+ * - Role-aware table management access
+ * - Integration with new role context system
+ */
+
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  DashboardLayout,
-  useDashboardContext,
-} from '@/components/dashboard/DashboardLayout';
+import { PermissionGuard } from '@/components/rbac/PermissionGuard';
+import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { Smartphone, Copy, RefreshCw, Users, ChefHat } from 'lucide-react';
 
@@ -21,7 +31,7 @@ interface Table {
 }
 
 function TablesContent() {
-  const { selectedRestaurant } = useDashboardContext();
+  const { restaurantContext } = useRole();
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -33,14 +43,14 @@ function TablesContent() {
 
   const fetchTables = useCallback(async () => {
     try {
-      if (!selectedRestaurant?.id) {
+      if (!restaurantContext?.id) {
         setError('No restaurant selected');
         setLoading(false);
         return;
       }
 
       const response = await fetch(
-        `/api/tables?restaurantId=${selectedRestaurant.id}`
+        `/api/tables?restaurantId=${restaurantContext.id}`
       );
       const data = await response.json();
 
@@ -55,16 +65,16 @@ function TablesContent() {
     } finally {
       setLoading(false);
     }
-  }, [selectedRestaurant?.id]);
+  }, [restaurantContext?.id]);
 
   useEffect(() => {
-    if (selectedRestaurant?.id) {
+    if (restaurantContext?.id) {
       fetchTables();
       // Set up real-time updates every 30 seconds
       const interval = setInterval(fetchTables, 30000);
       return () => clearInterval(interval);
     }
-  }, [selectedRestaurant?.id, fetchTables]);
+  }, [restaurantContext?.id, fetchTables]);
 
   const updateTableStatus = async (tableId: string, status: string) => {
     try {
@@ -222,20 +232,22 @@ function TablesContent() {
         <div className="flex items-center space-x-4">
           {/* Bulk Actions */}
           {selectedTables.length > 0 && (
-            <div className="flex items-center space-x-2 mr-4 p-2 bg-blue-50 rounded-lg">
-              <button
-                onClick={generateBulkQRCodes}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium"
-              >
-                🖨️ Print QR Codes ({selectedTables.length})
-              </button>
-              <button
-                onClick={clearSelection}
-                className="text-gray-700 hover:text-gray-900 px-2 py-1 rounded text-sm"
-              >
-                Clear
-              </button>
-            </div>
+            <PermissionGuard permission="tables:write">
+              <div className="flex items-center space-x-2 mr-4 p-2 bg-blue-50 rounded-lg">
+                <button
+                  onClick={generateBulkQRCodes}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium"
+                >
+                  🖨️ Print QR Codes ({selectedTables.length})
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="text-gray-700 hover:text-gray-900 px-2 py-1 rounded text-sm"
+                >
+                  Clear
+                </button>
+              </div>
+            </PermissionGuard>
           )}
 
           {/* Selection Actions */}
@@ -276,12 +288,14 @@ function TablesContent() {
               Layout View
             </button>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
-          >
-            Add Table
-          </button>
+          <PermissionGuard permission="tables:write">
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+            >
+              Add Table
+            </button>
+          </PermissionGuard>
         </div>
       </div>
 
@@ -352,26 +366,28 @@ function TablesContent() {
               </div>
 
               {/* Status Update */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Update Status
-                </label>
-                <select
-                  value={table.status}
-                  onChange={(e) => updateTableStatus(table.id, e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium bg-white"
-                >
-                  {statusOptions.map((option) => (
-                    <option
-                      key={option.value}
-                      value={option.value}
-                      className="text-gray-900 font-medium"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <PermissionGuard permission="tables:write">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Update Status
+                  </label>
+                  <select
+                    value={table.status}
+                    onChange={(e) => updateTableStatus(table.id, e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium bg-white"
+                  >
+                    {statusOptions.map((option) => (
+                      <option
+                        key={option.value}
+                        value={option.value}
+                        className="text-gray-900 font-medium"
+                      >
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </PermissionGuard>
 
               {/* QR Code Actions */}
               <div className="space-y-2">
@@ -402,13 +418,15 @@ function TablesContent() {
                 >
                   👁️ Preview Menu
                 </button>
-                <button
-                  onClick={() => regenerateQRCode(table.id)}
-                  className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate QR
-                </button>
+                <PermissionGuard permission="tables:write">
+                  <button
+                    onClick={() => regenerateQRCode(table.id)}
+                    className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-2 rounded-md text-sm font-medium"
+                  >
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Regenerate QR
+                  </button>
+                </PermissionGuard>
               </div>
             </div>
           ))}
@@ -510,7 +528,7 @@ function TablesContent() {
         <AddTableModal
           onClose={() => setShowAddModal(false)}
           onSuccess={fetchTables}
-          selectedRestaurant={selectedRestaurant}
+          restaurantContext={restaurantContext}
         />
       )}
 
@@ -533,9 +551,9 @@ function TablesContent() {
 
 export default function TablesPage() {
   return (
-    <DashboardLayout>
+    <PermissionGuard permission="tables:read">
       <TablesContent />
-    </DashboardLayout>
+    </PermissionGuard>
   );
 }
 
@@ -543,11 +561,11 @@ export default function TablesPage() {
 function AddTableModal({
   onClose,
   onSuccess,
-  selectedRestaurant,
+  restaurantContext,
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  selectedRestaurant: { id: string; name: string } | null;
+  restaurantContext: { id: string; name: string } | null;
 }) {
   const [formData, setFormData] = useState({
     tableNumber: '',
@@ -569,7 +587,7 @@ function AddTableModal({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          restaurantId: selectedRestaurant?.id,
+          restaurantId: restaurantContext?.id,
         }),
       });
 

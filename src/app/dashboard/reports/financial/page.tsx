@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { DollarSign } from 'lucide-react';
 
 export default function FinancialReportPage() {
@@ -91,8 +90,7 @@ export default function FinancialReportPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Financial Report</h1>
@@ -313,6 +311,5 @@ export default function FinancialReportPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 }

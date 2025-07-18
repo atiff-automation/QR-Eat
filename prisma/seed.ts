@@ -204,6 +204,7 @@ async function main() {
         companyName: 'Rossi Restaurant Group',
         isActive: true,
         emailVerified: true,
+        mustChangePassword: true,
       },
     }),
     // Owner 2: Chain Owner
@@ -219,6 +220,7 @@ async function main() {
         companyName: 'Tasty Chain Food Corp',
         isActive: true,
         emailVerified: true,
+        mustChangePassword: true,
       },
     }),
   ]);
@@ -230,8 +232,10 @@ async function main() {
   // ==============================================
   const restaurants = await Promise.all([
     // Mario's Restaurant (Basic Plan)
-    prisma.restaurant.create({
-      data: {
+    prisma.restaurant.upsert({
+      where: { slug: 'marios-authentic-italian' },
+      update: {},
+      create: {
         ownerId: restaurantOwners[0].id,
         name: "Mario's Authentic Italian",
         slug: 'marios-authentic-italian',
@@ -256,8 +260,10 @@ async function main() {
       },
     }),
     // Tasty Burger (Pro Plan - Location 1)
-    prisma.restaurant.create({
-      data: {
+    prisma.restaurant.upsert({
+      where: { slug: 'tasty-burger-downtown' },
+      update: {},
+      create: {
         ownerId: restaurantOwners[1].id,
         name: 'Tasty Burger Downtown',
         slug: 'tasty-burger-downtown',
@@ -282,8 +288,10 @@ async function main() {
       },
     }),
     // Tasty Burger (Pro Plan - Location 2)
-    prisma.restaurant.create({
-      data: {
+    prisma.restaurant.upsert({
+      where: { slug: 'tasty-burger-westside' },
+      update: {},
+      create: {
         ownerId: restaurantOwners[1].id,
         name: 'Tasty Burger Westside',
         slug: 'tasty-burger-westside',
@@ -654,6 +662,7 @@ async function main() {
         hourlyRate: 25.00,
         isActive: true,
         emailVerified: true,
+        mustChangePassword: true,
       },
     }),
     // Waiter
@@ -672,6 +681,7 @@ async function main() {
         hourlyRate: 18.00,
         isActive: true,
         emailVerified: true,
+        mustChangePassword: true,
       },
     }),
     // Kitchen
@@ -690,6 +700,7 @@ async function main() {
         hourlyRate: 20.00,
         isActive: true,
         emailVerified: true,
+        mustChangePassword: true,
       },
     }),
   ]);
@@ -697,7 +708,241 @@ async function main() {
   console.log('✅ Created staff for Mario\'s:', staff.length);
 
   // ==============================================
-  // 9. SUMMARY AND TEST CREDENTIALS
+  // 9. RBAC PERMISSIONS AND ROLE TEMPLATES
+  // ==============================================
+  
+  // Create RBAC permissions
+  const rbacPermissions = [
+    // Platform Management (Super Admin only)
+    { key: 'platform:read', description: 'View platform information', category: 'platform' },
+    { key: 'platform:write', description: 'Edit platform settings', category: 'platform' },
+    { key: 'platform:delete', description: 'Delete platform data', category: 'platform' },
+    
+    // Restaurant Management
+    { key: 'restaurant:read', description: 'View restaurant information', category: 'restaurant' },
+    { key: 'restaurant:write', description: 'Edit restaurant settings', category: 'restaurant' },
+    { key: 'restaurant:settings', description: 'Access restaurant settings', category: 'restaurant' },
+    { key: 'restaurants:create', description: 'Create new restaurants', category: 'restaurant' },
+    { key: 'restaurants:read', description: 'View all restaurants', category: 'restaurant' },
+    { key: 'restaurants:write', description: 'Edit any restaurant', category: 'restaurant' },
+    { key: 'restaurants:delete', description: 'Delete restaurants', category: 'restaurant' },
+    
+    // Order Management
+    { key: 'orders:read', description: 'View orders', category: 'orders' },
+    { key: 'orders:write', description: 'Create and edit orders', category: 'orders' },
+    { key: 'orders:kitchen', description: 'Kitchen display access', category: 'orders' },
+    { key: 'orders:update', description: 'Update order progress/status', category: 'orders' },
+    { key: 'orders:fulfill', description: 'Mark orders as ready/served', category: 'orders' },
+    
+    // Table Management
+    { key: 'tables:read', description: 'View tables', category: 'tables' },
+    { key: 'tables:write', description: 'Manage tables', category: 'tables' },
+    { key: 'tables:qr', description: 'Generate QR codes', category: 'tables' },
+    
+    // Staff Management
+    { key: 'staff:read', description: 'View staff information', category: 'staff' },
+    { key: 'staff:write', description: 'Edit staff information', category: 'staff' },
+    { key: 'staff:invite', description: 'Invite new staff members', category: 'staff' },
+    { key: 'staff:delete', description: 'Delete staff members', category: 'staff' },
+    { key: 'staff:roles', description: 'Manage staff roles', category: 'staff' },
+    
+    // Analytics & Reporting
+    { key: 'analytics:read', description: 'View analytics and reports', category: 'analytics' },
+    { key: 'analytics:export', description: 'Export data', category: 'analytics' },
+    { key: 'analytics:platform', description: 'View platform-wide analytics', category: 'analytics' },
+    
+    // Menu Management
+    { key: 'menu:read', description: 'View menu items', category: 'menu' },
+    { key: 'menu:write', description: 'Manage menu items', category: 'menu' },
+    { key: 'menu:delete', description: 'Delete menu items', category: 'menu' },
+    
+    // Settings
+    { key: 'settings:read', description: 'View settings', category: 'settings' },
+    { key: 'settings:write', description: 'Edit settings', category: 'settings' },
+    { key: 'settings:platform', description: 'Edit platform settings', category: 'settings' },
+    
+    // Billing & Subscriptions
+    { key: 'billing:read', description: 'View billing information', category: 'billing' },
+    { key: 'billing:write', description: 'Manage billing', category: 'billing' },
+    { key: 'subscriptions:read', description: 'View subscriptions', category: 'subscriptions' },
+    { key: 'subscriptions:write', description: 'Manage subscriptions', category: 'subscriptions' },
+    
+    // User Management (Super Admin)
+    { key: 'users:read', description: 'View all users', category: 'users' },
+    { key: 'users:write', description: 'Manage users', category: 'users' },
+    { key: 'users:delete', description: 'Delete users', category: 'users' },
+  ];
+
+  const permissions = await Promise.all(rbacPermissions.map(perm => 
+    prisma.permission.upsert({
+      where: { permissionKey: perm.key },
+      update: {},
+      create: {
+        permissionKey: perm.key,
+        description: perm.description,
+        category: perm.category,
+        isActive: true,
+      },
+    })
+  ));
+
+  console.log('✅ Created RBAC permissions:', permissions.length);
+
+  // Create role templates with permissions
+  const roleTemplates = [
+    {
+      template: 'platform_admin',
+      permissions: [
+        'platform:read', 'platform:write', 'platform:delete',
+        'restaurants:create', 'restaurants:read', 'restaurants:write', 'restaurants:delete',
+        'subscriptions:read', 'subscriptions:write',
+        'billing:read', 'billing:write',
+        'analytics:platform', 'analytics:export',
+        'users:read', 'users:write', 'users:delete',
+        'settings:platform'
+      ]
+    },
+    {
+      template: 'restaurant_owner',
+      permissions: [
+        'restaurant:read', 'restaurant:write', 'restaurant:settings',
+        'orders:read', 'orders:write', 'orders:fulfill',
+        'tables:read', 'tables:write', 'tables:qr',
+        'staff:read', 'staff:write', 'staff:invite', 'staff:delete', 'staff:roles',
+        'analytics:read', 'analytics:export',
+        'menu:read', 'menu:write', 'menu:delete',
+        'settings:read', 'settings:write',
+        'billing:read'
+      ]
+    },
+    {
+      template: 'manager',
+      permissions: [
+        'restaurant:read',
+        'orders:read', 'orders:write', 'orders:fulfill',
+        'tables:read', 'tables:write', 'tables:qr',
+        'staff:read', // Can only VIEW staff, not manage
+        'analytics:read',
+        'menu:read', 'menu:write',
+        'settings:read'
+      ]
+    },
+    {
+      template: 'kitchen_staff',
+      permissions: [
+        'orders:read', 'orders:kitchen', 'orders:update', // Can view and update order progress
+        'menu:read' // Can view menu items for order details
+      ]
+    }
+  ];
+
+  const rolePermissions = await Promise.all(
+    roleTemplates.flatMap(roleTemplate =>
+      roleTemplate.permissions.map(permissionKey =>
+        prisma.rolePermission.upsert({
+          where: {
+            roleTemplate_permissionKey: {
+              roleTemplate: roleTemplate.template,
+              permissionKey: permissionKey
+            }
+          },
+          update: {},
+          create: {
+            roleTemplate: roleTemplate.template,
+            permissionKey: permissionKey,
+          },
+        })
+      )
+    )
+  );
+
+  console.log('✅ Created role-permission mappings:', rolePermissions.length);
+
+  // Create initial user roles for existing users
+  const platformAdminRole = await prisma.userRole.create({
+    data: {
+      userId: platformAdmin.id,
+      userType: 'platform_admin',
+      restaurantId: null,
+      roleTemplate: 'platform_admin',
+      customPermissions: [],
+      isActive: true,
+    },
+  });
+
+  const ownerRoles = await Promise.all([
+    prisma.userRole.create({
+      data: {
+        userId: restaurantOwners[0].id,
+        userType: 'restaurant_owner',
+        restaurantId: restaurants[0].id,
+        roleTemplate: 'restaurant_owner',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+    prisma.userRole.create({
+      data: {
+        userId: restaurantOwners[1].id,
+        userType: 'restaurant_owner',
+        restaurantId: restaurants[1].id,
+        roleTemplate: 'restaurant_owner',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+    prisma.userRole.create({
+      data: {
+        userId: restaurantOwners[1].id,
+        userType: 'restaurant_owner',
+        restaurantId: restaurants[2].id,
+        roleTemplate: 'restaurant_owner',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+  ]);
+
+  const staffUserRoles = await Promise.all([
+    // Manager
+    prisma.userRole.create({
+      data: {
+        userId: staff[0].id,
+        userType: 'staff',
+        restaurantId: staff[0].restaurantId,
+        roleTemplate: 'manager',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+    // Staff member (using manager role for now)
+    prisma.userRole.create({
+      data: {
+        userId: staff[1].id,
+        userType: 'staff',
+        restaurantId: staff[1].restaurantId,
+        roleTemplate: 'manager',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+    // Kitchen staff
+    prisma.userRole.create({
+      data: {
+        userId: staff[2].id,
+        userType: 'staff',
+        restaurantId: staff[2].restaurantId,
+        roleTemplate: 'kitchen_staff',
+        customPermissions: [],
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log('✅ Created initial user roles:', [platformAdminRole, ...ownerRoles, ...staffUserRoles].length);
+
+  // ==============================================
+  // 10. SUMMARY AND TEST CREDENTIALS
   // ==============================================
   console.log('\n🎉 Multi-tenant SaaS database seeding completed successfully!');
   console.log('\n📊 Summary:');

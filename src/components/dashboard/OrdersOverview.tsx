@@ -148,7 +148,9 @@ export function OrdersOverview() {
       }
       queryParams.append('limit', '20');
       
-      const response = await fetch(`/api/orders?${queryParams}`);
+      const response = await fetch(`/api/orders?${queryParams}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -164,7 +166,9 @@ export function OrdersOverview() {
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/orders/stats');
+      const response = await fetch('/api/orders/stats', {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (response.ok) {

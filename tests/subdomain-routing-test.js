@@ -277,7 +277,7 @@ class SubdomainRoutingTester {
       const apiResponse = await this.makeRequest(`${BASE_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${testToken}`,
-          'Cookie': `qr_auth_token=${testToken}`,
+          'Cookie': `qr_owner_token=${testToken}`,
           // Simulate middleware headers
           'x-tenant-id': testRestaurant.id,
           'x-tenant-slug': testRestaurant.slug,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 
 export async function GET(
@@ -120,7 +120,7 @@ async function getRevenueAnalytics(restaurantId: string, startDate: Date, endDat
     select: {
       createdAt: true,
       totalAmount: true,
-      subtotal: true,
+      subtotalAmount: true,
       taxAmount: true
     },
     orderBy: {
@@ -159,14 +159,14 @@ async function getRevenueAnalytics(restaurantId: string, startDate: Date, endDat
         period: key,
         revenue: 0,
         orders: 0,
-        subtotal: 0,
+        subtotalAmount: 0,
         tax: 0
       });
     }
 
     const data = groupedData.get(key);
     data.revenue += Number(order.totalAmount);
-    data.subtotal += Number(order.subtotal || 0);
+    data.subtotalAmount += Number(order.subtotalAmount || 0);
     data.tax += Number(order.taxAmount || 0);
     data.orders += 1;
   });
@@ -200,7 +200,7 @@ async function getCategoryRevenue(restaurantId: string, startDate: Date, endDate
       }
     },
     _sum: {
-      totalPrice: true,
+      totalAmount: true,
       quantity: true
     }
   });
@@ -237,7 +237,7 @@ async function getCategoryRevenue(restaurantId: string, startDate: Date, endDate
         items: 0
       };
 
-      existing.revenue += Number(item._sum.totalPrice || 0);
+      existing.revenue += Number(item._sum.totalAmount || 0);
       existing.quantity += item._sum.quantity || 0;
       existing.items += 1;
 
@@ -428,7 +428,7 @@ async function getTaxAnalytics(restaurantId: string, startDate: Date, endDate: D
       status: 'served'
     },
     _sum: {
-      subtotal: true,
+      subtotalAmount: true,
       taxAmount: true,
       totalAmount: true
     },
@@ -437,15 +437,15 @@ async function getTaxAnalytics(restaurantId: string, startDate: Date, endDate: D
     }
   });
 
-  const subtotal = Number(taxData._sum.subtotal || 0);
+  const subtotalAmount = Number(taxData._sum.subtotalAmount || 0);
   const taxAmount = Number(taxData._sum.taxAmount || 0);
   const totalAmount = Number(taxData._sum.totalAmount || 0);
   
   return {
-    totalSubtotal: subtotal,
+    totalSubtotal: subtotalAmount,
     totalTax: taxAmount,
     totalRevenue: totalAmount,
-    averageTaxRate: subtotal > 0 ? (taxAmount / subtotal) * 100 : 0,
+    averageTaxRate: subtotalAmount > 0 ? (taxAmount / subtotalAmount) * 100 : 0,
     taxableOrders: taxData._count.id
   };
 }

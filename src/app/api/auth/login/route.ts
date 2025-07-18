@@ -1,19 +1,76 @@
+/**
+ * RBAC-Enhanced Authentication Endpoint
+ * 
+ * This endpoint provides authentication using the new RBAC system,
+ * replacing the legacy multi-cookie authentication approach.
+ * 
+ * Implements Phase 5.2.1 of RBAC Implementation Plan
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService, AUTH_CONSTANTS, UserType } from '@/lib/auth';
-import { prisma } from '@/lib/database';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { LegacyTokenSupport } from '@/lib/rbac/legacy-token-support';
+import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { getSubdomainInfo, getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 import { resolveTenant } from '@/lib/tenant-resolver';
-import { canUserAccessRestaurantSubdomain } from '@/lib/subdomain-auth';
+import { SecurityUtils } from '@/lib/security';
+
+// Rate limiting configuration
+const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
+const RATE_LIMIT_MAX_ATTEMPTS = 5;
+const rateLimitMap = new Map<string, { attempts: number; resetTime: number }>();
 
 export async function POST(request: NextRequest) {
   try {
     const { email, password, restaurantSlug } = await request.json();
 
+    // Validate input
     if (!email || !password) {
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
       );
+    }
+
+    // Get client information for security
+    const clientIP = SecurityUtils.getClientIP(request);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    const auditContext = {
+      ipAddress: clientIP,
+      userAgent,
+      metadata: {
+        endpoint: 'login',
+        requestTime: new Date().toISOString()
+      }
+    };
+
+    // Rate limiting by IP
+    const now = Date.now();
+    const clientKey = `${clientIP}:${email}`;
+    const rateLimit = rateLimitMap.get(clientKey);
+    
+    if (rateLimit) {
+      if (now < rateLimit.resetTime) {
+        if (rateLimit.attempts >= RATE_LIMIT_MAX_ATTEMPTS) {
+          await AuditLogger.logSecurityEvent(
+            'anonymous',
+            'RATE_LIMIT_EXCEEDED',
+            'medium',
+            `Rate limit exceeded for ${email}`,
+            auditContext
+          );
+          
+          return NextResponse.json(
+            { error: 'Too many login attempts. Please try again later.' },
+            { status: 429 }
+          );
+        }
+      } else {
+        // Reset the rate limit window
+        rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      }
+    } else {
+      rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
     }
 
     // Check if this is a subdomain request
@@ -32,154 +89,61 @@ export async function POST(request: NextRequest) {
       tenantContext = tenantResult.tenant;
     }
 
-    // Authenticate user (platform admin, restaurant owner, or staff)
-    const user = await AuthService.authenticateUser(email, password);
+    // Authenticate using RBAC system
+    let authResult;
+    try {
+      authResult = await AuthServiceV2.authenticate(
+        email,
+        password,
+        currentSlug,
+        clientIP,
+        userAgent
+      );
+    } catch (error) {
+      // Increment rate limit attempts
+      const currentRateLimit = rateLimitMap.get(clientKey);
+      if (currentRateLimit) {
+        rateLimitMap.set(clientKey, {
+          attempts: currentRateLimit.attempts + 1,
+          resetTime: currentRateLimit.resetTime
+        });
+      }
 
-    if (!user) {
+      // Log authentication failure
+      await AuditLogger.logAuthenticationFailure(
+        email,
+        error instanceof Error ? error.message : 'Invalid credentials',
+        auditContext
+      );
+
       return NextResponse.json(
-        { error: 'Invalid credentials' },
+        { error: error instanceof Error ? error.message : 'Invalid credentials' },
         { status: 401 }
       );
     }
 
-    // Validate subdomain access if applicable
-    if (tenantContext) {
-      const accessCheck = canUserAccessRestaurantSubdomain(
-        user.type,
-        user.type === UserType.STAFF ? user.user.restaurantId : null,
-        tenantContext.id,
-        user.type === UserType.RESTAURANT_OWNER ? user.user.id : undefined
-      );
+    // Success - clear rate limit
+    rateLimitMap.delete(clientKey);
 
-      if (!accessCheck.canAccess) {
-        return NextResponse.json(
-          { error: accessCheck.reason || 'Access denied to this restaurant' },
-          { status: 403 }
-        );
-      }
+    const { token, user, session } = authResult;
 
-      // Additional validation for restaurant owners
-      if (user.type === UserType.RESTAURANT_OWNER) {
-        const ownsRestaurant = await prisma.restaurant.findFirst({
-          where: {
-            id: tenantContext.id,
-            ownerId: user.user.id
-          }
-        });
-
-        if (!ownsRestaurant) {
-          return NextResponse.json(
-            { error: 'You do not own this restaurant' },
-            { status: 403 }
-          );
-        }
-      }
-
-      // Additional validation for staff
-      if (user.type === UserType.STAFF && user.user.restaurantId !== tenantContext.id) {
-        return NextResponse.json(
-          { error: 'You are not assigned to this restaurant' },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Check for account lockout (if applicable)
-    if ('lockedUntil' in user.user && user.user.lockedUntil && user.user.lockedUntil > new Date()) {
-      const lockoutMinutes = Math.ceil(
-        (user.user.lockedUntil.getTime() - Date.now()) / (1000 * 60)
-      );
-      return NextResponse.json(
-        { error: `Account locked. Try again in ${lockoutMinutes} minutes.` },
-        { status: 423 }
-      );
-    }
-
-    // Reset failed login attempts if applicable
-    if ('failedLoginAttempts' in user.user) {
-      const updateData = {
-        failedLoginAttempts: 0,
-        lockedUntil: null,
-        lastLoginAt: new Date(),
-      };
-
-      switch (user.type) {
-        case UserType.PLATFORM_ADMIN:
-          await prisma.platformAdmin.update({
-            where: { id: user.user.id },
-            data: updateData,
-          });
-          break;
-        case UserType.RESTAURANT_OWNER:
-          await prisma.restaurantOwner.update({
-            where: { id: user.user.id },
-            data: updateData,
-          });
-          break;
-        case UserType.STAFF:
-          await prisma.staff.update({
-            where: { id: user.user.id },
-            data: updateData,
-          });
-          break;
-      }
-    }
-
-    // Generate JWT token
-    const token = AuthService.generateToken(user);
-
-    // Create session based on user type
-    const sessionToken = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-    const ipAddress = request.headers.get('x-forwarded-for') || 'unknown';
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-
-    switch (user.type) {
-      case UserType.PLATFORM_ADMIN:
-        await prisma.platformAdminSession.create({
-          data: {
-            adminId: user.user.id,
-            sessionToken,
-            ipAddress,
-            userAgent,
-            expiresAt,
-          },
-        });
-        break;
-      case UserType.RESTAURANT_OWNER:
-        await prisma.restaurantOwnerSession.create({
-          data: {
-            ownerId: user.user.id,
-            sessionToken,
-            ipAddress,
-            userAgent,
-            expiresAt,
-          },
-        });
-        break;
-      case UserType.STAFF:
-        await prisma.staffSession.create({
-          data: {
-            staffId: user.user.id,
-            sessionToken,
-            ipAddress,
-            userAgent,
-            expiresAt,
-          },
-        });
-        break;
-    }
-
-    // Create response based on user type
+    // Prepare response data according to RBAC plan specification
     const responseData: Record<string, unknown> = {
       message: 'Login successful',
-      userType: user.type,
       user: {
-        id: user.user.id,
-        email: user.user.email,
-        firstName: user.user.firstName,
-        lastName: user.user.lastName,
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        currentRole: user.currentRole,
+        availableRoles: user.availableRoles,
+        permissions: user.permissions,
+        mustChangePassword: user.mustChangePassword
       },
+      session: {
+        id: session.sessionId,
+        expiresAt: session.expiresAt
+      }
     };
 
     // Add tenant context if subdomain access
@@ -192,34 +156,83 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    switch (user.type) {
-      case UserType.PLATFORM_ADMIN:
-        responseData.user.role = 'platform_admin';
-        break;
-      case UserType.RESTAURANT_OWNER:
-        responseData.user.restaurants = user.user.restaurants;
-        responseData.user.companyName = user.user.companyName;
-        break;
-      case UserType.STAFF:
-        responseData.user.username = user.user.username;
-        responseData.user.restaurantId = user.user.restaurantId;
-        responseData.user.role = {
-          id: user.user.role.id,
-          name: user.user.role.name,
-          permissions: user.user.role.permissions,
-        };
-        break;
+    // Add restaurant context if available
+    if (user.restaurantContext) {
+      responseData.restaurant = user.restaurantContext;
     }
 
     const response = NextResponse.json(responseData);
 
-    // Set cookie using Set-Cookie header
-    const cookieValue = `${AUTH_CONSTANTS.COOKIE_NAME}=${token}; HttpOnly; Path=/; Max-Age=${24 * 60 * 60}; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`;
-    response.headers.set('Set-Cookie', cookieValue);
+    // Set single RBAC authentication cookie (as per RBAC plan)
+    response.cookies.set({
+      name: 'qr_rbac_token',
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 24 * 60 * 60, // 24 hours
+      path: '/',
+    });
+
+    // Clear any legacy authentication cookies (as per RBAC plan)
+    const legacyCookies = [
+      'qr_auth_token',
+      'qr_owner_token',
+      'qr_staff_token',
+      'qr_admin_token'
+    ];
+
+    legacyCookies.forEach(cookieName => {
+      if (request.cookies.get(cookieName)) {
+        response.cookies.set({
+          name: cookieName,
+          value: '',
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 0,
+          path: '/',
+        });
+      }
+    });
+
+    // Development logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔑 RBAC Login successful:', {
+        userId: user.id,
+        userType: user.userType,
+        email: user.email,
+        roleTemplate: user.currentRole.roleTemplate,
+        sessionId: session.sessionId,
+        permissions: user.permissions.length,
+        restaurantContext: user.restaurantContext?.name || 'None'
+      });
+    }
 
     return response;
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('RBAC Login error:', error);
+    
+    // Log security event for system errors
+    const clientIP = SecurityUtils.getClientIP(request);
+    const userAgent = request.headers.get('user-agent') || 'unknown';
+    
+    await AuditLogger.logSecurityEvent(
+      'system',
+      'AUTHENTICATION_ERROR',
+      'high',
+      `Authentication system error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      {
+        ipAddress: clientIP,
+        userAgent,
+        metadata: {
+          endpoint: 'login',
+          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString()
+        }
+      }
+    );
+
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

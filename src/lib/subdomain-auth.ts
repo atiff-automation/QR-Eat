@@ -193,8 +193,8 @@ export function getLoginRedirectUrl(
   if (authContext.isSubdomain) {
     // For subdomain access, always redirect to dashboard
     // The subdomain context will be maintained
-    if (userType === 'staff' && userRole === 'Kitchen') {
-      return '/dashboard/kitchen';
+    if (userType === 'staff' && userRole === 'kitchen_staff') {
+      return '/kitchen';
     }
     return '/dashboard';
   }
@@ -204,10 +204,12 @@ export function getLoginRedirectUrl(
     case 'platform_admin':
       return '/admin/dashboard';
     case 'restaurant_owner':
-      return '/owner/dashboard';
+      // Always redirect to /dashboard first for password change check
+      // DashboardLayout will handle the password change requirement
+      return '/dashboard';
     case 'staff':
-      if (userRole === 'Kitchen') {
-        return '/dashboard/kitchen';
+      if (userRole === 'kitchen_staff') {
+        return '/kitchen';
       }
       return '/dashboard';
     default:
@@ -378,7 +380,7 @@ export function handlePostLoginRedirect(
   redirectParam?: string
 ): string {
   const userType = loginResponse.userType;
-  const userRole = loginResponse.user?.role?.name;
+  const userRole = loginResponse.user?.currentRole?.roleTemplate;
 
   // Validate subdomain access if needed
   if (authContext.isSubdomain) {

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { 
   getClientSubdomainAuthContext, 
   getLoginFormConfig, 
@@ -21,6 +22,7 @@ function LoginForm() {
   const [authContext, setAuthContext] = useState(getClientSubdomainAuthContext());
   const [formConfig, setFormConfig] = useState(getLoginFormConfig(authContext));
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   useEffect(() => {
     // Update context when component mounts
@@ -50,22 +52,32 @@ function LoginForm() {
     try {
       const payload = createSubdomainLoginPayload(email, password, authContext);
       
-      const response = await fetch('/api/auth/login', {
+      const response = await fetch('/api/auth/rbac-login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
+        credentials: 'include', // This is crucial for cookies!
         body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (response.ok) {
+        console.log('🎯 Login response received:', data);
+        console.log('🍪 Cookies after login:', document.cookie);
+        
         // Handle redirect with subdomain awareness
         const finalRedirect = handlePostLoginRedirect(authContext, data, redirectTo);
         
-        // Force a hard refresh to ensure cookies are properly set
-        window.location.href = finalRedirect;
+        // Use Next.js router for better cookie handling
+        console.log('🔄 Redirecting to:', finalRedirect);
+        
+        // Add a small delay to ensure cookies are properly set before redirect
+        setTimeout(() => {
+          // Force a refresh to ensure middleware recognizes the new cookie
+          window.location.replace(finalRedirect);
+        }, 150);
       } else {
         const errorMessage = getSubdomainAuthErrorMessage(
           data.error || 'Login failed',
@@ -157,6 +169,15 @@ function LoginForm() {
             >
               {isLoading ? 'Signing in...' : 'Sign in'}
             </button>
+          </div>
+
+          <div className="text-center">
+            <Link 
+              href="/forgot-password" 
+              className="text-sm text-indigo-600 hover:text-indigo-500"
+            >
+              Forgot your password?
+            </Link>
           </div>
 
           {formConfig.showQuickLogin && (

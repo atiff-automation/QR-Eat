@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 
 export default function MenuReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -90,8 +89,7 @@ export default function MenuReportPage() {
   };
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Menu Performance Report</h1>
@@ -313,6 +311,5 @@ export default function MenuReportPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 }

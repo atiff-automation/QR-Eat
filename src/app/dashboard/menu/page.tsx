@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { AccessControl } from '@/components/dashboard/AccessControl';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { 
   Plus, 
@@ -91,7 +91,8 @@ export default function MenuPage() {
       // Add cache busting parameter to ensure fresh data
       const timestamp = new Date().getTime();
       const response = await fetch(`/api/admin/menu/categories?_t=${timestamp}`, {
-        cache: 'no-store' // Ensure no caching
+        cache: 'no-store', // Ensure no caching
+        credentials: 'include'
       });
       const data = await response.json();
 
@@ -125,7 +126,9 @@ export default function MenuPage() {
   const fetchAnalytics = async (period = 'week') => {
     setAnalyticsLoading(true);
     try {
-      const response = await fetch(`/api/admin/menu/analytics?period=${period}`);
+      const response = await fetch(`/api/admin/menu/analytics?period=${period}`, {
+        credentials: 'include'
+      });
       const data = await response.json();
 
       if (response.ok) {
@@ -152,6 +155,7 @@ export default function MenuPage() {
       const response = await fetch(`/api/admin/menu/items/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           isAvailable: !item.isAvailable 
         })
@@ -175,6 +179,7 @@ export default function MenuPage() {
       const response = await fetch(`/api/admin/menu/categories/${category.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ 
           isActive: !category.isActive 
         })
@@ -202,23 +207,21 @@ export default function MenuPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3, 4, 5, 6].map((i) => (
-                <div key={i} className="bg-gray-200 h-48 rounded-lg"></div>
-              ))}
-            </div>
+      <div className="p-6">
+        <div className="animate-pulse">
+          <div className="h-8 bg-gray-200 rounded w-64 mb-6"></div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="bg-gray-200 h-48 rounded-lg"></div>
+            ))}
           </div>
         </div>
-      </DashboardLayout>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout>
+    <AccessControl allowedRoles={['manager', 'admin']} requiredPermissions={['menu']}>
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
@@ -548,7 +551,7 @@ export default function MenuPage() {
                         </div>
                         <div className="text-right">
                           <div className="font-medium text-gray-900">{item._sum.quantity} sold</div>
-                          <div className="text-sm text-gray-700">{formatPrice(item._sum.totalPrice)}</div>
+                          <div className="text-sm text-gray-700">{formatPrice(item._sum.totalAmount)}</div>
                         </div>
                       </div>
                     ))}
@@ -691,7 +694,7 @@ export default function MenuPage() {
           />
         )}
       </div>
-    </DashboardLayout>
+    </AccessControl>
   );
 }
 
@@ -732,10 +735,26 @@ function AddModal({
 
     try {
       const endpoint = type === 'category' ? '/api/admin/menu/categories' : '/api/admin/menu/items';
+      
+      // Fix data types for menu items
+      let requestData = formData;
+      if (type === 'item') {
+        requestData = {
+          ...formData,
+          price: parseFloat(formData.price) || 0,
+          preparationTime: parseInt(formData.preparationTime) || 15,
+          calories: formData.calories ? parseInt(formData.calories) : null
+        };
+      }
+      
+      console.log('Sending request to:', endpoint);
+      console.log('Form data being sent:', requestData);
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        credentials: 'include',
+        body: JSON.stringify(requestData)
       });
 
       if (response.ok) {
@@ -745,7 +764,14 @@ function AddModal({
         onSuccess(categoryId);
       } else {
         const data = await response.json();
+        console.error('API Error Response:', data);
         setError(data.error || `Failed to create ${type}`);
+        if (data.details) {
+          console.error('Validation Details:', data.details);
+        }
+        if (data.receivedData) {
+          console.error('Data sent to API:', data.receivedData);
+        }
       }
     } catch (error) {
       console.error(`Failed to create ${type}:`, error);
@@ -1038,6 +1064,7 @@ function EditItemModal({
       const response = await fetch(`/api/admin/menu/items/${item.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           ...formData,
           price: parseFloat(formData.price),
@@ -1323,6 +1350,7 @@ function EditCategoryModal({
       const response = await fetch(`/api/admin/menu/categories/${category.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify(formData)
       });
 

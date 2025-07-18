@@ -1,21 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { prisma } from '@/lib/database';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const itemId = params.id;
+    const authResult = await AuthServiceV2.validateToken(token);
+    
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user has kitchen permissions
+    if (!authResult.user.permissions.includes('orders:kitchen')) {
+      return NextResponse.json(
+        { error: 'Kitchen access required' },
+        { status: 403 }
+      );
+    }
+
+    const { id: itemId } = await params;
     const { status } = await request.json();
 
     if (!status) {
@@ -53,7 +73,8 @@ export async function PATCH(
     });
 
     // Verify the item belongs to the same restaurant
-    if (orderItem.order.restaurantId !== authResult.staff.restaurantId) {
+    const userRestaurantId = authResult.user.currentRole?.restaurantId;
+    if (!userRestaurantId || orderItem.order.restaurantId !== userRestaurantId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }

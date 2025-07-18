@@ -2,10 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { MenuCategory } from '@/types/menu';
-import { useCart } from '@/hooks/useCart';
-import { MenuCard } from '@/components/menu/MenuCard';
-import { CartSummary } from '@/components/cart/CartSummary';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
@@ -21,41 +17,40 @@ interface Restaurant {
   taxRate: number;
   serviceChargeRate: number;
   businessType: string;
+  description?: string;
+  website?: string;
+  logoUrl?: string;
+  coverImageUrl?: string;
+  galleryImages: string[];
+  socialMedia: Record<string, string>;
+  operatingHours: Record<string, any>;
+  features: string[];
+  cuisineTypes: string[];
+  priceRange: string;
+  showOnDirectory: boolean;
+  acceptsReservations: boolean;
+  deliveryAvailable: boolean;
+  takeoutAvailable: boolean;
 }
 
-export default function RestaurantMenuPage() {
+export default function RestaurantProfilePage() {
   const params = useParams();
   const slug = params.slug as string;
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [menu, setMenu] = useState<MenuCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [activeCategory, setActiveCategory] = useState<string>('');
-  const [showCart, setShowCart] = useState(false);
-
-  const {
-    cart,
-    addToCart,
-    updateCartItem,
-    removeFromCart,
-    getItemCount,
-  } = useCart(
-    restaurant?.taxRate || 0.085,
-    restaurant?.serviceChargeRate || 0.12
-  );
 
   useEffect(() => {
     if (slug) {
-      fetchRestaurantAndMenu();
+      fetchRestaurant();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  const fetchRestaurantAndMenu = async () => {
+  const fetchRestaurant = async () => {
     try {
       // Fetch restaurant information by slug
-      const restaurantResponse = await fetch(`/api/restaurants/${slug}/public`);
+      const restaurantResponse = await fetch(`/api/restaurants/by-slug/${slug}/public`);
       const restaurantData = await restaurantResponse.json();
 
       if (!restaurantResponse.ok) {
@@ -64,22 +59,6 @@ export default function RestaurantMenuPage() {
       }
 
       setRestaurant(restaurantData.restaurant);
-
-      // Fetch menu
-      const menuResponse = await fetch(`/api/menu/${restaurantData.restaurant.id}`);
-      const menuData = await menuResponse.json();
-
-      if (!menuResponse.ok) {
-        setError(menuData.error || 'Failed to load menu');
-        return;
-      }
-
-      setMenu(menuData.menu);
-
-      // Set first category as active
-      if (menuData.menu.length > 0) {
-        setActiveCategory(menuData.menu[0].id);
-      }
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -92,7 +71,7 @@ export default function RestaurantMenuPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-800">Loading menu...</p>
+          <p className="text-gray-800">Loading restaurant...</p>
         </div>
       </div>
     );
@@ -121,160 +100,176 @@ export default function RestaurantMenuPage() {
     );
   }
 
-  if (!restaurant || menu.length === 0) {
+  if (!restaurant) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <p className="text-gray-800">No menu available</p>
+          <p className="text-gray-800">Restaurant not found</p>
         </div>
       </div>
     );
   }
 
-  const activeMenuCategory = menu.find((cat) => cat.id === activeCategory);
-
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
-                {restaurant.name}
-              </h1>
-              {restaurant.address && (
-                <p className="text-sm text-gray-600">
-                  {restaurant.address}
-                </p>
-              )}
+      {/* Hero Section */}
+      <section className="relative bg-white">
+        {restaurant.coverImageUrl && (
+          <div className="absolute inset-0">
+            <img
+              src={restaurant.coverImageUrl}
+              alt={restaurant.name}
+              className="w-full h-full object-cover opacity-10"
+            />
+          </div>
+        )}
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+          <div className="text-center">
+            {restaurant.logoUrl && (
+              <img
+                src={restaurant.logoUrl}
+                alt={`${restaurant.name} logo`}
+                className="h-20 w-auto mx-auto mb-6"
+              />
+            )}
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">
+              {restaurant.name}
+            </h1>
+            {restaurant.description && (
+              <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-6">
+                {restaurant.description}
+              </p>
+            )}
+            <div className="flex flex-wrap justify-center gap-4 mb-8">
+              {restaurant.cuisineTypes.map((cuisine) => (
+                <span
+                  key={cuisine}
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                >
+                  {cuisine}
+                </span>
+              ))}
+              <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                {restaurant.priceRange}
+              </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <Link href="/login" className="hidden sm:block">
-                <Button variant="outline" size="sm">
+            <div className="flex justify-center space-x-4">
+              <Link href="/login">
+                <Button variant="outline">
                   Staff Login
                 </Button>
               </Link>
-              <Button
-                onClick={() => setShowCart(!showCart)}
-                variant="outline"
-                className="relative"
-              >
-                Cart ({getItemCount()})
-                {getItemCount() > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                    {getItemCount()}
-                  </span>
-                )}
-              </Button>
+              {restaurant.website && (
+                <a href={restaurant.website} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline">
+                    Visit Website
+                  </Button>
+                </a>
+              )}
             </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Menu Categories Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
-              <h2 className="font-semibold text-gray-900 mb-3">Categories</h2>
-              <nav className="space-y-1">
-                {menu.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => {
-                      setActiveCategory(category.id);
-                      setShowCart(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeCategory === category.id
-                        ? 'bg-blue-100 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    {category.name}
-                    <span className="text-xs text-gray-600 block">
-                      {category.menuItems.length} items
-                    </span>
-                  </button>
-                ))}
-              </nav>
-            </div>
+      {/* QR Code Notice */}
+      <section className="bg-blue-600 text-white py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-2xl font-bold mb-4">Ready to Order?</h2>
+          <p className="text-lg mb-4">
+            Scan the QR code at your table to view our menu and place your order!
+          </p>
+          <div className="text-sm opacity-90">
+            Digital ordering • No app required • Quick & easy
           </div>
+        </div>
+      </section>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {showCart ? (
-              <CartSummary
-                cart={cart}
-                onUpdateItem={updateCartItem}
-                onRemoveItem={removeFromCart}
-                onCheckout={() => {
-                  // For now, just show a message about needing to scan QR code for full ordering
-                  alert('To place an order, please scan the QR code at your table.');
-                }}
-              />
-            ) : (
-              <div>
-                {activeMenuCategory && (
-                  <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      {activeMenuCategory.name}
-                    </h2>
-                    {activeMenuCategory.description && (
-                      <p className="text-gray-700">
-                        {activeMenuCategory.description}
-                      </p>
-                    )}
+      {/* Restaurant Info */}
+      <section className="py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            {/* Contact Info */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Contact & Location</h3>
+              <div className="space-y-3">
+                {restaurant.address && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Address</p>
+                    <p className="text-gray-600">{restaurant.address}</p>
                   </div>
                 )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {activeMenuCategory?.menuItems.map((item) => (
-                    <MenuCard
-                      key={item.id}
-                      item={item}
-                      onAddToCart={addToCart}
-                    />
-                  ))}
-                </div>
-
-                {activeMenuCategory?.menuItems.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="text-gray-700">
-                      No items available in this category
-                    </p>
+                {restaurant.phone && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Phone</p>
+                    <a href={`tel:${restaurant.phone}`} className="text-blue-600 hover:underline">
+                      {restaurant.phone}
+                    </a>
+                  </div>
+                )}
+                {restaurant.email && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Email</p>
+                    <a href={`mailto:${restaurant.email}`} className="text-blue-600 hover:underline">
+                      {restaurant.email}
+                    </a>
                   </div>
                 )}
               </div>
-            )}
+            </div>
+
+            {/* Features */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Features & Amenities</h3>
+              <div className="grid grid-cols-1 gap-2">
+                {restaurant.features.map((feature) => (
+                  <div key={feature} className="flex items-center text-sm text-gray-600">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    {feature.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                  </div>
+                ))}
+                {restaurant.deliveryAvailable && (
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    Delivery Available
+                  </div>
+                )}
+                {restaurant.takeoutAvailable && (
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    Takeout Available
+                  </div>
+                )}
+                {restaurant.acceptsReservations && (
+                  <div className="flex items-center text-sm text-gray-600">
+                    <span className="w-2 h-2 bg-green-500 rounded-full mr-3"></span>
+                    Accepts Reservations
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Social Media */}
+            <div className="bg-white rounded-lg shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Follow Us</h3>
+              <div className="space-y-3">
+                {Object.entries(restaurant.socialMedia).map(([platform, url]) => (
+                  url && (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center text-blue-600 hover:underline"
+                    >
+                      {platform.charAt(0).toUpperCase() + platform.slice(1)}
+                    </a>
+                  )
+                ))}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-
-      {/* Mobile Cart Button */}
-      {getItemCount() > 0 && !showCart && (
-        <div className="fixed bottom-4 right-4 lg:hidden">
-          <Button
-            onClick={() => setShowCart(true)}
-            size="lg"
-            className="rounded-full shadow-lg"
-          >
-            View Cart ({getItemCount()})
-          </Button>
-        </div>
-      )}
-
-      {/* Notice Banner */}
-      {getItemCount() > 0 && (
-        <div className="fixed bottom-20 left-4 right-4 lg:left-auto lg:right-4 lg:w-80">
-          <div className="bg-blue-600 text-white p-4 rounded-lg shadow-lg">
-            <p className="text-sm">
-              💡 <strong>Note:</strong> To place orders, scan the QR code at your table for the full experience!
-            </p>
-          </div>
-        </div>
-      )}
+      </section>
     </div>
   );
 }

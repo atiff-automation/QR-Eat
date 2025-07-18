@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService } from '@/lib/auth';
+import { AuthService, AUTH_CONSTANTS } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,8 +10,20 @@ export async function GET(request: NextRequest) {
     const headers = Object.fromEntries(request.headers.entries());
     console.log('Request headers starting with x-:', Object.keys(headers).filter(h => h.startsWith('x-')));
 
-    // Check for token directly
-    const token = request.cookies.get('qr_auth_token')?.value ||
+    // Check for token directly - try all user-type specific cookies
+    const ownerToken = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value;
+    const staffToken = request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value;
+    const adminToken = request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value;
+    const legacyToken = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
+    
+    console.log('🔍 Cookie Debug:', {
+      ownerToken: ownerToken ? `${ownerToken.substring(0, 20)}...` : 'NONE',
+      staffToken: staffToken ? `${staffToken.substring(0, 20)}...` : 'NONE',
+      adminToken: adminToken ? `${adminToken.substring(0, 20)}...` : 'NONE',
+      legacyToken: legacyToken ? `${legacyToken.substring(0, 20)}...` : 'NONE'
+    });
+    
+    const token = ownerToken || staffToken || adminToken || legacyToken ||
                   AuthService.extractTokenFromHeader(request.headers.get('authorization'));
     
     console.log('Token found:', !!token);

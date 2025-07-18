@@ -18,6 +18,11 @@ const nextConfig = {
     domains: ['localhost'],
     unoptimized: true,
   },
+  // Experimental features to support Node.js runtime in middleware
+  experimental: {
+    middlewareSourceMaps: true,
+    serverComponentsExternalPackages: ['jsonwebtoken'],
+  },
   // Webpack configuration
   webpack: (config, { isServer }) => {
     // Fixes for Node.js modules in browser

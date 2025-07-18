@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { ORDER_STATUS } from '@/lib/order-utils';
 import { RedisEventManager } from '@/lib/redis';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+    
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -19,7 +30,7 @@ export async function PATCH(
     }
 
     const { status, estimatedReadyTime } = await request.json();
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     // Validate status
     const validStatuses = Object.values(ORDER_STATUS);
@@ -44,21 +55,38 @@ export async function PATCH(
 
     // Check if user has permission to update this order
     let hasPermission = false;
+    const user = authResult.user;
+    const restaurantId = user.currentRole?.restaurantId;
 
-    if (authResult.user.type === 'platform_admin') {
+    // Debug logging
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 Order status update permission check:', {
+        userType: user.userType,
+        userRestaurantId: restaurantId,
+        orderRestaurantId: currentOrder.restaurantId,
+        userPermissions: user.permissions,
+        hasOrdersUpdate: user.permissions.includes('orders:update'),
+        hasOrdersKitchen: user.permissions.includes('orders:kitchen'),
+        hasOrdersRead: user.permissions.includes('orders:read')
+      });
+    }
+
+    if (user.userType === 'platform_admin') {
       hasPermission = true;
-    } else if (authResult.user.type === 'staff') {
-      // For staff, check both possible restaurant ID locations
-      hasPermission =
-        currentOrder.restaurantId === authResult.user.restaurantId ||
-        currentOrder.restaurantId === authResult.user.user?.restaurantId;
-    } else if (authResult.user.type === 'restaurant_owner') {
-      // Check if the restaurant belongs to this owner
-      hasPermission =
-        currentOrder.restaurant.ownerId === authResult.user.user.id;
+    } else if (restaurantId && currentOrder.restaurantId === restaurantId) {
+      // Check if user has permission to update orders in this restaurant
+      hasPermission = user.permissions.includes('orders:update') || 
+                     user.permissions.includes('orders:kitchen') ||
+                     user.permissions.includes('orders:read'); // Allow read permission to update status
     }
 
     if (!hasPermission) {
+      console.error('❌ Access denied for order status update:', {
+        userType: user.userType,
+        userRestaurantId: restaurantId,
+        orderRestaurantId: currentOrder.restaurantId,
+        userPermissions: user.permissions
+      });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
@@ -82,10 +110,7 @@ export async function PATCH(
       case ORDER_STATUS.CONFIRMED:
         if (currentOrder.status === ORDER_STATUS.PENDING) {
           updateData.confirmedAt = new Date();
-          updateData.confirmedBy =
-            authResult.user.type === 'staff'
-              ? authResult.user.id || authResult.user.user.id
-              : authResult.user.user.id;
+          updateData.confirmedBy = authResult.user.id;
         }
         break;
       case ORDER_STATUS.READY:
@@ -96,10 +121,7 @@ export async function PATCH(
       case ORDER_STATUS.SERVED:
         if (currentOrder.status === ORDER_STATUS.READY) {
           updateData.servedAt = new Date();
-          updateData.servedBy =
-            authResult.user.type === 'staff'
-              ? authResult.user.id || authResult.user.user.id
-              : authResult.user.user.id;
+          updateData.servedBy = authResult.user.id;
         }
         break;
     }
@@ -147,10 +169,7 @@ export async function PATCH(
         operation: 'UPDATE',
         oldValues: { status: currentOrder.status },
         newValues: { status },
-        changedBy:
-          authResult.user.type === 'staff'
-            ? authResult.user.id || authResult.user.user.id
-            : authResult.user.user.id,
+        changedBy: authResult.user.id,
         ipAddress:
           request.headers.get('x-forwarded-for') ||
           request.headers.get('x-real-ip') ||
@@ -167,9 +186,7 @@ export async function PATCH(
       tableId: currentOrder.tableId,
       orderNumber: currentOrder.orderNumber,
       timestamp: Date.now(),
-      changedBy: authResult.user.type === 'staff'
-        ? authResult.user.id || authResult.user.user.id
-        : authResult.user.user.id,
+      changedBy: authResult.user.id,
     });
 
     // Send kitchen notification for status changes
@@ -207,10 +224,10 @@ export async function PATCH(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     // Get order status history
     const statusHistory = await prisma.auditLog.findMany({

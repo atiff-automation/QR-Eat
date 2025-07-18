@@ -1,13 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyAuthToken } from '@/lib/auth';
+import { prisma } from '@/lib/database';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { generateQRCodeImage } from '@/lib/qr-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value || 
+                  request.cookies.get('qr_auth_token')?.value;
+    
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+    
+    if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -27,7 +38,7 @@ export async function POST(request: NextRequest) {
     const tables = await prisma.table.findMany({
       where: {
         id: { in: tableIds },
-        restaurantId: authResult.staff.restaurantId
+        restaurantId: authResult.user.currentRole.restaurantId
       },
       include: {
         restaurant: true

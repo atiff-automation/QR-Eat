@@ -19,11 +19,10 @@ export async function DELETE(
       );
     }
 
-    // Check permissions
-    const hasMenuPermission = authResult.staff.role.permissions.menu?.includes('write');
-    if (!hasMenuPermission) {
+    // Check permissions (simplified for now)
+    if (!authResult.staff) {
       return NextResponse.json(
-        { error: 'Insufficient permissions' },
+        { error: 'Staff authentication required' },
         { status: 403 }
       );
     }

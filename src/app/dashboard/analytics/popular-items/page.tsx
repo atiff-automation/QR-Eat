@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
 import { 
   AlertTriangle, 
   BarChart3, 
@@ -50,8 +49,7 @@ export default function PopularItemsPage() {
 
   if (loading) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
+      <div className="p-6">
           <div className="animate-pulse space-y-4">
             <div className="h-8 bg-gray-200 rounded w-64"></div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -61,14 +59,12 @@ export default function PopularItemsPage() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
   if (error) {
     return (
-      <DashboardLayout>
-        <div className="p-6">
+      <div className="p-6">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="flex">
               <div className="flex-shrink-0">
@@ -87,13 +83,11 @@ export default function PopularItemsPage() {
             </div>
           </div>
         </div>
-      </DashboardLayout>
     );
   }
 
   return (
-    <DashboardLayout>
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -244,6 +238,5 @@ export default function PopularItemsPage() {
           </div>
         )}
       </div>
-    </DashboardLayout>
   );
 }

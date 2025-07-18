@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { verifyAuthToken } from '@/lib/auth';
 import { withQueryPerformance } from '@/lib/performance';
 
@@ -176,7 +176,7 @@ async function generateSalesReport(restaurantId: string, startDate: Date, endDat
       },
       _sum: {
         totalAmount: true,
-        subtotal: true,
+        subtotalAmount: true,
         taxAmount: true
       },
       _count: {
@@ -237,7 +237,7 @@ async function generateMenuReport(restaurantId: string, startDate: Date, endDate
   const menuPerformance = menuItems.map(item => {
     const orderItems = item.orderItems;
     const totalQuantity = orderItems.reduce((sum, oi) => sum + oi.quantity, 0);
-    const totalRevenue = orderItems.reduce((sum, oi) => sum + Number(oi.totalPrice), 0);
+    const totalRevenue = orderItems.reduce((sum, oi) => sum + Number(oi.totalAmount), 0);
 
     return {
       id: item.id,
@@ -293,7 +293,7 @@ async function generateFinancialReport(restaurantId: string, startDate: Date, en
     },
     _sum: {
       totalAmount: true,
-      subtotal: true,
+      subtotalAmount: true,
       taxAmount: true
     }
   });
@@ -344,7 +344,7 @@ async function generateFinancialReport(restaurantId: string, startDate: Date, en
   return {
     revenue: {
       gross: Number(revenueData._sum.totalAmount || 0),
-      net: Number(revenueData._sum.subtotal || 0),
+      net: Number(revenueData._sum.subtotalAmount || 0),
       tax: Number(revenueData._sum.taxAmount || 0)
     },
     paymentMethods: paymentMethods.map(pm => ({
@@ -499,7 +499,7 @@ async function getCategorySales(restaurantId: string, startDate: Date, endDate: 
       }
     },
     _sum: {
-      totalPrice: true,
+      totalAmount: true,
       quantity: true
     }
   });
@@ -526,7 +526,7 @@ async function getCategorySales(restaurantId: string, startDate: Date, endDate: 
         revenue: 0,
         quantity: 0
       };
-      existing.revenue += Number(item._sum.totalPrice || 0);
+      existing.revenue += Number(item._sum.totalAmount || 0);
       existing.quantity += item._sum.quantity || 0;
       categoryMap.set(categoryId, existing);
     }
@@ -550,7 +550,7 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
     },
     _sum: {
       quantity: true,
-      totalPrice: true
+      totalAmount: true
     },
     orderBy: {
       _sum: {
@@ -573,7 +573,7 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
     return {
       name: menuItem?.name || 'Unknown',
       quantitySold: item._sum.quantity || 0,
-      revenue: Number(item._sum.totalPrice || 0)
+      revenue: Number(item._sum.totalAmount || 0)
     };
   });
 }
@@ -784,7 +784,7 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
   }
 }
 
-function generateHTMLReport(data: Record<string, unknown>, reportType: string, dateRange: { start: Date, end: Date }): string {
+function generateHTMLReport(data: any, reportType: string, dateRange: { start: Date, end: Date }): string {
   const title = reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report';
   const dateStr = `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`;
   

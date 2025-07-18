@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuthToken } from '@/lib/auth';
+import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 import { redisPubSub, REDIS_EVENTS } from '@/lib/redis';
 
 // Track active connections
@@ -17,19 +17,24 @@ const activeConnections = new Map<string, {
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    // Debug: Log headers received
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔍 /api/events/orders: Headers received:', {
+        'x-user-id': request.headers.get('x-user-id'),
+        'x-user-type': request.headers.get('x-user-type'),
+        'x-user-permissions': request.headers.get('x-user-permissions'),
+        allHeaders: Object.fromEntries(request.headers.entries())
+      });
     }
 
-    // Get user info
-    const userType = authResult.user.type;
-    const userId = authResult.user.id || authResult.user.user?.id;
-    const restaurantId = authResult.user.restaurantId || authResult.user.user?.restaurantId;
+    // Get tenant context from middleware headers
+    const context = getTenantContext(request);
+    requireAuth(context);
+
+    // Get user info from context
+    const userType = context!.userType;
+    const userId = context!.userId;
+    const restaurantId = context!.restaurantId;
 
     if (!userId) {
       return NextResponse.json(
