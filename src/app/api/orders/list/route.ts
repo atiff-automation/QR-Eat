@@ -1,78 +1,78 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database';
+import { withTenantContext } from '@/lib/database';
+import { getTenantContext } from '@/lib/get-tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
+    // Get tenant context from middleware headers (secure, not user-controllable)
+    const context = getTenantContext(request);
+
     const { searchParams } = new URL(request.url);
-    const restaurantId = searchParams.get('restaurantId');
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    if (!restaurantId) {
-      return NextResponse.json(
-        { error: 'Restaurant ID is required' },
-        { status: 400 }
-      );
-    }
+    // Execute query with RLS enforcement
+    const result = await withTenantContext(context, async (tx) => {
+      const whereClause: Record<string, string> = {};
 
-    const whereClause: Record<string, string> = {
-      restaurantId,
-    };
+      if (status) {
+        whereClause.status = status;
+      }
 
-    if (status) {
-      whereClause.status = status;
-    }
-
-    const orders = await prisma.order.findMany({
-      where: whereClause,
-      include: {
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                description: true,
-                preparationTime: true,
-              },
+      // RLS automatically filters by restaurantId - no need to add it to WHERE
+      const orders = await tx.order.findMany({
+        where: whereClause,
+        include: {
+          table: {
+            select: {
+              tableNumber: true,
+              tableName: true,
             },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    name: true,
-                    variationType: true,
+          },
+          items: {
+            include: {
+              menuItem: {
+                select: {
+                  name: true,
+                  description: true,
+                  preparationTime: true,
+                },
+              },
+              variations: {
+                include: {
+                  variation: {
+                    select: {
+                      name: true,
+                      variationType: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      take: limit,
-      skip: offset,
-    });
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+        skip: offset,
+      });
 
-    const totalCount = await prisma.order.count({
-      where: whereClause,
+      const totalCount = await tx.order.count({
+        where: whereClause,
+      });
+
+      return { orders, totalCount };
     });
 
     return NextResponse.json({
-      orders,
+      orders: result.orders,
       pagination: {
-        total: totalCount,
+        total: result.totalCount,
         limit,
         offset,
-        hasMore: offset + limit < totalCount,
+        hasMore: offset + limit < result.totalCount,
       },
     });
   } catch (error) {

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  createRestaurantFilter 
-} from '@/lib/tenant-context';
+import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,9 +12,14 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(url.searchParams.get('limit') || '20');
     const offset = parseInt(url.searchParams.get('offset') || '0');
 
-    let where: any = {
+    const where: {
+      userId: string;
+      userType: string;
+      isRead?: boolean;
+      restaurantId?: string;
+    } = {
       userId: context!.userId,
-      userType: context!.userType
+      userType: context!.userType,
     };
 
     if (unreadOnly) {
@@ -33,17 +34,17 @@ export async function GET(request: NextRequest) {
     const notifications = await prisma.notification.findMany({
       where,
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
       take: limit,
-      skip: offset
+      skip: offset,
     });
 
     const unreadCount = await prisma.notification.count({
       where: {
         ...where,
-        isRead: false
-      }
+        isRead: false,
+      },
     });
 
     return NextResponse.json({
@@ -53,14 +54,16 @@ export async function GET(request: NextRequest) {
       pagination: {
         limit,
         offset,
-        hasMore: notifications.length === limit
-      }
+        hasMore: notifications.length === limit,
+      },
     });
-
   } catch (error) {
     console.error('Failed to fetch notifications:', error);
-    
-    if (error instanceof Error && error.message.includes('Authentication required')) {
+
+    if (
+      error instanceof Error &&
+      error.message.includes('Authentication required')
+    ) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -80,14 +83,19 @@ export async function POST(request: NextRequest) {
     requireAuth(context);
 
     const data = await request.json();
-    const { title, message, type, targetUserId, targetUserType, restaurantId, metadata } = data;
+    const {
+      title,
+      message,
+      type,
+      targetUserId,
+      targetUserType,
+      restaurantId,
+      metadata,
+    } = data;
 
     // Only admins and system can create notifications for other users
     if (targetUserId && targetUserId !== context!.userId && !context!.isAdmin) {
-      return NextResponse.json(
-        { error: 'Permission denied' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Permission denied' }, { status: 403 });
     }
 
     const notification = await prisma.notification.create({
@@ -99,16 +107,15 @@ export async function POST(request: NextRequest) {
         userType: targetUserType || context!.userType,
         restaurantId,
         metadata: metadata || {},
-        isRead: false
-      }
+        isRead: false,
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: 'Notification created successfully',
-      notification
+      notification,
     });
-
   } catch (error) {
     console.error('Failed to create notification:', error);
     return NextResponse.json(
@@ -133,8 +140,11 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    let updateData: any = {};
-    
+    const updateData: {
+      isRead?: boolean;
+      readAt?: Date | null;
+    } = {};
+
     switch (action) {
       case 'mark_read':
         updateData.isRead = true;
@@ -145,26 +155,22 @@ export async function PATCH(request: NextRequest) {
         updateData.readAt = null;
         break;
       default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     const updatedNotifications = await prisma.notification.updateMany({
       where: {
         id: { in: notificationIds },
-        userId: context!.userId // Ensure user can only update their own notifications
+        userId: context!.userId, // Ensure user can only update their own notifications
       },
-      data: updateData
+      data: updateData,
     });
 
     return NextResponse.json({
       success: true,
       message: `${updatedNotifications.count} notifications updated`,
-      count: updatedNotifications.count
+      count: updatedNotifications.count,
     });
-
   } catch (error) {
     console.error('Failed to update notifications:', error);
     return NextResponse.json(

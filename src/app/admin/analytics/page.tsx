@@ -1,14 +1,14 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { 
-  BarChart3, 
-  TrendingUp, 
-  DollarSign, 
+import {
+  BarChart3,
+  TrendingUp,
+  DollarSign,
   Users,
   Building2,
   ShoppingCart,
-  Download
+  Download,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -66,7 +66,9 @@ export default function AdminAnalyticsPage() {
 
   const exportData = async () => {
     try {
-      const response = await fetch(`/api/admin/analytics/export?range=${dateRange}`);
+      const response = await fetch(
+        `/api/admin/analytics/export?range=${dateRange}`
+      );
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -78,7 +80,7 @@ export default function AdminAnalyticsPage() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }
-    } catch (error) {
+    } catch {
       alert('Failed to export data');
     }
   };
@@ -112,8 +114,12 @@ export default function AdminAnalyticsPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Platform Analytics</h1>
-              <p className="text-sm text-gray-500">Performance metrics across all restaurants</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Platform Analytics
+              </h1>
+              <p className="text-sm text-gray-500">
+                Performance metrics across all restaurants
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <select
@@ -134,7 +140,9 @@ export default function AdminAnalyticsPage() {
                 Export
               </button>
               <Link href="/admin/dashboard">
-                <button className="text-gray-600 hover:text-gray-900">← Back to Dashboard</button>
+                <button className="text-gray-600 hover:text-gray-900">
+                  ← Back to Dashboard
+                </button>
               </Link>
             </div>
           </div>
@@ -152,12 +160,17 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">Total Revenue</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Total Revenue
+                </p>
                 <p className="text-2xl font-semibold text-gray-900">
                   ${analytics.overview.totalRevenue.toLocaleString()}
                 </p>
-                <p className={`text-sm ${analytics.overview.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {analytics.overview.revenueGrowth >= 0 ? '+' : ''}{analytics.overview.revenueGrowth.toFixed(1)}% vs last period
+                <p
+                  className={`text-sm ${analytics.overview.revenueGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {analytics.overview.revenueGrowth >= 0 ? '+' : ''}
+                  {analytics.overview.revenueGrowth.toFixed(1)}% vs last period
                 </p>
               </div>
             </div>
@@ -171,12 +184,17 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">Total Orders</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Total Orders
+                </p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {analytics.overview.totalOrders.toLocaleString()}
                 </p>
-                <p className={`text-sm ${analytics.overview.ordersGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {analytics.overview.ordersGrowth >= 0 ? '+' : ''}{analytics.overview.ordersGrowth.toFixed(1)}% vs last period
+                <p
+                  className={`text-sm ${analytics.overview.ordersGrowth >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                >
+                  {analytics.overview.ordersGrowth >= 0 ? '+' : ''}
+                  {analytics.overview.ordersGrowth.toFixed(1)}% vs last period
                 </p>
               </div>
             </div>
@@ -190,12 +208,15 @@ export default function AdminAnalyticsPage() {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">Active Restaurants</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Active Restaurants
+                </p>
                 <p className="text-2xl font-semibold text-gray-900">
                   {analytics.overview.totalRestaurants}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {analytics.platformMetrics.activeRestaurantsRate.toFixed(1)}% active rate
+                  {analytics.platformMetrics.activeRestaurantsRate.toFixed(1)}%
+                  active rate
                 </p>
               </div>
             </div>
@@ -214,7 +235,8 @@ export default function AdminAnalyticsPage() {
                   {analytics.overview.totalUsers.toLocaleString()}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {analytics.platformMetrics.userRetentionRate.toFixed(1)}% retention rate
+                  {analytics.platformMetrics.userRetentionRate.toFixed(1)}%
+                  retention rate
                 </p>
               </div>
             </div>
@@ -228,15 +250,18 @@ export default function AdminAnalyticsPage() {
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-4 w-4 text-green-600" />
               <span className="text-sm font-medium text-green-600">
-                Average Order Value: ${analytics.platformMetrics.averageOrderValue.toFixed(2)}
+                Average Order Value: $
+                {analytics.platformMetrics.averageOrderValue.toFixed(2)}
               </span>
             </div>
           </div>
           <div className="h-64 flex items-end justify-between space-x-2">
             {analytics.revenueByMonth.map((month, index) => {
-              const maxRevenue = Math.max(...analytics.revenueByMonth.map(m => m.revenue));
+              const maxRevenue = Math.max(
+                ...analytics.revenueByMonth.map((m) => m.revenue)
+              );
               const height = (month.revenue / maxRevenue) * 100;
-              
+
               return (
                 <div key={index} className="flex flex-col items-center flex-1">
                   <div className="w-full flex items-end justify-center mb-2">
@@ -257,7 +282,9 @@ export default function AdminAnalyticsPage() {
 
         {/* Top Restaurants */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-medium text-gray-900 mb-6">Top Performing Restaurants</h2>
+          <h2 className="text-lg font-medium text-gray-900 mb-6">
+            Top Performing Restaurants
+          </h2>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -304,12 +331,15 @@ export default function AdminAnalyticsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        restaurant.growth >= 0
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {restaurant.growth >= 0 ? '+' : ''}{restaurant.growth.toFixed(1)}%
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          restaurant.growth >= 0
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {restaurant.growth >= 0 ? '+' : ''}
+                        {restaurant.growth.toFixed(1)}%
                       </span>
                     </td>
                   </tr>

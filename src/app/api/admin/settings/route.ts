@@ -49,35 +49,34 @@ export async function GET(request: NextRequest) {
     }
 
     // Try to fetch settings from database
-    let settings = DEFAULT_SETTINGS;
-    
+    const settings = DEFAULT_SETTINGS;
+
     try {
       // For now, we'll use a simple approach with a single settings record
       // In a real implementation, you might want a dedicated settings table
-      const settingsRecord = await prisma.platformAdmin.findFirst({
+      await prisma.platformAdmin.findFirst({
         where: {
-          id: authResult.user.id
-        }
+          id: authResult.user.id,
+        },
       });
 
       // If we have stored settings in a JSON field or separate table, we would fetch them here
       // For now, we'll return the default settings
-      
-    } catch (error) {
+    } catch {
       console.log('Using default settings as database settings not found');
     }
 
     return NextResponse.json({
       success: true,
-      settings
+      settings,
     });
-
   } catch (error) {
     console.error('Failed to fetch settings:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch settings',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );
@@ -105,7 +104,12 @@ export async function PUT(request: NextRequest) {
     const settingsData = await request.json();
 
     // Validate the settings structure
-    const requiredSections = ['general', 'security', 'features', 'notifications'];
+    const requiredSections = [
+      'general',
+      'security',
+      'features',
+      'notifications',
+    ];
     for (const section of requiredSections) {
       if (!settingsData[section]) {
         return NextResponse.json(
@@ -116,28 +120,42 @@ export async function PUT(request: NextRequest) {
     }
 
     // Validate specific fields
-    if (settingsData.security.passwordMinLength < 6 || settingsData.security.passwordMinLength > 128) {
+    if (
+      settingsData.security.passwordMinLength < 6 ||
+      settingsData.security.passwordMinLength > 128
+    ) {
       return NextResponse.json(
-        { error: 'Password minimum length must be between 6 and 128 characters' },
+        {
+          error: 'Password minimum length must be between 6 and 128 characters',
+        },
         { status: 400 }
       );
     }
 
-    if (settingsData.security.sessionTimeout < 5 || settingsData.security.sessionTimeout > 1440) {
+    if (
+      settingsData.security.sessionTimeout < 5 ||
+      settingsData.security.sessionTimeout > 1440
+    ) {
       return NextResponse.json(
         { error: 'Session timeout must be between 5 and 1440 minutes' },
         { status: 400 }
       );
     }
 
-    if (settingsData.security.maxLoginAttempts < 3 || settingsData.security.maxLoginAttempts > 10) {
+    if (
+      settingsData.security.maxLoginAttempts < 3 ||
+      settingsData.security.maxLoginAttempts > 10
+    ) {
       return NextResponse.json(
         { error: 'Max login attempts must be between 3 and 10' },
         { status: 400 }
       );
     }
 
-    if (settingsData.general.maxRestaurantsPerOwner < 1 || settingsData.general.maxRestaurantsPerOwner > 100) {
+    if (
+      settingsData.general.maxRestaurantsPerOwner < 1 ||
+      settingsData.general.maxRestaurantsPerOwner > 100
+    ) {
       return NextResponse.json(
         { error: 'Max restaurants per owner must be between 1 and 100' },
         { status: 400 }
@@ -155,13 +173,13 @@ export async function PUT(request: NextRequest) {
 
     // In a real implementation, you would save these settings to a database
     // For now, we'll just return success
-    
+
     try {
       // Here you would typically:
       // 1. Save to a dedicated settings table
       // 2. Or update a JSON field in an existing table
       // 3. Or save to a configuration service
-      
+
       // Example of what you might do:
       /*
       await prisma.platformSettings.upsert({
@@ -178,9 +196,8 @@ export async function PUT(request: NextRequest) {
         }
       });
       */
-      
+
       console.log('Settings would be saved:', settingsData);
-      
     } catch (error) {
       console.error('Failed to save settings to database:', error);
       return NextResponse.json(
@@ -191,15 +208,15 @@ export async function PUT(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Settings updated successfully'
+      message: 'Settings updated successfully',
     });
-
   } catch (error) {
     console.error('Failed to update settings:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to update settings',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

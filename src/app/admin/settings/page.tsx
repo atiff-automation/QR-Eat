@@ -1,15 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Settings, 
-  Save, 
+import {
+  Settings,
+  Save,
   AlertTriangle,
   Shield,
   Globe,
   Mail,
-  Database,
-  Key
+  Key,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -57,28 +56,32 @@ export default function AdminSettingsPage() {
         const data = await response.json();
         setSettings(data.settings);
       }
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
+    } catch {
+      console.error('Failed to fetch settings');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (section: string, field: string, value: any) => {
+  const handleInputChange = (
+    section: string,
+    field: string,
+    value: string | number | boolean
+  ) => {
     if (!settings) return;
-    
-    setSettings(prev => ({
+
+    setSettings((prev) => ({
       ...prev!,
       [section]: {
         ...prev![section as keyof PlatformSettings],
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   const handleSave = async () => {
     if (!settings) return;
-    
+
     setSaving(true);
     setMessage('');
 
@@ -96,7 +99,7 @@ export default function AdminSettingsPage() {
         const data = await response.json();
         setMessage(data.error || 'Failed to save settings');
       }
-    } catch (error) {
+    } catch {
       setMessage('Network error. Please try again.');
     } finally {
       setSaving(false);
@@ -132,8 +135,12 @@ export default function AdminSettingsPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Platform Settings</h1>
-              <p className="text-sm text-gray-500">Configure platform-wide settings and preferences</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Platform Settings
+              </h1>
+              <p className="text-sm text-gray-500">
+                Configure platform-wide settings and preferences
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -149,16 +156,20 @@ export default function AdminSettingsPage() {
                 {saving ? 'Saving...' : 'Save Changes'}
               </button>
               <Link href="/admin/dashboard">
-                <button className="text-gray-600 hover:text-gray-900">← Back to Dashboard</button>
+                <button className="text-gray-600 hover:text-gray-900">
+                  ← Back to Dashboard
+                </button>
               </Link>
             </div>
           </div>
           {message && (
-            <div className={`mt-4 p-3 rounded-lg ${
-              message.includes('successfully') 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
+            <div
+              className={`mt-4 p-3 rounded-lg ${
+                message.includes('successfully')
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
               {message}
             </div>
           )}
@@ -170,7 +181,9 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Globe className="h-5 w-5 text-blue-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">General Settings</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              General Settings
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -180,7 +193,9 @@ export default function AdminSettingsPage() {
               <input
                 type="text"
                 value={settings.general.platformName}
-                onChange={(e) => handleInputChange('general', 'platformName', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange('general', 'platformName', e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -191,7 +206,9 @@ export default function AdminSettingsPage() {
               <input
                 type="email"
                 value={settings.general.supportEmail}
-                onChange={(e) => handleInputChange('general', 'supportEmail', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange('general', 'supportEmail', e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -202,7 +219,13 @@ export default function AdminSettingsPage() {
               <input
                 type="number"
                 value={settings.general.maxRestaurantsPerOwner}
-                onChange={(e) => handleInputChange('general', 'maxRestaurantsPerOwner', parseInt(e.target.value))}
+                onChange={(e) =>
+                  handleInputChange(
+                    'general',
+                    'maxRestaurantsPerOwner',
+                    parseInt(e.target.value)
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -212,7 +235,13 @@ export default function AdminSettingsPage() {
               </label>
               <select
                 value={settings.general.defaultCurrency}
-                onChange={(e) => handleInputChange('general', 'defaultCurrency', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange(
+                    'general',
+                    'defaultCurrency',
+                    e.target.value
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="USD">USD - US Dollar</option>
@@ -226,7 +255,13 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.general.maintenanceMode}
-                  onChange={(e) => handleInputChange('general', 'maintenanceMode', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'general',
+                      'maintenanceMode',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -241,7 +276,9 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Shield className="h-5 w-5 text-red-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Security Settings</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Security Settings
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -253,7 +290,13 @@ export default function AdminSettingsPage() {
                 min="6"
                 max="128"
                 value={settings.security.passwordMinLength}
-                onChange={(e) => handleInputChange('security', 'passwordMinLength', parseInt(e.target.value))}
+                onChange={(e) =>
+                  handleInputChange(
+                    'security',
+                    'passwordMinLength',
+                    parseInt(e.target.value)
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -266,7 +309,13 @@ export default function AdminSettingsPage() {
                 min="5"
                 max="1440"
                 value={settings.security.sessionTimeout}
-                onChange={(e) => handleInputChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                onChange={(e) =>
+                  handleInputChange(
+                    'security',
+                    'sessionTimeout',
+                    parseInt(e.target.value)
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -279,7 +328,13 @@ export default function AdminSettingsPage() {
                 min="3"
                 max="10"
                 value={settings.security.maxLoginAttempts}
-                onChange={(e) => handleInputChange('security', 'maxLoginAttempts', parseInt(e.target.value))}
+                onChange={(e) =>
+                  handleInputChange(
+                    'security',
+                    'maxLoginAttempts',
+                    parseInt(e.target.value)
+                  )
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
@@ -287,7 +342,9 @@ export default function AdminSettingsPage() {
               <input
                 type="checkbox"
                 checked={settings.security.requireMFA}
-                onChange={(e) => handleInputChange('security', 'requireMFA', e.target.checked)}
+                onChange={(e) =>
+                  handleInputChange('security', 'requireMFA', e.target.checked)
+                }
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="ml-2 block text-sm text-gray-900">
@@ -301,7 +358,9 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Key className="h-5 w-5 text-green-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Feature Settings</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Feature Settings
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -309,7 +368,13 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.features.allowRegistration}
-                  onChange={(e) => handleInputChange('features', 'allowRegistration', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'features',
+                      'allowRegistration',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -320,7 +385,13 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.features.allowReservations}
-                  onChange={(e) => handleInputChange('features', 'allowReservations', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'features',
+                      'allowReservations',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -333,7 +404,13 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.features.allowPayments}
-                  onChange={(e) => handleInputChange('features', 'allowPayments', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'features',
+                      'allowPayments',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -344,7 +421,13 @@ export default function AdminSettingsPage() {
                 <input
                   type="checkbox"
                   checked={settings.features.allowAnalytics}
-                  onChange={(e) => handleInputChange('features', 'allowAnalytics', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange(
+                      'features',
+                      'allowAnalytics',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -359,14 +442,22 @@ export default function AdminSettingsPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Mail className="h-5 w-5 text-purple-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Notification Settings</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Notification Settings
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="flex items-center">
               <input
                 type="checkbox"
                 checked={settings.notifications.emailNotifications}
-                onChange={(e) => handleInputChange('notifications', 'emailNotifications', e.target.checked)}
+                onChange={(e) =>
+                  handleInputChange(
+                    'notifications',
+                    'emailNotifications',
+                    e.target.checked
+                  )
+                }
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="ml-2 block text-sm text-gray-900">
@@ -377,7 +468,13 @@ export default function AdminSettingsPage() {
               <input
                 type="checkbox"
                 checked={settings.notifications.smsNotifications}
-                onChange={(e) => handleInputChange('notifications', 'smsNotifications', e.target.checked)}
+                onChange={(e) =>
+                  handleInputChange(
+                    'notifications',
+                    'smsNotifications',
+                    e.target.checked
+                  )
+                }
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="ml-2 block text-sm text-gray-900">
@@ -388,7 +485,13 @@ export default function AdminSettingsPage() {
               <input
                 type="checkbox"
                 checked={settings.notifications.pushNotifications}
-                onChange={(e) => handleInputChange('notifications', 'pushNotifications', e.target.checked)}
+                onChange={(e) =>
+                  handleInputChange(
+                    'notifications',
+                    'pushNotifications',
+                    e.target.checked
+                  )
+                }
                 className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
               <label className="ml-2 block text-sm text-gray-900">

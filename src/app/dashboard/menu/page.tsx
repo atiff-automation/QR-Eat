@@ -3,19 +3,15 @@
 import { useState, useEffect } from 'react';
 import { AccessControl } from '@/components/dashboard/AccessControl';
 import { ImageUpload } from '@/components/ui/ImageUpload';
-import { 
-  Plus, 
-  RefreshCw, 
-  UtensilsCrossed, 
-  BarChart3, 
-  Edit2, 
-  Trash2,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
+import {
+  Plus,
+  RefreshCw,
+  UtensilsCrossed,
+  BarChart3,
   Clock,
-  Flame
+  Flame,
 } from 'lucide-react';
+import Image from 'next/image';
 
 interface MenuCategory {
   id: string;
@@ -65,13 +61,34 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<'categories' | 'items' | 'analytics'>('categories');
-  const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(null);
-  const [analytics, setAnalytics] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<
+    'categories' | 'items' | 'analytics'
+  >('categories');
+  const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(
+    null
+  );
+  const [analytics, setAnalytics] = useState<{
+    topSellingItems: Array<{
+      menuItemId: string;
+      name: string;
+      totalOrders: number;
+      totalRevenue: number;
+    }>;
+    categoryPerformance: Array<{
+      categoryId: string;
+      name: string;
+      totalOrders: number;
+      totalRevenue: number;
+    }>;
+    lowPerformingItems: Array<{ id: string; name: string }>;
+    period: string;
+  } | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
-  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(null);
+  const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
+    null
+  );
 
   useEffect(() => {
     fetchCategories(true);
@@ -86,30 +103,51 @@ export default function MenuPage() {
   const fetchCategories = async (showLoading = false) => {
     if (showLoading) setLoading(true);
     else setRefreshing(true);
-    
+
     try {
       // Add cache busting parameter to ensure fresh data
       const timestamp = new Date().getTime();
-      const response = await fetch(`/api/admin/menu/categories?_t=${timestamp}`, {
-        cache: 'no-store', // Ensure no caching
-        credentials: 'include'
-      });
+      const response = await fetch(
+        `/api/admin/menu/categories?_t=${timestamp}`,
+        {
+          cache: 'no-store', // Ensure no caching
+          credentials: 'include',
+        }
+      );
       const data = await response.json();
 
       if (response.ok) {
         setCategories(data.categories);
         setError('');
-        console.log('Categories refreshed:', data.categories.length, 'categories loaded');
+        console.log(
+          'Categories refreshed:',
+          data.categories.length,
+          'categories loaded'
+        );
         // Debug: Log all items and their imageUrl
-        data.categories.forEach((cat: any) => {
-          cat.menuItems.forEach((item: any) => {
-            console.log('Item:', item.name, 'imageUrl:', item.imageUrl, 'hasImage:', !!item.imageUrl);
+        data.categories.forEach((cat: MenuCategory) => {
+          cat.menuItems.forEach((item: MenuItem) => {
+            console.log(
+              'Item:',
+              item.name,
+              'imageUrl:',
+              item.imageUrl,
+              'hasImage:',
+              !!item.imageUrl
+            );
           });
         });
         // Log the specific category you're looking for
-        const melayuCategory = data.categories.find((cat: any) => cat.name.toLowerCase() === 'melayu');
+        const melayuCategory = data.categories.find(
+          (cat: MenuCategory) => cat.name.toLowerCase() === 'melayu'
+        );
         if (melayuCategory) {
-          console.log('Melayu category found with', melayuCategory.menuItems.length, 'items:', melayuCategory.menuItems.map((item: any) => item.name));
+          console.log(
+            'Melayu category found with',
+            melayuCategory.menuItems.length,
+            'items:',
+            melayuCategory.menuItems.map((item: MenuItem) => item.name)
+          );
         }
       } else {
         setError(data.error || 'Failed to fetch categories');
@@ -126,9 +164,12 @@ export default function MenuPage() {
   const fetchAnalytics = async (period = 'week') => {
     setAnalyticsLoading(true);
     try {
-      const response = await fetch(`/api/admin/menu/analytics?period=${period}`, {
-        credentials: 'include'
-      });
+      const response = await fetch(
+        `/api/admin/menu/analytics?period=${period}`,
+        {
+          credentials: 'include',
+        }
+      );
       const data = await response.json();
 
       if (response.ok) {
@@ -156,14 +197,16 @@ export default function MenuPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ 
-          isAvailable: !item.isAvailable 
-        })
+        body: JSON.stringify({
+          isAvailable: !item.isAvailable,
+        }),
       });
 
       if (response.ok) {
         await fetchCategories(false);
-        console.log(`${item.name} ${item.isAvailable ? 'disabled' : 'enabled'} successfully`);
+        console.log(
+          `${item.name} ${item.isAvailable ? 'disabled' : 'enabled'} successfully`
+        );
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update item availability');
@@ -176,18 +219,23 @@ export default function MenuPage() {
 
   const toggleCategoryStatus = async (category: MenuCategory) => {
     try {
-      const response = await fetch(`/api/admin/menu/categories/${category.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          isActive: !category.isActive 
-        })
-      });
+      const response = await fetch(
+        `/api/admin/menu/categories/${category.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            isActive: !category.isActive,
+          }),
+        }
+      );
 
       if (response.ok) {
         await fetchCategories(false);
-        console.log(`${category.name} ${category.isActive ? 'disabled' : 'enabled'} successfully`);
+        console.log(
+          `${category.name} ${category.isActive ? 'disabled' : 'enabled'} successfully`
+        );
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update category status');
@@ -201,7 +249,7 @@ export default function MenuPage() {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD'
+      currency: 'USD',
     }).format(price);
   };
 
@@ -221,13 +269,20 @@ export default function MenuPage() {
   }
 
   return (
-    <AccessControl allowedRoles={['manager', 'admin']} requiredPermissions={['menu']}>
+    <AccessControl
+      allowedRoles={['manager', 'admin']}
+      requiredPermissions={['menu:read']}
+    >
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Menu Management</h1>
-            <p className="text-gray-800">Manage your restaurant menu, categories, and items</p>
+            <h1 className="text-2xl font-bold text-gray-900">
+              Menu Management
+            </h1>
+            <p className="text-gray-800">
+              Manage your restaurant menu, categories, and items
+            </p>
           </div>
           <div className="flex items-center space-x-4">
             {/* View Mode Toggle */}
@@ -265,7 +320,11 @@ export default function MenuPage() {
             </div>
             {viewMode !== 'analytics' && (
               <button
-                onClick={() => setShowAddModal(viewMode === 'categories' ? 'category' : 'item')}
+                onClick={() =>
+                  setShowAddModal(
+                    viewMode === 'categories' ? 'category' : 'item'
+                  )
+                }
                 className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
               >
                 <Plus className="h-4 w-4 mr-2" />
@@ -285,20 +344,29 @@ export default function MenuPage() {
         {viewMode === 'categories' && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {categories.map((category) => (
-              <div key={category.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+              <div
+                key={category.id}
+                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+              >
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">{category.name}</h3>
-                  <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    category.isActive 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-gray-100 text-gray-800'
-                  }`}>
+                  <h3 className="text-lg font-semibold text-gray-900">
+                    {category.name}
+                  </h3>
+                  <span
+                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      category.isActive
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
                     {category.isActive ? 'Active' : 'Inactive'}
                   </span>
                 </div>
 
                 {category.description && (
-                  <p className="text-sm text-gray-700 mb-4">{category.description}</p>
+                  <p className="text-sm text-gray-700 mb-4">
+                    {category.description}
+                  </p>
                 )}
 
                 <div className="flex items-center justify-between mb-4">
@@ -317,17 +385,17 @@ export default function MenuPage() {
                   >
                     View Items
                   </button>
-                  <button 
+                  <button
                     onClick={() => setEditingCategory(category)}
                     className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm font-medium"
                   >
                     Edit
                   </button>
-                  <button 
+                  <button
                     onClick={() => toggleCategoryStatus(category)}
                     className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      category.isActive 
-                        ? 'bg-red-100 hover:bg-red-200 text-red-700' 
+                      category.isActive
+                        ? 'bg-red-100 hover:bg-red-200 text-red-700'
                         : 'bg-green-100 hover:bg-green-200 text-green-700'
                     }`}
                   >
@@ -388,18 +456,26 @@ export default function MenuPage() {
             {/* Items Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {categories
-                .filter(cat => !selectedCategory || cat.id === selectedCategory)
-                .flatMap(cat => cat.menuItems)
+                .filter(
+                  (cat) => !selectedCategory || cat.id === selectedCategory
+                )
+                .flatMap((cat) => cat.menuItems)
                 .map((item) => (
-                  <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
+                  <div
+                    key={item.id}
+                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                  >
                     {/* Item Image */}
                     <div className="h-48 bg-gray-200 relative">
                       {item.imageUrl ? (
-                        <img 
-                          src={item.imageUrl} 
+                        <Image
+                          src={item.imageUrl}
                           alt={item.name}
-                          className="w-full h-full object-cover"
-                          onLoad={() => console.log('Image loaded:', item.imageUrl)}
+                          fill
+                          className="object-cover"
+                          onLoad={() =>
+                            console.log('Image loaded:', item.imageUrl)
+                          }
                           onError={(e) => {
                             console.log('Image failed to load:', item.imageUrl);
                             console.error('Image error:', e);
@@ -415,11 +491,13 @@ export default function MenuPage() {
                           Featured
                         </div>
                       )}
-                      <div className={`absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded ${
-                        item.isAvailable 
-                          ? 'bg-green-500 text-white' 
-                          : 'bg-red-500 text-white'
-                      }`}>
+                      <div
+                        className={`absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded ${
+                          item.isAvailable
+                            ? 'bg-green-500 text-white'
+                            : 'bg-red-500 text-white'
+                        }`}
+                      >
                         {item.isAvailable ? 'Available' : 'Unavailable'}
                       </div>
                     </div>
@@ -427,29 +505,50 @@ export default function MenuPage() {
                     {/* Item Details */}
                     <div className="p-4">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">{item.name}</h3>
-                        <span className="text-lg font-bold text-green-600">{formatPrice(item.price)}</span>
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                          {item.name}
+                        </h3>
+                        <span className="text-lg font-bold text-green-600">
+                          {formatPrice(item.price)}
+                        </span>
                       </div>
 
                       {item.description && (
-                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">{item.description}</p>
+                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">
+                          {item.description}
+                        </p>
                       )}
 
                       <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
-                        <span className="flex items-center"><Clock className="h-3 w-3 mr-1" /> {item.preparationTime}min</span>
-                        {item.calories && <span className="flex items-center"><Flame className="h-3 w-3 mr-1" /> {item.calories} cal</span>}
+                        <span className="flex items-center">
+                          <Clock className="h-3 w-3 mr-1" />{' '}
+                          {item.preparationTime}min
+                        </span>
+                        {item.calories && (
+                          <span className="flex items-center">
+                            <Flame className="h-3 w-3 mr-1" /> {item.calories}{' '}
+                            cal
+                          </span>
+                        )}
                       </div>
 
                       {/* Allergens & Dietary Info */}
-                      {(item.allergens.length > 0 || item.dietaryInfo.length > 0) && (
+                      {(item.allergens.length > 0 ||
+                        item.dietaryInfo.length > 0) && (
                         <div className="flex flex-wrap gap-1 mb-3">
                           {item.allergens.map((allergen) => (
-                            <span key={allergen} className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                            <span
+                              key={allergen}
+                              className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
+                            >
                               {allergen}
                             </span>
                           ))}
                           {item.dietaryInfo.map((info) => (
-                            <span key={info} className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                            <span
+                              key={info}
+                              className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                            >
                               {info}
                             </span>
                           ))}
@@ -459,22 +558,23 @@ export default function MenuPage() {
                       {/* Variations */}
                       {item.variations.length > 0 && (
                         <div className="text-xs text-gray-700 mb-3">
-                          {item.variations.length} variation{item.variations.length !== 1 ? 's' : ''}
+                          {item.variations.length} variation
+                          {item.variations.length !== 1 ? 's' : ''}
                         </div>
                       )}
 
                       <div className="flex space-x-2">
-                        <button 
+                        <button
                           onClick={() => setEditingItem(item)}
                           className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-md text-sm font-medium"
                         >
                           Edit
                         </button>
-                        <button 
+                        <button
                           onClick={() => toggleItemAvailability(item)}
                           className={`px-3 py-2 rounded-md text-sm font-medium ${
-                            item.isAvailable 
-                              ? 'bg-red-100 hover:bg-red-200 text-red-700' 
+                            item.isAvailable
+                              ? 'bg-red-100 hover:bg-red-200 text-red-700'
                               : 'bg-green-100 hover:bg-green-200 text-green-700'
                           }`}
                         >
@@ -493,7 +593,9 @@ export default function MenuPage() {
           <div className="space-y-6">
             {/* Period Filter */}
             <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">Period:</label>
+              <label className="text-sm font-medium text-gray-700">
+                Period:
+              </label>
               {['today', 'week', 'month'].map((period) => (
                 <button
                   key={period}
@@ -519,58 +621,99 @@ export default function MenuPage() {
                 {/* Summary Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-gray-900">{analytics.summary.totalMenuItems}</div>
-                    <div className="text-sm text-gray-800">Total Menu Items</div>
+                    <div className="text-2xl font-bold text-gray-900">
+                      {analytics.summary.totalMenuItems}
+                    </div>
+                    <div className="text-sm text-gray-800">
+                      Total Menu Items
+                    </div>
                   </div>
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-green-600">{analytics.summary.activeMenuItems}</div>
+                    <div className="text-2xl font-bold text-green-600">
+                      {analytics.summary.activeMenuItems}
+                    </div>
                     <div className="text-sm text-gray-800">Active Items</div>
                   </div>
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-blue-600">{analytics.summary.itemsOrdered}</div>
+                    <div className="text-2xl font-bold text-blue-600">
+                      {analytics.summary.itemsOrdered}
+                    </div>
                     <div className="text-sm text-gray-800">Items Ordered</div>
                   </div>
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-orange-600">{formatPrice(analytics.summary.averageOrderValue)}</div>
+                    <div className="text-2xl font-bold text-orange-600">
+                      {formatPrice(analytics.summary.averageOrderValue)}
+                    </div>
                     <div className="text-sm text-gray-800">Avg Order Value</div>
                   </div>
                 </div>
 
                 {/* Top Selling Items */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Items</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Top Selling Items
+                  </h3>
                   <div className="space-y-4">
-                    {analytics.topSellingItems.slice(0, 5).map((item: any, index: number) => (
-                      <div key={item.menuItemId} className="flex items-center justify-between">
-                        <div className="flex items-center space-x-4">
-                          <div className="text-lg font-bold text-gray-600 w-6">#{index + 1}</div>
-                          <div>
-                            <div className="font-medium text-gray-900">{item.menuItem.name}</div>
-                            <div className="text-sm text-gray-700">{item.menuItem.category?.name || 'Unknown Category'}</div>
+                    {analytics.topSellingItems
+                      .slice(0, 5)
+                      .map((item, index: number) => (
+                        <div
+                          key={item.menuItemId}
+                          className="flex items-center justify-between"
+                        >
+                          <div className="flex items-center space-x-4">
+                            <div className="text-lg font-bold text-gray-600 w-6">
+                              #{index + 1}
+                            </div>
+                            <div>
+                              <div className="font-medium text-gray-900">
+                                {item.menuItem.name}
+                              </div>
+                              <div className="text-sm text-gray-700">
+                                {item.menuItem.category?.name ||
+                                  'Unknown Category'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-medium text-gray-900">
+                              {item._sum.quantity} sold
+                            </div>
+                            <div className="text-sm text-gray-700">
+                              {formatPrice(item._sum.totalAmount)}
+                            </div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-medium text-gray-900">{item._sum.quantity} sold</div>
-                          <div className="text-sm text-gray-700">{formatPrice(item._sum.totalAmount)}</div>
-                        </div>
-                      </div>
-                    ))}
+                      ))}
                   </div>
                 </div>
 
                 {/* Category Performance */}
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Category Performance</h3>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                    Category Performance
+                  </h3>
                   <div className="space-y-4">
-                    {analytics.categoryPerformance.map((category: any) => (
-                      <div key={category.categoryId} className="flex items-center justify-between">
+                    {analytics.categoryPerformance.map((category) => (
+                      <div
+                        key={category.categoryId}
+                        className="flex items-center justify-between"
+                      >
                         <div>
-                          <div className="font-medium text-gray-900">{category.categoryName}</div>
-                          <div className="text-sm text-gray-700">{category.totalQuantity} items sold</div>
+                          <div className="font-medium text-gray-900">
+                            {category.categoryName}
+                          </div>
+                          <div className="text-sm text-gray-700">
+                            {category.totalQuantity} items sold
+                          </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium text-gray-900">{formatPrice(category.totalRevenue)}</div>
-                          <div className="text-sm text-gray-700">{category.orderCount} orders</div>
+                          <div className="font-medium text-gray-900">
+                            {formatPrice(category.totalRevenue)}
+                          </div>
+                          <div className="text-sm text-gray-700">
+                            {category.orderCount} orders
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -580,15 +723,26 @@ export default function MenuPage() {
                 {/* Low Performing Items */}
                 {analytics.lowPerformingItems.length > 0 && (
                   <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Items Not Ordered This {analytics.period}</h3>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      Items Not Ordered This {analytics.period}
+                    </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {analytics.lowPerformingItems.map((item: any) => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+                      {analytics.lowPerformingItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between p-3 bg-orange-50 rounded-lg"
+                        >
                           <div>
-                            <div className="font-medium text-gray-900">{item.name}</div>
-                            <div className="text-sm text-gray-700">{item.category?.name || 'Unknown Category'}</div>
+                            <div className="font-medium text-gray-900">
+                              {item.name}
+                            </div>
+                            <div className="text-sm text-gray-700">
+                              {item.category?.name || 'Unknown Category'}
+                            </div>
                           </div>
-                          <div className="text-sm font-medium text-orange-600">{formatPrice(item.price)}</div>
+                          <div className="text-sm font-medium text-orange-600">
+                            {formatPrice(item.price)}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -598,8 +752,12 @@ export default function MenuPage() {
             ) : (
               <div className="text-center py-12">
                 <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No analytics data</h3>
-                <p className="text-gray-800">Analytics will appear here once you have orders</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  No analytics data
+                </h3>
+                <p className="text-gray-800">
+                  Analytics will appear here once you have orders
+                </p>
               </div>
             )}
           </div>
@@ -609,9 +767,13 @@ export default function MenuPage() {
         {categories.length === 0 && !loading && (
           <div className="text-center py-12">
             <UtensilsCrossed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No menu categories found</h3>
-            <p className="text-gray-800 mb-4">Get started by creating your first menu category</p>
-            <button 
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No menu categories found
+            </h3>
+            <p className="text-gray-800 mb-4">
+              Get started by creating your first menu category
+            </p>
+            <button
               onClick={() => setShowAddModal('category')}
               className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center"
             >
@@ -623,46 +785,46 @@ export default function MenuPage() {
 
         {/* Edit Item Modal */}
         {editingItem && (
-          <EditItemModal 
+          <EditItemModal
             item={editingItem}
             categories={categories}
-            onClose={() => setEditingItem(null)} 
+            onClose={() => setEditingItem(null)}
             onSuccess={async () => {
               setEditingItem(null);
               await fetchCategories(false);
-            }} 
+            }}
           />
         )}
 
         {/* Edit Category Modal */}
         {editingCategory && (
-          <EditCategoryModal 
+          <EditCategoryModal
             category={editingCategory}
-            onClose={() => setEditingCategory(null)} 
+            onClose={() => setEditingCategory(null)}
             onSuccess={async () => {
               setEditingCategory(null);
               await fetchCategories(false);
-            }} 
+            }}
           />
         )}
 
         {/* Add Modals */}
         {showAddModal && (
-          <AddModal 
-            type={showAddModal} 
+          <AddModal
+            type={showAddModal}
             categories={categories}
             selectedCategory={selectedCategory}
-            onClose={() => setShowAddModal(null)} 
+            onClose={() => setShowAddModal(null)}
             onSuccess={async (newItemCategoryId?: string) => {
               const isItemCreation = showAddModal === 'item';
               const currentCategory = selectedCategory;
-              
+
               setShowAddModal(null);
-              
+
               // Force refresh categories data
               console.log('Refreshing categories after item creation...');
               await fetchCategories(false);
-              
+
               // If a new item was created, handle navigation
               if (isItemCreation && newItemCategoryId) {
                 if (viewMode === 'categories') {
@@ -684,13 +846,13 @@ export default function MenuPage() {
                   }
                 }
               }
-              
+
               // Additional fallback refresh after 500ms
               setTimeout(async () => {
                 console.log('Fallback refresh...');
                 await fetchCategories(false);
               }, 500);
-            }} 
+            }}
           />
         )}
       </div>
@@ -699,20 +861,32 @@ export default function MenuPage() {
 }
 
 // Add Modal Component
-function AddModal({ 
-  type, 
+function AddModal({
+  type,
   categories,
   selectedCategory,
-  onClose, 
-  onSuccess 
-}: { 
+  onClose,
+  onSuccess,
+}: {
   type: 'category' | 'item';
   categories: MenuCategory[];
   selectedCategory: string | null;
-  onClose: () => void; 
-  onSuccess: (newItemCategoryId?: string) => void; 
+  onClose: () => void;
+  onSuccess: (newItemCategoryId?: string) => void;
 }) {
-  const [formData, setFormData] = useState<any>({
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    price: string;
+    categoryId: string;
+    preparationTime: number;
+    calories: string;
+    imageUrl: string;
+    allergens: string[];
+    dietaryInfo: string[];
+    isAvailable: boolean;
+    isFeatured: boolean;
+  }>({
     name: '',
     description: '',
     price: '',
@@ -723,7 +897,7 @@ function AddModal({
     allergens: [],
     dietaryInfo: [],
     isAvailable: true,
-    isFeatured: false
+    isFeatured: false,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -734,8 +908,11 @@ function AddModal({
     setError('');
 
     try {
-      const endpoint = type === 'category' ? '/api/admin/menu/categories' : '/api/admin/menu/items';
-      
+      const endpoint =
+        type === 'category'
+          ? '/api/admin/menu/categories'
+          : '/api/admin/menu/items';
+
       // Fix data types for menu items
       let requestData = formData;
       if (type === 'item') {
@@ -743,24 +920,25 @@ function AddModal({
           ...formData,
           price: parseFloat(formData.price) || 0,
           preparationTime: parseInt(formData.preparationTime) || 15,
-          calories: formData.calories ? parseInt(formData.calories) : null
+          calories: formData.calories ? parseInt(formData.calories) : null,
         };
       }
-      
+
       console.log('Sending request to:', endpoint);
       console.log('Form data being sent:', requestData);
-      
+
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(requestData),
       });
 
       if (response.ok) {
         const responseData = await response.json();
         // Pass the category ID back for items so we can navigate to it
-        const categoryId = type === 'item' ? formData.categoryId : responseData.category?.id;
+        const categoryId =
+          type === 'item' ? formData.categoryId : responseData.category?.id;
         onSuccess(categoryId);
       } else {
         const data = await response.json();
@@ -788,26 +966,39 @@ function AddModal({
           <h2 className="text-lg font-semibold text-gray-900">
             Add New {type === 'category' ? 'Category' : 'Menu Item'}
           </h2>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-800">✕</button>
+          <button
+            onClick={onClose}
+            className="text-gray-600 hover:text-gray-800"
+          >
+            ✕
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               rows={2}
             />
@@ -816,10 +1007,14 @@ function AddModal({
           {type === 'item' && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Category *
+                </label>
                 <select
                   value={formData.categoryId}
-                  onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, categoryId: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   required
                 >
@@ -833,57 +1028,83 @@ function AddModal({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Price *
+                </label>
                 <input
                   type="number"
                   step="0.01"
                   value={formData.price}
-                  onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Preparation Time (minutes)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Preparation Time (minutes)
+                </label>
                 <input
                   type="number"
                   value={formData.preparationTime}
-                  onChange={(e) => setFormData({ ...formData, preparationTime: parseInt(e.target.value) })}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      preparationTime: parseInt(e.target.value),
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Calories
+                </label>
                 <input
                   type="number"
                   value={formData.calories}
-                  onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, calories: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
                   placeholder="Optional"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Menu Item Image</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Menu Item Image
+                </label>
                 <ImageUpload
                   value={formData.imageUrl}
-                  onChange={(imageUrl) => setFormData({ ...formData, imageUrl: imageUrl || '' })}
+                  onChange={(imageUrl) =>
+                    setFormData({ ...formData, imageUrl: imageUrl || '' })
+                  }
                 />
               </div>
 
               {/* Allergens */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Allergens</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Allergens
+                </label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.allergens.map((allergen: string, index: number) => (
-                    <span key={index} className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
+                    >
                       {allergen}
                       <button
                         type="button"
                         onClick={() => {
-                          const newAllergens = formData.allergens.filter((_: string, i: number) => i !== index);
+                          const newAllergens = formData.allergens.filter(
+                            (_: string, i: number) => i !== index
+                          );
                           setFormData({ ...formData, allergens: newAllergens });
                         }}
                         className="ml-1 text-red-500 hover:text-red-700"
@@ -901,9 +1122,14 @@ function AddModal({
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const value = (e.target as HTMLInputElement).value.trim();
+                        const value = (
+                          e.target as HTMLInputElement
+                        ).value.trim();
                         if (value && !formData.allergens.includes(value)) {
-                          setFormData({ ...formData, allergens: [...formData.allergens, value] });
+                          setFormData({
+                            ...formData,
+                            allergens: [...formData.allergens, value],
+                          });
                           (e.target as HTMLInputElement).value = '';
                         }
                       }
@@ -912,10 +1138,14 @@ function AddModal({
                   <button
                     type="button"
                     onClick={(e) => {
-                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                      const input = (e.target as HTMLElement)
+                        .previousElementSibling as HTMLInputElement;
                       const value = input.value.trim();
                       if (value && !formData.allergens.includes(value)) {
-                        setFormData({ ...formData, allergens: [...formData.allergens, value] });
+                        setFormData({
+                          ...formData,
+                          allergens: [...formData.allergens, value],
+                        });
                         input.value = '';
                       }
                     }}
@@ -928,16 +1158,26 @@ function AddModal({
 
               {/* Dietary Info */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Dietary Information</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Dietary Information
+                </label>
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.dietaryInfo.map((info: string, index: number) => (
-                    <span key={index} className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                    <span
+                      key={index}
+                      className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                    >
                       {info}
                       <button
                         type="button"
                         onClick={() => {
-                          const newDietaryInfo = formData.dietaryInfo.filter((_: string, i: number) => i !== index);
-                          setFormData({ ...formData, dietaryInfo: newDietaryInfo });
+                          const newDietaryInfo = formData.dietaryInfo.filter(
+                            (_: string, i: number) => i !== index
+                          );
+                          setFormData({
+                            ...formData,
+                            dietaryInfo: newDietaryInfo,
+                          });
                         }}
                         className="ml-1 text-green-500 hover:text-green-700"
                       >
@@ -954,9 +1194,14 @@ function AddModal({
                     onKeyPress={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        const value = (e.target as HTMLInputElement).value.trim();
+                        const value = (
+                          e.target as HTMLInputElement
+                        ).value.trim();
                         if (value && !formData.dietaryInfo.includes(value)) {
-                          setFormData({ ...formData, dietaryInfo: [...formData.dietaryInfo, value] });
+                          setFormData({
+                            ...formData,
+                            dietaryInfo: [...formData.dietaryInfo, value],
+                          });
                           (e.target as HTMLInputElement).value = '';
                         }
                       }
@@ -965,10 +1210,14 @@ function AddModal({
                   <button
                     type="button"
                     onClick={(e) => {
-                      const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                      const input = (e.target as HTMLElement)
+                        .previousElementSibling as HTMLInputElement;
                       const value = input.value.trim();
                       if (value && !formData.dietaryInfo.includes(value)) {
-                        setFormData({ ...formData, dietaryInfo: [...formData.dietaryInfo, value] });
+                        setFormData({
+                          ...formData,
+                          dietaryInfo: [...formData.dietaryInfo, value],
+                        });
                         input.value = '';
                       }
                     }}
@@ -985,7 +1234,12 @@ function AddModal({
                   <input
                     type="checkbox"
                     checked={formData.isAvailable}
-                    onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        isAvailable: e.target.checked,
+                      })
+                    }
                     className="mr-2"
                   />
                   <span className="text-sm text-gray-700">Available</span>
@@ -994,7 +1248,9 @@ function AddModal({
                   <input
                     type="checkbox"
                     checked={formData.isFeatured}
-                    onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, isFeatured: e.target.checked })
+                    }
                     className="mr-2"
                   />
                   <span className="text-sm text-gray-700">Featured</span>
@@ -1028,16 +1284,16 @@ function AddModal({
 }
 
 // Edit Item Modal Component
-function EditItemModal({ 
-  item, 
+function EditItemModal({
+  item,
   categories,
-  onClose, 
-  onSuccess 
-}: { 
+  onClose,
+  onSuccess,
+}: {
   item: MenuItem;
   categories: MenuCategory[];
-  onClose: () => void; 
-  onSuccess: () => void; 
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
   const [formData, setFormData] = useState({
     name: item.name,
@@ -1050,7 +1306,7 @@ function EditItemModal({
     allergens: item.allergens || [],
     dietaryInfo: item.dietaryInfo || [],
     isAvailable: item.isAvailable,
-    isFeatured: item.isFeatured
+    isFeatured: item.isFeatured,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -1068,8 +1324,8 @@ function EditItemModal({
         body: JSON.stringify({
           ...formData,
           price: parseFloat(formData.price),
-          calories: formData.calories ? parseInt(formData.calories) : null
-        })
+          calories: formData.calories ? parseInt(formData.calories) : null,
+        }),
       });
 
       if (response.ok) {
@@ -1090,37 +1346,56 @@ function EditItemModal({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Menu Item</h2>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
+          <h2 className="text-lg font-semibold text-gray-900">
+            Edit Menu Item
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-600 hover:text-gray-800 text-2xl"
+          >
+            ✕
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               rows={2}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Category *
+            </label>
             <select
               value={formData.categoryId}
-              onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, categoryId: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               required
             >
@@ -1133,56 +1408,82 @@ function EditItemModal({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Price *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Price *
+            </label>
             <input
               type="number"
               step="0.01"
               value={formData.price}
-              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, price: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Preparation Time (minutes)</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Preparation Time (minutes)
+            </label>
             <input
               type="number"
               value={formData.preparationTime}
-              onChange={(e) => setFormData({ ...formData, preparationTime: parseInt(e.target.value) })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  preparationTime: parseInt(e.target.value),
+                })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Calories</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Calories
+            </label>
             <input
               type="number"
               value={formData.calories}
-              onChange={(e) => setFormData({ ...formData, calories: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, calories: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Menu Item Image</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Menu Item Image
+            </label>
             <ImageUpload
               value={formData.imageUrl}
-              onChange={(imageUrl) => setFormData({ ...formData, imageUrl: imageUrl || '' })}
+              onChange={(imageUrl) =>
+                setFormData({ ...formData, imageUrl: imageUrl || '' })
+              }
             />
           </div>
 
           {/* Allergens */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Allergens</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Allergens
+            </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {formData.allergens.map((allergen, index) => (
-                <span key={index} className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded">
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
+                >
                   {allergen}
                   <button
                     type="button"
                     onClick={() => {
-                      const newAllergens = formData.allergens.filter((_, i) => i !== index);
+                      const newAllergens = formData.allergens.filter(
+                        (_, i) => i !== index
+                      );
                       setFormData({ ...formData, allergens: newAllergens });
                     }}
                     className="ml-1 text-red-500 hover:text-red-700"
@@ -1202,7 +1503,10 @@ function EditItemModal({
                     e.preventDefault();
                     const value = (e.target as HTMLInputElement).value.trim();
                     if (value && !formData.allergens.includes(value)) {
-                      setFormData({ ...formData, allergens: [...formData.allergens, value] });
+                      setFormData({
+                        ...formData,
+                        allergens: [...formData.allergens, value],
+                      });
                       (e.target as HTMLInputElement).value = '';
                     }
                   }
@@ -1211,10 +1515,15 @@ function EditItemModal({
               <button
                 type="button"
                 onClick={() => {
-                  const input = document.querySelector('input[placeholder*="allergen"]') as HTMLInputElement;
+                  const input = document.querySelector(
+                    'input[placeholder*="allergen"]'
+                  ) as HTMLInputElement;
                   const value = input.value.trim();
                   if (value && !formData.allergens.includes(value)) {
-                    setFormData({ ...formData, allergens: [...formData.allergens, value] });
+                    setFormData({
+                      ...formData,
+                      allergens: [...formData.allergens, value],
+                    });
                     input.value = '';
                   }
                 }}
@@ -1227,15 +1536,22 @@ function EditItemModal({
 
           {/* Dietary Info */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Dietary Information</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Dietary Information
+            </label>
             <div className="flex flex-wrap gap-2 mb-2">
               {formData.dietaryInfo.map((info, index) => (
-                <span key={index} className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded">
+                <span
+                  key={index}
+                  className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                >
                   {info}
                   <button
                     type="button"
                     onClick={() => {
-                      const newDietaryInfo = formData.dietaryInfo.filter((_, i) => i !== index);
+                      const newDietaryInfo = formData.dietaryInfo.filter(
+                        (_, i) => i !== index
+                      );
                       setFormData({ ...formData, dietaryInfo: newDietaryInfo });
                     }}
                     className="ml-1 text-green-500 hover:text-green-700"
@@ -1255,7 +1571,10 @@ function EditItemModal({
                     e.preventDefault();
                     const value = (e.target as HTMLInputElement).value.trim();
                     if (value && !formData.dietaryInfo.includes(value)) {
-                      setFormData({ ...formData, dietaryInfo: [...formData.dietaryInfo, value] });
+                      setFormData({
+                        ...formData,
+                        dietaryInfo: [...formData.dietaryInfo, value],
+                      });
                       (e.target as HTMLInputElement).value = '';
                     }
                   }
@@ -1264,10 +1583,15 @@ function EditItemModal({
               <button
                 type="button"
                 onClick={() => {
-                  const input = document.querySelector('input[placeholder*="dietary"]') as HTMLInputElement;
+                  const input = document.querySelector(
+                    'input[placeholder*="dietary"]'
+                  ) as HTMLInputElement;
                   const value = input.value.trim();
                   if (value && !formData.dietaryInfo.includes(value)) {
-                    setFormData({ ...formData, dietaryInfo: [...formData.dietaryInfo, value] });
+                    setFormData({
+                      ...formData,
+                      dietaryInfo: [...formData.dietaryInfo, value],
+                    });
                     input.value = '';
                   }
                 }}
@@ -1283,7 +1607,9 @@ function EditItemModal({
               <input
                 type="checkbox"
                 checked={formData.isAvailable}
-                onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, isAvailable: e.target.checked })
+                }
                 className="mr-2"
               />
               <span className="text-sm text-gray-700">Available</span>
@@ -1292,7 +1618,9 @@ function EditItemModal({
               <input
                 type="checkbox"
                 checked={formData.isFeatured}
-                onChange={(e) => setFormData({ ...formData, isFeatured: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, isFeatured: e.target.checked })
+                }
                 className="mr-2"
               />
               <span className="text-sm text-gray-700">Featured</span>
@@ -1324,19 +1652,19 @@ function EditItemModal({
 }
 
 // Edit Category Modal Component
-function EditCategoryModal({ 
-  category, 
-  onClose, 
-  onSuccess 
-}: { 
+function EditCategoryModal({
+  category,
+  onClose,
+  onSuccess,
+}: {
   category: MenuCategory;
-  onClose: () => void; 
-  onSuccess: () => void; 
+  onClose: () => void;
+  onSuccess: () => void;
 }) {
   const [formData, setFormData] = useState({
     name: category.name,
     description: category.description || '',
-    isActive: category.isActive
+    isActive: category.isActive,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -1347,12 +1675,15 @@ function EditCategoryModal({
     setError('');
 
     try {
-      const response = await fetch(`/api/admin/menu/categories/${category.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(formData)
-      });
+      const response = await fetch(
+        `/api/admin/menu/categories/${category.id}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify(formData),
+        }
+      );
 
       if (response.ok) {
         onSuccess();
@@ -1373,26 +1704,39 @@ function EditCategoryModal({
       <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-lg font-semibold text-gray-900">Edit Category</h2>
-          <button onClick={onClose} className="text-gray-600 hover:text-gray-800 text-2xl">✕</button>
+          <button
+            onClick={onClose}
+            className="text-gray-600 hover:text-gray-800 text-2xl"
+          >
+            ✕
+          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name *
+            </label>
             <input
               type="text"
               value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Description
+            </label>
             <textarea
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
               rows={2}
             />
@@ -1403,7 +1747,9 @@ function EditCategoryModal({
               <input
                 type="checkbox"
                 checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                onChange={(e) =>
+                  setFormData({ ...formData, isActive: e.target.checked })
+                }
                 className="mr-2"
               />
               <span className="text-sm text-gray-700">Active</span>

@@ -1,15 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Building2, 
-  Plus, 
-  Edit, 
-  Trash2, 
+import {
+  Building2,
+  Plus,
+  Edit,
+  Trash2,
   Eye,
   ToggleLeft,
   ToggleRight,
-  Search
+  Search,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -46,13 +46,15 @@ export default function AdminRestaurantsPage() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await fetch('/api/restaurants?includeStats=true&includeOwner=true');
+      const response = await fetch(
+        '/api/restaurants?includeStats=true&includeOwner=true'
+      );
       if (response.ok) {
         const data = await response.json();
         setRestaurants(data.restaurants || []);
       }
-    } catch (error) {
-      console.error('Failed to fetch restaurants:', error);
+    } catch {
+      console.error('Failed to fetch restaurants');
     } finally {
       setLoading(false);
     }
@@ -60,7 +62,7 @@ export default function AdminRestaurantsPage() {
 
   const toggleRestaurantStatus = async (restaurantId: string) => {
     try {
-      const restaurant = restaurants.find(r => r.id === restaurantId);
+      const restaurant = restaurants.find((r) => r.id === restaurantId);
       const response = await fetch(`/api/restaurants/${restaurantId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -72,13 +74,17 @@ export default function AdminRestaurantsPage() {
       } else {
         alert('Failed to update restaurant status');
       }
-    } catch (error) {
+    } catch {
       alert('Failed to update restaurant status');
     }
   };
 
   const deleteRestaurant = async (restaurantId: string) => {
-    if (!confirm('Are you sure you want to delete this restaurant? This action cannot be undone.')) {
+    if (
+      !confirm(
+        'Are you sure you want to delete this restaurant? This action cannot be undone.'
+      )
+    ) {
       return;
     }
 
@@ -93,17 +99,19 @@ export default function AdminRestaurantsPage() {
         const data = await response.json();
         alert(data.error || 'Failed to delete restaurant');
       }
-    } catch (error) {
+    } catch {
       alert('Failed to delete restaurant');
     }
   };
 
-  const filteredRestaurants = restaurants.filter(restaurant => {
-    const matchesSearch = restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         restaurant.owner.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && restaurant.isActive) ||
-                         (statusFilter === 'inactive' && !restaurant.isActive);
+  const filteredRestaurants = restaurants.filter((restaurant) => {
+    const matchesSearch =
+      restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      restaurant.owner.email.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && restaurant.isActive) ||
+      (statusFilter === 'inactive' && !restaurant.isActive);
     return matchesSearch && matchesStatus;
   });
 
@@ -125,12 +133,18 @@ export default function AdminRestaurantsPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Restaurant Management</h1>
-              <p className="text-sm text-gray-500">Manage all restaurants on the platform</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Restaurant Management
+              </h1>
+              <p className="text-sm text-gray-500">
+                Manage all restaurants on the platform
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <Link href="/admin/dashboard">
-                <button className="text-gray-600 hover:text-gray-900">← Back to Dashboard</button>
+                <button className="text-gray-600 hover:text-gray-900">
+                  ← Back to Dashboard
+                </button>
               </Link>
               <Link href="/admin/restaurants/new">
                 <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
@@ -148,7 +162,9 @@ export default function AdminRestaurantsPage() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -161,7 +177,9 @@ export default function AdminRestaurantsPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -174,7 +192,8 @@ export default function AdminRestaurantsPage() {
             </div>
             <div className="flex items-end">
               <div className="text-sm text-gray-600">
-                Showing {filteredRestaurants.length} of {restaurants.length} restaurants
+                Showing {filteredRestaurants.length} of {restaurants.length}{' '}
+                restaurants
               </div>
             </div>
           </div>
@@ -208,17 +227,26 @@ export default function AdminRestaurantsPage() {
                   <tr key={restaurant.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{restaurant.name}</div>
-                        <div className="text-sm text-gray-500">{restaurant.slug}</div>
-                        <div className="text-sm text-gray-500">{restaurant.address}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {restaurant.name}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {restaurant.slug}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {restaurant.address}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
                         <div className="text-sm font-medium text-gray-900">
-                          {restaurant.owner.firstName} {restaurant.owner.lastName}
+                          {restaurant.owner.firstName}{' '}
+                          {restaurant.owner.lastName}
                         </div>
-                        <div className="text-sm text-gray-500">{restaurant.owner.email}</div>
+                        <div className="text-sm text-gray-500">
+                          {restaurant.owner.email}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

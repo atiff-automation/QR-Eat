@@ -43,7 +43,7 @@ export function AccessControl({
             if (
               currentRole &&
               currentRole.roleTemplate &&
-              currentRole.roleTemplate.toLowerCase().includes('kitchen')
+              currentRole.roleTemplate.toLowerCase() === 'kitchen_staff'
             ) {
               router.replace('/kitchen');
               return;
@@ -71,12 +71,8 @@ export function AccessControl({
             if (roleAllowed && hasPermissions) {
               setAuthorized(true);
             } else {
-              // Redirect based on their actual permissions
-              if (
-                userPermissions.includes('orders:fulfill') &&
-                !userPermissions.includes('menu:write') &&
-                !userPermissions.includes('staff:read')
-              ) {
+              // Redirect based on their role template
+              if (currentRole.roleTemplate.toLowerCase() === 'kitchen_staff') {
                 router.replace('/kitchen');
               } else {
                 router.replace(redirectTo);
