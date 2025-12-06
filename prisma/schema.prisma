@@ -839,3 +839,23 @@ model RBACLog {
   @@index([createdAt])
   @@map("rbac_logs")
 }
+
+// ============================
+// DISTRIBUTED CACHE SYSTEM
+// ============================
+
+// Distributed cache table for multi-instance caching
+// Replaces in-memory cache to support horizontal scaling on Railway
+// Provides shared cache across multiple Node.js processes
+model CacheEntry {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([expiresAt])
+  @@index([key, expiresAt])
+  @@map("cache_entries")
+}
