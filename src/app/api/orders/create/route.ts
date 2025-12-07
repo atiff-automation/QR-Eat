@@ -11,9 +11,14 @@ import { getCustomerContext } from '@/lib/get-tenant-context';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get customer context from headers (restaurant from subdomain)
-    // Note: Context is validated here to ensure customer has access
-    getCustomerContext(request);
+    // Try to get customer context from headers (for subdomain-based access)
+    // This is optional for QR code flow where restaurant context comes from table
+    try {
+      getCustomerContext(request);
+    } catch (contextError) {
+      // Context validation not required for QR flow
+      // Restaurant ID will be obtained from table instead
+    }
 
     const body: CreateOrderRequest = await request.json();
     const { tableId, customerInfo, items, specialInstructions } = body;

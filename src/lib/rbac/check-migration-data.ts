@@ -4,7 +4,7 @@
  * This utility checks existing data to assess migration needs
  */
 
-import { prisma } from '../prisma';
+import { prisma } from '@/lib/database';
 
 async function checkMigrationData() {
   console.log('🔍 Checking existing data for migration...\n');

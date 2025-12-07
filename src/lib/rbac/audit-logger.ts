@@ -6,7 +6,7 @@
  */
 
 import { NextRequest } from 'next/server';
-import { prisma } from '../prisma';
+import { prisma } from '@/lib/database';
 import { SecurityUtils } from '../security';
 import {
   UserRole,

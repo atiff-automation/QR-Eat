@@ -7,7 +7,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { RBACMiddleware, rbacMiddlewareConfigs } from '@/middleware/rbac-middleware';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 
 // GET /api/rbac-protected/restaurant-management
 // Requires: restaurant_owner or platform_admin role

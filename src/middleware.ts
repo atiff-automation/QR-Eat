@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getSubdomainInfo, 
-  shouldHandleSubdomain, 
+import {
+  shouldHandleSubdomain,
   getRestaurantSlugFromSubdomain,
   logSubdomainInfo,
   isReservedSubdomain
@@ -228,8 +227,10 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/menu/',
     '/api/health',
     '/api/subdomain/',
+    '/api/webhooks/', // Webhook handlers (external services)
+    '/api/orders/', // Order API routes (customer-facing, uses customer session tokens)
   ];
-  
+
   return publicApiRoutes.some(route => pathname.startsWith(route));
 }
 

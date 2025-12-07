@@ -5,7 +5,7 @@
  * for the enhanced RBAC system.
  */
 
-import { prisma } from '../prisma';
+import { prisma } from '@/lib/database';
 import {
   Permission,
   UserRole,

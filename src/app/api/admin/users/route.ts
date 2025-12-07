@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { RBACMiddleware } from '@/middleware/rbac-middleware';
 import { PermissionManager } from '@/lib/rbac/permissions';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
 import { RBAC_CONSTANTS } from '@/lib/rbac/types';
 import { verifyAuthToken, UserType } from '@/lib/auth';

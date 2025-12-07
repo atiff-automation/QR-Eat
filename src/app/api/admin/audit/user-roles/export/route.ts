@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { RBACMiddleware } from '@/middleware/rbac-middleware';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
 
 // GET /api/admin/audit/user-roles/export - Export user role audit history
