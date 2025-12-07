@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { ORDER_STATUS } from '@/lib/order-utils';
-import { RedisEventManager } from '@/lib/redis';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 export async function PATCH(
   request: NextRequest,
@@ -10,9 +10,10 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value || 
-                  request.cookies.get('qr_auth_token')?.value;
-    
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -21,7 +22,7 @@ export async function PATCH(
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
-    
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -67,7 +68,7 @@ export async function PATCH(
         userPermissions: user.permissions,
         hasOrdersUpdate: user.permissions.includes('orders:update'),
         hasOrdersKitchen: user.permissions.includes('orders:kitchen'),
-        hasOrdersRead: user.permissions.includes('orders:read')
+        hasOrdersRead: user.permissions.includes('orders:read'),
       });
     }
 
@@ -75,9 +76,10 @@ export async function PATCH(
       hasPermission = true;
     } else if (restaurantId && currentOrder.restaurantId === restaurantId) {
       // Check if user has permission to update orders in this restaurant
-      hasPermission = user.permissions.includes('orders:update') || 
-                     user.permissions.includes('orders:kitchen') ||
-                     user.permissions.includes('orders:read'); // Allow read permission to update status
+      hasPermission =
+        user.permissions.includes('orders:update') ||
+        user.permissions.includes('orders:kitchen') ||
+        user.permissions.includes('orders:read'); // Allow read permission to update status
     }
 
     if (!hasPermission) {
@@ -85,7 +87,7 @@ export async function PATCH(
         userType: user.userType,
         userRestaurantId: restaurantId,
         orderRestaurantId: currentOrder.restaurantId,
-        userPermissions: user.permissions
+        userPermissions: user.permissions,
       });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -177,8 +179,8 @@ export async function PATCH(
       },
     });
 
-    // Publish Redis event for real-time updates
-    await RedisEventManager.publishOrderStatusChange({
+    // Publish PostgreSQL NOTIFY event for real-time updates
+    await PostgresEventManager.publishOrderStatusChange({
       orderId,
       oldStatus: currentOrder.status,
       newStatus: status,
@@ -191,7 +193,7 @@ export async function PATCH(
 
     // Send kitchen notification for status changes
     if (status === ORDER_STATUS.CONFIRMED) {
-      await RedisEventManager.publishKitchenNotification({
+      await PostgresEventManager.publishKitchenNotification({
         type: 'new_order',
         orderId,
         restaurantId: currentOrder.restaurantId,
@@ -199,7 +201,7 @@ export async function PATCH(
         timestamp: Date.now(),
       });
     } else if (status === ORDER_STATUS.READY) {
-      await RedisEventManager.publishRestaurantNotification({
+      await PostgresEventManager.publishRestaurantNotification({
         type: 'order_ready',
         orderId,
         restaurantId: currentOrder.restaurantId,

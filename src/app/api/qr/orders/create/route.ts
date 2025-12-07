@@ -21,8 +21,7 @@ import {
   calculateOrderTotals,
   estimateReadyTime,
 } from '@/lib/order-utils';
-// Redis removed for MVP - using database polling instead
-// import { RedisEventManager } from '@/lib/redis';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { z } from 'zod';
 
@@ -251,9 +250,15 @@ export async function POST(request: NextRequest) {
     // Clear cart after successful order creation
     await clearTableCart(tableId);
 
-    // Note: Real-time notifications removed for MVP
-    // Kitchen dashboard will use database polling to fetch new orders
-    // Future: Can add PostgreSQL NOTIFY/LISTEN or WebSockets if needed
+    // Send real-time notification via PostgreSQL NOTIFY
+    await PostgresEventManager.publishOrderCreated({
+      orderId: order.id,
+      restaurantId: table.restaurant.id,
+      tableId,
+      orderNumber: order.orderNumber,
+      totalAmount: Number(order.totalAmount),
+      timestamp: Date.now(),
+    });
 
     return NextResponse.json({
       success: true,

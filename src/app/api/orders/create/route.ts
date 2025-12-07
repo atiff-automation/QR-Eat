@@ -6,7 +6,7 @@ import {
   estimateReadyTime,
 } from '@/lib/order-utils';
 import { CreateOrderRequest } from '@/types/order';
-import { RedisEventManager } from '@/lib/redis';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getCustomerContext } from '@/lib/get-tenant-context';
 
 export async function POST(request: NextRequest) {
@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
     // This is optional for QR code flow where restaurant context comes from table
     try {
       getCustomerContext(request);
-    } catch (contextError) {
+    } catch {
       // Context validation not required for QR flow
       // Restaurant ID will be obtained from table instead
     }
@@ -147,8 +147,8 @@ export async function POST(request: NextRequest) {
       data: { status: 'occupied' },
     });
 
-    // Publish Redis event for new order
-    await RedisEventManager.publishOrderCreated({
+    // Publish PostgreSQL NOTIFY event for new order
+    await PostgresEventManager.publishOrderCreated({
       orderId: order.id,
       restaurantId: table.restaurant.id,
       tableId: tableId,
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Send kitchen notification for new order
-    await RedisEventManager.publishKitchenNotification({
+    await PostgresEventManager.publishKitchenNotification({
       type: 'new_order',
       orderId: order.id,
       restaurantId: table.restaurant.id,
