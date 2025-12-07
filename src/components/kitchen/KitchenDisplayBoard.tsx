@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getOrderStatusDisplay } from '@/lib/order-utils';
-import { formatCurrency } from '@/lib/payment-utils';
 import { ChefHat } from 'lucide-react';
 
 interface KitchenOrder {
@@ -47,7 +45,7 @@ export function KitchenDisplayBoard() {
   const [error, setError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  const handleRealTimeUpdate = (data: any) => {
+  const handleRealTimeUpdate = (data: { type: string; data: Record<string, unknown> }) => {
     console.log('Kitchen real-time update received:', data);
     
     switch (data.type) {

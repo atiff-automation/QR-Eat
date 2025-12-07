@@ -1,55 +1,22 @@
-export interface PaymentMethod {
+// Simplified payment types for counter payment model
+// Customers order via QR → Pay at counter (no digital gateway)
+
+export type PaymentMethodType = 'cash' | 'card' | 'ewallet';
+
+export type PaymentStatus = 'pending' | 'paid' | 'failed';
+
+export interface Payment {
   id: string;
-  type: PaymentMethodType;
-  name: string;
-  description?: string;
-  enabled: boolean;
-  config?: {
-    merchantId?: string;
-    apiKey?: string;
-    webhookUrl?: string;
-  };
-}
-
-export type PaymentMethodType = 
-  | 'cash'
-  | 'card'
-  | 'digital_wallet'
-  | 'bank_transfer'
-  | 'stripe'
-  | 'paypal'
-  | 'apple_pay'
-  | 'google_pay';
-
-export interface PaymentRequest {
   orderId: string;
+  paymentMethod: PaymentMethodType;
   amount: number;
-  currency: string;
-  paymentMethodId: string;
-  returnUrl?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface PaymentResponse {
-  id: string;
   status: PaymentStatus;
-  amount: number;
-  currency: string;
-  paymentMethodType: PaymentMethodType;
-  transactionId?: string;
-  providerResponse?: any;
-  redirectUrl?: string;
-  message?: string;
+  processedAt?: Date;
+  processedBy?: string; // Staff ID who processed payment at counter
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
-
-export type PaymentStatus = 
-  | 'pending'
-  | 'processing'
-  | 'requires_action'
-  | 'succeeded'
-  | 'failed'
-  | 'cancelled'
-  | 'refunded';
 
 export interface PaymentIntent {
   id: string;
@@ -58,35 +25,10 @@ export interface PaymentIntent {
   currency: string;
   status: PaymentStatus;
   paymentMethodId: string;
-  clientSecret?: string;
-  createdAt: string;
-  confirmedAt?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface RefundRequest {
-  paymentId: string;
-  amount?: number;
-  reason?: string;
-  metadata?: Record<string, any>;
-}
-
-export interface RefundResponse {
-  id: string;
-  status: 'pending' | 'succeeded' | 'failed';
-  amount: number;
-  currency: string;
-  reason?: string;
-  message?: string;
-}
-
-export interface PaymentConfig {
-  currency: string;
-  enabledMethods: PaymentMethodType[];
-  stripePublishableKey?: string;
-  paypalClientId?: string;
-  minimumAmount: number;
-  maximumAmount: number;
-  allowTips: boolean;
-  tipSuggestions: number[];
+  reference: string;
+  verifiedBy?: string; // Staff who verified payment
+  verifiedAt?: Date;
+  createdAt: Date;
+  confirmedAt?: Date;
+  metadata?: Record<string, unknown>;
 }

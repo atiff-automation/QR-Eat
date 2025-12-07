@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { getOrderStatusDisplay } from '@/lib/order-utils';
-import { formatCurrency } from '@/lib/payment-utils';
-import { ClipboardList, AlertTriangle, Clock, ChefHat, DollarSign } from 'lucide-react';
+import { formatPrice } from '@/lib/qr-utils';
+import { ClipboardList, Clock, ChefHat, DollarSign } from 'lucide-react';
 
 interface OrderSummary {
   id: string;
@@ -46,7 +46,7 @@ export function OrdersOverview() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
-  const handleRealTimeUpdate = (data: any) => {
+  const handleRealTimeUpdate = (data: { type: string; data: Record<string, unknown> }) => {
     console.log('Real-time update received:', data);
     
     switch (data.type) {
@@ -282,7 +282,7 @@ export function OrdersOverview() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Revenue</p>
-                <p className="text-2xl font-semibold text-gray-900">{formatCurrency(stats.totalRevenue)}</p>
+                <p className="text-2xl font-semibold text-gray-900">{formatPrice(stats.totalRevenue)}</p>
               </div>
             </div>
           </div>
@@ -378,7 +378,7 @@ export function OrdersOverview() {
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-900">
-                        {order.items.slice(0, 2).map((item, index) => (
+                        {order.items.slice(0, 2).map((item) => (
                           <div key={item.id}>
                             {item.quantity}× {item.menuItem.name}
                           </div>
@@ -396,7 +396,7 @@ export function OrdersOverview() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(order.totalAmount)}
+                      {formatPrice(order.totalAmount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                       <div className="flex space-x-2">

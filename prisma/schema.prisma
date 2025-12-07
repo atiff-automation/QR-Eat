@@ -572,14 +572,14 @@ model PaymentIntent {
   id              String   @id @default(uuid())
   orderId         String
   amount          Decimal  @db.Decimal(10, 2)
-  currency        String   @default("USD")
+  currency        String   @default("MYR")
   paymentMethodId String
   status          String   @default("pending")
   reference       String   @unique
-  clientSecret    String?
   transactionId   String?
-  finalAmount     Decimal? @db.Decimal(10, 2)
-  tip             Decimal  @default(0.00) @db.Decimal(10, 2)
+  referenceNumber String?
+  verifiedBy      String?
+  verifiedAt      DateTime?
   metadata        Json     @default("{}")
   expiresAt       DateTime
   createdAt       DateTime @default(now())
@@ -858,4 +858,25 @@ model CacheEntry {
   @@index([expiresAt])
   @@index([key, expiresAt])
   @@map("cache_entries")
+}
+
+// ============================
+// SYSTEM CONFIGURATION
+// ============================
+
+// System-wide configuration storage
+// Stores encrypted sensitive data like payment gateway credentials
+model SystemConfig {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  value       String   // Encrypted value
+  iv          String   // Initialization vector for AES-GCM
+  tag         String   // Authentication tag for AES-GCM
+  description String?
+  updatedBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([key])
+  @@map("system_config")
 }

@@ -4,14 +4,11 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MenuCategory, Table } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
-import { PaymentIntent } from '@/types/payment';
 import { useCart } from '@/hooks/useCart';
 import { MenuCard } from '@/components/menu/MenuCard';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { OrderConfirmation } from '@/components/order/OrderConfirmation';
-import { PaymentForm } from '@/components/payment/PaymentForm';
-import { PaymentSuccess } from '@/components/payment/PaymentSuccess';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 
@@ -26,9 +23,7 @@ export default function QRMenuPage() {
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
-  const [showPayment, setShowPayment] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
-  const [paymentIntent, setPaymentIntent] = useState<PaymentIntent | null>(null);
 
   const {
     cart,
@@ -94,20 +89,12 @@ export default function QRMenuPage() {
   const handleOrderCreate = (order: OrderResponse) => {
     setCurrentOrder(order);
     setShowCheckout(false);
-    setShowPayment(true);
-  };
-
-  const handlePaymentSuccess = (payment: PaymentIntent) => {
-    setPaymentIntent(payment);
-    setShowPayment(false);
     clearCart();
   };
 
   const handleNewOrder = () => {
     setCurrentOrder(null);
-    setPaymentIntent(null);
     setShowCheckout(false);
-    setShowPayment(false);
     setShowCart(false);
   };
 
@@ -209,25 +196,10 @@ export default function QRMenuPage() {
 
           {/* Main Content */}
           <div className="lg:col-span-3">
-            {paymentIntent ? (
-              <PaymentSuccess
-                paymentIntent={paymentIntent}
-                orderNumber={currentOrder?.orderNumber || ''}
-                onNewOrder={handleNewOrder}
-              />
-            ) : currentOrder && !showPayment ? (
+            {currentOrder ? (
               <OrderConfirmation
                 order={currentOrder}
                 onNewOrder={handleNewOrder}
-              />
-            ) : showPayment && currentOrder ? (
-              <PaymentForm
-                order={currentOrder}
-                onPaymentSuccess={handlePaymentSuccess}
-                onCancel={() => {
-                  setShowPayment(false);
-                  setShowCheckout(true);
-                }}
               />
             ) : showCheckout ? (
               <CheckoutForm
@@ -282,7 +254,7 @@ export default function QRMenuPage() {
       </div>
 
       {/* Mobile Cart Button */}
-      {getItemCount() > 0 && !showCart && !showCheckout && !showPayment && !currentOrder && !paymentIntent && (
+      {getItemCount() > 0 && !showCart && !showCheckout && !currentOrder && (
         <div className="fixed bottom-4 right-4 lg:hidden">
           <Button
             onClick={() => setShowCart(true)}

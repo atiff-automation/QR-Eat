@@ -201,13 +201,15 @@ export function CheckoutForm({
             className="flex-1"
             size="lg"
           >
-            Place Order - {formatPrice(cart.totalAmount)}
+            Submit Order to Kitchen
           </Button>
         </div>
 
         <div className="text-xs text-gray-500 text-center">
           <p>By placing this order, you agree to our terms of service.</p>
-          <p>You'll be able to choose your payment method in the next step.</p>
+          <p className="font-medium text-gray-700 mt-1">
+            Please pay at the counter when ready.
+          </p>
         </div>
       </form>
     </div>
