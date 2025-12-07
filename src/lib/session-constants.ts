@@ -34,3 +34,10 @@ export const SESSION_VALIDATION = {
   TOKEN_LENGTH: 64,
   CLEANUP_INTERVAL: 60 * 60 * 1000, // 1 hour
 } as const;
+
+// Cart synchronization settings
+export const CART_SYNC = {
+  POLL_INTERVAL_MS: 10000, // 10 seconds for multi-device sync
+  MAX_RETRY_ATTEMPTS: 3,
+  RETRY_DELAY_MS: 1000,
+} as const;

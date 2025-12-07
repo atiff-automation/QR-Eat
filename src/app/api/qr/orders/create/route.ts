@@ -21,7 +21,8 @@ import {
   calculateOrderTotals,
   estimateReadyTime,
 } from '@/lib/order-utils';
-import { RedisEventManager } from '@/lib/redis';
+// Redis removed for MVP - using database polling instead
+// import { RedisEventManager } from '@/lib/redis';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { z } from 'zod';
 
@@ -193,24 +194,9 @@ export async function POST(request: NextRequest) {
     // Clear cart after successful order creation
     await clearTableCart(tableId);
 
-    // Publish Redis event for new order
-    await RedisEventManager.publishOrderCreated({
-      orderId: order.id,
-      restaurantId: table.restaurant.id,
-      tableId: tableId,
-      orderNumber: order.orderNumber,
-      totalAmount: parseFloat(order.totalAmount.toString()),
-      timestamp: Date.now(),
-    });
-
-    // Send kitchen notification for new order
-    await RedisEventManager.publishKitchenNotification({
-      type: 'new_order',
-      orderId: order.id,
-      restaurantId: table.restaurant.id,
-      message: `New order ${order.orderNumber} from table ${table.tableNumber}`,
-      timestamp: Date.now(),
-    });
+    // Note: Real-time notifications removed for MVP
+    // Kitchen dashboard will use database polling to fetch new orders
+    // Future: Can add PostgreSQL NOTIFY/LISTEN or WebSockets if needed
 
     return NextResponse.json({
       success: true,
@@ -222,7 +208,8 @@ export async function POST(request: NextRequest) {
         totalAmount: order.totalAmount,
         estimatedReadyTime: order.estimatedReadyTime,
       },
-      message: 'Order submitted successfully! Please pay at the counter when ready.',
+      message:
+        'Order submitted successfully! Please pay at the counter when ready.',
     });
   } catch (error) {
     console.error('QR order creation error:', error);
@@ -240,10 +227,7 @@ export async function POST(request: NextRequest) {
 
     // Handle known errors
     if (error instanceof Error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     // Handle unknown errors

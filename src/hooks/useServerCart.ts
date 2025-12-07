@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Cart, MenuItem, MenuItemVariation } from '@/types/menu';
+import { CART_SYNC } from '@/lib/session-constants';
 
 interface ServerCartItem {
   id: string;
@@ -36,9 +37,6 @@ interface ServerCart {
   totalItems: number;
   totalAmount: number;
 }
-
-// Polling interval for multi-device sync (10 seconds)
-const POLL_INTERVAL_MS = 10000;
 
 export function useServerCart(
   tableId: string | null,
@@ -89,8 +87,9 @@ export function useServerCart(
         const serverCart: ServerCart = data.cart;
         const totals = calculateTotals(serverCart);
 
-        // Convert server cart items to client cart format
+        // Convert server cart items to client cart format (including server IDs)
         const clientItems = serverCart.items.map((item) => ({
+          id: item.id, // ✅ Include server cart item ID
           menuItemId: item.menuItemId,
           menuItem: {
             id: item.menuItem.id,
@@ -187,7 +186,7 @@ export function useServerCart(
     [tableId, fetchCart]
   );
 
-  // Update cart item
+  // Update cart item (using server ID - no more race conditions!)
   const updateCartItem = useCallback(
     async (
       itemIndex: number,
@@ -196,32 +195,17 @@ export function useServerCart(
       if (!tableId) return;
 
       const item = cart.items[itemIndex];
-      if (!item) return;
+      if (!item || !item.id) {
+        setError('Cart item not found');
+        return;
+      }
 
-      // Get the server cart item ID (we need to store this)
-      // For now, we'll fetch the cart and match by menuItemId and variation
       setLoading(true);
       setError(null);
 
       try {
-        // First, fetch current cart to get item IDs
-        const cartResponse = await fetch(`/api/qr/cart/${tableId}`);
-        const cartData = await cartResponse.json();
-
-        if (!cartResponse.ok) {
-          setError('Failed to update cart');
-          return;
-        }
-
-        const serverCart: ServerCart = cartData.cart;
-        const serverItem = serverCart.items[itemIndex];
-
-        if (!serverItem) {
-          setError('Cart item not found');
-          return;
-        }
-
-        const response = await fetch(`/api/qr/cart/${serverItem.id}`, {
+        // ✅ Use server ID directly - no N+1 query, no race condition!
+        const response = await fetch(`/api/qr/cart/${item.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -247,33 +231,23 @@ export function useServerCart(
     [tableId, cart.items, fetchCart]
   );
 
-  // Remove item from cart
+  // Remove item from cart (using server ID - no more race conditions!)
   const removeFromCart = useCallback(
     async (itemIndex: number) => {
       if (!tableId) return;
+
+      const item = cart.items[itemIndex];
+      if (!item || !item.id) {
+        setError('Cart item not found');
+        return;
+      }
 
       setLoading(true);
       setError(null);
 
       try {
-        // Fetch current cart to get item ID
-        const cartResponse = await fetch(`/api/qr/cart/${tableId}`);
-        const cartData = await cartResponse.json();
-
-        if (!cartResponse.ok) {
-          setError('Failed to remove item');
-          return;
-        }
-
-        const serverCart: ServerCart = cartData.cart;
-        const serverItem = serverCart.items[itemIndex];
-
-        if (!serverItem) {
-          setError('Cart item not found');
-          return;
-        }
-
-        const response = await fetch(`/api/qr/cart/${serverItem.id}`, {
+        // ✅ Use server ID directly - no N+1 query, no race condition!
+        const response = await fetch(`/api/qr/cart/${item.id}`, {
           method: 'DELETE',
         });
 
@@ -291,7 +265,7 @@ export function useServerCart(
         setLoading(false);
       }
     },
-    [tableId, fetchCart]
+    [tableId, cart.items, fetchCart]
   );
 
   // Clear cart (already handled by order creation)
@@ -318,7 +292,7 @@ export function useServerCart(
       // Start polling for multi-device sync
       pollIntervalRef.current = setInterval(() => {
         fetchCart();
-      }, POLL_INTERVAL_MS);
+      }, CART_SYNC.POLL_INTERVAL_MS);
     }
 
     // Cleanup on unmount

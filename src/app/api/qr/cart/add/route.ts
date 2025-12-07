@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { addToTableCart } from '@/lib/table-session';
+import { prisma } from '@/lib/database';
 import { z } from 'zod';
 import { CART_LIMITS } from '@/lib/session-constants';
 
@@ -48,7 +49,39 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AddToCartSchema.parse(body);
 
-    // Add item to cart
+    // SECURITY: Verify price from database (prevent client price manipulation)
+    const menuItem = await prisma.menuItem.findUnique({
+      where: { id: validatedData.menuItemId },
+      select: { price: true, isAvailable: true },
+    });
+
+    if (!menuItem) {
+      return NextResponse.json(
+        { error: 'Menu item not found' },
+        { status: 404 }
+      );
+    }
+
+    if (!menuItem.isAvailable) {
+      return NextResponse.json(
+        { error: 'Menu item is not available' },
+        { status: 400 }
+      );
+    }
+
+    // Verify unit price matches database price
+    const dbPrice = Number(menuItem.price);
+    if (Math.abs(validatedData.unitPrice - dbPrice) > 0.01) {
+      return NextResponse.json(
+        {
+          error: 'Price mismatch detected. Please refresh and try again.',
+          expectedPrice: dbPrice,
+        },
+        { status: 400 }
+      );
+    }
+
+    // Add item to cart with verified price
     const cartItem = await addToTableCart(validatedData);
 
     return NextResponse.json({
