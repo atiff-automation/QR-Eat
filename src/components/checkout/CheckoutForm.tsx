@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Cart } from '@/types/menu';
-import { CreateOrderRequest, OrderResponse } from '@/types/order';
+import { OrderResponse } from '@/types/order';
 import { formatPrice } from '@/lib/qr-utils';
 import { Button } from '@/components/ui/Button';
 
@@ -34,18 +34,17 @@ export function CheckoutForm({
     setError('');
 
     try {
-      const orderRequest: CreateOrderRequest = {
+      const orderRequest = {
         tableId,
         customerInfo: {
           name: customerInfo.name || undefined,
           phone: customerInfo.phone || undefined,
           email: customerInfo.email || undefined,
         },
-        items: cart.items,
         specialInstructions: specialInstructions || undefined,
       };
 
-      const response = await fetch('/api/orders/create', {
+      const response = await fetch('/api/qr/orders/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
