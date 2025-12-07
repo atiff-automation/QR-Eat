@@ -73,7 +73,7 @@ export async function PATCH(
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          details: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         },
         { status: 400 }
       );
@@ -118,7 +118,7 @@ export async function DELETE(
       return NextResponse.json(
         {
           error: 'Invalid cart item ID',
-          details: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          details: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         },
         { status: 400 }
       );

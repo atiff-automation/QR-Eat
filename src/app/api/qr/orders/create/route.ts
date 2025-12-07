@@ -89,25 +89,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert cart items to order item format for calculation
-    const orderItems = tableCart.items.map((item) => ({
-      menuItemId: item.menuItemId,
-      quantity: item.quantity,
-      unitPrice: item.unitPrice,
-      totalPrice: item.subtotal,
-      specialInstructions: item.specialInstructions || undefined,
-      selectedVariations: item.variation
-        ? [
-            {
-              variationId: item.variation.id,
-              quantity: 1,
-              variation: {
-                priceModifier: item.unitPrice - item.unitPrice, // Variation price already included in unitPrice
-              },
-            },
-          ]
-        : [],
-    }));
+    // Fetch full menu items for calculation (need preparationTime)
+    const menuItemIds = tableCart.items.map((item) => item.menuItemId);
+    const menuItems = await prisma.menuItem.findMany({
+      where: { id: { in: menuItemIds } },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        preparationTime: true,
+        imageUrl: true,
+        description: true,
+        allergens: true,
+        dietaryInfo: true,
+        isAvailable: true,
+        isFeatured: true,
+        displayOrder: true,
+        costPrice: true,
+        calories: true,
+      },
+    });
+
+    const menuItemsMap = new Map(menuItems.map((item) => [item.id, item]));
+
+    // Convert cart items to CartItem format for calculation
+    const orderItems: import('@/types/menu').CartItem[] = tableCart.items.map(
+      (item) => {
+        const menuItem = menuItemsMap.get(item.menuItemId);
+        if (!menuItem) {
+          throw new Error(`Menu item ${item.menuItemId} not found`);
+        }
+
+        return {
+          id: item.id,
+          menuItemId: item.menuItemId,
+          menuItem: {
+            id: menuItem.id,
+            name: menuItem.name,
+            price: Number(menuItem.price),
+            preparationTime: menuItem.preparationTime,
+            imageUrl: menuItem.imageUrl ?? undefined,
+            description: menuItem.description ?? undefined,
+            allergens: menuItem.allergens,
+            dietaryInfo: menuItem.dietaryInfo,
+            isAvailable: menuItem.isAvailable,
+            isFeatured: menuItem.isFeatured,
+            displayOrder: menuItem.displayOrder,
+            costPrice: menuItem.costPrice
+              ? Number(menuItem.costPrice)
+              : undefined,
+            calories: menuItem.calories ?? undefined,
+            variations: [], // Not needed for calculations
+          },
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          totalPrice: item.subtotal,
+          specialInstructions: item.specialInstructions || undefined,
+          selectedVariations: item.variation
+            ? [
+                {
+                  variationId: item.variation.id,
+                  quantity: 1,
+                  variation: {
+                    id: item.variation.id,
+                    name: item.variation.name,
+                    priceModifier: 0,
+                    variationType: '',
+                    isRequired: false,
+                    maxSelections: 1,
+                    displayOrder: 0,
+                  },
+                },
+              ]
+            : [],
+        };
+      }
+    );
 
     // Calculate order totals
     const totals = calculateOrderTotals(
@@ -219,7 +276,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: 'Invalid request data',
-          details: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          details: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         },
         { status: 400 }
       );

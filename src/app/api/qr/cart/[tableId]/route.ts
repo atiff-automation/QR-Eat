@@ -45,7 +45,7 @@ export async function GET(
       return NextResponse.json(
         {
           error: 'Invalid table ID',
-          details: error.errors.map((e) => `${e.path.join('.')}: ${e.message}`),
+          details: error.issues.map((e) => `${e.path.join('.')}: ${e.message}`),
         },
         { status: 400 }
       );
