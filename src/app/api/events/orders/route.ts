@@ -10,6 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 import { pgPubSub, PG_EVENTS } from '@/lib/postgres-pubsub';
+import { EventPersistenceService } from '@/lib/event-persistence';
 
 // Connection tracking types
 interface ActiveConnection {
@@ -49,18 +50,33 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user data' }, { status: 400 });
     }
 
+    // Parse query parameters for SSE catchup
+    const url = new URL(request.url);
+    const sinceParam = url.searchParams.get('since');
+    const sinceTimestamp = sinceParam ? new Date(sinceParam) : null;
+
     // Create connection ID
     const connectionId = `${userId}_${Date.now()}`;
 
     // Create readable stream for SSE
     const stream = new ReadableStream({
-      start(controller) {
+      async start(controller) {
         // Store connection
         activeConnections.set(connectionId, {
           controller,
           restaurantId: restaurantId || '',
           userType,
           userId,
+        });
+
+        console.log(`[SSE] New connection established:`, {
+          connectionId,
+          userId,
+          userType,
+          restaurantId: restaurantId || 'none',
+          totalConnections: activeConnections.size,
+          catchupRequested: !!sinceTimestamp,
+          since: sinceTimestamp?.toISOString(),
         });
 
         // Send initial connection message
@@ -74,6 +90,11 @@ export async function GET(request: NextRequest) {
         };
 
         controller.enqueue(`data: ${JSON.stringify(initialMessage)}\n\n`);
+
+        // Send catchup events if client requested them
+        if (sinceTimestamp && restaurantId) {
+          await sendCatchupEvents(controller, restaurantId, sinceTimestamp);
+        }
 
         // Set up PostgreSQL LISTEN subscription for this connection
         setupPostgresSubscription(connectionId);
@@ -115,6 +136,56 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to setup real-time connection' },
       { status: 500 }
     );
+  }
+}
+
+/**
+ * Send catchup events for missed updates
+ *
+ * Retrieves undelivered events from database and sends them to client.
+ * Used when client reconnects after being offline.
+ *
+ * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: SSE Catchup
+ */
+async function sendCatchupEvents(
+  controller: ReadableStreamDefaultController,
+  restaurantId: string,
+  since: Date
+): Promise<void> {
+  try {
+    console.log(`[SSE Catchup] Retrieving pending events:`, {
+      restaurantId,
+      since: since.toISOString(),
+    });
+
+    const pendingEvents = await EventPersistenceService.getPendingEvents({
+      restaurantId,
+      since,
+    });
+
+    console.log(`[SSE Catchup] Found ${pendingEvents.length} pending events`);
+
+    for (const event of pendingEvents) {
+      const sseEvent = {
+        type: event.eventType,
+        data: event.eventData,
+        timestamp: event.createdAt.getTime(),
+      };
+
+      controller.enqueue(`data: ${JSON.stringify(sseEvent)}\n\n`);
+
+      // Mark event as delivered
+      await EventPersistenceService.markDelivered(event.id);
+    }
+
+    if (pendingEvents.length > 0) {
+      console.log(
+        `[SSE Catchup] Delivered ${pendingEvents.length} missed events to client`
+      );
+    }
+  } catch (error) {
+    console.error(`[SSE Catchup] Error sending catchup events:`, error);
+    // Don't throw - catchup failure shouldn't prevent SSE connection
   }
 }
 
@@ -160,14 +231,38 @@ function handlePostgresMessage(
   message: string
 ) {
   const connection = activeConnections.get(connectionId);
-  if (!connection) return;
+  if (!connection) {
+    console.warn(
+      `[SSE] Connection ${connectionId} not found in active connections`
+    );
+    return;
+  }
 
   try {
     const eventData = JSON.parse(message);
 
+    console.log(`[SSE] Processing event for connection ${connectionId}:`, {
+      channel,
+      eventType: getEventType(channel),
+      eventId: (eventData as { orderId?: string }).orderId || 'unknown',
+      eventRestaurantId: (eventData as { restaurantId?: string }).restaurantId,
+      userRestaurantId: connection.restaurantId,
+      userType: connection.userType,
+    });
+
     // Filter events based on user's restaurant access
     const shouldReceiveEvent = checkEventPermission(connection, eventData);
-    if (!shouldReceiveEvent) return;
+
+    if (!shouldReceiveEvent) {
+      console.log(`[SSE] Event filtered out for connection ${connectionId}:`, {
+        reason: 'Permission check failed',
+        eventRestaurantId: (eventData as { restaurantId?: string })
+          .restaurantId,
+        userRestaurantId: connection.restaurantId,
+        userType: connection.userType,
+      });
+      return;
+    }
 
     // Format event for SSE
     const sseEvent = {
@@ -178,8 +273,16 @@ function handlePostgresMessage(
 
     // Send to client
     connection.controller.enqueue(`data: ${JSON.stringify(sseEvent)}\n\n`);
+
+    console.log(`[SSE] Event delivered to connection ${connectionId}:`, {
+      type: sseEvent.type,
+      eventId: (eventData as { orderId?: string }).orderId || 'unknown',
+    });
   } catch (error) {
-    console.error('Error handling PostgreSQL message:', error);
+    console.error(
+      `[SSE] Error handling PostgreSQL message for ${connectionId}:`,
+      error
+    );
   }
 }
 
@@ -226,6 +329,14 @@ function getEventType(channel: string): string {
 function cleanup(connectionId: string) {
   const connection = activeConnections.get(connectionId);
   if (connection) {
+    console.log(`[SSE] Cleaning up connection:`, {
+      connectionId,
+      userId: connection.userId,
+      userType: connection.userType,
+      restaurantId: connection.restaurantId,
+      remainingConnections: activeConnections.size - 1,
+    });
+
     // Clear keep-alive interval
     if (connection.keepAliveInterval) {
       clearInterval(connection.keepAliveInterval);
@@ -239,7 +350,7 @@ function cleanup(connectionId: string) {
     // Remove connection
     activeConnections.delete(connectionId);
 
-    console.log(`SSE connection ${connectionId} cleaned up`);
+    console.log(`[SSE] Connection ${connectionId} cleaned up successfully`);
   }
 }
 

@@ -7,8 +7,11 @@
  * @see CLAUDE.md - Type Safety, Error Handling, Single Source of Truth
  */
 
+import 'server-only';
 import { Client } from 'pg';
 import { EventEmitter } from 'events';
+import { EVENT_CONFIG } from './event-config';
+import { EventPersistenceService } from './event-persistence';
 
 // ============================================================================
 // Event Channel Names (Single Source of Truth)
@@ -187,34 +190,107 @@ class PostgresPubSubManager extends EventEmitter {
   }
 
   /**
-   * Publish event to channel
+   * Publish event to channel with lazy initialization and retry
+   *
+   * @see cloudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 1: Lazy Initialization
    */
   async notify(
     channel: string,
     payload: Record<string, unknown>
   ): Promise<void> {
-    // Use notifyClient if available, otherwise use Prisma (fallback)
-    const client = this.notifyClient;
+    // Lazy initialization: Initialize if not already initialized
+    if (!this.notifyClient) {
+      console.log('⚡ [PubSub] Lazy initialization triggered by notify()');
 
-    if (!client) {
-      console.warn('⚠️ NOTIFY client not available, skipping notification');
-      return;
-    }
-
-    try {
-      const payloadStr = JSON.stringify(payload);
-      // Escape single quotes in payload
-      const escapedPayload = payloadStr.replace(/'/g, "''");
-
-      await client.query(`NOTIFY ${channel}, '${escapedPayload}'`);
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`📢 Published to ${channel}:`, payload);
+      try {
+        await this.initialize();
+        console.log('✅ [PubSub] Lazy initialization successful');
+      } catch (error) {
+        console.error('❌ [PubSub] Lazy initialization failed:', error);
+        console.warn(
+          '⚠️  [PubSub] Event will not be delivered via SSE (will rely on database persistence)'
+        );
+        // Event will be persisted in database (Phase 2), delivered on reconnect
+        return;
       }
-    } catch (error) {
-      console.error(`Failed to publish to ${channel}:`, error);
-      // Don't throw - notification failures shouldn't break the main flow
     }
+
+    // Retry logic with exponential backoff
+    let attempt = 0;
+    let lastError: Error | null = null;
+
+    while (attempt < EVENT_CONFIG.MAX_RETRY_ATTEMPTS) {
+      try {
+        const payloadStr = JSON.stringify(payload);
+        // Escape single quotes in payload
+        const escapedPayload = payloadStr.replace(/'/g, "''");
+
+        await this.notifyClient!.query(
+          `NOTIFY ${channel}, '${escapedPayload}'`
+        );
+
+        console.log(`📢 [PubSub] Event published successfully:`, {
+          channel,
+          eventType:
+            payload.type ||
+            (channel.includes('order_created')
+              ? 'order_created'
+              : 'order_status_changed'),
+          eventId: (payload as { orderId?: string }).orderId || 'unknown',
+          timestamp:
+            (payload as { timestamp?: number }).timestamp || Date.now(),
+          attempt: attempt + 1,
+        });
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`📢 [PubSub] Full payload:`, payload);
+        }
+
+        // Success - break retry loop
+        return;
+      } catch (error) {
+        lastError = error as Error;
+        attempt++;
+
+        if (attempt < EVENT_CONFIG.MAX_RETRY_ATTEMPTS) {
+          // Calculate exponential backoff delay
+          const backoffDelay = Math.min(
+            EVENT_CONFIG.RETRY_BACKOFF_MS * Math.pow(2, attempt - 1),
+            EVENT_CONFIG.MAX_RETRY_BACKOFF_MS
+          );
+
+          console.warn(
+            `⚠️  [PubSub] Publish attempt ${attempt} failed, retrying in ${backoffDelay}ms...`,
+            {
+              channel,
+              error: (error as Error).message,
+            }
+          );
+
+          // Wait before retry
+          await new Promise((resolve) => setTimeout(resolve, backoffDelay));
+        }
+      }
+    }
+
+    // All retries failed
+    console.error(
+      `❌ [PubSub] Failed to publish after ${EVENT_CONFIG.MAX_RETRY_ATTEMPTS} attempts:`,
+      {
+        channel,
+        error: lastError?.message,
+        eventId: (payload as { orderId?: string }).orderId || 'unknown',
+      }
+    );
+    console.error('⚠️  [PubSub] Event payload:', payload);
+    // Event persisted in database (Phase 2), will be delivered via polling fallback
+  }
+
+  /**
+   * Check if notify client is ready to send events
+   */
+  isNotifyReady(): boolean {
+    return this.notifyClient !== null;
   }
 
   /**
@@ -321,12 +397,22 @@ export const pgPubSub = new PostgresPubSubManager();
 
 export class PostgresEventManager {
   /**
-   * Publish order status change event
+   * Publish order status change event with dual-write pattern
+   *
+   * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: Dual-Write Pattern
    */
   static async publishOrderStatusChange(
     event: OrderStatusChangedEvent
   ): Promise<void> {
     try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_STATUS_CHANGED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
       await pgPubSub.notify(PG_EVENTS.ORDER_STATUS_CHANGED, event);
     } catch (error) {
       console.error('Failed to publish order status change:', error);
@@ -335,10 +421,20 @@ export class PostgresEventManager {
   }
 
   /**
-   * Publish new order created event
+   * Publish new order created event with dual-write pattern
+   *
+   * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: Dual-Write Pattern
    */
   static async publishOrderCreated(event: OrderCreatedEvent): Promise<void> {
     try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_CREATED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
       await pgPubSub.notify(PG_EVENTS.ORDER_CREATED, event);
     } catch (error) {
       console.error('Failed to publish order created:', error);
@@ -346,12 +442,22 @@ export class PostgresEventManager {
   }
 
   /**
-   * Publish order item status change event
+   * Publish order item status change event with dual-write pattern
+   *
+   * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: Dual-Write Pattern
    */
   static async publishOrderItemStatusChange(
     event: OrderItemStatusChangedEvent
   ): Promise<void> {
     try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_ITEM_STATUS_CHANGED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
       await pgPubSub.notify(PG_EVENTS.ORDER_ITEM_STATUS_CHANGED, event);
     } catch (error) {
       console.error('Failed to publish item status change:', error);
@@ -359,12 +465,22 @@ export class PostgresEventManager {
   }
 
   /**
-   * Publish kitchen notification
+   * Publish kitchen notification with dual-write pattern
+   *
+   * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: Dual-Write Pattern
    */
   static async publishKitchenNotification(
     event: KitchenNotificationEvent
   ): Promise<void> {
     try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.KITCHEN_NOTIFICATION,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
       await pgPubSub.notify(PG_EVENTS.KITCHEN_NOTIFICATION, event);
     } catch (error) {
       console.error('Failed to publish kitchen notification:', error);
@@ -372,12 +488,22 @@ export class PostgresEventManager {
   }
 
   /**
-   * Publish restaurant notification
+   * Publish restaurant notification with dual-write pattern
+   *
+   * @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2: Dual-Write Pattern
    */
   static async publishRestaurantNotification(
     event: RestaurantNotificationEvent
   ): Promise<void> {
     try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.RESTAURANT_NOTIFICATION,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
       await pgPubSub.notify(PG_EVENTS.RESTAURANT_NOTIFICATION, event);
     } catch (error) {
       console.error('Failed to publish restaurant notification:', error);

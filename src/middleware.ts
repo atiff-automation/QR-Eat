@@ -3,7 +3,7 @@ import {
   shouldHandleSubdomain,
   getRestaurantSlugFromSubdomain,
   logSubdomainInfo,
-  isReservedSubdomain
+  isReservedSubdomain,
 } from '@/lib/subdomain';
 
 // Security headers for all responses
@@ -23,21 +23,27 @@ export async function middleware(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  
+
   // Basic middleware logging
   if (process.env.NODE_ENV === 'development') {
     console.log('🔧 Middleware running for:', pathname);
   }
-  
+
   // Log subdomain info in development
   if (process.env.NODE_ENV === 'development') {
     logSubdomainInfo(request);
   }
 
   // Handle subdomain routing first (but skip for restaurant-not-found page)
-  if (shouldHandleSubdomain(request) && !pathname.includes('/restaurant-not-found')) {
+  if (
+    shouldHandleSubdomain(request) &&
+    !pathname.includes('/restaurant-not-found')
+  ) {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🌐 RBAC Middleware: Handling subdomain routing for', pathname);
+      console.log(
+        '🌐 RBAC Middleware: Handling subdomain routing for',
+        pathname
+      );
     }
     return await handleSubdomainRouting(request, response);
   }
@@ -49,7 +55,7 @@ export async function middleware(request: NextRequest) {
     }
     return response;
   }
-  
+
   // Skip middleware for API routes that don't require auth
   if (isPublicApiRoute(pathname)) {
     if (process.env.NODE_ENV === 'development') {
@@ -57,22 +63,26 @@ export async function middleware(request: NextRequest) {
     }
     return response;
   }
-  
+
   // Get authentication token
-  const token = request.cookies.get('qr_rbac_token')?.value || 
-                request.cookies.get('qr_auth_token')?.value;
-  
+  const token =
+    request.cookies.get('qr_rbac_token')?.value ||
+    request.cookies.get('qr_auth_token')?.value;
+
   if (!token) {
     if (process.env.NODE_ENV === 'development') {
       console.log('🚫 RBAC Middleware: No token found for', pathname);
     }
     return redirectToLogin(request, pathname);
   }
-  
+
   if (process.env.NODE_ENV === 'development') {
-    console.log('🔑 RBAC Middleware: Token found, validating via API for', pathname);
+    console.log(
+      '🔑 RBAC Middleware: Token found, validating via API for',
+      pathname
+    );
   }
-  
+
   try {
     // Validate token by calling our validation API route
     const validationUrl = new URL('/api/auth/validate-token', request.url);
@@ -80,23 +90,29 @@ export async function middleware(request: NextRequest) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Cookie': request.headers.get('cookie') || '',
+        Cookie: request.headers.get('cookie') || '',
       },
-      body: JSON.stringify({ token, pathname })
+      body: JSON.stringify({ token, pathname }),
     });
 
     if (!validationResponse.ok) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🚫 RBAC Middleware: Token validation failed for', pathname);
+        console.log(
+          '🚫 RBAC Middleware: Token validation failed for',
+          pathname
+        );
       }
       return redirectToLogin(request, pathname);
     }
 
     const validationData = await validationResponse.json();
-    
+
     if (!validationData.isValid) {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🚫 RBAC Middleware: Token validation returned invalid for', pathname);
+        console.log(
+          '🚫 RBAC Middleware: Token validation returned invalid for',
+          pathname
+        );
       }
       return redirectToLogin(request, pathname);
     }
@@ -108,24 +124,36 @@ export async function middleware(request: NextRequest) {
       response.headers.set('x-user-email', payload.email);
       response.headers.set('x-user-role', payload.currentRole.roleTemplate);
       response.headers.set('x-user-type', payload.currentRole.userType);
-      response.headers.set('x-user-permissions', JSON.stringify(payload.permissions));
+      response.headers.set(
+        'x-user-permissions',
+        JSON.stringify(payload.permissions)
+      );
       response.headers.set('x-session-id', payload.sessionId);
-      response.headers.set('x-is-admin', (payload.currentRole.roleTemplate === 'platform_admin').toString());
-      
+      response.headers.set(
+        'x-is-admin',
+        (payload.currentRole.roleTemplate === 'platform_admin').toString()
+      );
+
       if (payload.restaurantContext) {
         response.headers.set('x-restaurant-id', payload.restaurantContext.id);
-        response.headers.set('x-restaurant-slug', payload.restaurantContext.slug);
-        
+        response.headers.set(
+          'x-restaurant-slug',
+          payload.restaurantContext.slug
+        );
+
         if (payload.currentRole.roleTemplate === 'restaurant_owner') {
           response.headers.set('x-owner-id', payload.userId);
         }
       }
     }
-    
+
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ RBAC Middleware: Token validation successful for', pathname);
+      console.log(
+        '✅ RBAC Middleware: Token validation successful for',
+        pathname
+      );
     }
-    
+
     return response;
   } catch (error) {
     console.error('Middleware error:', error);
@@ -136,13 +164,17 @@ export async function middleware(request: NextRequest) {
 /**
  * Handle subdomain-specific routing logic
  */
-async function handleSubdomainRouting(request: NextRequest, response: NextResponse): Promise<NextResponse> {
+async function handleSubdomainRouting(
+  request: NextRequest,
+  response: NextResponse
+): Promise<NextResponse> {
   const subdomain = getRestaurantSlugFromSubdomain(request);
-  
+
   if (!subdomain) {
     // No valid subdomain found, redirect to main domain
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
@@ -150,33 +182,34 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   // Check if subdomain is reserved
   if (isReservedSubdomain(subdomain)) {
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
 
   try {
     const pathname = request.nextUrl.pathname;
-    
+
     // Handle subdomain-specific routing
     if (pathname === '/') {
       // Root path for subdomain should show restaurant's customer menu
       const menuUrl = new URL(`/restaurant/${subdomain}`, request.url);
       return NextResponse.rewrite(menuUrl);
     }
-    
+
     // Add tenant context headers for all subdomain requests
     response.headers.set('x-tenant-slug', subdomain);
     response.headers.set('x-is-subdomain', 'true');
-    
-    return response;
 
+    return response;
   } catch (error) {
     console.error('Error in subdomain routing:', error);
-    
+
     // On critical subdomain error, redirect to main domain for security
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
@@ -202,13 +235,13 @@ function isPublicRoute(pathname: string): boolean {
     '/test',
     '/simple-login',
   ];
-  
+
   // Exact match for root path, startsWith for others
   if (pathname === '/') {
     return true;
   }
-  
-  return publicRoutes.slice(1).some(route => pathname.startsWith(route));
+
+  return publicRoutes.slice(1).some((route) => pathname.startsWith(route));
 }
 
 /**
@@ -228,16 +261,19 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/health',
     '/api/subdomain/',
     '/api/webhooks/', // Webhook handlers (external services)
-    '/api/orders/', // Order API routes (customer-facing, uses customer session tokens)
+    '/api/orders/', // Public order status tracking (order ID acts as security token)
   ];
 
-  return publicApiRoutes.some(route => pathname.startsWith(route));
+  return publicApiRoutes.some((route) => pathname.startsWith(route));
 }
 
 /**
  * Redirect to login page with return URL
  */
-function redirectToLogin(request: NextRequest, currentPath?: string): NextResponse {
+function redirectToLogin(
+  request: NextRequest,
+  currentPath?: string
+): NextResponse {
   const redirectUrl = new URL('/login', request.url);
   if (currentPath && currentPath !== '/login') {
     redirectUrl.searchParams.set('redirect', currentPath);

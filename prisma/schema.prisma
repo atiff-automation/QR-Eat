@@ -908,3 +908,24 @@ model SystemConfig {
   @@index([key])
   @@map("system_config")
 }
+
+// ============================
+// REAL-TIME EVENTS
+// ============================
+
+// Event persistence for reliable SSE delivery
+// Stores all order-related events for catchup on reconnection
+// @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2
+model PendingEvent {
+  id           String    @id @default(uuid())
+  eventType    String    @db.VarChar(50)
+  eventData    Json      @db.JsonB
+  restaurantId String    @db.Uuid
+  createdAt    DateTime  @default(now())
+  deliveredAt  DateTime?
+
+  // Query optimization indexes
+  @@index([restaurantId, createdAt], name: "idx_restaurant_pending")
+  @@index([createdAt], name: "idx_cleanup")
+  @@map("pending_events")
+}

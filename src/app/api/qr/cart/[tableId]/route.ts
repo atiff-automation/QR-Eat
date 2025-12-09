@@ -17,14 +17,16 @@ import { z } from 'zod';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tableId: string } }
+  { params }: { params: Promise<{ tableId: string }> }
 ) {
   try {
+    const { tableId } = await params;
+
     // Validate tableId
     const validatedTableId = z
       .string()
       .uuid('Invalid table ID format')
-      .parse(params.tableId);
+      .parse(tableId);
 
     // Get table cart
     const cart = await getTableCart(validatedTableId);

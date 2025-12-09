@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { getTenantContext } from '@/lib/tenant-context';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -57,10 +58,20 @@ export async function GET(
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id;
+    // Require authentication for PATCH operations (staff only)
+    const context = getTenantContext(request);
+
+    if (!context?.userId) {
+      return NextResponse.json(
+        { error: 'Authentication required to update order status' },
+        { status: 401 }
+      );
+    }
+
+    const { id: orderId } = await params;
     const { status, estimatedReadyTime } = await request.json();
 
     if (!status) {
