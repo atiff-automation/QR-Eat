@@ -35,6 +35,7 @@ export interface MenuItemVariation {
 }
 
 export interface CartItem {
+  id?: string; // Server-side cart item ID (from database)
   menuItemId: string;
   menuItem: MenuItem;
   quantity: number;

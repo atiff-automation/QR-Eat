@@ -12,35 +12,35 @@ datasource db {
 
 // Platform Administration
 model PlatformAdmin {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  passwordHash    String
-  firstName       String
-  lastName        String
-  role            String   @default("admin") // 'super_admin', 'admin', 'support'
-  isActive        Boolean  @default(true)
-  lastLoginAt     DateTime?
-  passwordChangedAt DateTime @default(now())
-  failedLoginAttempts Int    @default(0)
-  lockedUntil     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  passwordHash        String
+  firstName           String
+  lastName            String
+  role                String    @default("admin") // 'super_admin', 'admin', 'support'
+  isActive            Boolean   @default(true)
+  lastLoginAt         DateTime?
+  passwordChangedAt   DateTime  @default(now())
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
 
-  sessions        PlatformAdminSession[]
-  auditLogs       AuditLog[] @relation("AdminAuditLogs")
+  sessions  PlatformAdminSession[]
+  auditLogs AuditLog[]             @relation("AdminAuditLogs")
 
   @@map("platform_admins")
 }
 
 model PlatformAdminSession {
-  id              String   @id @default(uuid())
-  adminId         String
-  sessionToken    String   @unique
-  ipAddress       String?
-  userAgent       String?
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
-  lastActivityAt  DateTime @default(now())
+  id             String   @id @default(uuid())
+  adminId        String
+  sessionToken   String   @unique
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
 
   admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
 
@@ -49,42 +49,42 @@ model PlatformAdminSession {
 
 // Restaurant Owners (Chain Management)
 model RestaurantOwner {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  passwordHash    String
-  firstName       String
-  lastName        String
-  phone           String?
-  companyName     String?
-  isActive        Boolean  @default(true)
-  lastLoginAt     DateTime?
-  passwordChangedAt DateTime @default(now())
-  mustChangePassword Boolean @default(false)
-  failedLoginAttempts Int    @default(0)
-  lockedUntil     DateTime?
-  emailVerified   Boolean  @default(false)
+  id                     String    @id @default(uuid())
+  email                  String    @unique
+  passwordHash           String
+  firstName              String
+  lastName               String
+  phone                  String?
+  companyName            String?
+  isActive               Boolean   @default(true)
+  lastLoginAt            DateTime?
+  passwordChangedAt      DateTime  @default(now())
+  mustChangePassword     Boolean   @default(false)
+  failedLoginAttempts    Int       @default(0)
+  lockedUntil            DateTime?
+  emailVerified          Boolean   @default(false)
   emailVerificationToken String?
-  passwordResetToken String?
-  passwordResetExpires DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  restaurants     Restaurant[]
-  sessions        RestaurantOwnerSession[]
-  auditLogs       AuditLog[] @relation("OwnerAuditLogs")
+  restaurants Restaurant[]
+  sessions    RestaurantOwnerSession[]
+  auditLogs   AuditLog[]               @relation("OwnerAuditLogs")
 
   @@map("restaurant_owners")
 }
 
 model RestaurantOwnerSession {
-  id              String   @id @default(uuid())
-  ownerId         String
-  sessionToken    String   @unique
-  ipAddress       String?
-  userAgent       String?
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
-  lastActivityAt  DateTime @default(now())
+  id             String   @id @default(uuid())
+  ownerId        String
+  sessionToken   String   @unique
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
 
   owner RestaurantOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
 
@@ -93,45 +93,45 @@ model RestaurantOwnerSession {
 
 // Subscription Plans
 model SubscriptionPlan {
-  id                  String   @id @default(uuid())
-  name                String   @unique // 'Basic', 'Pro', 'Enterprise'
-  monthlyFee          Decimal  @db.Decimal(10, 2)
-  transactionFeeRate  Decimal  @db.Decimal(5, 4) // Percentage (e.g., 0.029 for 2.9%)
-  maxTables           Int?     // null for unlimited
-  maxStaff            Int?     // null for unlimited
-  features            Json     @default("{}")
-  isActive            Boolean  @default(true)
-  sortOrder           Int      @default(0)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  id                 String   @id @default(uuid())
+  name               String   @unique // 'Basic', 'Pro', 'Enterprise'
+  monthlyFee         Decimal  @db.Decimal(10, 2)
+  transactionFeeRate Decimal  @db.Decimal(5, 4) // Percentage (e.g., 0.029 for 2.9%)
+  maxTables          Int? // null for unlimited
+  maxStaff           Int? // null for unlimited
+  features           Json     @default("{}")
+  isActive           Boolean  @default(true)
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  subscriptions       Subscription[]
+  subscriptions Subscription[]
 
   @@map("subscription_plans")
 }
 
 // Restaurant Subscriptions
 model Subscription {
-  id                    String   @id @default(uuid())
-  restaurantId          String   @unique
-  planId                String
-  stripeSubscriptionId  String?  @unique
-  stripeCustomerId      String?
-  status                String   @default("active") // 'active', 'past_due', 'cancelled', 'unpaid', 'trialing'
-  billingCycle          String   @default("monthly") // 'monthly', 'yearly'
-  currentPeriodStart    DateTime
-  currentPeriodEnd      DateTime
-  cancelAtPeriodEnd     Boolean  @default(false)
-  canceledAt            DateTime?
-  trialStart            DateTime?
-  trialEnd              DateTime?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id                   String    @id @default(uuid())
+  restaurantId         String    @unique
+  planId               String
+  stripeSubscriptionId String?   @unique
+  stripeCustomerId     String?
+  status               String    @default("active") // 'active', 'past_due', 'cancelled', 'unpaid', 'trialing'
+  billingCycle         String    @default("monthly") // 'monthly', 'yearly'
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean   @default(false)
+  canceledAt           DateTime?
+  trialStart           DateTime?
+  trialEnd             DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 
-  restaurant            Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  plan                  SubscriptionPlan @relation(fields: [planId], references: [id])
-  transactionFees       TransactionFee[]
-  invoices              Invoice[]
+  restaurant      Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  transactionFees TransactionFee[]
+  invoices        Invoice[]
 
   @@index([restaurantId])
   @@index([stripeSubscriptionId])
@@ -140,64 +140,64 @@ model Subscription {
 
 // Restaurant Locations (Enhanced for Multi-Tenant)
 model Restaurant {
-  id                String   @id @default(uuid())
+  id                String  @id @default(uuid())
   ownerId           String
   name              String
-  slug              String   @unique // For subdomain routing
+  slug              String  @unique // For subdomain routing
   address           String
   phone             String?
   email             String?
-  timezone          String   @default("UTC")
-  currency          String   @default("USD")
-  taxRate           Decimal  @default(0.0000) @db.Decimal(5, 4)
-  serviceChargeRate Decimal  @default(0.0000) @db.Decimal(5, 4)
-  isActive          Boolean  @default(true)
-  brandingConfig    Json     @default("{}")  // Custom themes, logos, colors
-  businessType      String   @default("restaurant") // 'restaurant', 'cafe', 'bar', 'food_truck'
-  maxTables         Int      @default(50)
-  maxStaff          Int      @default(20)
-  
-  // Restaurant Profile Information (for public landing page)
-  description       String?  // Restaurant story, about section
-  website           String?  // External website URL
-  logoUrl           String?  // Restaurant logo image
-  coverImageUrl     String?  // Hero/cover image for landing page
-  galleryImages     Json     @default("[]") // Array of image URLs for gallery
-  socialMedia       Json     @default("{}") // Facebook, Instagram, Twitter links
-  
-  // Operating Hours (JSON structure for flexibility)
-  operatingHours    Json     @default("{}")  // Weekly schedule with special hours
-  
-  // Restaurant Features & Amenities
-  features          Json     @default("[]")  // Parking, WiFi, Outdoor seating, etc.
-  cuisineTypes      Json     @default("[]")  // Italian, Mexican, Asian, etc.
-  priceRange        String   @default("$$")  // $, $$, $$$, $$$$
-  
-  // Public Page Settings
-  showOnDirectory   Boolean  @default(true)  // Show in public restaurant directory
-  acceptsReservations Boolean @default(false) // Whether they take reservations
-  maxReservationDays Int     @default(30)    // How many days ahead reservations can be made
-  reservationTimeSlots Int   @default(60)    // Time slot duration in minutes
-  autoConfirmReservations Boolean @default(false) // Auto-confirm reservations
-  deliveryAvailable Boolean  @default(false) // Delivery service available
-  takeoutAvailable  Boolean  @default(true)  // Takeout available
-  
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  timezone          String  @default("UTC")
+  currency          String  @default("USD")
+  taxRate           Decimal @default(0.0000) @db.Decimal(5, 4)
+  serviceChargeRate Decimal @default(0.0000) @db.Decimal(5, 4)
+  isActive          Boolean @default(true)
+  brandingConfig    Json    @default("{}") // Custom themes, logos, colors
+  businessType      String  @default("restaurant") // 'restaurant', 'cafe', 'bar', 'food_truck'
+  maxTables         Int     @default(50)
+  maxStaff          Int     @default(20)
 
-  owner             RestaurantOwner @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  subscription      Subscription?
-  tables            Table[]
-  menuItems         MenuItem[]
-  categories        MenuCategory[]
-  orders            Order[]
-  staff             Staff[]
-  transactionFees   TransactionFee[]
-  roleHierarchy     StaffRoleHierarchy[]
-  reservations      Reservation[]
+  // Restaurant Profile Information (for public landing page)
+  description   String? // Restaurant story, about section
+  website       String? // External website URL
+  logoUrl       String? // Restaurant logo image
+  coverImageUrl String? // Hero/cover image for landing page
+  galleryImages Json    @default("[]") // Array of image URLs for gallery
+  socialMedia   Json    @default("{}") // Facebook, Instagram, Twitter links
+
+  // Operating Hours (JSON structure for flexibility)
+  operatingHours Json @default("{}") // Weekly schedule with special hours
+
+  // Restaurant Features & Amenities
+  features     Json   @default("[]") // Parking, WiFi, Outdoor seating, etc.
+  cuisineTypes Json   @default("[]") // Italian, Mexican, Asian, etc.
+  priceRange   String @default("$$") // $, $$, $$$, $$$$
+
+  // Public Page Settings
+  showOnDirectory         Boolean @default(true) // Show in public restaurant directory
+  acceptsReservations     Boolean @default(false) // Whether they take reservations
+  maxReservationDays      Int     @default(30) // How many days ahead reservations can be made
+  reservationTimeSlots    Int     @default(60) // Time slot duration in minutes
+  autoConfirmReservations Boolean @default(false) // Auto-confirm reservations
+  deliveryAvailable       Boolean @default(false) // Delivery service available
+  takeoutAvailable        Boolean @default(true) // Takeout available
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner           RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  subscription    Subscription?
+  tables          Table[]
+  menuItems       MenuItem[]
+  categories      MenuCategory[]
+  orders          Order[]
+  staff           Staff[]
+  transactionFees TransactionFee[]
+  roleHierarchy   StaffRoleHierarchy[]
+  reservations    Reservation[]
   // RBAC Relations
-  userRoles         UserRole[]
-  userSessions      UserSession[]
+  userRoles       UserRole[]
+  userSessions    UserSession[]
 
   @@index([ownerId])
   @@index([slug])
@@ -205,21 +205,21 @@ model Restaurant {
 }
 
 model Table {
-  id            String   @id @default(uuid())
-  restaurantId  String
-  tableNumber   String
-  tableName     String?
-  qrCodeToken   String   @unique
-  capacity      Int      @default(4)
-  status        String   @default("available")
+  id                  String   @id @default(uuid())
+  restaurantId        String
+  tableNumber         String
+  tableName           String?
+  qrCodeToken         String   @unique
+  capacity            Int      @default(4)
+  status              String   @default("available")
   locationDescription String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  restaurant      Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  orders          Order[]
+  restaurant       Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders           Order[]
   customerSessions CustomerSession[]
-  reservations    Reservation[]
+  reservations     Reservation[]
 
   @@unique([restaurantId, tableNumber])
   @@map("tables")
@@ -244,28 +244,29 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String   @id @default(uuid())
-  restaurantId String
-  categoryId   String
-  name         String
-  description  String?
-  price        Decimal  @db.Decimal(10, 2)
-  costPrice    Decimal? @db.Decimal(10, 2)
-  imageUrl     String?
-  preparationTime Int   @default(0)
-  calories     Int?
-  allergens    String[]
-  dietaryInfo  String[]
-  isAvailable  Boolean  @default(true)
-  isFeatured   Boolean  @default(false)
-  displayOrder Int      @default(0)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id              String   @id @default(uuid())
+  restaurantId    String
+  categoryId      String
+  name            String
+  description     String?
+  price           Decimal  @db.Decimal(10, 2)
+  costPrice       Decimal? @db.Decimal(10, 2)
+  imageUrl        String?
+  preparationTime Int      @default(0)
+  calories        Int?
+  allergens       String[]
+  dietaryInfo     String[]
+  isAvailable     Boolean  @default(true)
+  isFeatured      Boolean  @default(false)
+  displayOrder    Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  category   MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   MenuCategory        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
   variations MenuItemVariation[]
+  cartItems  CartItem[]
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -275,18 +276,19 @@ model MenuItem {
 }
 
 model MenuItemVariation {
-  id           String  @id @default(uuid())
-  menuItemId   String
-  name         String
-  priceModifier Decimal @default(0.00) @db.Decimal(10, 2)
+  id            String   @id @default(uuid())
+  menuItemId    String
+  name          String
+  priceModifier Decimal  @default(0.00) @db.Decimal(10, 2)
   variationType String
-  isRequired   Boolean @default(false)
-  maxSelections Int    @default(1)
-  displayOrder Int     @default(0)
-  createdAt    DateTime @default(now())
+  isRequired    Boolean  @default(false)
+  maxSelections Int      @default(1)
+  displayOrder  Int      @default(0)
+  createdAt     DateTime @default(now())
 
-  menuItem MenuItem @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  menuItem            MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   orderItemVariations OrderItemVariation[]
+  cartItems           CartItem[]
 
   @@index([menuItemId])
   @@index([variationType])
@@ -295,25 +297,25 @@ model MenuItemVariation {
 
 // Transaction Fee Tracking
 model TransactionFee {
-  id               String   @id @default(uuid())
+  id               String    @id @default(uuid())
   restaurantId     String
-  orderId          String   @unique
+  orderId          String    @unique
   subscriptionId   String
-  orderAmount      Decimal  @db.Decimal(10, 2)
-  feeRate          Decimal  @db.Decimal(5, 4)
-  feeAmount        Decimal  @db.Decimal(10, 2)
-  stripeFee        Decimal  @default(0.00) @db.Decimal(10, 2)
-  netFee           Decimal  @db.Decimal(10, 2)
-  currency         String   @default("USD")
-  processedAt      DateTime @default(now())
-  payoutStatus     String   @default("pending") // 'pending', 'paid', 'failed'
+  orderAmount      Decimal   @db.Decimal(10, 2)
+  feeRate          Decimal   @db.Decimal(5, 4)
+  feeAmount        Decimal   @db.Decimal(10, 2)
+  stripeFee        Decimal   @default(0.00) @db.Decimal(10, 2)
+  netFee           Decimal   @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  processedAt      DateTime  @default(now())
+  payoutStatus     String    @default("pending") // 'pending', 'paid', 'failed'
   payoutDate       DateTime?
   stripeTransferId String?
-  createdAt        DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
-  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  order            Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  subscription     Subscription @relation(fields: [subscriptionId], references: [id])
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id])
 
   @@index([restaurantId])
   @@index([orderId])
@@ -324,29 +326,29 @@ model TransactionFee {
 
 // Invoice Management
 model Invoice {
-  id                    String   @id @default(uuid())
-  subscriptionId        String
-  stripeInvoiceId       String?  @unique
-  invoiceNumber         String   @unique
-  status                String   @default("draft") // 'draft', 'open', 'paid', 'void', 'uncollectible'
-  currency              String   @default("USD")
-  subtotal              Decimal  @db.Decimal(10, 2)
-  taxAmount             Decimal  @default(0.00) @db.Decimal(10, 2)
-  totalAmount           Decimal  @db.Decimal(10, 2)
-  amountPaid            Decimal  @default(0.00) @db.Decimal(10, 2)
-  amountDue             Decimal  @db.Decimal(10, 2)
-  periodStart           DateTime
-  periodEnd             DateTime
-  dueDate               DateTime?
-  paidAt                DateTime?
-  hostedInvoiceUrl      String?
-  invoicePdf            String?
-  paymentIntentId       String?
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id               String    @id @default(uuid())
+  subscriptionId   String
+  stripeInvoiceId  String?   @unique
+  invoiceNumber    String    @unique
+  status           String    @default("draft") // 'draft', 'open', 'paid', 'void', 'uncollectible'
+  currency         String    @default("USD")
+  subtotal         Decimal   @db.Decimal(10, 2)
+  taxAmount        Decimal   @default(0.00) @db.Decimal(10, 2)
+  totalAmount      Decimal   @db.Decimal(10, 2)
+  amountPaid       Decimal   @default(0.00) @db.Decimal(10, 2)
+  amountDue        Decimal   @db.Decimal(10, 2)
+  periodStart      DateTime
+  periodEnd        DateTime
+  dueDate          DateTime?
+  paidAt           DateTime?
+  hostedInvoiceUrl String?
+  invoicePdf       String?
+  paymentIntentId  String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
-  items                 InvoiceItem[]
+  subscription Subscription  @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  items        InvoiceItem[]
 
   @@index([subscriptionId])
   @@index([stripeInvoiceId])
@@ -355,19 +357,19 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id            String   @id @default(uuid())
-  invoiceId     String
-  description   String
-  quantity      Int      @default(1)
-  unitAmount    Decimal  @db.Decimal(10, 2)
-  totalAmount   Decimal  @db.Decimal(10, 2)
-  currency      String   @default("USD")
-  itemType      String   // 'subscription', 'transaction_fees', 'one_time'
-  periodStart   DateTime?
-  periodEnd     DateTime?
-  createdAt     DateTime @default(now())
+  id          String    @id @default(uuid())
+  invoiceId   String
+  description String
+  quantity    Int       @default(1)
+  unitAmount  Decimal   @db.Decimal(10, 2)
+  totalAmount Decimal   @db.Decimal(10, 2)
+  currency    String    @default("USD")
+  itemType    String // 'subscription', 'transaction_fees', 'one_time'
+  periodStart DateTime?
+  periodEnd   DateTime?
+  createdAt   DateTime  @default(now())
 
-  invoice       Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
   @@index([invoiceId])
   @@map("invoice_items")
@@ -375,17 +377,17 @@ model InvoiceItem {
 
 // Enhanced Staff Role System
 model StaffRole {
-  id          String @id @default(uuid())
-  name        String
-  description String?
-  permissions Json   @default("{}")
-  isSystemRole Boolean @default(false) // System roles can't be deleted
-  level       Int    @default(1) // 1=lowest, 10=highest (for hierarchy)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id           String   @id @default(uuid())
+  name         String
+  description  String?
+  permissions  Json     @default("{}")
+  isSystemRole Boolean  @default(false) // System roles can't be deleted
+  level        Int      @default(1) // 1=lowest, 10=highest (for hierarchy)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  staff       Staff[]
-  hierarchy   StaffRoleHierarchy[]
+  staff     Staff[]
+  hierarchy StaffRoleHierarchy[]
 
   @@unique([name])
   @@map("staff_roles")
@@ -393,18 +395,18 @@ model StaffRole {
 
 // Staff Role Hierarchy (Restaurant-Specific)
 model StaffRoleHierarchy {
-  id               String   @id @default(uuid())
-  restaurantId     String
-  roleId           String
-  parentId         String?  // null for top-level roles
-  maxCount         Int?     // Maximum staff per role per restaurant
-  isActive         Boolean  @default(true)
-  createdAt        DateTime @default(now())
+  id           String   @id @default(uuid())
+  restaurantId String
+  roleId       String
+  parentId     String? // null for top-level roles
+  maxCount     Int? // Maximum staff per role per restaurant
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
 
-  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  role             StaffRole @relation(fields: [roleId], references: [id])
-  parent           StaffRoleHierarchy? @relation("HierarchyTree", fields: [parentId], references: [id])
-  children         StaffRoleHierarchy[] @relation("HierarchyTree")
+  restaurant Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  role       StaffRole            @relation(fields: [roleId], references: [id])
+  parent     StaffRoleHierarchy?  @relation("HierarchyTree", fields: [parentId], references: [id])
+  children   StaffRoleHierarchy[] @relation("HierarchyTree")
 
   @@unique([restaurantId, roleId])
   @@index([restaurantId])
@@ -414,40 +416,40 @@ model StaffRoleHierarchy {
 
 // Enhanced Staff Model with SaaS Features
 model Staff {
-  id               String    @id @default(uuid())
-  restaurantId     String
-  roleId           String
-  email            String    @unique
-  username         String    @unique
-  passwordHash     String
-  firstName        String
-  lastName         String
-  phone            String?
-  employeeId       String?   // Restaurant-specific employee ID
-  hireDate         DateTime?
-  hourlyRate       Decimal?  @db.Decimal(8, 2)
-  isActive         Boolean   @default(true)
-  lastLoginAt      DateTime?
-  passwordChangedAt DateTime @default(now())
-  mustChangePassword Boolean @default(false)
-  failedLoginAttempts Int    @default(0)
-  lockedUntil      DateTime?
-  permissions      Json      @default("{}")  // Additional custom permissions
-  emailVerified    Boolean   @default(false)
+  id                     String    @id @default(uuid())
+  restaurantId           String
+  roleId                 String
+  email                  String    @unique
+  username               String    @unique
+  passwordHash           String
+  firstName              String
+  lastName               String
+  phone                  String?
+  employeeId             String? // Restaurant-specific employee ID
+  hireDate               DateTime?
+  hourlyRate             Decimal?  @db.Decimal(8, 2)
+  isActive               Boolean   @default(true)
+  lastLoginAt            DateTime?
+  passwordChangedAt      DateTime  @default(now())
+  mustChangePassword     Boolean   @default(false)
+  failedLoginAttempts    Int       @default(0)
+  lockedUntil            DateTime?
+  permissions            Json      @default("{}") // Additional custom permissions
+  emailVerified          Boolean   @default(false)
   emailVerificationToken String?
-  passwordResetToken String?
-  passwordResetExpires DateTime?
-  twoFactorEnabled Boolean   @default(false)
-  twoFactorSecret  String?
-  backupCodes      String[]  @default([])
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
+  passwordResetToken     String?
+  passwordResetExpires   DateTime?
+  twoFactorEnabled       Boolean   @default(false)
+  twoFactorSecret        String?
+  backupCodes            String[]  @default([])
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  role       StaffRole  @relation(fields: [roleId], references: [id])
+  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  role       StaffRole      @relation(fields: [roleId], references: [id])
   orders     Order[]
   sessions   StaffSession[]
-  auditLogs  AuditLog[] @relation("StaffAuditLogs")
+  auditLogs  AuditLog[]     @relation("StaffAuditLogs")
 
   @@index([restaurantId])
   @@index([roleId])
@@ -456,14 +458,14 @@ model Staff {
 }
 
 model StaffSession {
-  id              String   @id @default(uuid())
-  staffId         String
-  sessionToken    String   @unique
-  ipAddress       String?
-  userAgent       String?
-  expiresAt       DateTime
-  createdAt       DateTime @default(now())
-  lastActivityAt  DateTime @default(now())
+  id             String   @id @default(uuid())
+  staffId        String
+  sessionToken   String   @unique
+  ipAddress      String?
+  userAgent      String?
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  lastActivityAt DateTime @default(now())
 
   staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
@@ -471,48 +473,74 @@ model StaffSession {
 }
 
 model CustomerSession {
-  id           String    @id @default(uuid())
-  tableId      String
-  sessionToken String    @unique
-  customerName String?
+  id            String    @id @default(uuid())
+  tableId       String
+  sessionToken  String    @unique
+  customerName  String?
   customerPhone String?
   customerEmail String?
-  ipAddress    String?
-  userAgent    String?
-  startedAt    DateTime  @default(now())
-  expiresAt    DateTime
-  endedAt      DateTime?
-  status       String    @default("active")
+  ipAddress     String?
+  userAgent     String?
+  startedAt     DateTime  @default(now())
+  expiresAt     DateTime
+  endedAt       DateTime?
+  status        String    @default("active")
 
-  table  Table   @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  orders Order[]
+  table     Table      @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  orders    Order[]
+  cartItems CartItem[]
 
+  @@index([tableId])
+  @@index([status])
+  @@index([tableId, status])
   @@map("customer_sessions")
 }
 
-model Order {
-  id               String   @id @default(uuid())
-  orderNumber      String   @unique
-  restaurantId     String
-  tableId          String
-  customerSessionId String
-  subtotalAmount   Decimal  @default(0.00) @db.Decimal(10, 2)
-  taxAmount        Decimal  @default(0.00) @db.Decimal(10, 2)
-  serviceCharge    Decimal  @default(0.00) @db.Decimal(10, 2)
-  discountAmount   Decimal  @default(0.00) @db.Decimal(10, 2)
-  totalAmount      Decimal  @default(0.00) @db.Decimal(10, 2)
-  status           String   @default("pending")
-  paymentStatus    String   @default("pending")
-  takenBy          String?
-  confirmedBy      String?
-  servedBy         String?
+// Server-side cart for table-based sessions
+model CartItem {
+  id                  String   @id @default(uuid())
+  customerSessionId   String
+  menuItemId          String
+  variationId         String?
+  quantity            Int      @default(1)
+  unitPrice           Decimal  @db.Decimal(10, 2)
+  subtotal            Decimal  @db.Decimal(10, 2)
   specialInstructions String?
-  estimatedReadyTime DateTime?
-  createdAt        DateTime @default(now())
-  confirmedAt      DateTime?
-  readyAt          DateTime?
-  servedAt         DateTime?
-  updatedAt        DateTime @updatedAt
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  customerSession CustomerSession    @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variation       MenuItemVariation? @relation(fields: [variationId], references: [id], onDelete: SetNull)
+
+  @@index([customerSessionId])
+  @@index([menuItemId])
+  @@map("cart_items")
+}
+
+model Order {
+  id                  String    @id @default(uuid())
+  orderNumber         String    @unique
+  restaurantId        String
+  tableId             String
+  customerSessionId   String
+  subtotalAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
+  taxAmount           Decimal   @default(0.00) @db.Decimal(10, 2)
+  serviceCharge       Decimal   @default(0.00) @db.Decimal(10, 2)
+  discountAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
+  totalAmount         Decimal   @default(0.00) @db.Decimal(10, 2)
+  status              String    @default("pending")
+  paymentStatus       String    @default("pending")
+  takenBy             String?
+  confirmedBy         String?
+  servedBy            String?
+  specialInstructions String?
+  estimatedReadyTime  DateTime?
+  createdAt           DateTime  @default(now())
+  confirmedAt         DateTime?
+  readyAt             DateTime?
+  servedAt            DateTime?
+  updatedAt           DateTime  @updatedAt
 
   restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table           Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
@@ -532,19 +560,19 @@ model Order {
 }
 
 model OrderItem {
-  id              String   @id @default(uuid())
-  orderId         String
-  menuItemId      String
-  quantity        Int
-  unitPrice       Decimal  @db.Decimal(10, 2)
-  totalAmount     Decimal  @db.Decimal(10, 2)
+  id                  String   @id @default(uuid())
+  orderId             String
+  menuItemId          String
+  quantity            Int
+  unitPrice           Decimal  @db.Decimal(10, 2)
+  totalAmount         Decimal  @db.Decimal(10, 2)
   specialInstructions String?
-  status          String   @default("pending")
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  status              String   @default("pending")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 
-  order    Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem MenuItem  @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem   MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
   variations OrderItemVariation[]
 
   @@index([orderId])
@@ -554,13 +582,13 @@ model OrderItem {
 }
 
 model OrderItemVariation {
-  id           String  @id @default(uuid())
-  orderItemId  String
-  variationId  String
-  quantity     Int     @default(1)
-  unitPrice    Decimal @db.Decimal(10, 2)
-  totalAmount  Decimal @db.Decimal(10, 2)
-  createdAt    DateTime @default(now())
+  id          String   @id @default(uuid())
+  orderItemId String
+  variationId String
+  quantity    Int      @default(1)
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  totalAmount Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
 
   orderItem OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
   variation MenuItemVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
@@ -569,22 +597,22 @@ model OrderItemVariation {
 }
 
 model PaymentIntent {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   orderId         String
-  amount          Decimal  @db.Decimal(10, 2)
-  currency        String   @default("MYR")
+  amount          Decimal   @db.Decimal(10, 2)
+  currency        String    @default("MYR")
   paymentMethodId String
-  status          String   @default("pending")
-  reference       String   @unique
+  status          String    @default("pending")
+  reference       String    @unique
   transactionId   String?
   referenceNumber String?
   verifiedBy      String?
   verifiedAt      DateTime?
-  metadata        Json     @default("{}")
+  metadata        Json      @default("{}")
   expiresAt       DateTime
-  createdAt       DateTime @default(now())
+  createdAt       DateTime  @default(now())
   confirmedAt     DateTime?
-  updatedAt       DateTime @updatedAt
+  updatedAt       DateTime  @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -592,24 +620,24 @@ model PaymentIntent {
 }
 
 model Payment {
-  id                String   @id @default(uuid())
-  orderId           String
-  paymentMethod     String
-  paymentProcessor  String?
-  amount            Decimal  @db.Decimal(10, 2)
-  processingFee     Decimal  @default(0.00) @db.Decimal(10, 2)
-  netAmount         Decimal  @db.Decimal(10, 2)
-  status            String   @default("pending")
-  externalPaymentId String?
+  id                    String    @id @default(uuid())
+  orderId               String
+  paymentMethod         String
+  paymentProcessor      String?
+  amount                Decimal   @db.Decimal(10, 2)
+  processingFee         Decimal   @default(0.00) @db.Decimal(10, 2)
+  netAmount             Decimal   @db.Decimal(10, 2)
+  status                String    @default("pending")
+  externalPaymentId     String?
   externalTransactionId String?
-  paymentMetadata   Json     @default("{}")
-  failureReason     String?
-  refundReason      String?
-  createdAt         DateTime @default(now())
-  processedAt       DateTime?
-  completedAt       DateTime?
-  failedAt          DateTime?
-  updatedAt         DateTime @updatedAt
+  paymentMetadata       Json      @default("{}")
+  failureReason         String?
+  refundReason          String?
+  createdAt             DateTime  @default(now())
+  processedAt           DateTime?
+  completedAt           DateTime?
+  failedAt              DateTime?
+  updatedAt             DateTime  @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -617,24 +645,24 @@ model Payment {
 }
 
 model SecurityEvent {
-  id          String   @id @default(uuid())
-  eventType   String
-  severity    String
-  tableId     String?
-  staffId     String?
+  id                String    @id @default(uuid())
+  eventType         String
+  severity          String
+  tableId           String?
+  staffId           String?
   customerSessionId String?
-  orderId     String?
-  ipAddress   String?
-  userAgent   String?
-  requestPath String?
-  requestMethod String?
-  eventData   Json     @default("{}")
-  description String?
-  resolved    Boolean  @default(false)
-  resolvedBy  String?
-  resolvedAt  DateTime?
-  resolutionNotes String?
-  createdAt   DateTime @default(now())
+  orderId           String?
+  ipAddress         String?
+  userAgent         String?
+  requestPath       String?
+  requestMethod     String?
+  eventData         Json      @default("{}")
+  description       String?
+  resolved          Boolean   @default(false)
+  resolvedBy        String?
+  resolvedAt        DateTime?
+  resolutionNotes   String?
+  createdAt         DateTime  @default(now())
 
   @@map("security_events")
 }
@@ -644,15 +672,15 @@ model AuditLog {
   id            String   @id @default(uuid())
   tableName     String
   recordId      String
-  operation     String   // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
+  operation     String // 'CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'LOGOUT'
   oldValues     Json?
   newValues     Json?
   changedBy     String?
-  changedByType String?  // 'platform_admin', 'restaurant_owner', 'staff', 'system'
-  restaurantId  String?  // For tenant-specific logs
-  adminId       String?  // For platform admin actions
-  ownerId       String?  // For restaurant owner actions
-  staffId       String?  // For staff actions
+  changedByType String? // 'platform_admin', 'restaurant_owner', 'staff', 'system'
+  restaurantId  String? // For tenant-specific logs
+  adminId       String? // For platform admin actions
+  ownerId       String? // For restaurant owner actions
+  staffId       String? // For staff actions
   severity      String   @default("info") // 'low', 'info', 'warning', 'high', 'critical'
   category      String   @default("general") // 'auth', 'billing', 'menu', 'orders', 'staff'
   description   String?
@@ -663,9 +691,9 @@ model AuditLog {
   sessionId     String?
 
   // Relations for audit trail
-  admin         PlatformAdmin?    @relation("AdminAuditLogs", fields: [adminId], references: [id])
-  owner         RestaurantOwner?  @relation("OwnerAuditLogs", fields: [ownerId], references: [id])
-  staff         Staff?            @relation("StaffAuditLogs", fields: [staffId], references: [id])
+  admin PlatformAdmin?   @relation("AdminAuditLogs", fields: [adminId], references: [id])
+  owner RestaurantOwner? @relation("OwnerAuditLogs", fields: [ownerId], references: [id])
+  staff Staff?           @relation("StaffAuditLogs", fields: [staffId], references: [id])
 
   @@index([tableName])
   @@index([recordId])
@@ -681,18 +709,18 @@ model AuditLog {
 
 // Notifications System
 model Notification {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   userId       String
-  userType     String   // 'platform_admin', 'restaurant_owner', 'staff'
+  userType     String // 'platform_admin', 'restaurant_owner', 'staff'
   restaurantId String?
   title        String
   message      String
-  type         String   @default("info") // 'info', 'warning', 'error', 'success'
-  isRead       Boolean  @default(false)
+  type         String    @default("info") // 'info', 'warning', 'error', 'success'
+  isRead       Boolean   @default(false)
   readAt       DateTime?
-  metadata     Json     @default("{}")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  metadata     Json      @default("{}")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId])
   @@index([userType])
@@ -704,25 +732,25 @@ model Notification {
 
 // Reservations System
 model Reservation {
-  id                String   @id @default(uuid())
-  restaurantId      String
-  tableId           String?
-  customerName      String
-  customerEmail     String
-  customerPhone     String?
-  partySize         Int
-  reservationDate   DateTime
-  status            String   @default("pending") // 'pending', 'confirmed', 'cancelled', 'no_show', 'completed'
-  specialRequests   String?
-  confirmationCode  String   @unique
-  notes             String?
-  confirmedAt       DateTime?
-  cancelledAt       DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String    @id @default(uuid())
+  restaurantId     String
+  tableId          String?
+  customerName     String
+  customerEmail    String
+  customerPhone    String?
+  partySize        Int
+  reservationDate  DateTime
+  status           String    @default("pending") // 'pending', 'confirmed', 'cancelled', 'no_show', 'completed'
+  specialRequests  String?
+  confirmationCode String    @unique
+  notes            String?
+  confirmedAt      DateTime?
+  cancelledAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  restaurant        Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table             Table?     @relation(fields: [tableId], references: [id])
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table      Table?     @relation(fields: [tableId], references: [id])
 
   @@index([restaurantId])
   @@index([tableId])
@@ -740,17 +768,17 @@ model Reservation {
 model UserRole {
   id                String   @id @default(uuid())
   userId            String
-  userType          String   // 'platform_admin', 'restaurant_owner', 'staff'
-  restaurantId      String?  // NULL for platform admins
-  roleTemplate      String   // 'platform_admin', 'restaurant_owner', 'manager', 'kitchen_staff'
+  userType          String // 'platform_admin', 'restaurant_owner', 'staff'
+  restaurantId      String? // NULL for platform admins
+  roleTemplate      String // 'platform_admin', 'restaurant_owner', 'manager', 'kitchen_staff'
   customPermissions Json     @default("[]") // Override permissions array
   isActive          Boolean  @default(true)
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   // Relations based on user type
-  restaurant        Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  userSessions      UserSession[]
+  restaurant   Restaurant?   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  userSessions UserSession[]
 
   @@index([userId])
   @@index([userType])
@@ -765,7 +793,7 @@ model Permission {
   id            String   @id @default(uuid())
   permissionKey String   @unique // 'orders:read', 'tables:write', etc.
   description   String
-  category      String   // 'orders', 'tables', 'staff', 'analytics', etc.
+  category      String // 'orders', 'tables', 'staff', 'analytics', etc.
   isActive      Boolean  @default(true)
   createdAt     DateTime @default(now())
 
@@ -779,12 +807,12 @@ model Permission {
 
 // Role-Permission mapping
 model RolePermission {
-  id             String   @id @default(uuid())
-  roleTemplate   String   // 'platform_admin', 'restaurant_owner', 'manager', 'kitchen_staff'
-  permissionKey  String
-  grantedAt      DateTime @default(now())
+  id            String   @id @default(uuid())
+  roleTemplate  String // 'platform_admin', 'restaurant_owner', 'manager', 'kitchen_staff'
+  permissionKey String
+  grantedAt     DateTime @default(now())
 
-  permission     Permission @relation(fields: [permissionKey], references: [permissionKey], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionKey], references: [permissionKey], onDelete: Cascade)
 
   @@unique([roleTemplate, permissionKey])
   @@index([roleTemplate])
@@ -794,21 +822,21 @@ model RolePermission {
 
 // Enhanced session management for RBAC
 model UserSession {
-  id                    String   @id @default(uuid())
-  userId                String
-  sessionId             String   @unique
-  currentRoleId         String
-  restaurantContextId   String?
-  jwtTokenHash          String?  // Hash of JWT for validation
-  permissions           Json     @default("[]") // Cached permissions array
-  expiresAt             DateTime
-  lastActivity          DateTime @default(now())
-  ipAddress             String?
-  userAgent             String?
-  createdAt             DateTime @default(now())
+  id                  String   @id @default(uuid())
+  userId              String
+  sessionId           String   @unique
+  currentRoleId       String
+  restaurantContextId String?
+  jwtTokenHash        String? // Hash of JWT for validation
+  permissions         Json     @default("[]") // Cached permissions array
+  expiresAt           DateTime
+  lastActivity        DateTime @default(now())
+  ipAddress           String?
+  userAgent           String?
+  createdAt           DateTime @default(now())
 
-  currentRole           UserRole     @relation(fields: [currentRoleId], references: [id], onDelete: Cascade)
-  restaurantContext     Restaurant?  @relation(fields: [restaurantContextId], references: [id])
+  currentRole       UserRole    @relation(fields: [currentRoleId], references: [id], onDelete: Cascade)
+  restaurantContext Restaurant? @relation(fields: [restaurantContextId], references: [id])
 
   @@index([userId])
   @@index([sessionId])
@@ -820,17 +848,17 @@ model UserSession {
 
 // Enhanced Audit Log for RBAC
 model RBACLog {
-  id            String   @id @default(uuid())
-  userId        String
-  action        String   // 'LOGIN', 'ROLE_SWITCH', 'PERMISSION_DENIED', 'LOGOUT'
-  resource      String?  // '/dashboard/tables', 'orders:read', etc.
-  fromRole      String?  // Previous role for role switches
-  toRole        String?  // New role for role switches
-  metadata      Json     @default("{}")
-  ipAddress     String?
-  userAgent     String?
-  sessionId     String?
-  createdAt     DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String
+  action    String // 'LOGIN', 'ROLE_SWITCH', 'PERMISSION_DENIED', 'LOGOUT'
+  resource  String? // '/dashboard/tables', 'orders:read', etc.
+  fromRole  String? // Previous role for role switches
+  toRole    String? // New role for role switches
+  metadata  Json     @default("{}")
+  ipAddress String?
+  userAgent String?
+  sessionId String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
@@ -869,9 +897,9 @@ model CacheEntry {
 model SystemConfig {
   id          String   @id @default(uuid())
   key         String   @unique
-  value       String   // Encrypted value
-  iv          String   // Initialization vector for AES-GCM
-  tag         String   // Authentication tag for AES-GCM
+  value       String // Encrypted value
+  iv          String // Initialization vector for AES-GCM
+  tag         String // Authentication tag for AES-GCM
   description String?
   updatedBy   String?
   createdAt   DateTime @default(now())
@@ -879,4 +907,25 @@ model SystemConfig {
 
   @@index([key])
   @@map("system_config")
+}
+
+// ============================
+// REAL-TIME EVENTS
+// ============================
+
+// Event persistence for reliable SSE delivery
+// Stores all order-related events for catchup on reconnection
+// @see claudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 2
+model PendingEvent {
+  id           String    @id @default(uuid())
+  eventType    String    @db.VarChar(50)
+  eventData    Json      @db.JsonB
+  restaurantId String    @db.Uuid
+  createdAt    DateTime  @default(now())
+  deliveredAt  DateTime?
+
+  // Query optimization indexes
+  @@index([restaurantId, createdAt], name: "idx_restaurant_pending")
+  @@index([createdAt], name: "idx_cleanup")
+  @@map("pending_events")
 }

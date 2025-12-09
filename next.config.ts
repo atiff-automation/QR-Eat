@@ -1,7 +1,16 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['jsonwebtoken', 'bcryptjs'],
+  // Enable experimental instrumentation for server startup hooks
+  experimental: {
+    instrumentationHook: true,
+  },
+  serverExternalPackages: [
+    'jsonwebtoken',
+    'bcryptjs',
+    'pg',
+    'pg-connection-string',
+  ],
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,

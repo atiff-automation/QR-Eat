@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { MenuCategory, Table } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
-import { useCart } from '@/hooks/useCart';
+import { useServerCart } from '@/hooks/useServerCart';
 import { MenuCard } from '@/components/menu/MenuCard';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
@@ -32,9 +32,15 @@ export default function QRMenuPage() {
     removeFromCart,
     getItemCount,
     clearCart,
-  } = useCart(
-    table?.restaurant.taxRate || 0.085,
-    table?.restaurant.serviceChargeRate || 0.12
+    error: cartError,
+  } = useServerCart(
+    table?.id || null,
+    table?.restaurant.taxRate
+      ? parseFloat(table.restaurant.taxRate.toString())
+      : 0.085,
+    table?.restaurant.serviceChargeRate
+      ? parseFloat(table.restaurant.serviceChargeRate.toString())
+      : 0.12
   );
 
   useEffect(() => {
@@ -163,6 +169,18 @@ export default function QRMenuPage() {
           </div>
         </div>
       </header>
+
+      {/* Cart Error Display */}
+      {cartError && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
+            <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm text-red-800">{cartError}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

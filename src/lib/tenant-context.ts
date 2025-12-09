@@ -45,7 +45,7 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
       'x-owner-id': ownerId,
       'x-restaurant-slug': restaurantSlug,
       'x-user-permissions': permissionsHeader ? 'present' : 'missing',
-      'all-headers': Object.fromEntries(request.headers.entries())
+      'all-headers': Object.fromEntries(request.headers.entries()),
     });
   }
 
@@ -58,7 +58,7 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
         // Convert RBAC permissions array to tenant-context format
         if (Array.isArray(rbacPermissions)) {
           // Group permissions by resource (e.g., "orders:read" -> { orders: ["read"] })
-          rbacPermissions.forEach(permission => {
+          rbacPermissions.forEach((permission) => {
             if (typeof permission === 'string' && permission.includes(':')) {
               const [resource, action] = permission.split(':', 2);
               if (!permissions[resource]) {
@@ -88,12 +88,36 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
 
   // Fallback: Extract token directly and verify
   try {
-    const token = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
-                  request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
-                  request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
-                  request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
-                  AuthService.extractTokenFromHeader(request.headers.get('authorization'));
-    
+    // Check for new RBAC token first, then fall back to old tokens for backward compatibility
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
+      request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
+      request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
+      request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
+      AuthService.extractTokenFromHeader(request.headers.get('authorization'));
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 getTenantContext fallback: Cookie search', {
+        hasRbacToken: !!request.cookies.get('qr_rbac_token')?.value,
+        hasOwnerToken: !!request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)
+          ?.value,
+        hasStaffToken: !!request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)
+          ?.value,
+        hasAdminToken: !!request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)
+          ?.value,
+        hasGenericToken: !!request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)
+          ?.value,
+        tokenFound: !!token,
+        allCookies: Object.fromEntries(
+          Array.from(request.cookies.getAll()).map((c) => [
+            c.name,
+            c.value ? '***' : 'empty',
+          ])
+        ),
+      });
+    }
+
     if (!token) {
       return null;
     }
@@ -103,14 +127,37 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
       return null;
     }
 
+    // Handle both old payload format and new RBAC JWT format
+    const userType = payload.userType || payload.currentRole?.userType;
+    const restaurantIdFromPayload =
+      payload.restaurantId || payload.currentRole?.restaurantId;
+
+    // Convert RBAC permissions array to object format
+    let permissions: Record<string, string[]> = {};
+    if (Array.isArray(payload.permissions)) {
+      // New RBAC format: ["orders:read", "orders:write"]
+      payload.permissions.forEach((permission: string) => {
+        if (typeof permission === 'string' && permission.includes(':')) {
+          const [resource, action] = permission.split(':', 2);
+          if (!permissions[resource]) {
+            permissions[resource] = [];
+          }
+          permissions[resource].push(action);
+        }
+      });
+    } else if (payload.permissions && typeof payload.permissions === 'object') {
+      // Old format: { orders: ["read", "write"] }
+      permissions = payload.permissions;
+    }
+
     return {
       userId: payload.userId,
-      userType: payload.userType,
+      userType: userType,
       email: payload.email,
-      restaurantId: payload.restaurantId || undefined,
+      restaurantId: restaurantIdFromPayload || undefined,
       ownerId: payload.ownerId || undefined,
-      permissions: payload.permissions || {},
-      isAdmin: payload.userType === UserType.PLATFORM_ADMIN,
+      permissions,
+      isAdmin: userType === UserType.PLATFORM_ADMIN,
       restaurantSlug: restaurantSlug || undefined,
     };
   } catch (error) {
@@ -122,7 +169,9 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
 /**
  * Get restaurant context by slug
  */
-export async function getRestaurantBySlug(slug: string): Promise<RestaurantContext | null> {
+export async function getRestaurantBySlug(
+  slug: string
+): Promise<RestaurantContext | null> {
   try {
     const restaurant = await prisma.restaurant.findUnique({
       where: { slug },
@@ -188,7 +237,9 @@ export function enforceRestaurantAccess(
 /**
  * Get all restaurants accessible by the current user
  */
-export async function getUserRestaurants(context: TenantContext): Promise<RestaurantContext[]> {
+export async function getUserRestaurants(
+  context: TenantContext
+): Promise<RestaurantContext[]> {
   try {
     // Platform admins can see all restaurants
     if (context.isAdmin) {
@@ -246,7 +297,10 @@ export async function getUserRestaurants(context: TenantContext): Promise<Restau
 /**
  * Create a Prisma where clause for restaurant-scoped queries
  */
-export function createRestaurantFilter(context: TenantContext, restaurantIdField = 'restaurantId') {
+export function createRestaurantFilter(
+  context: TenantContext,
+  restaurantIdField = 'restaurantId'
+) {
   // Platform admins see all data
   if (context.isAdmin) {
     return {};
@@ -294,7 +348,8 @@ export async function validateRestaurantOwnership(
 /**
  * Get tenant-scoped Prisma client with automatic filtering
  */
-export function getTenantPrisma(context: TenantContext) {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export function getTenantPrisma(_context: TenantContext) {
   // For now, return the regular prisma client
   // In the future, we could implement automatic query filtering here
   return prisma;
@@ -336,7 +391,10 @@ export async function requireRestaurantAccess(
 
   // Additional validation for restaurant owners
   if (context.userType === UserType.RESTAURANT_OWNER) {
-    const hasAccess = await validateRestaurantOwnership(context.userId, restaurantId);
+    const hasAccess = await validateRestaurantOwnership(
+      context.userId,
+      restaurantId
+    );
     if (!hasAccess) {
       throw new Error('Access denied: Restaurant not owned by user');
     }

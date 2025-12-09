@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 export async function PATCH(
   request: NextRequest,
@@ -8,9 +9,10 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value || 
-                  request.cookies.get('qr_auth_token')?.value;
-    
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -19,7 +21,7 @@ export async function PATCH(
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
-    
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -48,64 +50,104 @@ export async function PATCH(
     // Validate status
     const validStatuses = ['pending', 'preparing', 'ready'];
     if (!validStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
+    }
+
+    // Get current item status before update
+    const currentItem = await prisma.orderItem.findUnique({
+      where: { id: itemId },
+      select: {
+        status: true,
+        orderId: true,
+        order: {
+          select: {
+            restaurantId: true,
+          },
+        },
+      },
+    });
+
+    if (!currentItem) {
       return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
+        { error: 'Order item not found' },
+        { status: 404 }
       );
     }
 
     // Update the order item status
     const orderItem = await prisma.orderItem.update({
       where: { id: itemId },
-      data: { 
+      data: {
         status,
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       include: {
         order: {
           select: {
             id: true,
             restaurantId: true,
-            status: true
-          }
-        }
-      }
+            status: true,
+          },
+        },
+      },
     });
 
     // Verify the item belongs to the same restaurant
     const userRestaurantId = authResult.user.currentRole?.restaurantId;
-    if (!userRestaurantId || orderItem.order.restaurantId !== userRestaurantId) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 403 }
-      );
+    if (
+      !userRestaurantId ||
+      orderItem.order.restaurantId !== userRestaurantId
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
+
+    // Publish PostgreSQL NOTIFY event for item status change
+    await PostgresEventManager.publishOrderItemStatusChange({
+      orderId: orderItem.order.id,
+      itemId: itemId,
+      restaurantId: orderItem.order.restaurantId,
+      oldStatus: currentItem.status,
+      newStatus: status,
+      timestamp: Date.now(),
+    });
 
     // Check if all items in the order are ready, then update order status
     if (status === 'ready') {
       const allOrderItems = await prisma.orderItem.findMany({
-        where: { orderId: orderItem.order.id }
+        where: { orderId: orderItem.order.id },
       });
 
-      const allItemsReady = allOrderItems.every(item => item.status === 'ready');
+      const allItemsReady = allOrderItems.every(
+        (item) => item.status === 'ready'
+      );
 
       if (allItemsReady && orderItem.order.status === 'preparing') {
         await prisma.order.update({
           where: { id: orderItem.order.id },
-          data: { 
+          data: {
             status: 'ready',
             readyAt: new Date(),
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
+        });
+
+        // Publish order status change event
+        await PostgresEventManager.publishOrderStatusChange({
+          orderId: orderItem.order.id,
+          oldStatus: 'preparing',
+          newStatus: 'ready',
+          restaurantId: orderItem.order.restaurantId,
+          tableId: '', // Not available in this context
+          orderNumber: '', // Not available in this context
+          timestamp: Date.now(),
         });
       }
     }
 
     return NextResponse.json({
       success: true,
-      orderItem
+      orderItem,
     });
-
   } catch (error) {
     console.error('Failed to update order item status:', error);
     return NextResponse.json(
