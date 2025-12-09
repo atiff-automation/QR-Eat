@@ -1,0 +1,43 @@
+# Railway ignore file - exclude from deployment
+
+# Development files
+.env
+.env.local
+.env.development
+
+# Documentation
+*.md
+!README.md
+claudedocs/
+docs/
+
+# Testing
+coverage/
+tests/
+__tests__/
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+jest.config.js
+jest.setup.js
+
+# Development artifacts
+.DS_Store
+*.log
+server.log
+.swc/
+.next/cache/
+
+# Git
+.git/
+.gitignore
+
+# Local development
+cookies.txt
+test_cookies.txt
+*_cookies.txt
+
+# Scripts (include only what's needed)
+scripts/test-*.sh
+scripts/debug-*.sh
