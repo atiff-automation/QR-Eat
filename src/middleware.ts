@@ -84,77 +84,81 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Validate token by calling our validation API route
-    const validationUrl = new URL('/api/auth/validate-token', request.url);
-    const validationResponse = await fetch(validationUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: request.headers.get('cookie') || '',
-      },
-      body: JSON.stringify({ token, pathname }),
-    });
+    // For production Edge Runtime, we cannot fetch internal routes
+    // Instead, we validate JWT directly using jose (Edge-compatible)
+    const { jwtVerify } = await import('jose');
+    const secret = new TextEncoder().encode(
+      process.env.JWT_SECRET || 'fallback-secret-for-development'
+    );
 
-    if (!validationResponse.ok) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          '🚫 RBAC Middleware: Token validation failed for',
-          pathname
-        );
-      }
-      return redirectToLogin(request, pathname);
-    }
+    try {
+      const { payload } = await jwtVerify(token, secret, {
+        issuer: 'qr-restaurant-system',
+      });
 
-    const validationData = await validationResponse.json();
-
-    if (!validationData.isValid) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(
-          '🚫 RBAC Middleware: Token validation returned invalid for',
-          pathname
-        );
-      }
-      return redirectToLogin(request, pathname);
-    }
-
-    // Add user context to request headers for downstream processing
-    const payload = validationData.payload;
-    if (payload) {
-      response.headers.set('x-user-id', payload.userId);
-      response.headers.set('x-user-email', payload.email);
-      response.headers.set('x-user-role', payload.currentRole.roleTemplate);
-      response.headers.set('x-user-type', payload.currentRole.userType);
-      response.headers.set(
-        'x-user-permissions',
-        JSON.stringify(payload.permissions)
-      );
-      response.headers.set('x-session-id', payload.sessionId);
-      response.headers.set(
-        'x-is-admin',
-        (payload.currentRole.roleTemplate === 'platform_admin').toString()
-      );
-
-      if (payload.restaurantContext) {
-        response.headers.set('x-restaurant-id', payload.restaurantContext.id);
+      // Add user context to request headers for downstream processing
+      if (payload) {
+        response.headers.set('x-user-id', payload.userId as string);
+        response.headers.set('x-user-email', payload.email as string);
         response.headers.set(
-          'x-restaurant-slug',
-          payload.restaurantContext.slug
+          'x-user-role',
+          (payload.currentRole as Record<string, unknown>)
+            ?.roleTemplate as string
+        );
+        response.headers.set(
+          'x-user-type',
+          (payload.currentRole as Record<string, unknown>)?.userType as string
+        );
+        response.headers.set(
+          'x-user-permissions',
+          JSON.stringify(payload.permissions)
+        );
+        response.headers.set('x-session-id', payload.sessionId as string);
+        response.headers.set(
+          'x-is-admin',
+          (
+            (payload.currentRole as Record<string, unknown>)?.roleTemplate ===
+            'platform_admin'
+          ).toString()
         );
 
-        if (payload.currentRole.roleTemplate === 'restaurant_owner') {
-          response.headers.set('x-owner-id', payload.userId);
+        if (payload.restaurantContext) {
+          const restaurantContext = payload.restaurantContext as Record<
+            string,
+            unknown
+          >;
+          response.headers.set(
+            'x-restaurant-id',
+            restaurantContext.id as string
+          );
+          response.headers.set(
+            'x-restaurant-slug',
+            restaurantContext.slug as string
+          );
+
+          if (
+            (payload.currentRole as Record<string, unknown>)?.roleTemplate ===
+            'restaurant_owner'
+          ) {
+            response.headers.set('x-owner-id', payload.userId as string);
+          }
         }
       }
-    }
 
-    if (process.env.NODE_ENV === 'development') {
-      console.log(
-        '✅ RBAC Middleware: Token validation successful for',
-        pathname
-      );
-    }
+      if (process.env.NODE_ENV === 'development') {
+        console.log(
+          '✅ RBAC Middleware: Token validation successful for',
+          pathname
+        );
+      }
 
-    return response;
+      return response;
+    } catch (jwtError) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚫 RBAC Middleware: JWT verification failed:', jwtError);
+      }
+      return redirectToLogin(request, pathname);
+    }
   } catch (error) {
     console.error('Middleware error:', error);
     return redirectToLogin(request, pathname);
