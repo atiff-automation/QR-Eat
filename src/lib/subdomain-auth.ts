@@ -26,7 +26,9 @@ export interface UserTypeConfig {
 /**
  * Get authentication context for subdomain requests
  */
-export function getSubdomainAuthContext(request?: NextRequest): SubdomainAuthContext {
+export function getSubdomainAuthContext(
+  request?: NextRequest
+): SubdomainAuthContext {
   // Default context for main domain
   let context: SubdomainAuthContext = {
     isSubdomain: false,
@@ -37,33 +39,33 @@ export function getSubdomainAuthContext(request?: NextRequest): SubdomainAuthCon
       {
         type: 'platform_admin',
         label: 'Platform Admin',
-        description: 'Access to all restaurants and admin features'
+        description: 'Access to all restaurants and admin features',
       },
       {
         type: 'restaurant_owner',
         label: 'Restaurant Owner',
-        description: 'Manage your restaurants'
+        description: 'Manage your restaurants',
       },
       {
         type: 'staff',
         label: 'Staff Member',
-        description: 'Access to restaurant dashboard'
-      }
+        description: 'Access to restaurant dashboard',
+      },
     ],
     loginRedirectUrl: '/login',
-    defaultRedirectUrl: '/dashboard'
+    defaultRedirectUrl: '/dashboard',
   };
 
   if (request) {
     const subdomainInfo = getSubdomainInfo(request);
-    
+
     if (subdomainInfo.isSubdomain && subdomainInfo.subdomain) {
       const restaurantSlug = getRestaurantSlugFromSubdomain(request);
-      
+
       // Get tenant info from headers if available (set by middleware)
       const restaurantId = request.headers.get('x-tenant-id');
       const restaurantName = request.headers.get('x-tenant-name');
-      
+
       context = {
         isSubdomain: true,
         restaurantSlug,
@@ -74,17 +76,17 @@ export function getSubdomainAuthContext(request?: NextRequest): SubdomainAuthCon
             type: 'staff',
             label: 'Staff Login',
             description: `Access ${restaurantName || 'restaurant'} dashboard`,
-            restrictToTenant: true
+            restrictToTenant: true,
           },
           {
             type: 'restaurant_owner',
             label: 'Owner Access',
             description: `Manage ${restaurantName || 'this restaurant'}`,
-            restrictToTenant: true
-          }
+            restrictToTenant: true,
+          },
         ],
         loginRedirectUrl: '/login',
-        defaultRedirectUrl: '/dashboard'
+        defaultRedirectUrl: '/dashboard',
       };
     }
   }
@@ -102,14 +104,29 @@ export function getClientSubdomainAuthContext(): SubdomainAuthContext {
 
   const hostname = window.location.hostname;
   const parts = hostname.split('.');
-  
-  // Check if this is a subdomain (more than 2 parts, excluding localhost)
+
+  // Check if this is localhost
   const isLocalhost = hostname.includes('localhost');
-  const isSubdomain = !isLocalhost && parts.length >= 3 && parts[0] !== 'www';
-  
+
+  // Check if this is a known main domain or platform deployment
+  const isMainDomain =
+    isLocalhost ||
+    parts.length < 3 ||
+    parts[0] === 'www' ||
+    // Railway domains: *.up.railway.app, *.railway.app
+    hostname.endsWith('.up.railway.app') ||
+    hostname.endsWith('.railway.app') ||
+    // Vercel domains: *.vercel.app
+    hostname.endsWith('.vercel.app') ||
+    // Netlify domains: *.netlify.app
+    hostname.endsWith('.netlify.app');
+
+  // Only treat as subdomain if it's NOT a main domain
+  const isSubdomain = !isMainDomain;
+
   if (isSubdomain) {
     const restaurantSlug = parts[0];
-    
+
     return {
       isSubdomain: true,
       restaurantSlug,
@@ -120,17 +137,17 @@ export function getClientSubdomainAuthContext(): SubdomainAuthContext {
           type: 'staff',
           label: 'Staff Login',
           description: 'Access restaurant dashboard',
-          restrictToTenant: true
+          restrictToTenant: true,
         },
         {
           type: 'restaurant_owner',
           label: 'Owner Access',
           description: 'Manage this restaurant',
-          restrictToTenant: true
-        }
+          restrictToTenant: true,
+        },
       ],
       loginRedirectUrl: '/login',
-      defaultRedirectUrl: '/dashboard'
+      defaultRedirectUrl: '/dashboard',
     };
   }
 
@@ -144,7 +161,8 @@ export function canUserAccessRestaurantSubdomain(
   userType: string,
   userRestaurantId: string | null,
   targetRestaurantId: string,
-  userOwnerId?: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userOwnerId?: string
 ): { canAccess: boolean; reason?: string } {
   // Platform admins can access any restaurant
   if (userType === 'platform_admin') {
@@ -163,15 +181,15 @@ export function canUserAccessRestaurantSubdomain(
     if (userRestaurantId === targetRestaurantId) {
       return { canAccess: true };
     }
-    return { 
-      canAccess: false, 
-      reason: 'Staff can only access their assigned restaurant' 
+    return {
+      canAccess: false,
+      reason: 'Staff can only access their assigned restaurant',
     };
   }
 
-  return { 
-    canAccess: false, 
-    reason: 'Invalid user type or insufficient permissions' 
+  return {
+    canAccess: false,
+    reason: 'Invalid user type or insufficient permissions',
   };
 }
 
@@ -243,23 +261,23 @@ export function getLoginFormConfig(authContext: SubdomainAuthContext): {
           label: 'Manager',
           email: 'mario@marios-authentic.com',
           password: 'staff123',
-          userType: 'staff'
+          userType: 'staff',
         },
         {
           id: 'staff2',
           label: 'Waiter',
           email: 'luigi@marios-authentic.com',
           password: 'staff123',
-          userType: 'staff'
+          userType: 'staff',
         },
         {
           id: 'staff3',
           label: 'Kitchen',
           email: 'giuseppe@marios-authentic.com',
           password: 'staff123',
-          userType: 'staff'
-        }
-      ]
+          userType: 'staff',
+        },
+      ],
     };
   }
 
@@ -273,44 +291,44 @@ export function getLoginFormConfig(authContext: SubdomainAuthContext): {
         label: 'Platform Admin',
         email: 'admin@qrorder.com',
         password: 'admin123',
-        userType: 'platform_admin'
+        userType: 'platform_admin',
       },
       {
         id: 'owner1',
         label: 'Mario (Owner)',
         email: 'mario@rossigroup.com',
         password: 'owner123',
-        userType: 'restaurant_owner'
+        userType: 'restaurant_owner',
       },
       {
         id: 'owner2',
         label: 'John (Owner)',
         email: 'john@tastychainfood.com',
         password: 'owner123',
-        userType: 'restaurant_owner'
+        userType: 'restaurant_owner',
       },
       {
         id: 'staff1',
         label: 'Manager',
         email: 'mario@marios-authentic.com',
         password: 'staff123',
-        userType: 'staff'
+        userType: 'staff',
       },
       {
         id: 'staff2',
         label: 'Waiter',
         email: 'luigi@marios-authentic.com',
         password: 'staff123',
-        userType: 'staff'
+        userType: 'staff',
       },
       {
         id: 'staff3',
         label: 'Kitchen',
         email: 'giuseppe@marios-authentic.com',
         password: 'staff123',
-        userType: 'staff'
-      }
-    ]
+        userType: 'staff',
+      },
+    ],
   };
 }
 
@@ -328,10 +346,10 @@ export function validateSubdomainAccess(
   }
 
   if (!authContext.restaurantId) {
-    return { 
-      isValid: false, 
+    return {
+      isValid: false,
       error: 'Restaurant not found',
-      redirectUrl: '/restaurant-not-found'
+      redirectUrl: '/restaurant-not-found',
     };
   }
 
@@ -346,7 +364,7 @@ export function validateSubdomainAccess(
     return {
       isValid: false,
       error: accessCheck.reason || 'Access denied',
-      redirectUrl: '/access-denied'
+      redirectUrl: '/access-denied',
     };
   }
 
@@ -360,8 +378,8 @@ export function createSubdomainLoginPayload(
   email: string,
   password: string,
   authContext: SubdomainAuthContext
-): any {
-  const payload: any = { email, password };
+): Record<string, unknown> {
+  const payload: Record<string, unknown> = { email, password };
 
   if (authContext.isSubdomain && authContext.restaurantSlug) {
     payload.restaurantSlug = authContext.restaurantSlug;
@@ -376,19 +394,21 @@ export function createSubdomainLoginPayload(
  */
 export function handlePostLoginRedirect(
   authContext: SubdomainAuthContext,
-  loginResponse: any,
+  loginResponse: Record<string, unknown>,
   redirectParam?: string
 ): string {
-  const userType = loginResponse.userType;
-  const userRole = loginResponse.user?.currentRole?.roleTemplate;
+  const userType = loginResponse.userType as string;
+  const user = loginResponse.user as Record<string, unknown> | undefined;
+  const currentRole = user?.currentRole as Record<string, unknown> | undefined;
+  const userRole = currentRole?.roleTemplate as string | undefined;
 
   // Validate subdomain access if needed
   if (authContext.isSubdomain) {
     const validation = validateSubdomainAccess(
       authContext,
       userType,
-      loginResponse.user?.restaurantId,
-      loginResponse.user?.ownerId
+      user?.restaurantId as string | undefined,
+      user?.ownerId as string | undefined
     );
 
     if (!validation.isValid) {
@@ -411,7 +431,10 @@ export function getSubdomainAuthErrorMessage(
   }
 
   // Customize error messages for subdomain context
-  if (error.includes('User not found') || error.includes('Invalid credentials')) {
+  if (
+    error.includes('User not found') ||
+    error.includes('Invalid credentials')
+  ) {
     return `Invalid credentials for ${authContext.restaurantName || 'this restaurant'}. Please check your email and password.`;
   }
 

@@ -28,9 +28,12 @@ const SUBDOMAIN_CONFIG = {
     'localhost:3000',
     'qrorder.local',
     'qrorder.com',
-    'qrorder.app'
+    'qrorder.app',
+    // Railway deployment domains
+    'up.railway.app',
+    'railway.app',
   ],
-  
+
   // Reserved subdomains that cannot be used for restaurants
   RESERVED_SUBDOMAINS: [
     'www',
@@ -72,14 +75,14 @@ const SUBDOMAIN_CONFIG = {
     'staging',
     'preview',
     'demo',
-    'example'
+    'example',
   ],
-  
+
   // Development environment settings
   DEV_MODE: process.env.NODE_ENV === 'development',
-  
+
   // Force HTTPS in production
-  FORCE_HTTPS: process.env.NODE_ENV === 'production'
+  FORCE_HTTPS: process.env.NODE_ENV === 'production',
 };
 
 /**
@@ -87,11 +90,10 @@ const SUBDOMAIN_CONFIG = {
  */
 export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
   const host = request.headers.get('host') || '';
-  const url = new URL(request.url);
-  
+
   // Extract subdomain from host first
   const parts = host.split('.');
-  
+
   // Handle localhost development - check if it's a subdomain
   if (SUBDOMAIN_CONFIG.DEV_MODE && host.includes('localhost')) {
     // For localhost:3000 - this is main domain
@@ -102,10 +104,10 @@ export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
         isMainDomain: true,
         fullDomain: host,
         host: host,
-        baseDomain: host
+        baseDomain: host,
       };
     }
-    
+
     // For subdomain.localhost:3000 - this is a subdomain
     if (parts.length >= 2 && parts[1].startsWith('localhost')) {
       const subdomain = parts[0];
@@ -115,11 +117,11 @@ export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
         isMainDomain: false,
         fullDomain: host,
         host: host,
-        baseDomain: parts.slice(1).join('.')
+        baseDomain: parts.slice(1).join('.'),
       };
     }
   }
-  
+
   // Need at least 3 parts for subdomain (sub.domain.com)
   if (parts.length < 3) {
     return {
@@ -128,25 +130,25 @@ export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
       isMainDomain: true,
       fullDomain: host,
       host: host,
-      baseDomain: host
+      baseDomain: host,
     };
   }
-  
+
   const subdomain = parts[0];
   const baseDomain = parts.slice(1).join('.');
-  
+
   // Check if this is a main domain
-  const isMainDomain = SUBDOMAIN_CONFIG.MAIN_DOMAINS.some(domain => 
-    host === domain || baseDomain === domain.split(':')[0]
+  const isMainDomain = SUBDOMAIN_CONFIG.MAIN_DOMAINS.some(
+    (domain) => host === domain || baseDomain === domain.split(':')[0]
   );
-  
+
   return {
     subdomain: subdomain,
     isSubdomain: !isMainDomain && subdomain !== 'www',
     isMainDomain: isMainDomain || subdomain === 'www',
     fullDomain: host,
     host: host,
-    baseDomain: baseDomain
+    baseDomain: baseDomain,
   };
 }
 
@@ -165,33 +167,33 @@ export function isValidRestaurantSubdomain(subdomain: string): boolean {
   if (!subdomain || subdomain.trim() === '') {
     return false;
   }
-  
+
   // Must be lowercase
   if (subdomain !== subdomain.toLowerCase()) {
     return false;
   }
-  
+
   // Must not be reserved
   if (isReservedSubdomain(subdomain)) {
     return false;
   }
-  
+
   // Must match allowed pattern (alphanumeric and hyphens, no consecutive hyphens)
   const subdomainPattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
   if (!subdomainPattern.test(subdomain)) {
     return false;
   }
-  
+
   // Must not start or end with hyphen
   if (subdomain.startsWith('-') || subdomain.endsWith('-')) {
     return false;
   }
-  
+
   // Must be between 3 and 63 characters
   if (subdomain.length < 3 || subdomain.length > 63) {
     return false;
   }
-  
+
   return true;
 }
 
@@ -205,12 +207,12 @@ export function generateSubdomainUrl(
 ): string {
   // Use provided base domain or determine from environment
   const domain = baseDomain || getBaseDomain();
-  
+
   // Handle development localhost
   if (SUBDOMAIN_CONFIG.DEV_MODE && domain.includes('localhost')) {
     return `http://${subdomain}.${domain}${path}`;
   }
-  
+
   const protocol = SUBDOMAIN_CONFIG.FORCE_HTTPS ? 'https' : 'http';
   return `${protocol}://${subdomain}.${domain}${path}`;
 }
@@ -222,7 +224,7 @@ export function getBaseDomain(): string {
   if (SUBDOMAIN_CONFIG.DEV_MODE) {
     return 'localhost:3000';
   }
-  
+
   // In production, this should be set via environment variable
   return process.env.BASE_DOMAIN || 'qrorder.com';
 }
@@ -235,16 +237,16 @@ export function extractSubdomainFromUrl(url: string): string | null {
     const urlObj = new URL(url);
     const host = urlObj.hostname;
     const parts = host.split('.');
-    
+
     if (parts.length >= 3) {
       const subdomain = parts[0];
       if (subdomain !== 'www' && !isReservedSubdomain(subdomain)) {
         return subdomain;
       }
     }
-    
+
     return null;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -261,34 +263,43 @@ export function isSubdomainRequest(request: NextRequest): boolean {
  * Get the restaurant slug from subdomain
  * In our system, subdomain === restaurant.slug
  */
-export function getRestaurantSlugFromSubdomain(request: NextRequest): string | null {
+export function getRestaurantSlugFromSubdomain(
+  request: NextRequest
+): string | null {
   const info = getSubdomainInfo(request);
-  
+
   if (!info.isSubdomain || !info.subdomain) {
     return null;
   }
-  
+
   return info.subdomain;
 }
 
 /**
  * Generate main domain URL from subdomain request
  */
-export function getMainDomainUrl(request: NextRequest, path: string = '/'): string {
-  const info = getSubdomainInfo(request);
+export function getMainDomainUrl(
+  request: NextRequest,
+  path: string = '/'
+): string {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const _info = getSubdomainInfo(request);
   const protocol = SUBDOMAIN_CONFIG.FORCE_HTTPS ? 'https' : 'http';
-  
+
   if (SUBDOMAIN_CONFIG.DEV_MODE) {
     return `http://localhost:3000${path}`;
   }
-  
+
   return `${protocol}://${getBaseDomain()}${path}`;
 }
 
 /**
  * Create redirect response to main domain
  */
-export function redirectToMainDomain(request: NextRequest, path: string = '/'): Response {
+export function redirectToMainDomain(
+  request: NextRequest,
+  path: string = '/'
+): Response {
   const mainUrl = getMainDomainUrl(request, path);
   return Response.redirect(mainUrl, 302);
 }
@@ -326,7 +337,7 @@ export function getSubdomainValidationRules(): {
     pattern: /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/,
     minLength: 3,
     maxLength: 63,
-    reservedList: SUBDOMAIN_CONFIG.RESERVED_SUBDOMAINS
+    reservedList: SUBDOMAIN_CONFIG.RESERVED_SUBDOMAINS,
   };
 }
 
@@ -337,32 +348,32 @@ export function getSubdomainErrorMessage(subdomain: string): string {
   if (!subdomain || subdomain.trim() === '') {
     return 'Subdomain cannot be empty';
   }
-  
+
   if (subdomain !== subdomain.toLowerCase()) {
     return 'Subdomain must be lowercase';
   }
-  
+
   if (isReservedSubdomain(subdomain)) {
     return 'This subdomain is reserved and cannot be used';
   }
-  
+
   if (subdomain.startsWith('-') || subdomain.endsWith('-')) {
     return 'Subdomain cannot start or end with a hyphen';
   }
-  
+
   if (subdomain.length < 3) {
     return 'Subdomain must be at least 3 characters long';
   }
-  
+
   if (subdomain.length > 63) {
     return 'Subdomain cannot be longer than 63 characters';
   }
-  
+
   const pattern = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
   if (!pattern.test(subdomain)) {
     return 'Subdomain can only contain lowercase letters, numbers, and hyphens';
   }
-  
+
   return 'Invalid subdomain format';
 }
 
@@ -370,7 +381,9 @@ export function getSubdomainErrorMessage(subdomain: string): string {
  * Check if subdomain routing is enabled for the current environment
  */
 export function isSubdomainRoutingEnabled(): boolean {
-  return process.env.ENABLE_SUBDOMAIN_ROUTING === 'true' || SUBDOMAIN_CONFIG.DEV_MODE;
+  return (
+    process.env.ENABLE_SUBDOMAIN_ROUTING === 'true' || SUBDOMAIN_CONFIG.DEV_MODE
+  );
 }
 
 /**
@@ -383,8 +396,12 @@ export function getDevSubdomainConfig(): {
 } {
   return {
     enabled: SUBDOMAIN_CONFIG.DEV_MODE,
-    testSubdomains: ['marios-authentic-italian', 'tasty-burger-westside', 'tasty-burger-downtown'],
-    mainDomain: 'localhost:3000'
+    testSubdomains: [
+      'marios-authentic-italian',
+      'tasty-burger-westside',
+      'tasty-burger-downtown',
+    ],
+    mainDomain: 'localhost:3000',
   };
 }
 
@@ -398,20 +415,24 @@ export interface SubdomainTenantInfo {
   error?: string;
 }
 
-export function getSubdomainTenantInfo(request: NextRequest): SubdomainTenantInfo | null {
+export function getSubdomainTenantInfo(
+  request: NextRequest
+): SubdomainTenantInfo | null {
   const info = getSubdomainInfo(request);
-  
+
   if (!info.isSubdomain || !info.subdomain) {
     return null;
   }
-  
+
   const slug = normalizeSubdomain(info.subdomain);
-  
+
   return {
     slug,
     isValid: isValidRestaurantSubdomain(slug),
     isReserved: isReservedSubdomain(slug),
-    error: isValidRestaurantSubdomain(slug) ? undefined : getSubdomainErrorMessage(slug)
+    error: isValidRestaurantSubdomain(slug)
+      ? undefined
+      : getSubdomainErrorMessage(slug),
   };
 }
 
@@ -421,7 +442,7 @@ export function getSubdomainTenantInfo(request: NextRequest): SubdomainTenantInf
 export function shouldHandleSubdomain(request: NextRequest): boolean {
   // Skip subdomain handling for API routes, static files, and system paths
   const pathname = request.nextUrl.pathname;
-  
+
   const skipPaths = [
     '/api/',
     '/_next/',
@@ -429,13 +450,13 @@ export function shouldHandleSubdomain(request: NextRequest): boolean {
     '/robots.txt',
     '/sitemap.xml',
     '/health',
-    '/ping'
+    '/ping',
   ];
-  
-  if (skipPaths.some(path => pathname.startsWith(path))) {
+
+  if (skipPaths.some((path) => pathname.startsWith(path))) {
     return false;
   }
-  
+
   // Only handle if subdomain routing is enabled and this is a subdomain request
   return isSubdomainRoutingEnabled() && isSubdomainRequest(request);
 }
@@ -451,7 +472,7 @@ export function logSubdomainInfo(request: NextRequest): void {
       subdomain: info.subdomain,
       isSubdomain: info.isSubdomain,
       isMainDomain: info.isMainDomain,
-      path: request.nextUrl.pathname
+      path: request.nextUrl.pathname,
     });
   }
 }
