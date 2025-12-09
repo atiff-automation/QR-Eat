@@ -44,68 +44,131 @@ export function KitchenDisplayBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [sseConnected, setSseConnected] = useState(false);
 
-  const handleRealTimeUpdate = (data: { type: string; data: Record<string, unknown> }) => {
+  const handleRealTimeUpdate = (data: {
+    type: string;
+    data: Record<string, unknown>;
+  }) => {
     console.log('Kitchen real-time update received:', data);
-    
+
     switch (data.type) {
       case 'order_status_changed':
-        console.log('Updating order status:', data.data.orderId, 'from', data.data.oldStatus, 'to', data.data.newStatus);
-        
+        console.log(
+          'Updating order status:',
+          data.data.orderId,
+          'from',
+          data.data.oldStatus,
+          'to',
+          data.data.newStatus
+        );
+
         // Update specific order status
-        setOrders(prevOrders => {
-          console.log('Current orders before update:', prevOrders.map(o => ({id: o.id, orderNumber: o.orderNumber, status: o.status})));
-          
-          const updated = prevOrders.map(order => {
+        setOrders((prevOrders) => {
+          console.log(
+            'Current orders before update:',
+            prevOrders.map((o) => ({
+              id: o.id,
+              orderNumber: o.orderNumber,
+              status: o.status,
+            }))
+          );
+
+          const updated = prevOrders.map((order) => {
             if (order.id === data.data.orderId) {
-              console.log('Found order to update:', order.orderNumber, 'from', order.status, 'to', data.data.newStatus);
+              console.log(
+                'Found order to update:',
+                order.orderNumber,
+                'from',
+                order.status,
+                'to',
+                data.data.newStatus
+              );
               return { ...order, status: data.data.newStatus };
             }
             return order;
           });
-          
-          console.log('Updated orders:', updated.map(o => ({id: o.id, orderNumber: o.orderNumber, status: o.status})));
-          
+
+          console.log(
+            'Updated orders:',
+            updated.map((o) => ({
+              id: o.id,
+              orderNumber: o.orderNumber,
+              status: o.status,
+            }))
+          );
+
           // If order not found in current list, refresh orders
-          const foundOrder = prevOrders.find(order => order.id === data.data.orderId);
+          const foundOrder = prevOrders.find(
+            (order) => order.id === data.data.orderId
+          );
           if (!foundOrder) {
             console.log('Order not found in current list, refreshing...');
             fetchKitchenOrders();
             return prevOrders;
           }
-          
+
           // Check if the new status should still be displayed in kitchen
           const kitchenStatuses = ['confirmed', 'preparing', 'ready'];
           if (!kitchenStatuses.includes(data.data.newStatus)) {
-            console.log('Order status', data.data.newStatus, 'should not be displayed in kitchen, refreshing...');
+            console.log(
+              'Order status',
+              data.data.newStatus,
+              'should not be displayed in kitchen, refreshing...'
+            );
             fetchKitchenOrders();
             return prevOrders;
           }
-          
+
           return updated;
         });
         break;
-        
+
       case 'order_created':
         // Refresh orders to get new order
         console.log('New order created, refreshing kitchen orders...');
         fetchKitchenOrders();
         break;
-        
+
+      case 'order_item_status_changed':
+        console.log('Kitchen item status changed:', {
+          orderId: data.data.orderId,
+          itemId: data.data.itemId,
+          oldStatus: data.data.oldStatus,
+          newStatus: data.data.newStatus,
+        });
+        // Update specific item status in state
+        setOrders((prevOrders) =>
+          prevOrders.map((order) => {
+            if (order.id === data.data.orderId) {
+              return {
+                ...order,
+                items: order.items.map((item) =>
+                  item.id === data.data.itemId
+                    ? { ...item, status: data.data.newStatus as string }
+                    : item
+                ),
+              };
+            }
+            return order;
+          })
+        );
+        break;
+
       case 'kitchen_notification':
         console.log('Kitchen notification:', data.data.message);
         // Could show toast notification here
         break;
-        
+
       case 'restaurant_notification':
         console.log('Restaurant notification:', data.data.message);
         // Could show toast notification here
         break;
-        
+
       case 'connection':
         console.log('Kitchen SSE connection established:', data.data.message);
         break;
-        
+
       default:
         console.log('Unknown kitchen event type:', data.type);
     }
@@ -113,38 +176,56 @@ export function KitchenDisplayBoard() {
 
   useEffect(() => {
     fetchKitchenOrders();
-    
+
     // Set up Server-Sent Events for real-time updates
+    console.log('[KitchenDisplayBoard] Establishing SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
         handleRealTimeUpdate(data);
       } catch (error) {
-        console.error('Error parsing SSE data:', error);
+        console.error('[KitchenDisplayBoard] Error parsing SSE data:', error);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      // Fallback to polling if SSE fails
-      const fallbackInterval = setInterval(fetchKitchenOrders, 15000);
-      
-      return () => clearInterval(fallbackInterval);
+      console.error('[KitchenDisplayBoard] SSE connection error:', error);
+      setSseConnected(false);
+      // EventSource will automatically try to reconnect
     };
 
     eventSource.onopen = () => {
-      console.log('Kitchen SSE connection established');
+      console.log('[KitchenDisplayBoard] SSE connection established');
+      setSseConnected(true);
     };
-    
+
+    // Keep polling as fallback (runs even when SSE connected for reliability)
+    // Polling catches any events that SSE might have missed
+    const pollingInterval = setInterval(() => {
+      if (!sseConnected) {
+        console.log(
+          '[KitchenDisplayBoard] SSE not connected, using fallback polling'
+        );
+      } else {
+        console.log(
+          '[KitchenDisplayBoard] Periodic polling check (SSE backup)'
+        );
+      }
+      fetchKitchenOrders();
+    }, 30000); // 30 second interval
+
     // Update current time every second for timing displays
     const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
     return () => {
+      console.log('[KitchenDisplayBoard] Cleaning up SSE connection');
       eventSource.close();
+      clearInterval(pollingInterval);
       clearInterval(timeInterval);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchKitchenOrders = async () => {
@@ -168,42 +249,73 @@ export function KitchenDisplayBoard() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
+      // Optimistic update - update UI immediately
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId ? { ...order, status: newStatus } : order
+        )
+      );
+
       const response = await fetch(`/api/orders/${orderId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
 
       if (response.ok) {
-        // Immediately refresh orders
-        fetchKitchenOrders();
+        console.log(
+          '[KitchenDisplay] Order status updated successfully, waiting for SSE confirmation'
+        );
+        // SSE will send the real update - no need to fetch manually
+        // This prevents race conditions between manual fetch and SSE update
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update order status');
+        // Revert optimistic update on error
+        fetchKitchenOrders();
       }
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      console.error('[KitchenDisplay] Failed to update order status:', error);
       setError('Network error. Please try again.');
+      // Revert optimistic update on error
+      fetchKitchenOrders();
     }
   };
 
   const updateItemStatus = async (itemId: string, newStatus: string) => {
     try {
+      // Optimistic update - update item status immediately
+      setOrders((prevOrders) =>
+        prevOrders.map((order) => ({
+          ...order,
+          items: order.items.map((item) =>
+            item.id === itemId ? { ...item, status: newStatus } : item
+          ),
+        }))
+      );
+
       const response = await fetch(`/api/kitchen/items/${itemId}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
 
       if (response.ok) {
-        fetchKitchenOrders();
+        console.log(
+          '[KitchenDisplay] Item status updated successfully, waiting for SSE confirmation'
+        );
+        // SSE will send the real update - no need to fetch manually
       } else {
         const data = await response.json();
         setError(data.error || 'Failed to update item status');
+        // Revert optimistic update on error
+        fetchKitchenOrders();
       }
     } catch (error) {
-      console.error('Failed to update item status:', error);
+      console.error('[KitchenDisplay] Failed to update item status:', error);
       setError('Network error. Please try again.');
+      // Revert optimistic update on error
+      fetchKitchenOrders();
     }
   };
 
@@ -216,9 +328,11 @@ export function KitchenDisplayBoard() {
 
   const getOrderPriority = (order: KitchenOrder) => {
     const age = getOrderAge(order.createdAt);
-    const estimatedTime = order.items.reduce((max, item) => 
-      Math.max(max, item.menuItem.preparationTime), 0);
-    
+    const estimatedTime = order.items.reduce(
+      (max, item) => Math.max(max, item.menuItem.preparationTime),
+      0
+    );
+
     if (age > estimatedTime + 10) return 'urgent';
     if (age > estimatedTime) return 'warning';
     return 'normal';
@@ -232,9 +346,9 @@ export function KitchenDisplayBoard() {
   };
 
   const groupedOrders = {
-    confirmed: orders.filter(order => order.status === 'confirmed'),
-    preparing: orders.filter(order => order.status === 'preparing'),
-    ready: orders.filter(order => order.status === 'ready')
+    confirmed: orders.filter((order) => order.status === 'confirmed'),
+    preparing: orders.filter((order) => order.status === 'preparing'),
+    ready: orders.filter((order) => order.status === 'ready'),
   };
 
   if (loading) {
@@ -253,7 +367,9 @@ export function KitchenDisplayBoard() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white">Kitchen Display System</h1>
+          <h1 className="text-3xl font-bold text-white">
+            Kitchen Display System
+          </h1>
           <div className="text-right">
             <div className="text-2xl font-mono">
               {currentTime.toLocaleTimeString()}
@@ -263,7 +379,7 @@ export function KitchenDisplayBoard() {
             </div>
           </div>
         </div>
-        
+
         {error && (
           <div className="mt-4 bg-red-600 text-white p-3 rounded-lg">
             <p>{error}</p>
@@ -273,15 +389,21 @@ export function KitchenDisplayBoard() {
         {/* Summary Stats */}
         <div className="mt-4 grid grid-cols-3 gap-4">
           <div className="bg-blue-800 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">{groupedOrders.confirmed.length}</div>
+            <div className="text-2xl font-bold">
+              {groupedOrders.confirmed.length}
+            </div>
             <div className="text-sm">New Orders</div>
           </div>
           <div className="bg-orange-600 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">{groupedOrders.preparing.length}</div>
+            <div className="text-2xl font-bold">
+              {groupedOrders.preparing.length}
+            </div>
             <div className="text-sm">In Progress</div>
           </div>
           <div className="bg-green-600 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">{groupedOrders.ready.length}</div>
+            <div className="text-2xl font-bold">
+              {groupedOrders.ready.length}
+            </div>
             <div className="text-sm">Ready</div>
           </div>
         </div>
@@ -294,19 +416,24 @@ export function KitchenDisplayBoard() {
           <div className="bg-blue-800 p-3 rounded-lg">
             <h2 className="text-xl font-bold text-center">New Orders</h2>
           </div>
-          
+
           <div className="space-y-4 max-h-screen overflow-y-auto">
             {groupedOrders.confirmed.map((order) => {
               const priority = getOrderPriority(order);
-              const estimatedTime = order.items.reduce((max, item) => 
-                Math.max(max, item.menuItem.preparationTime), 0);
-              
+              const estimatedTime = order.items.reduce(
+                (max, item) => Math.max(max, item.menuItem.preparationTime),
+                0
+              );
+
               return (
                 <div
                   key={order.id}
                   className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent' ? 'border-red-500' :
-                    priority === 'warning' ? 'border-orange-500' : 'border-blue-500'
+                    priority === 'urgent'
+                      ? 'border-red-500'
+                      : priority === 'warning'
+                        ? 'border-orange-500'
+                        : 'border-blue-500'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -323,7 +450,9 @@ export function KitchenDisplayBoard() {
                       )}
                     </div>
                     <div className="text-right">
-                      <div className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}>
+                      <div
+                        className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
+                      >
                         {getOrderAge(order.createdAt)}m
                       </div>
                       <div className="text-xs text-gray-400">
@@ -345,7 +474,8 @@ export function KitchenDisplayBoard() {
                               <div className="text-sm text-gray-300 mt-1">
                                 {item.variations.map((variation) => (
                                   <span key={variation.id} className="mr-2">
-                                    {variation.quantity}× {variation.variation.name}
+                                    {variation.quantity}×{' '}
+                                    {variation.variation.name}
                                   </span>
                                 ))}
                               </div>
@@ -367,7 +497,8 @@ export function KitchenDisplayBoard() {
                   {order.specialInstructions && (
                     <div className="bg-yellow-900 p-2 rounded mb-3">
                       <p className="text-sm text-yellow-200">
-                        <strong>Special Instructions:</strong> {order.specialInstructions}
+                        <strong>Special Instructions:</strong>{' '}
+                        {order.specialInstructions}
                       </p>
                     </div>
                   )}
@@ -389,19 +520,24 @@ export function KitchenDisplayBoard() {
           <div className="bg-orange-600 p-3 rounded-lg">
             <h2 className="text-xl font-bold text-center">In Progress</h2>
           </div>
-          
+
           <div className="space-y-4 max-h-screen overflow-y-auto">
             {groupedOrders.preparing.map((order) => {
               const priority = getOrderPriority(order);
-              const estimatedTime = order.items.reduce((max, item) => 
-                Math.max(max, item.menuItem.preparationTime), 0);
-              
+              const estimatedTime = order.items.reduce(
+                (max, item) => Math.max(max, item.menuItem.preparationTime),
+                0
+              );
+
               return (
                 <div
                   key={order.id}
                   className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent' ? 'border-red-500' :
-                    priority === 'warning' ? 'border-orange-500' : 'border-orange-400'
+                    priority === 'urgent'
+                      ? 'border-red-500'
+                      : priority === 'warning'
+                        ? 'border-orange-500'
+                        : 'border-orange-400'
                   }`}
                 >
                   <div className="flex justify-between items-start mb-3">
@@ -413,7 +549,9 @@ export function KitchenDisplayBoard() {
                       </p>
                     </div>
                     <div className="text-right">
-                      <div className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}>
+                      <div
+                        className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
+                      >
                         {getOrderAge(order.createdAt)}m
                       </div>
                       <div className="text-xs text-gray-400">
@@ -435,7 +573,8 @@ export function KitchenDisplayBoard() {
                               <div className="text-sm text-gray-300 mt-1">
                                 {item.variations.map((variation) => (
                                   <span key={variation.id} className="mr-2">
-                                    {variation.quantity}× {variation.variation.name}
+                                    {variation.quantity}×{' '}
+                                    {variation.variation.name}
                                   </span>
                                 ))}
                               </div>
@@ -449,8 +588,8 @@ export function KitchenDisplayBoard() {
                           <button
                             onClick={() => updateItemStatus(item.id, 'ready')}
                             className={`px-2 py-1 text-xs rounded ${
-                              item.status === 'ready' 
-                                ? 'bg-green-600 text-white' 
+                              item.status === 'ready'
+                                ? 'bg-green-600 text-white'
                                 : 'bg-gray-600 hover:bg-green-600 text-gray-300'
                             }`}
                           >
@@ -478,11 +617,11 @@ export function KitchenDisplayBoard() {
           <div className="bg-green-600 p-3 rounded-lg">
             <h2 className="text-xl font-bold text-center">Ready for Pickup</h2>
           </div>
-          
+
           <div className="space-y-4 max-h-screen overflow-y-auto">
             {groupedOrders.ready.map((order) => {
               const age = getOrderAge(order.createdAt);
-              
+
               return (
                 <div
                   key={order.id}
@@ -505,9 +644,7 @@ export function KitchenDisplayBoard() {
                       <div className="text-lg font-mono text-green-400">
                         READY
                       </div>
-                      <div className="text-sm text-gray-400">
-                        {age}m ago
-                      </div>
+                      <div className="text-sm text-gray-400">{age}m ago</div>
                     </div>
                   </div>
 
@@ -537,7 +674,9 @@ export function KitchenDisplayBoard() {
       {orders.length === 0 && !loading && (
         <div className="text-center py-12">
           <ChefHat className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-gray-300 mb-2">Kitchen is All Clear!</h3>
+          <h3 className="text-xl font-medium text-gray-300 mb-2">
+            Kitchen is All Clear!
+          </h3>
           <p className="text-gray-400">No active orders to prepare</p>
         </div>
       )}

@@ -205,7 +205,7 @@ export function useServerCart(
 
       try {
         // ✅ Use server ID directly - no N+1 query, no race condition!
-        const response = await fetch(`/api/qr/cart/${item.id}`, {
+        const response = await fetch(`/api/qr/cart/items/${item.id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -247,7 +247,7 @@ export function useServerCart(
 
       try {
         // ✅ Use server ID directly - no N+1 query, no race condition!
-        const response = await fetch(`/api/qr/cart/${item.id}`, {
+        const response = await fetch(`/api/qr/cart/items/${item.id}`, {
           method: 'DELETE',
         });
 
