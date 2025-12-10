@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
-import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
+import { requireAuth } from '@/lib/rbac/middleware';
+import { STAFF_PERMISSIONS } from '@/lib/rbac/permission-constants';
 
 // GET - List all roles for a restaurant
 export async function GET(request: NextRequest) {
@@ -15,19 +15,19 @@ export async function GET(request: NextRequest) {
     const restaurantId = url.searchParams.get('restaurantId');
 
     if (!restaurantId) {
-      return NextResponse.json({ error: 'restaurantId parameter required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'restaurantId parameter required' },
+        { status: 400 }
+      );
     }
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF],
-      requireRestaurantId: restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.READ]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
@@ -37,22 +37,24 @@ export async function GET(request: NextRequest) {
       include: {
         _count: {
           select: {
-            staff: true
-          }
-        }
+            staff: true,
+          },
+        },
       },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
 
     return NextResponse.json({
       success: true,
       roles,
-      count: roles.length
+      count: roles.length,
     });
-
   } catch (error) {
     console.error('Error fetching staff roles:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -64,35 +66,38 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!name || !restaurantId || !permissions) {
-      return NextResponse.json({
-        error: 'Missing required fields: name, restaurantId, permissions'
-      }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'Missing required fields: name, restaurantId, permissions',
+        },
+        { status: 400 }
+      );
     }
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
-      requireRestaurantId: restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.ROLES]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     // Check if role name already exists (global unique)
     const existingRole = await prisma.staffRole.findFirst({
       where: {
-        name
-      }
+        name,
+      },
     });
 
     if (existingRole) {
-      return NextResponse.json({ 
-        error: 'Role with this name already exists in this restaurant' 
-      }, { status: 409 });
+      return NextResponse.json(
+        {
+          error: 'Role with this name already exists in this restaurant',
+        },
+        { status: 409 }
+      );
     }
 
     // Create the role
@@ -100,25 +105,30 @@ export async function POST(request: NextRequest) {
       data: {
         name,
         description: description || '',
-        permissions
+        permissions,
       },
       include: {
         _count: {
           select: {
-            staff: true
-          }
-        }
-      }
+            staff: true,
+          },
+        },
+      },
     });
 
-    return NextResponse.json({
-      success: true,
-      role: newRole,
-      message: 'Staff role created successfully'
-    }, { status: 201 });
-
+    return NextResponse.json(
+      {
+        success: true,
+        role: newRole,
+        message: 'Staff role created successfully',
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Error creating staff role:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

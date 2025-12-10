@@ -5,8 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
-import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
+import { requireAuth } from '@/lib/rbac/middleware';
+import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
 
 // GET - Fetch individual restaurant details
 export async function GET(
@@ -18,16 +18,13 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const includeSettings = searchParams.get('includeSettings') === 'true';
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.VIEW_RESTAURANT],
-      requireRestaurantId: id
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.READ]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
@@ -42,22 +39,25 @@ export async function GET(
             lastName: true,
             email: true,
             phone: true,
-            companyName: true
-          }
+            companyName: true,
+          },
         },
         _count: {
           select: {
             staff: true,
             tables: true,
             orders: true,
-            menuItems: true
-          }
-        }
-      }
+            menuItems: true,
+          },
+        },
+      },
     });
 
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     // Add default settings if requested
@@ -70,18 +70,20 @@ export async function GET(
           maxReservationDays: restaurant.maxReservationDays || 30,
           reservationTimeSlots: restaurant.reservationTimeSlots || 60,
           autoConfirmReservations: restaurant.autoConfirmReservations || false,
-        }
+        },
       };
     }
 
     return NextResponse.json({
       success: true,
-      restaurant: restaurantWithSettings
+      restaurant: restaurantWithSettings,
     });
-
   } catch (error) {
     console.error('Error fetching restaurant:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -93,16 +95,13 @@ export async function PATCH(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using modern AuthServiceV2 - Admin only
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
-      requireRestaurantId: id
-    });
+    // Authenticate and authorize using RBAC middleware - Admin only
+    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
@@ -110,11 +109,14 @@ export async function PATCH(
 
     // Validate the restaurant exists
     const existingRestaurant = await prisma.restaurant.findUnique({
-      where: { id }
+      where: { id },
     });
 
     if (!existingRestaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     // Update the restaurant
@@ -128,29 +130,31 @@ export async function PATCH(
             firstName: true,
             lastName: true,
             email: true,
-            companyName: true
-          }
+            companyName: true,
+          },
         },
         _count: {
           select: {
             staff: true,
             tables: true,
             orders: true,
-            menuItems: true
-          }
-        }
-      }
+            menuItems: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({
       success: true,
       restaurant: updatedRestaurant,
-      message: 'Restaurant updated successfully'
+      message: 'Restaurant updated successfully',
     });
-
   } catch (error) {
     console.error('Error updating restaurant:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -162,16 +166,13 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using modern AuthServiceV2 - Admin only
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
-      requireRestaurantId: id
-    });
+    // Authenticate and authorize using RBAC middleware - Admin only
+    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
@@ -180,11 +181,14 @@ export async function PUT(
     // Validate the restaurant exists
     const existingRestaurant = await prisma.restaurant.findUnique({
       where: { id },
-      include: { owner: true }
+      include: { owner: true },
     });
 
     if (!existingRestaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     // Use transaction to update restaurant and owner
@@ -198,12 +202,12 @@ export async function PUT(
             lastName: updateData.owner.lastName,
             email: updateData.owner.email,
             phone: updateData.owner.phone,
-          }
+          },
         });
       }
 
       // Update restaurant
-      const restaurantUpdateData: any = {
+      const restaurantUpdateData: Record<string, unknown> = {
         name: updateData.name,
         slug: updateData.slug,
         description: updateData.description,
@@ -218,10 +222,14 @@ export async function PUT(
 
       // Update settings if provided
       if (updateData.settings) {
-        restaurantUpdateData.acceptsReservations = updateData.settings.acceptReservations;
-        restaurantUpdateData.maxReservationDays = updateData.settings.maxReservationDays;
-        restaurantUpdateData.reservationTimeSlots = updateData.settings.reservationTimeSlots;
-        restaurantUpdateData.autoConfirmReservations = updateData.settings.autoConfirmReservations;
+        restaurantUpdateData.acceptsReservations =
+          updateData.settings.acceptReservations;
+        restaurantUpdateData.maxReservationDays =
+          updateData.settings.maxReservationDays;
+        restaurantUpdateData.reservationTimeSlots =
+          updateData.settings.reservationTimeSlots;
+        restaurantUpdateData.autoConfirmReservations =
+          updateData.settings.autoConfirmReservations;
       }
 
       const updatedRestaurant = await tx.restaurant.update({
@@ -235,18 +243,18 @@ export async function PUT(
               lastName: true,
               email: true,
               phone: true,
-              companyName: true
-            }
+              companyName: true,
+            },
           },
           _count: {
             select: {
               staff: true,
               tables: true,
               orders: true,
-              menuItems: true
-            }
-          }
-        }
+              menuItems: true,
+            },
+          },
+        },
       });
 
       return updatedRestaurant;
@@ -255,12 +263,14 @@ export async function PUT(
     return NextResponse.json({
       success: true,
       restaurant: result,
-      message: 'Restaurant updated successfully'
+      message: 'Restaurant updated successfully',
     });
-
   } catch (error) {
     console.error('Error updating restaurant:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -272,41 +282,43 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using modern AuthServiceV2 - Admin only
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
-      requireRestaurantId: id
-    });
+    // Authenticate and authorize using RBAC middleware - Admin only
+    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     // Check if restaurant exists
     const restaurant = await prisma.restaurant.findUnique({
       where: { id },
-      select: { id: true, name: true }
+      select: { id: true, name: true },
     });
 
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     // Delete the restaurant (cascade will handle related records)
     await prisma.restaurant.delete({
-      where: { id }
+      where: { id },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Restaurant "${restaurant.name}" deleted successfully`
+      message: `Restaurant "${restaurant.name}" deleted successfully`,
     });
-
   } catch (error) {
     console.error('Error deleting restaurant:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

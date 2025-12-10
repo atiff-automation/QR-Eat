@@ -1,46 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
-import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
+import { requireAuth } from '@/lib/rbac/middleware';
+import { STAFF_PERMISSIONS } from '@/lib/rbac/permission-constants';
 
 export async function GET(request: NextRequest) {
   try {
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF]
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.READ]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     // Fetch all staff roles
     const roles = await prisma.staffRole.findMany({
       orderBy: {
-        name: 'asc'
+        name: 'asc',
       },
       select: {
         id: true,
         name: true,
         description: true,
-        permissions: true
-      }
+        permissions: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      roles
+      roles,
     });
-
   } catch (error) {
     console.error('Failed to fetch staff roles:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch staff roles',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

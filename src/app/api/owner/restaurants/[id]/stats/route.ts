@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
-import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
+import { requireAuth } from '@/lib/rbac/middleware';
+import { ANALYTICS_PERMISSIONS } from '@/lib/rbac/permission-constants';
 
 export async function GET(
   request: NextRequest,
@@ -10,36 +10,43 @@ export async function GET(
   try {
     const { id: restaurantId } = await params;
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.ANALYTICS.VIEW_ANALYTICS],
-      requireRestaurantId: restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [ANALYTICS_PERMISSIONS.READ]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
-    // No additional verification needed - AuthServiceV2 already validated restaurant access
+    // No additional verification needed - RBAC middleware already validated authentication
 
     // Calculate date ranges
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 
     // Get today's stats
-    const [todayOrders, todayRevenue, monthlyOrders, monthlyRevenue, activeStaff] = await Promise.all([
+    const [
+      todayOrders,
+      todayRevenue,
+      monthlyOrders,
+      monthlyRevenue,
+      activeStaff,
+    ] = await Promise.all([
       // Today's orders count
       prisma.order.count({
         where: {
           restaurantId,
           createdAt: {
-            gte: todayStart
-          }
-        }
+            gte: todayStart,
+          },
+        },
       }),
 
       // Today's revenue
@@ -48,13 +55,13 @@ export async function GET(
           order: {
             restaurantId,
             createdAt: {
-              gte: todayStart
-            }
-          }
+              gte: todayStart,
+            },
+          },
         },
         _sum: {
-          totalAmount: true
-        }
+          totalAmount: true,
+        },
       }),
 
       // Monthly orders count
@@ -62,9 +69,9 @@ export async function GET(
         where: {
           restaurantId,
           createdAt: {
-            gte: monthStart
-          }
-        }
+            gte: monthStart,
+          },
+        },
       }),
 
       // Monthly revenue
@@ -73,22 +80,22 @@ export async function GET(
           order: {
             restaurantId,
             createdAt: {
-              gte: monthStart
-            }
-          }
+              gte: monthStart,
+            },
+          },
         },
         _sum: {
-          totalAmount: true
-        }
+          totalAmount: true,
+        },
       }),
 
       // Active staff count
       prisma.staff.count({
         where: {
           restaurantId,
-          isActive: true
-        }
-      })
+          isActive: true,
+        },
+      }),
     ]);
 
     // Get pending orders count
@@ -96,9 +103,9 @@ export async function GET(
       where: {
         restaurantId,
         status: {
-          in: ['pending', 'preparing', 'ready']
-        }
-      }
+          in: ['pending', 'preparing', 'ready'],
+        },
+      },
     });
 
     const stats = {
@@ -107,20 +114,20 @@ export async function GET(
       monthlyOrders,
       monthlyRevenue: monthlyRevenue._sum.totalAmount || 0,
       activeStaff,
-      pendingOrders
+      pendingOrders,
     };
 
     return NextResponse.json({
       success: true,
-      stats
+      stats,
     });
-
   } catch (error) {
     console.error('Failed to fetch restaurant stats:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch restaurant stats',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

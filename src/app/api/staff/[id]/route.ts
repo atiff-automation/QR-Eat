@@ -6,8 +6,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthService } from '@/lib/auth';
-import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
-import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
+import { requireAuth } from '@/lib/rbac/middleware';
+import { STAFF_PERMISSIONS } from '@/lib/rbac/permission-constants';
 
 // GET - Fetch specific staff member details
 export async function GET(
@@ -27,37 +27,39 @@ export async function GET(
             id: true,
             name: true,
             slug: true,
-            ownerId: true
-          }
-        }
-      }
+            ownerId: true,
+          },
+        },
+      },
     });
 
     if (!staff) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF],
-      requireRestaurantId: staff.restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.READ]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     return NextResponse.json({
       success: true,
-      staff
+      staff,
     });
-
   } catch (error) {
     console.error('Error fetching staff member:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -77,31 +79,31 @@ export async function PATCH(
       include: {
         restaurant: {
           select: {
-            ownerId: true
-          }
-        }
-      }
+            ownerId: true,
+          },
+        },
+      },
     });
 
     if (!existingStaff) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
-      requireRestaurantId: existingStaff.restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.WRITE]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     // Prepare update data
-    const updateData: any = {};
+    const updateData: Record<string, unknown> = {};
 
     if (firstName !== undefined) updateData.firstName = firstName;
     if (lastName !== undefined) updateData.lastName = lastName;
@@ -114,12 +116,15 @@ export async function PATCH(
       const role = await prisma.staffRole.findFirst({
         where: {
           id: roleId,
-          restaurantId: existingStaff.restaurantId
-        }
+          restaurantId: existingStaff.restaurantId,
+        },
       });
 
       if (!role) {
-        return NextResponse.json({ error: 'Invalid role for this restaurant' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Invalid role for this restaurant' },
+          { status: 400 }
+        );
       }
 
       updateData.roleId = roleId;
@@ -140,21 +145,23 @@ export async function PATCH(
           select: {
             id: true,
             name: true,
-            slug: true
-          }
-        }
-      }
+            slug: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({
       success: true,
       staff: updatedStaff,
-      message: 'Staff member updated successfully'
+      message: 'Staff member updated successfully',
     });
-
   } catch (error) {
     console.error('Error updating staff member:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -172,46 +179,48 @@ export async function DELETE(
       include: {
         restaurant: {
           select: {
-            ownerId: true
-          }
-        }
-      }
+            ownerId: true,
+          },
+        },
+      },
     });
 
     if (!existingStaff) {
-      return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Staff member not found' },
+        { status: 404 }
+      );
     }
 
-    // Authenticate and authorize using modern AuthServiceV2
-    const authResult = await AuthServiceV2.validateToken(request, {
-      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
-      requireRestaurantId: existingStaff.restaurantId
-    });
+    // Authenticate and authorize using RBAC middleware
+    const auth = await requireAuth(request, [STAFF_PERMISSIONS.DELETE]);
 
-    if (!authResult.success || !authResult.user) {
+    if (!auth.success) {
       return NextResponse.json(
-        { error: authResult.error || 'Authentication required' },
-        { status: authResult.statusCode || 401 }
+        { error: auth.error || 'Authentication required' },
+        { status: auth.statusCode || 401 }
       );
     }
 
     // Delete all related sessions first
     await prisma.staffSession.deleteMany({
-      where: { staffId: id }
+      where: { staffId: id },
     });
 
     // Delete the staff member
     await prisma.staff.delete({
-      where: { id }
+      where: { id },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Staff member deleted successfully'
+      message: 'Staff member deleted successfully',
     });
-
   } catch (error) {
     console.error('Error deleting staff member:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
