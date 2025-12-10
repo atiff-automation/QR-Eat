@@ -448,6 +448,7 @@ model Staff {
   restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   role       StaffRole      @relation(fields: [roleId], references: [id])
   orders     Order[]
+  payments   Payment[]      // POS payments processed by this staff member
   sessions   StaffSession[]
   auditLogs  AuditLog[]     @relation("StaffAuditLogs")
 
@@ -628,6 +629,13 @@ model Payment {
   processingFee         Decimal   @default(0.00) @db.Decimal(10, 2)
   netAmount             Decimal   @db.Decimal(10, 2)
   status                String    @default("pending")
+
+  // POS System Fields
+  processedBy           String?   // Staff ID who processed payment at counter
+  cashReceived          Decimal?  @db.Decimal(10, 2)  // For cash payments
+  changeGiven           Decimal?  @db.Decimal(10, 2)  // For cash payments
+  receiptNumber         String?   @unique             // Unique receipt identifier
+
   externalPaymentId     String?
   externalTransactionId String?
   paymentMetadata       Json      @default("{}")
@@ -639,8 +647,13 @@ model Payment {
   failedAt              DateTime?
   updatedAt             DateTime  @updatedAt
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order            Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  processedByStaff Staff? @relation(fields: [processedBy], references: [id])
 
+  @@index([processedBy])
+  @@index([receiptNumber])
+  @@index([status])
+  @@index([createdAt])
   @@map("payments")
 }
 
