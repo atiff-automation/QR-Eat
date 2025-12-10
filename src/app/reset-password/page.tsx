@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 function ResetPasswordForm() {
   const [token, setToken] = useState('');
@@ -69,27 +70,20 @@ function ResetPasswordForm() {
     }
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword: password })
+      const data = await ApiClient.patch<{ message: string }>('/auth/reset-password', {
+        token,
+        newPassword: password
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-        setSuccess(true);
-        // Redirect to login after 3 seconds
-        setTimeout(() => {
-          router.push('/login');
-        }, 3000);
-      } else {
-        setError(data.error || 'Failed to reset password');
-      }
+      setMessage(data.message);
+      setSuccess(true);
+      // Redirect to login after 3 seconds
+      setTimeout(() => {
+        router.push('/login');
+      }, 3000);
     } catch (error) {
       console.error('Password reset error:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

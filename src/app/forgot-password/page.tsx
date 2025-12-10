@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Users } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -12,7 +13,7 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [resetInfo, setResetInfo] = useState<{ token?: string; resetUrl?: string } | null>(null);
-  const router = useRouter();
+  
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -21,25 +22,19 @@ export default function ForgotPasswordPage() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/reset-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, userType })
-      });
+      const data = await ApiClient.post<{
+        message: string;
+        resetToken?: string;
+        resetUrl?: string;
+      }>('/auth/reset-password', { email, userType });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-        if (data.resetToken) {
-          setResetInfo({ token: data.resetToken, resetUrl: data.resetUrl });
-        }
-      } else {
-        setError(data.error || 'Failed to request password reset');
+      setMessage(data.message);
+      if (data.resetToken) {
+        setResetInfo({ token: data.resetToken, resetUrl: data.resetUrl });
       }
     } catch (error) {
       console.error('Password reset request error:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

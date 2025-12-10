@@ -11,20 +11,20 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  X, 
-  History, 
-  Calendar, 
-  User, 
-  Shield, 
-  Building2, 
-  Plus, 
-  Minus, 
-  Edit, 
-  Trash2, 
-  AlertCircle, 
-  CheckCircle, 
-  Clock, 
+import {
+  X,
+  History,
+  Calendar,
+  User,
+  Shield,
+  Building2,
+  Plus,
+  Minus,
+  Edit,
+  Trash2,
+  AlertCircle,
+  CheckCircle,
+  Clock,
   Filter,
   Download,
   Search,
@@ -34,6 +34,7 @@ import {
   Settings
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface User {
   id: string;
@@ -109,7 +110,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
 
   const fetchRoleHistory = async () => {
     if (!user) return;
-    
+
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -121,13 +122,11 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
         ...(searchTerm && { search: searchTerm })
       });
 
-      const response = await fetch(`/api/admin/audit/user-roles?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setHistory(data.entries || []);
-      } else {
-        console.error('Failed to fetch role history:', response.statusText);
-      }
+      const data = await ApiClient.get<{
+        entries: RoleHistoryEntry[];
+      }>(`/api/admin/audit/user-roles?${params}`);
+
+      setHistory(data.entries || []);
     } catch (error) {
       console.error('Failed to fetch role history:', error);
     } finally {

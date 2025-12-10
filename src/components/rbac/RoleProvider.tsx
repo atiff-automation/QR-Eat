@@ -21,6 +21,7 @@ import {
   ReactNode,
 } from 'react';
 import { UserRole, RestaurantContext } from '@/lib/rbac/types';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface RoleContextType {
   user: {
@@ -66,17 +67,19 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   const fetchUserInfo = async () => {
     try {
       console.log('🔍 RoleProvider: Fetching user info from /api/auth/me');
-      const response = await fetch('/api/auth/me');
-      const data = await response.json();
+      const data = await ApiClient.get<{
+        user: any;
+        currentRole: UserRole;
+        availableRoles: UserRole[];
+        permissions: string[];
+        session?: { id: string };
+        restaurantContext: RestaurantContext;
+      }>('/auth/me');
 
       console.log(
-        '🔍 RoleProvider: Response status:',
-        response.status,
-        'Response:',
+        '🔍 RoleProvider: Response received, Data:',
         data
       );
-
-      if (response.ok) {
         console.log('✅ RoleProvider: User info loaded successfully');
         console.log(
           '🔍 RoleProvider: mustChangePassword value:',
@@ -105,24 +108,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
             return;
           }
         }
-      } else {
-        // Handle authentication errors
-        console.error(
-          '❌ RoleProvider: Failed to fetch user info:',
-          data.error
-        );
-
-        // Only redirect to login if not already on login page
-        if (
-          typeof window !== 'undefined' &&
-          !window.location.pathname.includes('/login')
-        ) {
-          console.log('🔄 RoleProvider: Redirecting to login');
-          window.location.href = '/login';
-        }
-      }
     } catch (error) {
       console.error('❌ RoleProvider: Error fetching user info:', error);
+
+      const errorMessage = error instanceof ApiClientError
+        ? error.message
+        : 'Failed to fetch user info';
+      console.error('❌ RoleProvider: Error:', errorMessage);
 
       // Only redirect to login if not already on login page
       if (
@@ -139,31 +131,24 @@ export function RoleProvider({ children }: { children: ReactNode }) {
 
   const switchRole = async (roleId: string): Promise<void> => {
     try {
-      const response = await fetch('/api/auth/switch-role', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ newRoleId: roleId }),
-      });
+      const data = await ApiClient.post<{
+        user: { currentRole: UserRole; permissions: string[] };
+        restaurant: RestaurantContext;
+      }>('/auth/switch-role', { newRoleId: roleId });
 
-      const data = await response.json();
+      setCurrentRole(data.user.currentRole);
+      setPermissions(data.user.permissions);
+      setRestaurantContext(data.restaurant);
 
-      if (response.ok) {
-        setCurrentRole(data.user.currentRole);
-        setPermissions(data.user.permissions);
-        setRestaurantContext(data.restaurant);
-
-        // Refresh the page to reload data with new role context
-        if (typeof window !== 'undefined') {
-          window.location.reload();
-        }
-      } else {
-        throw new Error(data.error || 'Role switch failed');
+      // Refresh the page to reload data with new role context
+      if (typeof window !== 'undefined') {
+        window.location.reload();
       }
     } catch (error) {
       console.error('Role switch error:', error);
-      throw error;
+      throw error instanceof ApiClientError
+        ? new Error(error.message)
+        : error;
     }
   };
 

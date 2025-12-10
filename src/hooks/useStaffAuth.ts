@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface StaffRole {
   id: string;
@@ -42,35 +43,32 @@ export function useStaffAuth(): UseStaffAuthReturn {
 
   const fetchStaff = async () => {
     try {
-      const response = await fetch('/api/auth/me');
-      const data = await response.json();
+      const data = await ApiClient.get<{
+        user?: any;
+        staff?: any;
+      }>('/auth/me');
 
-      if (response.ok) {
-        // Handle both new multi-user API and legacy staff API
-        const userData = data.user || data.staff;
-        
-        // Check if staff must change password
-        if (userData && userData.userType === 'staff' && userData.mustChangePassword === true) {
-          console.log('🔄 Kitchen staff must change password, redirecting...', {
-            email: userData.email,
-            firstName: userData.firstName,
-            lastName: userData.lastName
-          });
-          setRedirectingToChangePassword(true);
-          window.location.href = '/change-password';
-          return;
-        }
-        
-        setStaff(userData);
-        setError(null);
-      } else {
-        setStaff(null);
-        setError(data.error || 'Authentication failed');
+      // Handle both new multi-user API and legacy staff API
+      const userData = data.user || data.staff;
+
+      // Check if staff must change password
+      if (userData && userData.userType === 'staff' && userData.mustChangePassword === true) {
+        console.log('🔄 Kitchen staff must change password, redirecting...', {
+          email: userData.email,
+          firstName: userData.firstName,
+          lastName: userData.lastName
+        });
+        setRedirectingToChangePassword(true);
+        window.location.href = '/change-password';
+        return;
       }
+
+      setStaff(userData);
+      setError(null);
     } catch (error) {
       console.error('Auth check failed:', error);
       setStaff(null);
-      setError('Network error');
+      setError(error instanceof ApiClientError ? error.message : 'Network error');
     } finally {
       setLoading(false);
     }
@@ -78,7 +76,7 @@ export function useStaffAuth(): UseStaffAuthReturn {
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await ApiClient.post('/auth/logout');
       setStaff(null);
       // Redirect will be handled by the component
     } catch (error) {

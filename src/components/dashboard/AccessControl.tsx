@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -23,10 +24,11 @@ export function AccessControl({
   useEffect(() => {
     const checkAccess = async () => {
       try {
-        const response = await fetch('/api/auth/me');
-        const data = await response.json();
-
-        if (response.ok) {
+        const data = await ApiClient.get<{
+          user: any;
+          currentRole: any;
+          permissions: string[];
+        }>('/auth/me');
           const userData = data.user;
           const currentRole = data.currentRole;
           const userPermissions = data.permissions || [];
@@ -84,10 +86,6 @@ export function AccessControl({
             router.replace('/login');
             return;
           }
-        } else {
-          router.replace('/login');
-          return;
-        }
       } catch (error) {
         console.error('Access check failed:', error);
         router.replace('/login');

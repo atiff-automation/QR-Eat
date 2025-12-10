@@ -5,8 +5,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthService, UserType } from '@/lib/auth';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthService } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 
 // GET - Fetch specific staff member details
 export async function GET(
@@ -15,13 +16,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
 
-    // Fetch the staff member
+    // Fetch the staff member first to get restaurantId for authorization
     const staff = await prisma.staff.findUnique({
       where: { id },
       include: {
@@ -41,19 +37,17 @@ export async function GET(
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     }
 
-    // Check access permissions
-    let hasAccess = false;
-    
-    if (authResult.user.type === UserType.PLATFORM_ADMIN) {
-      hasAccess = true;
-    } else if (authResult.user.type === UserType.RESTAURANT_OWNER) {
-      hasAccess = staff.restaurant.ownerId === authResult.user.user.id;
-    } else if (authResult.user.type === UserType.STAFF) {
-      hasAccess = staff.restaurantId === authResult.user.user.restaurantId;
-    }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF],
+      requireRestaurantId: staff.restaurantId
+    });
 
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     return NextResponse.json({
@@ -74,17 +68,6 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // Only restaurant owners can update staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
-      return NextResponse.json({ error: 'Only restaurant owners can update staff' }, { status: 403 });
-    }
-
     const data = await request.json();
     const { firstName, lastName, phone, roleId, isActive, password } = data;
 
@@ -104,9 +87,17 @@ export async function PATCH(
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     }
 
-    // Verify owner actually owns this restaurant
-    if (existingStaff.restaurant.ownerId !== authResult.user.user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
+      requireRestaurantId: existingStaff.restaurantId
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     // Prepare update data
@@ -174,16 +165,6 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // Only restaurant owners can delete staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
-      return NextResponse.json({ error: 'Only restaurant owners can delete staff' }, { status: 403 });
-    }
 
     // Fetch the staff member to verify ownership
     const existingStaff = await prisma.staff.findUnique({
@@ -201,9 +182,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'Staff member not found' }, { status: 404 });
     }
 
-    // Verify owner actually owns this restaurant
-    if (existingStaff.restaurant.ownerId !== authResult.user.user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
+      requireRestaurantId: existingStaff.restaurantId
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     // Delete all related sessions first

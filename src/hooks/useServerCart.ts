@@ -12,6 +12,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Cart, MenuItem, MenuItemVariation } from '@/types/menu';
 import { CART_SYNC } from '@/lib/session-constants';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface ServerCartItem {
   id: string;
@@ -80,11 +81,9 @@ export function useServerCart(
     if (!tableId) return;
 
     try {
-      const response = await fetch(`/api/qr/cart/${tableId}`);
-      const data = await response.json();
+      const data = await ApiClient.get<{ cart: ServerCart }>(`/qr/cart/${tableId}`);
 
-      if (response.ok) {
-        const serverCart: ServerCart = data.cart;
+      const serverCart: ServerCart = data.cart;
         const totals = calculateTotals(serverCart);
 
         // Convert server cart items to client cart format (including server IDs)
@@ -115,17 +114,14 @@ export function useServerCart(
           totalPrice: item.subtotal,
         }));
 
-        setCart({
-          items: clientItems,
-          ...totals,
-        });
-        setError(null);
-      } else {
-        setError(data.error || 'Failed to load cart');
-      }
+      setCart({
+        items: clientItems,
+        ...totals,
+      });
+      setError(null);
     } catch (err) {
       console.error('Error fetching cart:', err);
-      setError('Network error. Please try again.');
+      setError(err instanceof ApiClientError ? err.message : 'Network error. Please try again.');
     }
   }, [tableId, calculateTotals]);
 
@@ -155,30 +151,20 @@ export function useServerCart(
             ? selectedVariations[0].variationId
             : undefined;
 
-        const response = await fetch('/api/qr/cart/add', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tableId,
-            menuItemId: menuItem.id,
-            variationId,
-            quantity,
-            unitPrice: menuItem.price,
-            specialInstructions,
-          }),
+        await ApiClient.post('/qr/cart/add', {
+          tableId,
+          menuItemId: menuItem.id,
+          variationId,
+          quantity,
+          unitPrice: menuItem.price,
+          specialInstructions,
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          // Refresh cart to get updated state
-          await fetchCart();
-        } else {
-          setError(data.error || 'Failed to add item to cart');
-        }
+        // Refresh cart to get updated state
+        await fetchCart();
       } catch (err) {
         console.error('Error adding to cart:', err);
-        setError('Network error. Please try again.');
+        setError(err instanceof ApiClientError ? err.message : 'Network error. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -205,25 +191,15 @@ export function useServerCart(
 
       try {
         // ✅ Use server ID directly - no N+1 query, no race condition!
-        const response = await fetch(`/api/qr/cart/items/${item.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            quantity: updates.quantity ?? item.quantity,
-            specialInstructions: updates.specialInstructions,
-          }),
+        await ApiClient.patch(`/qr/cart/items/${item.id}`, {
+          quantity: updates.quantity ?? item.quantity,
+          specialInstructions: updates.specialInstructions,
         });
 
-        const data = await response.json();
-
-        if (response.ok) {
-          await fetchCart();
-        } else {
-          setError(data.error || 'Failed to update cart item');
-        }
+        await fetchCart();
       } catch (err) {
         console.error('Error updating cart item:', err);
-        setError('Network error. Please try again.');
+        setError(err instanceof ApiClientError ? err.message : 'Network error. Please try again.');
       } finally {
         setLoading(false);
       }
@@ -247,20 +223,12 @@ export function useServerCart(
 
       try {
         // ✅ Use server ID directly - no N+1 query, no race condition!
-        const response = await fetch(`/api/qr/cart/items/${item.id}`, {
-          method: 'DELETE',
-        });
+        await ApiClient.delete(`/qr/cart/items/${item.id}`);
 
-        const data = await response.json();
-
-        if (response.ok) {
-          await fetchCart();
-        } else {
-          setError(data.error || 'Failed to remove cart item');
-        }
+        await fetchCart();
       } catch (err) {
         console.error('Error removing from cart:', err);
-        setError('Network error. Please try again.');
+        setError(err instanceof ApiClientError ? err.message : 'Network error. Please try again.');
       } finally {
         setLoading(false);
       }

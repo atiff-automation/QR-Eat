@@ -5,26 +5,31 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 import { v4 as uuidv4 } from 'uuid';
 
 // POST - Bulk create tables
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    const { tables, prefix = 'Table', restaurantId } = await request.json();
+
+    if (!restaurantId) {
+      return NextResponse.json({ error: 'restaurantId is required' }, { status: 400 });
     }
 
-    // Get restaurant ID from user context
-    let restaurantId: string;
-    if (authResult.user.type === 'staff') {
-      restaurantId = authResult.user.user.restaurantId;
-    } else {
-      return NextResponse.json({ error: 'Only staff can manage tables' }, { status: 403 });
-    }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.TABLES.MANAGE_TABLES],
+      requireRestaurantId: restaurantId
+    });
 
-    const { tables, prefix = 'Table' } = await request.json();
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
+    }
 
     if (!tables || !Array.isArray(tables)) {
       return NextResponse.json({ error: 'Tables array is required' }, { status: 400 });
@@ -98,19 +103,24 @@ export async function POST(request: NextRequest) {
 // PATCH - Bulk update table statuses
 export async function PATCH(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    const { tableIds, status, restaurantId } = await request.json();
+
+    if (!restaurantId) {
+      return NextResponse.json({ error: 'restaurantId is required' }, { status: 400 });
     }
 
-    let restaurantId: string;
-    if (authResult.user.type === 'staff') {
-      restaurantId = authResult.user.user.restaurantId;
-    } else {
-      return NextResponse.json({ error: 'Only staff can manage tables' }, { status: 403 });
-    }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.TABLES.MANAGE_TABLES],
+      requireRestaurantId: restaurantId
+    });
 
-    const { tableIds, status } = await request.json();
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
+    }
 
     if (!tableIds || !Array.isArray(tableIds) || !status) {
       return NextResponse.json({ 

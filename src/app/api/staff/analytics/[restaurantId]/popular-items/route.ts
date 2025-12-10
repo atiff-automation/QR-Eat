@@ -1,24 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ restaurantId: string }> }
 ) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const { restaurantId } = await params;
 
     // Verify staff has access to this restaurant
-    if (authResult.staff.restaurantId !== restaurantId) {
+    const userRestaurantId = authResult.user.currentRole?.restaurantId;
+    if (userRestaurantId !== restaurantId) {
       return NextResponse.json(
         { error: 'Access denied' },
         { status: 403 }

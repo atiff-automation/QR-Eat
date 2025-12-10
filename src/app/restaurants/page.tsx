@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Search, ExternalLink, Building2, Globe, ArrowRight, User } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Restaurant {
   id: string;
@@ -53,26 +54,19 @@ export default function RestaurantsPage() {
         return;
       }
 
-      const response = await fetch('/api/subdomain/redirect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
+      const response = await ApiClient.post<{ restaurants: Restaurant[] }>('/api/subdomain/redirect', payload);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setRestaurants(data.restaurants || []);
-        if (data.restaurants.length === 0) {
-          setError('No restaurants found. Please check your search term.');
-        }
-      } else {
-        setError(data.error || 'Search failed');
+      setRestaurants(response.restaurants || []);
+      if ((response.restaurants || []).length === 0) {
+        setError('No restaurants found. Please check your search term.');
       }
     } catch (error) {
-      setError('Network error. Please try again.');
+      console.error('[Restaurants] Search failed:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Search failed');
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

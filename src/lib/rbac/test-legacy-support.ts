@@ -6,7 +6,6 @@
  */
 
 import { LegacyTokenSupport } from './legacy-token-support';
-import { EnhancedJWTService } from './jwt';
 
 async function testLegacyTokenSupport() {
   console.log('🧪 Testing Legacy Token Support System...\n');

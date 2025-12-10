@@ -3,29 +3,14 @@
 import { useState, useEffect } from 'react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
-import { 
-  Settings, 
-  Save, 
-  Building2, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  Clock, 
-  DollarSign, 
-  Percent, 
-  Palette, 
-  Bell, 
-  Shield, 
-  Database,
+import {
   AlertTriangle,
   CheckCircle,
-  Globe,
-  CreditCard,
   Key,
   Eye,
-  EyeOff,
-  Lock
+  EyeOff
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface RestaurantSettings {
   name: string;
@@ -47,7 +32,7 @@ interface SystemSettings {
 }
 
 function PasswordChangeSection() {
-  const { user } = useRole();
+  const { } = useRole();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -87,32 +72,19 @@ function PasswordChangeSection() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
+      await ApiClient.post('/auth/change-password', {
+        currentPassword,
+        newPassword
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess('Password changed successfully!');
-        setCurrentPassword('');
-        setNewPassword('');
-        setConfirmPassword('');
-        setTimeout(() => setSuccess(''), 5000);
-      } else {
-        setError(data.error || 'Failed to change password');
-      }
+      setSuccess('Password changed successfully!');
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setTimeout(() => setSuccess(''), 5000);
     } catch (error) {
       console.error('Failed to change password:', error);
-      setError('Failed to change password. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Failed to change password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -243,7 +215,6 @@ function PasswordChangeSection() {
 }
 
 function SettingsContent() {
-  const { user, restaurantContext } = useRole();
   const [restaurantSettings, setRestaurantSettings] = useState<RestaurantSettings>({
     name: '',
     address: '',
@@ -255,19 +226,9 @@ function SettingsContent() {
     serviceChargeRate: 0
   });
 
-  const [systemSettings, setSystemSettings] = useState<SystemSettings>({
-    enableNotifications: true,
-    orderTimeout: 30,
-    maxTablesPerQR: 1,
-    defaultPreparationTime: 15,
-    theme: 'light'
-  });
-
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [activeTab, setActiveTab] = useState<'restaurant' | 'system' | 'security'>('restaurant');
 
   useEffect(() => {
     fetchSettings();
@@ -276,62 +237,39 @@ function SettingsContent() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-      
+
       // Get current user/restaurant info
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.restaurant) {
-          setRestaurantSettings({
-            name: data.restaurant.name || '',
-            address: data.restaurant.address || '',
-            phone: data.restaurant.phone || '',
-            email: data.restaurant.email || '',
-            timezone: data.restaurant.timezone || 'UTC',
-            currency: data.restaurant.currency || 'USD',
-            taxRate: data.restaurant.taxRate || 0,
-            serviceChargeRate: data.restaurant.serviceChargeRate || 0
-          });
-        }
+      const data = await ApiClient.get<{
+        restaurant?: {
+          name: string;
+          address: string;
+          phone: string;
+          email: string;
+          timezone: string;
+          currency: string;
+          taxRate: number;
+          serviceChargeRate: number;
+        };
+      }>('/auth/me');
+
+      if (data.restaurant) {
+        setRestaurantSettings({
+          name: data.restaurant.name || '',
+          address: data.restaurant.address || '',
+          phone: data.restaurant.phone || '',
+          email: data.restaurant.email || '',
+          timezone: data.restaurant.timezone || 'UTC',
+          currency: data.restaurant.currency || 'USD',
+          taxRate: data.restaurant.taxRate || 0,
+          serviceChargeRate: data.restaurant.serviceChargeRate || 0
+        });
       }
     } catch (error) {
       console.error('Failed to fetch settings:', error);
-      setError('Failed to load settings');
+      setError(error instanceof ApiClientError ? error.message : 'Failed to load settings');
     } finally {
       setLoading(false);
     }
-  };
-
-  const saveSettings = async () => {
-    try {
-      setSaving(true);
-      setError('');
-      setSuccess('');
-
-      // For now, we'll just show success since the API endpoints aren't fully implemented
-      setSuccess('Settings saved successfully!');
-      
-      setTimeout(() => setSuccess(''), 3000);
-    } catch (error) {
-      console.error('Failed to save settings:', error);
-      setError('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRestaurantChange = (field: keyof RestaurantSettings, value: string | number) => {
-    setRestaurantSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  const handleSystemChange = (field: keyof SystemSettings, value: string | number | boolean) => {
-    setSystemSettings(prev => ({
-      ...prev,
-      [field]: value
-    }));
   };
 
   if (loading) {

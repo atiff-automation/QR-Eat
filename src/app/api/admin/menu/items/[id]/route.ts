@@ -1,21 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const hasMenuPermission = authResult.staff.role.permissions.menu?.includes('write');
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get restaurant ID from RBAC payload
+    const restaurantId = authResult.user.currentRole?.restaurantId;
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant access required' },
+        { status: 403 }
+      );
+    }
+
+    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -34,7 +56,7 @@ export async function PATCH(
       }
     });
 
-    if (!existingItem || existingItem.category.restaurantId !== authResult.staff.restaurantId) {
+    if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
       return NextResponse.json(
         { error: 'Menu item not found' },
         { status: 404 }
@@ -47,7 +69,7 @@ export async function PATCH(
         where: { id: updateData.categoryId }
       });
 
-      if (!newCategory || newCategory.restaurantId !== authResult.staff.restaurantId) {
+      if (!newCategory || newCategory.restaurantId !== restaurantId) {
         return NextResponse.json(
           { error: 'Invalid category' },
           { status: 400 }
@@ -119,15 +141,37 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const hasMenuPermission = authResult.staff.role.permissions.menu?.includes('delete');
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get restaurant ID from RBAC payload
+    const restaurantId = authResult.user.currentRole?.restaurantId;
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant access required' },
+        { status: 403 }
+      );
+    }
+
+    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('delete');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -145,7 +189,7 @@ export async function DELETE(
       }
     });
 
-    if (!existingItem || existingItem.category.restaurantId !== authResult.staff.restaurantId) {
+    if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
       return NextResponse.json(
         { error: 'Menu item not found' },
         { status: 404 }

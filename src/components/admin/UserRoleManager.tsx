@@ -8,9 +8,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Search, 
+import {
+  Users,
+  Search,
   Filter,
   UserCheck,
   UserX,
@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { RoleAssignmentModal } from './RoleAssignmentModal';
 import { RoleHistoryModal } from './RoleHistoryModal';
 import { BulkRoleOperationsModal } from './BulkRoleOperationsModal';
@@ -138,14 +139,13 @@ export function UserRoleManager() {
         ...(searchTerm && { search: searchTerm }),
       });
 
-      const response = await fetch(`/api/admin/users?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users || []);
-        setUserStats(data.summary || null);
-      } else {
-        console.error('Failed to fetch users:', response.statusText);
-      }
+      const data = await ApiClient.get<{
+        users: User[];
+        summary: UserStats;
+      }>(`/api/admin/users?${params}`);
+
+      setUsers(data.users || []);
+      setUserStats(data.summary || null);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     } finally {
@@ -155,11 +155,11 @@ export function UserRoleManager() {
 
   const fetchRoleTemplates = async () => {
     try {
-      const response = await fetch('/api/admin/role-templates?includeStats=true');
-      if (response.ok) {
-        const data = await response.json();
-        setRoleTemplates(data.templates || []);
-      }
+      const data = await ApiClient.get<{
+        templates: RoleTemplate[];
+      }>('/api/admin/role-templates?includeStats=true');
+
+      setRoleTemplates(data.templates || []);
     } catch (error) {
       console.error('Failed to fetch role templates:', error);
     }

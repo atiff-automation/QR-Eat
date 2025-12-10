@@ -6,7 +6,7 @@
  */
 
 import * as jwt from 'jsonwebtoken';
-import { prisma } from '../database';
+import { prisma } from '@/lib/database';
 import {
   EnhancedJWTPayload,
   EnhancedAuthenticatedUser,

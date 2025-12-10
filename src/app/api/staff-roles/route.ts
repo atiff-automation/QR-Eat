@@ -1,23 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF]
+    });
 
-    // Only restaurant owners and platform admins can access staff roles
-    if (![UserType.RESTAURANT_OWNER, UserType.PLATFORM_ADMIN].includes(authResult.user.type)) {
+    if (!authResult.success || !authResult.user) {
       return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
       );
     }
 

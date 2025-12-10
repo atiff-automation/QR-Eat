@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 
 // GET - Fetch individual restaurant details
 export async function GET(
@@ -16,12 +17,17 @@ export async function GET(
     const { id } = await params;
     const { searchParams } = new URL(request.url);
     const includeSettings = searchParams.get('includeSettings') === 'true';
-    
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
+
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.VIEW_RESTAURANT],
+      requireRestaurantId: id
+    });
+
+    if (!authResult.success || !authResult.user) {
       return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
       );
     }
 
@@ -52,11 +58,6 @@ export async function GET(
 
     if (!restaurant) {
       return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
-    }
-
-    // Check access permissions
-    if (authResult.user.type === UserType.RESTAURANT_OWNER && restaurant.ownerId !== authResult.user.user.id) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Add default settings if requested
@@ -91,17 +92,18 @@ export async function PATCH(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
-    // Only platform admins can update restaurants via this endpoint
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2 - Admin only
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
+      requireRestaurantId: id
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     const updateData = await request.json();
@@ -159,17 +161,18 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
-    // Only platform admins can comprehensively update restaurants
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2 - Admin only
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
+      requireRestaurantId: id
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     const updateData = await request.json();
@@ -268,17 +271,18 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
-    // Only platform admins can delete restaurants
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
-      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2 - Admin only
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.RESTAURANTS.MANAGE_RESTAURANT],
+      requireRestaurantId: id
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     // Check if restaurant exists

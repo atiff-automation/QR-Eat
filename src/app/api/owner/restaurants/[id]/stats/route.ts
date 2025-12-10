@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 
 export async function GET(
   request: NextRequest,
@@ -8,37 +9,21 @@ export async function GET(
 ) {
   try {
     const { id: restaurantId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
 
-    // Only restaurant owners can access restaurant stats
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
-      return NextResponse.json(
-        { error: 'Only restaurant owners can access these stats' },
-        { status: 403 }
-      );
-    }
-
-    // Verify the restaurant belongs to the owner
-    const restaurant = await prisma.restaurant.findFirst({
-      where: {
-        id: restaurantId,
-        ownerId: authResult.user.user.id
-      }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.ANALYTICS.VIEW_ANALYTICS],
+      requireRestaurantId: restaurantId
     });
 
-    if (!restaurant) {
+    if (!authResult.success || !authResult.user) {
       return NextResponse.json(
-        { error: 'Restaurant not found or access denied' },
-        { status: 404 }
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
       );
     }
+
+    // No additional verification needed - AuthServiceV2 already validated restaurant access
 
     // Calculate date ranges
     const now = new Date();

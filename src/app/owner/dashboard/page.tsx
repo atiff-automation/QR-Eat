@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function OwnerDashboardPage() {
   const [user, setUser] = useState<any>(null);
@@ -21,32 +22,27 @@ export default function OwnerDashboardPage() {
 
   const fetchUserData = async () => {
     try {
-      const response = await fetch('/api/auth/me', {
-        credentials: 'include' // Include cookies
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setUser(data.user);
-      }
+      const response = await ApiClient.get<{ user: any }>('/api/auth/me');
+      setUser(response.user);
     } catch (error) {
-      console.error('Failed to fetch user data:', error);
+      if (error instanceof ApiClientError) {
+        console.error('[OwnerDashboard] Failed to fetch user data:', error.message);
+      } else {
+        console.error('[OwnerDashboard] Failed to fetch user data:', error);
+      }
     }
   };
 
   const fetchRestaurants = async () => {
     try {
-      const response = await fetch('/api/restaurants/owner', {
-        credentials: 'include',  // Include cookies for authentication
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRestaurants(data.restaurants || []);
-      }
+      const response = await ApiClient.get<{ restaurants: any[] }>('/api/restaurants/owner');
+      setRestaurants(response.restaurants || []);
     } catch (error) {
-      console.error('Failed to fetch restaurants:', error);
+      if (error instanceof ApiClientError) {
+        console.error('[OwnerDashboard] Failed to fetch restaurants:', error.message);
+      } else {
+        console.error('[OwnerDashboard] Failed to fetch restaurants:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -57,20 +53,24 @@ export default function OwnerDashboardPage() {
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
       const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      
-      const response = await fetch(`/api/reports/sales?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}`, {
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json'
+
+      const response = await ApiClient.get<{ data?: { summary?: { totalRevenue?: number } } }>(
+        '/api/reports/sales',
+        {
+          params: {
+            startDate: startOfMonth.toISOString(),
+            endDate: endOfMonth.toISOString()
+          }
         }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setMonthlyRevenue(data.data?.summary?.totalRevenue || 0);
-      }
+      );
+
+      setMonthlyRevenue(response.data?.summary?.totalRevenue || 0);
     } catch (error) {
-      console.error('Failed to fetch monthly revenue:', error);
+      if (error instanceof ApiClientError) {
+        console.error('Failed to fetch monthly revenue:', error.message);
+      } else {
+        console.error('Failed to fetch monthly revenue:', error);
+      }
     }
   };
 

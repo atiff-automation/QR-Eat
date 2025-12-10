@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { User, UtensilsCrossed, Clock } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface LiveOrder {
   id: string;
@@ -182,22 +183,26 @@ export function LiveOrderBoard({
   const fetchLiveOrders = async () => {
     try {
       const since = lastUpdate ? lastUpdate.toISOString() : undefined;
-      const url = `/api/orders/live${since ? `?since=${since}` : ''}`;
 
-      const response = await fetch(url);
-      const data = await response.json();
+      const response = await ApiClient.get<{
+        orders: LiveOrder[];
+        metrics: KitchenMetrics;
+        timestamp: string;
+      }>('/api/orders/live', {
+        params: since ? { since } : undefined
+      });
 
-      if (response.ok) {
-        setOrders(data.orders);
-        setMetrics(data.metrics);
-        setLastUpdate(new Date(data.timestamp));
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch live orders');
-      }
+      setOrders(response.orders);
+      setMetrics(response.metrics);
+      setLastUpdate(new Date(response.timestamp));
+      setError('');
     } catch (error) {
-      console.error('Failed to fetch live orders:', error);
-      setError('Network error. Please check your connection.');
+      console.error('[LiveOrderBoard] Failed to fetch live orders:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Failed to fetch live orders');
+      } else {
+        setError('Network error. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }
@@ -212,27 +217,20 @@ export function LiveOrderBoard({
         )
       );
 
-      const response = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      await ApiClient.patch(`/api/orders/${orderId}/status`, { status: newStatus });
 
-      if (response.ok) {
-        console.log(
-          '[LiveOrderBoard] Order status updated successfully, waiting for SSE confirmation'
-        );
-        // SSE will send the real update - no need to fetch manually
-        // This prevents race conditions between manual fetch and SSE update
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update order status');
-        // Revert optimistic update on error
-        fetchLiveOrders();
-      }
+      console.log(
+        '[LiveOrderBoard] Order status updated successfully, waiting for SSE confirmation'
+      );
+      // SSE will send the real update - no need to fetch manually
+      // This prevents race conditions between manual fetch and SSE update
     } catch (error) {
       console.error('[LiveOrderBoard] Failed to update order status:', error);
-      setError('Failed to update order status');
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Failed to update order status');
+      } else {
+        setError('Failed to update order status');
+      }
       // Revert optimistic update on error
       fetchLiveOrders();
     }

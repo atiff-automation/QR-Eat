@@ -3,13 +3,13 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  getClientSubdomainAuthContext, 
-  getLoginFormConfig, 
+import {
+  getClientSubdomainAuthContext,
+  getLoginFormConfig,
   createSubdomainLoginPayload,
   handlePostLoginRedirect,
-  getSubdomainAuthErrorMessage
 } from '@/lib/subdomain-auth';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
@@ -22,7 +22,7 @@ function LoginForm() {
   const [authContext, setAuthContext] = useState(getClientSubdomainAuthContext());
   const [formConfig, setFormConfig] = useState(getLoginFormConfig(authContext));
   const searchParams = useSearchParams();
-  const router = useRouter();
+  
   
   useEffect(() => {
     // Update context when component mounts
@@ -51,42 +51,30 @@ function LoginForm() {
 
     try {
       const payload = createSubdomainLoginPayload(email, password, authContext);
-      
-      const response = await fetch('/api/auth/rbac-login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // This is crucial for cookies!
-        body: JSON.stringify(payload),
-      });
 
-      const data = await response.json();
+      const data = await ApiClient.post<any>('/auth/rbac-login', payload);
 
-      if (response.ok) {
-        console.log('🎯 Login response received:', data);
-        console.log('🍪 Cookies after login:', document.cookie);
-        
-        // Handle redirect with subdomain awareness
-        const finalRedirect = handlePostLoginRedirect(authContext, data, redirectTo);
-        
-        // Use Next.js router for better cookie handling
-        console.log('🔄 Redirecting to:', finalRedirect);
-        
-        // Add a small delay to ensure cookies are properly set before redirect
-        setTimeout(() => {
-          // Force a refresh to ensure middleware recognizes the new cookie
-          window.location.replace(finalRedirect);
-        }, 150);
-      } else {
-        const errorMessage = getSubdomainAuthErrorMessage(
-          data.error || 'Login failed',
-          authContext
-        );
-        setError(errorMessage);
-      }
+      console.log('🎯 Login response received:', data);
+      console.log('🍪 Cookies after login:', document.cookie);
+
+      // Handle redirect with subdomain awareness
+      const finalRedirect = handlePostLoginRedirect(authContext, data, redirectTo);
+
+      // Use Next.js router for better cookie handling
+      console.log('🔄 Redirecting to:', finalRedirect);
+
+      // Add a small delay to ensure cookies are properly set before redirect
+      setTimeout(() => {
+        // Force a refresh to ensure middleware recognizes the new cookie
+        window.location.replace(finalRedirect);
+      }, 150);
     } catch (error) {
-      setError('Network error. Please try again.');
+      console.error('Login error:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }

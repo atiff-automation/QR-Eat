@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Build filter conditions
-    const userRoleFilter: any = {
+    const userRoleFilter: Record<string, unknown> = {
       createdAt: { gte: startDate }
     };
 

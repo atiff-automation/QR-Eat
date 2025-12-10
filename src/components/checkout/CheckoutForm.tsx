@@ -5,6 +5,7 @@ import { Cart } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
 import { formatPrice } from '@/lib/qr-utils';
 import { Button } from '@/components/ui/Button';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface CheckoutFormProps {
   cart: Cart;
@@ -44,24 +45,11 @@ export function CheckoutForm({
         specialInstructions: specialInstructions || undefined,
       };
 
-      const response = await fetch('/api/qr/orders/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(orderRequest),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        onOrderCreate(data.order);
-      } else {
-        setError(data.error || 'Failed to create order');
-      }
+      const data = await ApiClient.post<{ order: OrderResponse }>('/qr/orders/create', orderRequest);
+      onOrderCreate(data.order);
     } catch (error) {
       console.error('Order creation error:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

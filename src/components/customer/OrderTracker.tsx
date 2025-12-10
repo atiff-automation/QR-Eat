@@ -1,15 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  CheckCircle, 
-  Bell, 
-  UtensilsCrossed, 
-  XCircle, 
+import {
+  FileText,
+  CheckCircle,
+  Bell,
+  UtensilsCrossed,
+  XCircle,
   Clock,
   AlertTriangle
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface OrderStatus {
   id: string;
@@ -52,18 +53,16 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
 
   const fetchOrderStatus = async () => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setOrder(data.order);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch order status');
-      }
+      const response = await ApiClient.get<{ order: OrderStatus }>(`/api/orders/${orderId}/status`);
+      setOrder(response.order);
+      setError('');
     } catch (error) {
-      console.error('Failed to fetch order status:', error);
-      setError('Network error. Please check your connection.');
+      console.error('[OrderTracker] Failed to fetch order status:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Failed to fetch order status');
+      } else {
+        setError('Network error. Please check your connection.');
+      }
     } finally {
       setLoading(false);
     }

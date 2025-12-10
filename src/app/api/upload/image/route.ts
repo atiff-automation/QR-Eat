@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -9,19 +9,32 @@ const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'menu-images');
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Check permissions (simplified for now)
-    if (!authResult.staff) {
+    // Validate token using RBAC system
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.payload) {
       return NextResponse.json(
-        { error: 'Staff authentication required' },
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+
+    // Check if user is staff or owner (has menu permissions)
+    const userType = authResult.payload.currentRole.userType;
+    if (userType !== 'staff' && userType !== 'restaurant_owner') {
+      return NextResponse.json(
+        { error: 'Staff or owner authentication required' },
         { status: 403 }
       );
     }

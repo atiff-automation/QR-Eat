@@ -17,6 +17,7 @@ import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { Smartphone, Copy, RefreshCw, Users, ChefHat } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Table {
   id: string;
@@ -49,19 +50,14 @@ function TablesContent() {
         return;
       }
 
-      const response = await fetch(
-        `/api/tables?restaurantId=${restaurantContext.id}`
+      const data = await ApiClient.get<{ tables: Table[] }>(
+        `/tables?restaurantId=${restaurantContext.id}`
       );
-      const data = await response.json();
 
-      if (response.ok) {
-        setTables(data.tables);
-      } else {
-        setError(data.error || 'Failed to fetch tables');
-      }
+      setTables(data.tables);
     } catch (error) {
       console.error('Failed to fetch tables:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -78,21 +74,12 @@ function TablesContent() {
 
   const updateTableStatus = async (tableId: string, status: string) => {
     try {
-      const response = await fetch(`/api/tables/${tableId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
+      await ApiClient.patch(`/tables/${tableId}/status`, { status });
 
-      if (response.ok) {
-        fetchTables(); // Refresh tables
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update table status');
-      }
+      fetchTables(); // Refresh tables
     } catch (error) {
       console.error('Failed to update table status:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     }
   };
 
@@ -103,21 +90,13 @@ function TablesContent() {
 
   const regenerateQRCode = async (tableId: string) => {
     try {
-      const response = await fetch(`/api/tables/${tableId}/regenerate-qr`, {
-        method: 'POST',
-      });
+      const data = await ApiClient.post<{ qrUrl: string }>(`/tables/${tableId}/regenerate-qr`);
 
-      if (response.ok) {
-        const data = await response.json();
-        alert(`QR code regenerated successfully!\nNew URL: ${data.qrUrl}`);
-        fetchTables(); // Refresh tables
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to regenerate QR code');
-      }
+      alert(`QR code regenerated successfully!\nNew URL: ${data.qrUrl}`);
+      fetchTables(); // Refresh tables
     } catch (error) {
       console.error('Failed to regenerate QR code:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     }
   };
 
@@ -149,30 +128,21 @@ function TablesContent() {
     }
 
     try {
-      const response = await fetch('/api/tables/bulk-qr', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableIds: selectedTables }),
+      const data = await ApiClient.post<{ printHTML: string }>('/tables/bulk-qr', {
+        tableIds: selectedTables
       });
 
-      if (response.ok) {
-        const data = await response.json();
-
-        // Open print window with all QR codes
-        const printWindow = window.open('', '_blank');
-        if (printWindow) {
-          printWindow.document.write(data.printHTML);
-          printWindow.document.close();
-          printWindow.focus();
-          printWindow.print();
-        }
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to generate QR codes');
+      // Open print window with all QR codes
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(data.printHTML);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
       }
     } catch (error) {
       console.error('Failed to generate bulk QR codes:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     }
   };
 
@@ -582,25 +552,16 @@ function AddTableModal({
     setError('');
 
     try {
-      const response = await fetch('/api/tables', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          restaurantId: restaurantContext?.id,
-        }),
+      await ApiClient.post('/tables', {
+        ...formData,
+        restaurantId: restaurantContext?.id,
       });
 
-      if (response.ok) {
-        onSuccess();
-        onClose();
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to create table');
-      }
+      onSuccess();
+      onClose();
     } catch (error) {
       console.error('Failed to create table:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }

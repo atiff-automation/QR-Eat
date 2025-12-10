@@ -2,20 +2,21 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { 
-  ClipboardList, 
-  DollarSign, 
-  UtensilsCrossed, 
-  TrendingUp, 
-  BarChart3, 
-  Heart, 
-  Star, 
-  Settings, 
-  Users, 
-  Monitor, 
-  ChefHat, 
-  FileText 
+import {
+  ClipboardList,
+  DollarSign,
+  UtensilsCrossed,
+  TrendingUp,
+  BarChart3,
+  Heart,
+  Star,
+  Settings,
+  Users,
+  Monitor,
+  ChefHat,
+  FileText
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function ReportsPage() {
   const [staff, setStaff] = useState<any>(null);
@@ -25,15 +26,16 @@ export default function ReportsPage() {
     // Get staff info to get restaurant ID
     const fetchStaff = async () => {
       try {
-        const response = await fetch('/api/auth/me');
-        if (response.ok) {
-          const data = await response.json();
-          // Handle both new multi-user API and legacy staff API
-          const userData = data.user || data.staff;
-          setStaff(userData);
-        }
+        const data = await ApiClient.get<{ user?: any; staff?: any }>('/api/auth/me');
+        // Handle both new multi-user API and legacy staff API
+        const userData = data.user || data.staff;
+        setStaff(userData);
       } catch (error) {
-        console.error('Error fetching staff info:', error);
+        if (error instanceof ApiClientError) {
+          console.error('Error fetching staff info:', error.message);
+        } else {
+          console.error('Error fetching staff info:', error);
+        }
       } finally {
         setLoading(false);
       }

@@ -12,6 +12,7 @@ import {
   Search,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Restaurant {
   id: string;
@@ -46,13 +47,10 @@ export default function AdminRestaurantsPage() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await fetch(
-        '/api/restaurants?includeStats=true&includeOwner=true'
+      const data = await ApiClient.get<{ restaurants: Restaurant[] }>(
+        '/restaurants?includeStats=true&includeOwner=true'
       );
-      if (response.ok) {
-        const data = await response.json();
-        setRestaurants(data.restaurants || []);
-      }
+      setRestaurants(data.restaurants || []);
     } catch {
       console.error('Failed to fetch restaurants');
     } finally {
@@ -63,19 +61,11 @@ export default function AdminRestaurantsPage() {
   const toggleRestaurantStatus = async (restaurantId: string) => {
     try {
       const restaurant = restaurants.find((r) => r.id === restaurantId);
-      const response = await fetch(`/api/restaurants/${restaurantId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !restaurant?.isActive }),
-      });
-
-      if (response.ok) {
-        fetchRestaurants(); // Refresh the list
-      } else {
-        alert('Failed to update restaurant status');
-      }
-    } catch {
-      alert('Failed to update restaurant status');
+      await ApiClient.patch(`/restaurants/${restaurantId}`, { isActive: !restaurant?.isActive });
+      fetchRestaurants(); // Refresh the list
+    } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Failed to update restaurant status';
+      alert(message);
     }
   };
 
@@ -89,18 +79,11 @@ export default function AdminRestaurantsPage() {
     }
 
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}`, {
-        method: 'DELETE',
-      });
-
-      if (response.ok) {
-        fetchRestaurants(); // Refresh the list
-      } else {
-        const data = await response.json();
-        alert(data.error || 'Failed to delete restaurant');
-      }
-    } catch {
-      alert('Failed to delete restaurant');
+      await ApiClient.delete<{ error?: string }>(`/restaurants/${restaurantId}`);
+      fetchRestaurants(); // Refresh the list
+    } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Failed to delete restaurant';
+      alert(message);
     }
   };
 

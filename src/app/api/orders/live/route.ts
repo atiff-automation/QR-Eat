@@ -1,14 +1,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get restaurant ID from RBAC payload
+    const restaurantId = authResult.user.currentRole?.restaurantId;
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant access required' },
+        { status: 403 }
       );
     }
 
@@ -18,7 +40,7 @@ export async function GET(request: NextRequest) {
 
     // Build where clause
     const whereClause: any = {
-      restaurantId: authResult.staff.restaurantId
+      restaurantId: restaurantId
     };
 
     if (since) {
@@ -89,7 +111,7 @@ export async function GET(request: NextRequest) {
     });
 
     // Get kitchen performance metrics
-    const kitchenMetrics = await getKitchenMetrics(authResult.staff.restaurantId);
+    const kitchenMetrics = await getKitchenMetrics(restaurantId);
 
     return NextResponse.json({
       success: true,

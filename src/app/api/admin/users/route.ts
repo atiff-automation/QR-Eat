@@ -12,7 +12,7 @@ import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
 import { RBAC_CONSTANTS } from '@/lib/rbac/types';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 // GET /api/admin/users - Get all users with their roles (Enhanced with RBAC)
 export async function GET(request: NextRequest) {
@@ -29,30 +29,36 @@ export async function GET(request: NextRequest) {
     if (rbacResult.isAuthorized) {
       context = rbacResult.context;
     } else {
-      // Fallback to legacy authentication for backward compatibility
-      const authResult = await verifyAuthToken(request);
+      // Fallback to modern RBAC authentication
+      const token = request.cookies.get('qr_rbac_token')?.value ||
+                    request.cookies.get('qr_auth_token')?.value;
+
+      if (!token) {
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      }
+
+      const authResult = await AuthServiceV2.validateToken(token);
+
       if (!authResult.isValid || !authResult.user) {
-        return NextResponse.json(
-          { error: 'Authentication required' },
-          { status: 401 }
-        );
+        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
       }
 
       // Only platform admins can view all users
-      if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
+      const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+      if (userType !== 'platform_admin') {
         return NextResponse.json(
           { error: 'Only platform administrators can view all users' },
           { status: 403 }
         );
       }
 
-      // Create context for legacy mode
+      // Create context for legacy mode compatibility
       context = {
         user: {
-          id: authResult.user.user.id,
-          email: authResult.user.user.email,
-          firstName: authResult.user.user.firstName,
-          lastName: authResult.user.user.lastName,
+          id: authResult.user.id,
+          email: authResult.user.email,
+          firstName: authResult.user.firstName,
+          lastName: authResult.user.lastName,
           userType: 'platform_admin',
           isActive: true
         }

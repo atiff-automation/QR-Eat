@@ -4,14 +4,15 @@ import { useState, useEffect } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
 import CredentialsModal from '@/components/CredentialsModal';
-import { 
-  Users, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Shield, 
-  Clock, 
-  Mail, 
+import { ApiClient, ApiClientError } from '@/lib/api-client';
+import {
+  Users,
+  Plus,
+  Edit,
+  Trash2,
+  Shield,
+  Clock,
+  Mail,
   Phone,
   AlertTriangle,
   CheckCircle,
@@ -98,20 +99,16 @@ function StaffPageContent() {
   const fetchStaff = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/staff', {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setStaff(data.staff || []);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Failed to load staff members');
-      }
+      const data = await ApiClient.get<{ staff: StaffMember[] }>('/admin/staff');
+
+      setStaff(data.staff || []);
     } catch (error) {
       console.error('Failed to fetch staff:', error);
-      setError('Failed to load staff members');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Failed to load staff members');
+      }
     } finally {
       setLoading(false);
     }
@@ -119,18 +116,9 @@ function StaffPageContent() {
 
   const fetchRoles = async () => {
     try {
-      const response = await fetch('/api/admin/staff/roles', {
-        credentials: 'include'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setRoles(data.roles || []);
-      } else {
-        console.error('Failed to fetch roles');
-        // Fallback to empty array if API fails
-        setRoles([]);
-      }
+      const data = await ApiClient.get<{ roles: Role[] }>('/admin/staff/roles');
+
+      setRoles(data.roles || []);
     } catch (error) {
       console.error('Failed to fetch roles:', error);
       // Fallback to empty array if API fails
@@ -205,47 +193,24 @@ function StaffPageContent() {
       // Create or update staff member via API
       if (showEditModal && selectedStaff) {
         // Update existing staff member
-        const response = await fetch(`/api/admin/staff/${selectedStaff.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(formData)
-        });
+        await ApiClient.put(`/admin/staff/${selectedStaff.id}`, formData);
 
-        if (response.ok) {
-          await fetchStaff(); // Refresh the list
-          setSuccess('Staff member updated successfully!');
-        } else {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to update staff member');
-          return;
-        }
+        await fetchStaff(); // Refresh the list
+        setSuccess('Staff member updated successfully!');
       } else {
         // Add new staff member
-        const response = await fetch('/api/admin/staff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(formData)
-        });
+        const data = await ApiClient.post<{ credentials?: { username: string; password: string } }>('/admin/staff', formData);
 
-        if (response.ok) {
-          const data = await response.json();
-          await fetchStaff(); // Refresh the list
-          
-          // Show credentials modal
-          if (data.credentials) {
-            setNewStaffCredentials(data.credentials);
-            setNewStaffName(`${formData.firstName} ${formData.lastName}`);
-            setShowCredentialsModal(true);
-          }
-          
-          setSuccess('Staff member added successfully!');
-        } else {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to create staff member');
-          return;
+        await fetchStaff(); // Refresh the list
+
+        // Show credentials modal
+        if (data.credentials) {
+          setNewStaffCredentials(data.credentials);
+          setNewStaffName(`${formData.firstName} ${formData.lastName}`);
+          setShowCredentialsModal(true);
         }
+
+        setSuccess('Staff member added successfully!');
       }
 
       closeModals();
@@ -259,35 +224,34 @@ function StaffPageContent() {
   const handleResetPassword = async (member: StaffMember) => {
     if (window.confirm(`Reset password for ${member.firstName} ${member.lastName}? They will be required to change it on next login.`)) {
       try {
-        const response = await fetch(`/api/owner/staff/${member.id}/reset-password`, {
-          method: 'POST',
-          credentials: 'include'
-        });
+        const data = await ApiClient.post<{
+          temporaryPassword?: string;
+          staffEmail: string;
+          staffName: string;
+        }>(`/owner/staff/${member.id}/reset-password`);
 
-        if (response.ok) {
-          const data = await response.json();
-          await fetchStaff(); // Refresh the list
-          
-          // Show the new temporary password
-          if (data.temporaryPassword) {
-            setNewStaffCredentials({
-              email: data.staffEmail,
-              password: data.temporaryPassword,
-              username: member.username
-            });
-            setNewStaffName(data.staffName);
-            setShowCredentialsModal(true);
-          }
-          
-          setSuccess('Password reset successfully!');
-          setTimeout(() => setSuccess(''), 3000);
-        } else {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to reset password');
+        await fetchStaff(); // Refresh the list
+
+        // Show the new temporary password
+        if (data.temporaryPassword) {
+          setNewStaffCredentials({
+            email: data.staffEmail,
+            password: data.temporaryPassword,
+            username: member.username
+          });
+          setNewStaffName(data.staffName);
+          setShowCredentialsModal(true);
         }
+
+        setSuccess('Password reset successfully!');
+        setTimeout(() => setSuccess(''), 3000);
       } catch (error) {
         console.error('Failed to reset password:', error);
-        setError('Failed to reset password');
+        if (error instanceof ApiClientError) {
+          setError(error.message);
+        } else {
+          setError('Failed to reset password');
+        }
       }
     }
   };
@@ -295,22 +259,18 @@ function StaffPageContent() {
   const handleDelete = async (member: StaffMember) => {
     if (window.confirm(`Are you sure you want to delete ${member.firstName} ${member.lastName}?`)) {
       try {
-        const response = await fetch(`/api/admin/staff/${member.id}`, {
-          method: 'DELETE',
-          credentials: 'include'
-        });
+        await ApiClient.delete(`/admin/staff/${member.id}`);
 
-        if (response.ok) {
-          await fetchStaff(); // Refresh the list
-          setSuccess('Staff member deleted successfully!');
-          setTimeout(() => setSuccess(''), 3000);
-        } else {
-          const errorData = await response.json();
-          setError(errorData.error || 'Failed to delete staff member');
-        }
+        await fetchStaff(); // Refresh the list
+        setSuccess('Staff member deleted successfully!');
+        setTimeout(() => setSuccess(''), 3000);
       } catch (error) {
         console.error('Failed to delete staff member:', error);
-        setError('Failed to delete staff member');
+        if (error instanceof ApiClientError) {
+          setError(error.message);
+        } else {
+          setError('Failed to delete staff member');
+        }
       }
     }
   };

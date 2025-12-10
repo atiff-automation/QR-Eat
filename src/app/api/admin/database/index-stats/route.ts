@@ -13,7 +13,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 // Constants for analysis
 const UNUSED_INDEX_THRESHOLD = 0; // idx_scan = 0
@@ -60,8 +60,18 @@ interface IndexHealth {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication and admin access
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
 
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
@@ -71,7 +81,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Only platform admins can access database statistics
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Access denied - Platform admin required' },
         { status: 403 }
@@ -271,8 +282,18 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication and admin access
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
 
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
@@ -281,7 +302,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
+    // Only platform admins can access database statistics
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Access denied - Platform admin required' },
         { status: 403 }

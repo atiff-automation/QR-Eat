@@ -1,18 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function PATCH(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const hasMenuPermission = authResult.staff.role.permissions.menu?.includes('write');
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get restaurant ID from RBAC payload
+    const restaurantId = authResult.user.currentRole?.restaurantId;
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant access required' },
+        { status: 403 }
+      );
+    }
+
+    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -34,7 +56,7 @@ export async function PATCH(request: NextRequest) {
       where: {
         id: { in: itemIds },
         category: {
-          restaurantId: authResult.staff.restaurantId
+          restaurantId
         }
       }
     });
@@ -89,7 +111,7 @@ export async function PATCH(request: NextRequest) {
           where: { id: updateData.categoryId }
         });
 
-        if (!category || category.restaurantId !== authResult.staff.restaurantId) {
+        if (!category || category.restaurantId !== restaurantId) {
           return NextResponse.json(
             { error: 'Invalid category' },
             { status: 400 }
@@ -173,15 +195,37 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.staff) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    const hasMenuPermission = authResult.staff.role.permissions.menu?.includes('write');
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    // Get restaurant ID from RBAC payload
+    const restaurantId = authResult.user.currentRole?.restaurantId;
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant access required' },
+        { status: 403 }
+      );
+    }
+
+    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -213,7 +257,7 @@ export async function POST(request: NextRequest) {
     const categories = await prisma.menuCategory.findMany({
       where: {
         id: { in: categoryIds },
-        restaurantId: authResult.staff.restaurantId
+        restaurantId
       }
     });
 
@@ -229,7 +273,7 @@ export async function POST(request: NextRequest) {
       items.map((item, index) => {
         return prisma.menuItem.create({
           data: {
-            restaurantId: authResult.staff.restaurantId,
+            restaurantId,
             categoryId: item.categoryId,
             name: item.name,
             description: item.description || null,

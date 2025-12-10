@@ -11,6 +11,7 @@ import {
   Download,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface AnalyticsData {
   overview: {
@@ -48,11 +49,8 @@ export default function AdminAnalyticsPage() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/analytics?range=${dateRange}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalytics(data.analytics);
-      }
+      const data = await ApiClient.get<{ analytics: AnalyticsData }>(`/admin/analytics?range=${dateRange}`);
+      setAnalytics(data.analytics);
     } catch {
       console.error('Failed to fetch analytics');
     } finally {
@@ -66,12 +64,9 @@ export default function AdminAnalyticsPage() {
 
   const exportData = async () => {
     try {
-      const response = await fetch(
-        `/api/admin/analytics/export?range=${dateRange}`
-      );
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
+      const data = await ApiClient.get<Blob>(`/admin/analytics/export?range=${dateRange}`);
+      {
+        const url = window.URL.createObjectURL(data);
         const a = document.createElement('a');
         a.href = url;
         a.download = `platform-analytics-${dateRange}.csv`;
@@ -80,8 +75,9 @@ export default function AdminAnalyticsPage() {
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
       }
-    } catch {
-      alert('Failed to export data');
+    } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Failed to export data';
+      alert(message);
     }
   };
 

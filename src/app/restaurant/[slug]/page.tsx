@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Restaurant {
   id: string;
@@ -50,17 +51,15 @@ export default function RestaurantProfilePage() {
   const fetchRestaurant = async () => {
     try {
       // Fetch restaurant information by slug
-      const restaurantResponse = await fetch(`/api/restaurants/by-slug/${slug}/public`);
-      const restaurantData = await restaurantResponse.json();
-
-      if (!restaurantResponse.ok) {
-        setError(restaurantData.error || 'Restaurant not found');
-        return;
+      const response = await ApiClient.get<{ restaurant: Restaurant }>(`/api/restaurants/by-slug/${slug}/public`);
+      setRestaurant(response.restaurant);
+    } catch (error) {
+      console.error('[RestaurantPage] Failed to fetch restaurant:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Restaurant not found');
+      } else {
+        setError('Network error. Please try again.');
       }
-
-      setRestaurant(restaurantData.restaurant);
-    } catch {
-      setError('Network error. Please try again.');
     } finally {
       setLoading(false);
     }

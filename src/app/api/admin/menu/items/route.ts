@@ -1,61 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { UserType, verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { validateApiInput, Sanitizer, SecurityValidator } from '@/lib/validation';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission, 
-  createRestaurantFilter 
+import {
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
-    
-    // If context is null, fall back to direct token verification
-    if (!context) {
-      const authResult = await verifyAuthToken(request);
-      if (!authResult.isValid || !authResult.user) {
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-      }
-      // Continue with simplified auth for now
-    } else {
-      requireAuth(context);
-      // Temporarily disable strict permission check for debugging
-      // requirePermission(context!, 'menu', 'read');
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
     const url = new URL(request.url);
     const categoryId = url.searchParams.get('categoryId');
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
 
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+
     // For restaurant owners, we need to get the first restaurant they own
     let restaurantFilter: any;
-    const userType = context?.userType || UserType.RESTAURANT_OWNER; // Default fallback
-    
-    if (userType === UserType.RESTAURANT_OWNER) {
+
+    if (userType === 'restaurant_owner') {
       const ownerRestaurant = await prisma.restaurant.findFirst({
-        where: { ownerId: context?.userId },
+        where: { ownerId: authResult.user.id },
         select: { id: true }
       });
-      
+
       if (!ownerRestaurant) {
         return NextResponse.json(
           { error: 'No restaurant found for owner' },
           { status: 404 }
         );
       }
-      
+
       restaurantFilter = {
         category: {
           restaurantId: ownerRestaurant.id
         }
       };
     } else {
+      const restaurantId = authResult.user.currentRole?.restaurantId;
+      if (!restaurantId) {
+        return NextResponse.json({ error: 'Restaurant access required' }, { status: 403 });
+      }
       restaurantFilter = {
         category: {
-          restaurantId: context?.restaurantId
+          restaurantId
         }
       };
     }
@@ -121,9 +122,19 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
-    requireAuth(context);
-    requirePermission(context!, 'menu', 'write');
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
 
     // Parse and validate request body
     let requestData;
@@ -142,7 +153,7 @@ export async function POST(request: NextRequest) {
       name: { required: true, type: 'string', minLength: 2, maxLength: 100 },
       description: { required: false, type: 'string', maxLength: 500 },
       price: { required: true, type: 'number', min: 0 },
-      imageUrl: { required: false, type: 'url' },
+      imageUrl: { required: false, type: 'string' }, // Changed from 'url' to 'string' to accept relative paths
       preparationTime: { required: false, type: 'number', min: 1, max: 300 },
       calories: { required: false, type: 'number', min: 0 },
       allergens: { required: false, type: 'array' },
@@ -207,13 +218,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+
     // Check restaurant ownership/access
     let isAuthorizedForCategory = false;
-    
-    if (context!.userType === UserType.RESTAURANT_OWNER) {
-      isAuthorizedForCategory = category.restaurant.ownerId === context!.userId;
+
+    if (userType === 'restaurant_owner') {
+      isAuthorizedForCategory = category.restaurant.ownerId === authResult.user.id;
     } else {
-      isAuthorizedForCategory = category.restaurantId === context!.restaurantId;
+      const restaurantId = authResult.user.currentRole?.restaurantId;
+      isAuthorizedForCategory = category.restaurantId === restaurantId;
     }
 
     if (!isAuthorizedForCategory) {

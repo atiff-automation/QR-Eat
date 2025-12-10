@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { UserType } from '@/lib/rbac/types';
 import { Sanitizer } from '@/lib/validation';
 
 // PUT - Update staff member
@@ -10,8 +11,20 @@ export async function PUT(
 ) {
   try {
     const { id: restaurantId, staffId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -20,7 +33,7 @@ export async function PUT(
     }
 
     // Only restaurant owners can update staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can update staff' },
         { status: 403 }
@@ -33,7 +46,7 @@ export async function PUT(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.user.id
+          ownerId: authResult.user.id
         }
       },
       include: {
@@ -150,8 +163,20 @@ export async function PATCH(
 ) {
   try {
     const { id: restaurantId, staffId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -160,7 +185,7 @@ export async function PATCH(
     }
 
     // Only restaurant owners can update staff status
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can update staff status' },
         { status: 403 }
@@ -173,7 +198,7 @@ export async function PATCH(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.user.id
+          ownerId: authResult.user.id
         }
       }
     });
@@ -230,8 +255,20 @@ export async function DELETE(
 ) {
   try {
     const { id: restaurantId, staffId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -240,7 +277,7 @@ export async function DELETE(
     }
 
     // Only restaurant owners can delete staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can delete staff' },
         { status: 403 }
@@ -253,7 +290,7 @@ export async function DELETE(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.user.id
+          ownerId: authResult.user.id
         }
       }
     });

@@ -154,7 +154,7 @@ export class RBACMiddleware {
       try {
         // Try RBAC token first
         tokenPayload = await EnhancedJWTService.verifyToken(token);
-      } catch (error) {
+      } catch {
         // If RBAC token fails and legacy tokens are allowed, try legacy token
         if (config.allowLegacyTokens) {
           const legacyValidation = await LegacyTokenSupport.validateLegacyToken(token, request);
@@ -396,11 +396,11 @@ export class RBACMiddleware {
       };
     } catch (error) {
       console.error('RBAC Middleware error:', error);
-      
+
       // Log system error
       const clientIP = SecurityUtils.getClientIP(request);
       const userAgent = request.headers.get('user-agent') || 'unknown';
-      
+
       if (config.auditLog) {
         await AuditLogger.logSecurityEvent(
           'system',

@@ -1,12 +1,23 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ArrowLeft, Save, CheckCircle, Building2, Plus } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
+
+interface CreatedRestaurantResponse {
+  message: string;
+  restaurant: {
+    name: string;
+    slug: string;
+  };
+  owner: {
+    email: string;
+    tempPassword: string;
+  };
+}
 
 export default function NewRestaurantPage() {
-  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -35,7 +46,7 @@ export default function NewRestaurantPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [createdRestaurant, setCreatedRestaurant] = useState<any>(null);
+  const [createdRestaurant, setCreatedRestaurant] = useState<CreatedRestaurantResponse | null>(null);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -62,23 +73,14 @@ export default function NewRestaurantPage() {
     setError('');
 
     try {
-      const response = await fetch('/api/admin/restaurants', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
+      const data = await ApiClient.post<CreatedRestaurantResponse>('/admin/restaurants', formData);
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setSuccess(true);
-        setCreatedRestaurant(data);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to create restaurant');
-      }
+      setSuccess(true);
+      setCreatedRestaurant(data);
+      setError('');
     } catch (error) {
-      setError('Network error. Please try again.');
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.';
+      setError(message);
     } finally {
       setLoading(false);
     }

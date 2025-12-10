@@ -1,10 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -13,7 +25,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Only platform admins can view analytics
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Only platform administrators can view analytics' },
         { status: 403 }

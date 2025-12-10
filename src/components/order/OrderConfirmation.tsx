@@ -5,6 +5,7 @@ import { formatPrice } from '@/lib/qr-utils';
 import { getOrderStatusDisplay } from '@/lib/order-utils';
 import { OrderResponse } from '@/types/order';
 import { Button } from '@/components/ui/Button';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface OrderConfirmationProps {
   order: OrderResponse;
@@ -45,18 +46,19 @@ export function OrderConfirmation({
     // Poll for order status updates
     const pollOrderStatus = async () => {
       try {
-        const response = await fetch(`/api/orders/${currentOrder.id}`);
-        if (response.ok) {
-          const data = await response.json();
-          setCurrentOrder((prev) => ({
-            ...prev,
-            status: data.order.status,
-            paymentStatus: data.order.paymentStatus,
-            estimatedReadyTime: data.order.estimatedReadyTime,
-          }));
-        }
+        const response = await ApiClient.get<{ order: OrderResponse }>(`/api/orders/${currentOrder.id}`);
+        setCurrentOrder((prev) => ({
+          ...prev,
+          status: response.order.status,
+          paymentStatus: response.order.paymentStatus,
+          estimatedReadyTime: response.order.estimatedReadyTime,
+        }));
       } catch (error) {
-        console.error('Failed to fetch order status:', error);
+        if (error instanceof ApiClientError) {
+          console.error('[OrderConfirmation] Failed to fetch order status:', error.message);
+        } else {
+          console.error('Failed to fetch order status:', error);
+        }
       }
     };
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { generateQRCodeImage, generateQRCodeSVG } from '@/lib/qr-utils';
 
 export async function GET(
@@ -8,11 +8,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication
-    const authResult = await verifyAuthToken(request);
-    if (!authResult.isValid || !authResult.user) {
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.payload) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
         { status: 401 }
       );
     }
@@ -35,27 +46,27 @@ export async function GET(
     }
 
     // Check if user has permission to access this table
+    const userType = authResult.payload.currentRole.userType;
+    const userId = authResult.payload.userId;
+    const userRestaurantId = authResult.payload.currentRole.restaurantId;
     let hasPermission = false;
 
     console.log('QR Code Permission Debug:', {
-      userType: authResult.user.type,
-      userId: authResult.user.user.id,
-      userRestaurantId:
-        authResult.user.type === 'staff'
-          ? authResult.user.user.restaurantId
-          : undefined,
+      userType,
+      userId,
+      userRestaurantId,
       tableId: table.id,
       tableRestaurantId: table.restaurantId,
       restaurantOwnerId: table.restaurant.ownerId,
     });
 
-    if (authResult.user.type === 'platform_admin') {
+    if (userType === 'platform_admin') {
       hasPermission = true;
-    } else if (authResult.user.type === 'staff') {
-      hasPermission = authResult.user.user.restaurantId === table.restaurantId;
-    } else if (authResult.user.type === 'restaurant_owner') {
+    } else if (userType === 'staff') {
+      hasPermission = userRestaurantId === table.restaurantId;
+    } else if (userType === 'restaurant_owner') {
       // Check if the restaurant belongs to this owner
-      hasPermission = table.restaurant.ownerId === authResult.user.user.id;
+      hasPermission = table.restaurant.ownerId === userId;
     }
 
     console.log('QR Code Permission Result:', { hasPermission });

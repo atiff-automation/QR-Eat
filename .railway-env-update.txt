@@ -1,0 +1,41 @@
+# Railway Environment Variables - UPDATED with Actual Domain
+# Copy and paste these into Railway Dashboard → Your Service → Variables → Raw Editor
+
+# ============================================================
+# UPDATE THESE THREE VARIABLES IN RAILWAY
+# ============================================================
+# Go to Railway → Your Service → Variables tab → Find and update:
+
+APP_URL=https://qr-eat-production.up.railway.app
+NEXTAUTH_URL=https://qr-eat-production.up.railway.app
+WEBHOOK_BASE_URL=https://qr-eat-production.up.railway.app
+
+# ============================================================
+# INSTRUCTIONS:
+# ============================================================
+# 1. Go to Railway Dashboard
+# 2. Click on your web service
+# 3. Go to "Variables" tab
+# 4. Find these 3 variables: APP_URL, NEXTAUTH_URL, WEBHOOK_BASE_URL
+# 5. Update each one to: https://qr-eat-production.up.railway.app
+# 6. Click "Save Changes"
+# 7. Railway will automatically redeploy (takes ~2 minutes)
+# ============================================================
+
+# OR use Raw Editor and replace ALL variables with this:
+
+DATABASE_URL=postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway
+NODE_ENV=production
+PORT=3000
+JWT_SECRET=uz/PfmxzJOdEW3eC8yBIXDL6xxne6infcY4HQJOwzDY=
+JWT_EXPIRES_IN=24h
+NEXTAUTH_SECRET=IZnfkqip46Vry2QBpcQpfIo2PdrMoUh58E7ZxcstgeA=
+APP_URL=https://qr-eat-production.up.railway.app
+NEXTAUTH_URL=https://qr-eat-production.up.railway.app
+WEBHOOK_BASE_URL=https://qr-eat-production.up.railway.app
+TOYYIBPAY_PRODUCTION_URL=https://toyyibpay.com
+TOYYIBPAY_TIMEOUT=30000
+ENABLE_DEBUG_LOGGING=false
+ENABLE_PRISMA_STUDIO=false
+MOCK_PAYMENTS=true
+MOCK_NOTIFICATIONS=true

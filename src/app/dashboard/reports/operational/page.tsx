@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Clock } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function OperationalReportPage() {
   const [report, setReport] = useState<any>(null);
@@ -25,22 +26,50 @@ export default function OperationalReportPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get staff info to get restaurant ID
-      const staffResponse = await fetch('/api/auth/me');
-      if (!staffResponse.ok) {
-        throw new Error('Failed to get staff info');
-      }
-      const staffData = await staffResponse.json();
+      const staffData = await ApiClient.get<{ staff: { restaurant: { id: string } } }>('/api/auth/me');
       const restaurantId = staffData.staff.restaurant.id;
 
       // Generate report
-      const response = await fetch(`/api/staff/analytics/${restaurantId}/report`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      if (format === 'csv' || format === 'pdf') {
+        const blob = await ApiClient.downloadFile(`/api/staff/analytics/${restaurantId}/report`, {
+          method: 'POST',
+          body: {
+            reportType: 'operational',
+            dateRange: {
+              start: new Date(startDate).toISOString(),
+              end: new Date(endDate + 'T23:59:59.999Z').toISOString(),
+            },
+            format: format,
+            includeCharts: true,
+            includeDetails: true,
+          },
+        });
+
+        if (format === 'csv') {
+          // Download CSV file
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `operational-report-${startDate}-to-${endDate}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          setReport({ message: 'CSV file downloaded successfully!' });
+        } else if (format === 'pdf') {
+          // Open PDF in new tab
+          const htmlContent = await blob.text();
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.document.write(htmlContent);
+            newWindow.document.close();
+          }
+          setReport({ message: 'PDF report opened in new tab!' });
+        }
+      } else {
+        const data = await ApiClient.post<{ report: any }>(`/api/staff/analytics/${restaurantId}/report`, {
           reportType: 'operational',
           dateRange: {
             start: new Date(startDate).toISOString(),
@@ -49,41 +78,16 @@ export default function OperationalReportPage() {
           format: format,
           includeCharts: true,
           includeDetails: true,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to generate report');
-      }
-
-      if (format === 'csv') {
-        // Download CSV file
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `operational-report-${startDate}-to-${endDate}.csv`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        setReport({ message: 'CSV file downloaded successfully!' });
-      } else if (format === 'pdf') {
-        // Open PDF in new tab
-        const htmlContent = await response.text();
-        const newWindow = window.open('', '_blank');
-        if (newWindow) {
-          newWindow.document.write(htmlContent);
-          newWindow.document.close();
-        }
-        setReport({ message: 'PDF report opened in new tab!' });
-      } else {
-        const data = await response.json();
+        });
         setReport(data.report);
       }
     } catch (error) {
       console.error('Error generating report:', error);
-      setError(error instanceof Error ? error.message : 'Failed to generate report');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Failed to generate report');
+      }
     } finally {
       setLoading(false);
     }

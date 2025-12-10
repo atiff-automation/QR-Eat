@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { getOrderStatusDisplay } from '@/lib/order-utils';
 import { formatPrice } from '@/lib/qr-utils';
 import { ClipboardList, Clock, ChefHat, DollarSign } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface OrderSummary {
   id: string;
@@ -142,38 +143,26 @@ export function OrdersOverview() {
 
   const fetchOrders = async () => {
     try {
-      const queryParams = new URLSearchParams();
+      const params: Record<string, string> = {};
       if (filter !== 'all') {
-        queryParams.append('status', filter);
+        params.status = filter;
       }
-      queryParams.append('limit', '20');
-      
-      const response = await fetch(`/api/orders?${queryParams}`, {
-        credentials: 'include'
-      });
-      const data = await response.json();
+      params.limit = '20';
 
-      if (response.ok) {
-        setOrders(data.orders);
-      } else {
-        setError(data.error || 'Failed to fetch orders');
-      }
+      const data = await ApiClient.get<{ success: boolean; orders: OrderSummary[] }>('/orders', { params });
+
+      setOrders(data.orders);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     }
   };
 
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/orders/stats', {
-        credentials: 'include'
-      });
-      const data = await response.json();
+      const data = await ApiClient.get<{ success: boolean; stats: OrderStats }>('/orders/stats');
 
-      if (response.ok) {
-        setStats(data.stats);
-      }
+      setStats(data.stats);
     } catch (error) {
       console.error('Failed to fetch stats:', error);
     } finally {
@@ -183,23 +172,14 @@ export function OrdersOverview() {
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
-      const response = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
+      await ApiClient.patch(`/orders/${orderId}/status`, { status: newStatus });
 
-      if (response.ok) {
-        // Immediately refresh orders and stats for responsive updates
-        await Promise.all([fetchOrders(), fetchStats()]);
-        setError(''); // Clear any previous errors
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update order status');
-      }
+      // Immediately refresh orders and stats for responsive updates
+      await Promise.all([fetchOrders(), fetchStats()]);
+      setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Failed to update order status:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     }
   };
 

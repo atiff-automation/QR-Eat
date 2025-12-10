@@ -6,7 +6,6 @@
  */
 
 import { AuditLogger } from './audit-logger';
-import { PermissionManager } from './permissions';
 
 async function testAuditLogger() {
   console.log('🧪 Testing RBAC Audit Logging System...\n');

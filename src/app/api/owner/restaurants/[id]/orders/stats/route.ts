@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { UserType } from '@/lib/rbac/types';
 
 export async function GET(
   request: NextRequest,
@@ -8,8 +9,20 @@ export async function GET(
 ) {
   try {
     const { id: restaurantId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -18,7 +31,7 @@ export async function GET(
     }
 
     // Only restaurant owners can access their restaurant stats
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can access order stats' },
         { status: 403 }
@@ -29,7 +42,7 @@ export async function GET(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.user.id
+        ownerId: authResult.user.id
       }
     });
 

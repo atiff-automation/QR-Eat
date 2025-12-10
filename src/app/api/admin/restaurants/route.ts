@@ -1,12 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType, AuthService } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { validateApiInput, Sanitizer } from '@/lib/validation';
 import { EmailService } from '@/lib/email';
 
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -15,7 +27,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Only platform admins can create restaurants
-    if (authResult.user.type !== UserType.PLATFORM_ADMIN) {
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Only platform administrators can create restaurants' },
         { status: 403 }
@@ -26,7 +39,7 @@ export async function POST(request: NextRequest) {
     let requestData;
     try {
       requestData = await request.json();
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid JSON in request body' },
         { status: 400 }

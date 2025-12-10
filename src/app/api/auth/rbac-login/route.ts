@@ -7,11 +7,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
-import { LegacyTokenSupport } from '@/lib/rbac/legacy-token-support';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
-import { getSubdomainInfo, getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { SecurityUtils } from '@/lib/security';
+import { getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes

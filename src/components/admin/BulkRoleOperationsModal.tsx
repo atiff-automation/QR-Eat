@@ -11,17 +11,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  X, 
-  Users, 
-  Shield, 
-  Building2, 
-  Plus, 
-  Trash2, 
-  Edit, 
-  CheckCircle, 
-  AlertTriangle, 
-  Settings, 
+import {
+  X,
+  Users,
+  Shield,
+  Building2,
+  Plus,
+  Trash2,
+  Edit,
+  CheckCircle,
+  AlertTriangle,
+  Settings,
   Save,
   Download,
   Upload,
@@ -31,6 +31,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface User {
   id: string;
@@ -115,24 +116,27 @@ export function BulkRoleOperationsModal({
     setLoading(true);
     try {
       // Fetch role templates
-      const templatesResponse = await fetch('/api/admin/role-templates');
-      if (templatesResponse.ok) {
-        const templatesData = await templatesResponse.json();
-        setRoleTemplates(templatesData.templates || []);
+      const templatesResult = await ApiClient.get<{
+        templates: RoleTemplate[];
+      }>('/api/admin/role-templates');
+      if (templatesResult.ok && templatesResult.data) {
+        setRoleTemplates(templatesResult.data.templates || []);
       }
 
       // Fetch restaurants
-      const restaurantsResponse = await fetch('/api/admin/restaurants');
-      if (restaurantsResponse.ok) {
-        const restaurantsData = await restaurantsResponse.json();
-        setRestaurants(restaurantsData.restaurants || []);
+      const restaurantsResult = await ApiClient.get<{
+        restaurants: Restaurant[];
+      }>('/api/admin/restaurants');
+      if (restaurantsResult.ok && restaurantsResult.data) {
+        setRestaurants(restaurantsResult.data.restaurants || []);
       }
 
       // Fetch permissions
-      const permissionsResponse = await fetch('/api/admin/permissions');
-      if (permissionsResponse.ok) {
-        const permissionsData = await permissionsResponse.json();
-        setPermissions(permissionsData.permissions || []);
+      const permissionsResult = await ApiClient.get<{
+        permissions: Permission[];
+      }>('/api/admin/permissions');
+      if (permissionsResult.ok && permissionsResult.data) {
+        setPermissions(permissionsResult.data.permissions || []);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -145,16 +149,14 @@ export function BulkRoleOperationsModal({
     if (selectedUserIds.length === 0) return;
 
     try {
-      const response = await fetch('/api/admin/users', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds: selectedUserIds, action: 'get_bulk' })
+      const data = await ApiClient.post<{
+        users: User[];
+      }>('/api/admin/users', {
+        userIds: selectedUserIds,
+        action: 'get_bulk'
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users || []);
-      }
+      setUsers(data.users || []);
     } catch (error) {
       console.error('Failed to fetch selected users:', error);
     }
@@ -169,7 +171,7 @@ export function BulkRoleOperationsModal({
         alert('User type and role template are required');
         return;
       }
-      
+
       if ((selectedUserType === 'restaurant_owner' || selectedUserType === 'staff') && !selectedRestaurant) {
         alert('Restaurant selection is required for restaurant owners and staff');
         return;
@@ -192,27 +194,25 @@ export function BulkRoleOperationsModal({
         reason
       };
 
-      const response = await fetch('/api/admin/users/bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
+      const data = await ApiClient.post<{
+        results: BulkOperationResult[];
+        success: boolean;
+        error?: string;
+      }>('/api/admin/users/bulk', payload);
 
-      if (response.ok) {
-        const data = await response.json();
-        setOperationResults(data.results || []);
-        setShowResults(true);
-        
-        if (data.success) {
-          onOperationComplete();
-        }
-      } else {
-        const errorData = await response.json();
-        alert(`Bulk operation failed: ${errorData.error}`);
+      setOperationResults(data.results || []);
+      setShowResults(true);
+
+      if (data.success) {
+        onOperationComplete();
       }
     } catch (error) {
       console.error('Bulk operation failed:', error);
-      alert('Bulk operation failed. Please try again.');
+      if (error instanceof ApiClientError) {
+        alert(`Bulk operation failed: ${error.message}`);
+      } else {
+        alert('Bulk operation failed. Please try again.');
+      }
     } finally {
       setProcessing(false);
     }

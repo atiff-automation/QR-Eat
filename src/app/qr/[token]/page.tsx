@@ -11,6 +11,7 @@ import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { OrderConfirmation } from '@/components/order/OrderConfirmation';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function QRMenuPage() {
   const params = useParams();
@@ -53,35 +54,26 @@ export default function QRMenuPage() {
   const fetchTableAndMenu = async () => {
     try {
       // Fetch table information
-      const tableResponse = await fetch(`/api/qr/${token}`);
-      const tableData = await tableResponse.json();
-
-      if (!tableResponse.ok) {
-        setError(tableData.error || 'Failed to load table information');
-        return;
-      }
-
-      setTable(tableData.table);
+      const tableResponse = await ApiClient.get<{ table: Table }>(`/api/qr/${token}`);
+      setTable(tableResponse.table);
 
       // Fetch menu
-      const menuResponse = await fetch(
-        `/api/menu/${tableData.table.restaurant.id}`
+      const menuResponse = await ApiClient.get<{ menu: MenuCategory[] }>(
+        `/api/menu/${tableResponse.table.restaurant.id}`
       );
-      const menuData = await menuResponse.json();
-
-      if (!menuResponse.ok) {
-        setError(menuData.error || 'Failed to load menu');
-        return;
-      }
-
-      setMenu(menuData.menu);
+      setMenu(menuResponse.menu);
 
       // Set first category as active
-      if (menuData.menu.length > 0) {
-        setActiveCategory(menuData.menu[0].id);
+      if (menuResponse.menu.length > 0) {
+        setActiveCategory(menuResponse.menu[0].id);
       }
-    } catch {
-      setError('Network error. Please try again.');
+    } catch (error) {
+      console.error('[QR Menu] Failed to fetch table and menu:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Failed to load menu');
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

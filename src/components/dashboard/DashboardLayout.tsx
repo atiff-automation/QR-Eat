@@ -32,6 +32,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { RoleSwitcher } from '@/components/rbac/RoleSwitcher';
 import { NotificationBell } from './NotificationBell';
+import { ApiClient } from '@/lib/api-client';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -56,7 +57,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await ApiClient.post('/auth/logout');
       router.push('/login');
     } catch (error) {
       console.error('Logout error:', error);

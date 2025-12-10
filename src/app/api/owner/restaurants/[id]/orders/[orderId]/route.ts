@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 // GET - Get order details
 export async function GET(
@@ -9,17 +9,24 @@ export async function GET(
 ) {
   try {
     const { id: restaurantId, orderId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Only restaurant owners can access their restaurant orders
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'restaurant_owner') {
       return NextResponse.json(
         { error: 'Only restaurant owners can access orders' },
         { status: 403 }
@@ -32,7 +39,7 @@ export async function GET(
         id: orderId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.user.id
+          ownerId: authResult.user.id
         }
       },
       include: {
@@ -155,17 +162,24 @@ export async function PATCH(
 ) {
   try {
     const { id: restaurantId, orderId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    // Only restaurant owners can update orders
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    const authResult = await AuthServiceV2.validateToken(token);
+
+    if (!authResult.isValid || !authResult.user) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    if (userType !== 'restaurant_owner') {
       return NextResponse.json(
         { error: 'Only restaurant owners can update orders' },
         { status: 403 }
@@ -196,7 +210,7 @@ export async function PATCH(
         id: orderId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.user.id
+          ownerId: authResult.user.id
         }
       }
     });
@@ -216,26 +230,26 @@ export async function PATCH(
       case 'preparing':
         if (existingOrder.status === 'pending') {
           updateData.confirmedAt = now;
-          updateData.confirmedBy = authResult.user.user.id;
+          updateData.confirmedBy = authResult.user.id;
         }
         break;
       case 'ready':
         if (!existingOrder.confirmedAt) {
           updateData.confirmedAt = now;
-          updateData.confirmedBy = authResult.user.user.id;
+          updateData.confirmedBy = authResult.user.id;
         }
         updateData.readyAt = now;
         break;
       case 'completed':
         if (!existingOrder.confirmedAt) {
           updateData.confirmedAt = now;
-          updateData.confirmedBy = authResult.user.user.id;
+          updateData.confirmedBy = authResult.user.id;
         }
         if (!existingOrder.readyAt) {
           updateData.readyAt = now;
         }
         updateData.servedAt = now;
-        updateData.servedBy = authResult.user.user.id;
+        updateData.servedBy = authResult.user.id;
         break;
       case 'cancelled':
         // Orders can be cancelled at any stage

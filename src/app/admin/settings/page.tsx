@@ -11,6 +11,7 @@ import {
   Key,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface PlatformSettings {
   general: {
@@ -51,11 +52,8 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('/api/admin/settings');
-      if (response.ok) {
-        const data = await response.json();
-        setSettings(data.settings);
-      }
+      const data = await ApiClient.get<{ settings: PlatformSettings }>('/admin/settings');
+      setSettings(data.settings);
     } catch {
       console.error('Failed to fetch settings');
     } finally {
@@ -86,21 +84,12 @@ export default function AdminSettingsPage() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/admin/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(settings),
-      });
-
-      if (response.ok) {
-        setMessage('Settings saved successfully!');
-        setTimeout(() => setMessage(''), 3000);
-      } else {
-        const data = await response.json();
-        setMessage(data.error || 'Failed to save settings');
-      }
-    } catch {
-      setMessage('Network error. Please try again.');
+      await ApiClient.put<{ error?: string }>('/admin/settings', settings);
+      setMessage('Settings saved successfully!');
+      setTimeout(() => setMessage(''), 3000);
+    } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.';
+      setMessage(message);
     } finally {
       setSaving(false);
     }

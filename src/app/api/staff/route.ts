@@ -5,24 +5,35 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthService, UserType } from '@/lib/auth';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthService } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 // GET - List all staff for the authenticated user's restaurant
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+
     // Platform admins, restaurant owners, and staff can access staff data
-    if (authResult.user.type === UserType.PLATFORM_ADMIN) {
+    if (userType === 'platform_admin') {
       // Platform admins can view all staff - get restaurantId from query params
       const url = new URL(request.url);
       const restaurantId = url.searchParams.get('restaurantId');
-      
+
       if (!restaurantId) {
         return NextResponse.json({ error: 'Restaurant ID required for platform admin' }, { status: 400 });
       }
@@ -50,23 +61,33 @@ export async function GET(request: NextRequest) {
     }
 
     let restaurantId: string;
-    
-    if (authResult.user.type === UserType.RESTAURANT_OWNER) {
+
+    if (userType === 'restaurant_owner') {
       // For restaurant owners, get the restaurant ID from query params or use their first restaurant
       const url = new URL(request.url);
-      restaurantId = url.searchParams.get('restaurantId') || authResult.user.user.restaurants[0]?.id;
-      
+
+      // Get owned restaurants
+      const ownedRestaurants = await prisma.restaurant.findMany({
+        where: { ownerId: authResult.user.id },
+        select: { id: true }
+      });
+
+      restaurantId = url.searchParams.get('restaurantId') || ownedRestaurants[0]?.id;
+
       if (!restaurantId) {
         return NextResponse.json({ error: 'No restaurant found' }, { status: 404 });
       }
-      
+
       // Verify owner actually owns this restaurant
-      const ownedRestaurant = authResult.user.user.restaurants.find(r => r.id === restaurantId);
+      const ownedRestaurant = ownedRestaurants.find(r => r.id === restaurantId);
       if (!ownedRestaurant) {
         return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
       }
-    } else if (authResult.user.type === UserType.STAFF) {
-      restaurantId = authResult.user.user.restaurantId;
+    } else if (userType === 'staff') {
+      restaurantId = authResult.user.currentRole?.restaurantId!;
+      if (!restaurantId) {
+        return NextResponse.json({ error: 'Restaurant access required' }, { status: 403 });
+      }
     } else {
       return NextResponse.json({ error: 'Invalid user type' }, { status: 403 });
     }
@@ -102,14 +123,25 @@ export async function GET(request: NextRequest) {
 // POST - Create new staff member
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+
     // Only restaurant owners can create staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (userType !== 'restaurant_owner') {
       return NextResponse.json({ error: 'Only restaurant owners can create staff' }, { status: 403 });
     }
 
@@ -133,7 +165,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify owner actually owns this restaurant
-    const ownedRestaurant = authResult.user.user.restaurants.find(r => r.id === restaurantId);
+    const ownedRestaurant = await prisma.restaurant.findFirst({
+      where: {
+        id: restaurantId,
+        ownerId: authResult.user.id
+      }
+    });
+
     if (!ownedRestaurant) {
       return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
     }

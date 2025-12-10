@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken, UserType, AuthService } from '@/lib/auth';
+import { AuthService } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { UserType } from '@/lib/rbac/types';
 import { Sanitizer } from '@/lib/validation';
 import { EmailService } from '@/lib/email';
 
@@ -11,8 +13,20 @@ export async function GET(
 ) {
   try {
     const { id: restaurantId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -21,7 +35,7 @@ export async function GET(
     }
 
     // Only restaurant owners can access staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can access staff data' },
         { status: 403 }
@@ -32,7 +46,7 @@ export async function GET(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.user.id
+        ownerId: authResult.user.id
       }
     });
 
@@ -87,8 +101,20 @@ export async function POST(
 ) {
   try {
     const { id: restaurantId } = await params;
-    const authResult = await verifyAuthToken(request);
-    
+
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -97,7 +123,7 @@ export async function POST(
     }
 
     // Only restaurant owners can create staff
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
+    if (authResult.user.userType !== UserType.RESTAURANT_OWNER) {
       return NextResponse.json(
         { error: 'Only restaurant owners can create staff' },
         { status: 403 }
@@ -108,7 +134,7 @@ export async function POST(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.user.id
+        ownerId: authResult.user.id
       }
     });
 

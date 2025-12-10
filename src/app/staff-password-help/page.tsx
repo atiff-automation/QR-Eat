@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Users, AlertCircle } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function StaffPasswordHelpPage() {
   const [email, setEmail] = useState('');
@@ -17,22 +18,14 @@ export default function StaffPasswordHelpPage() {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/staff-password-request', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      const data = await ApiClient.post<{ message: string }>('/auth/staff-password-request', {
+        email
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setMessage(data.message);
-      } else {
-        setError(data.error || 'Failed to request password help');
-      }
+      setMessage(data.message);
     } catch (error) {
       console.error('Password help request error:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
     } finally {
       setLoading(false);
     }

@@ -16,12 +16,13 @@
 import { useState, useEffect } from 'react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
-import { 
-  Shield, 
-  Users, 
-  Settings, 
-  Plus, 
-  Search, 
+import { ApiClient, ApiClientError } from '@/lib/api-client';
+import {
+  Shield,
+  Users,
+  Settings,
+  Plus,
+  Search,
   Filter,
   Check,
   X,
@@ -83,35 +84,40 @@ export function PermissionManager() {
       if (selectedCategory) params.append('category', selectedCategory);
       if (searchTerm) params.append('search', searchTerm);
       params.append('includeInactive', 'true');
-      
-      const response = await fetch(`/api/admin/permissions?${params}`);
-      const data = await response.json();
-      
-      if (response.ok) {
-        setPermissions(data.permissions);
-        setCategories(data.categories);
-      } else {
-        setError(data.error || 'Failed to fetch permissions');
-      }
+
+      const data = await ApiClient.get<{
+        permissions: Permission[];
+        categories: PermissionCategory[];
+        error?: string;
+      }>(`/api/admin/permissions?${params}`);
+
+      setPermissions(data.permissions);
+      setCategories(data.categories);
     } catch (error) {
       console.error('Failed to fetch permissions:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     }
   };
   
   const fetchRoleTemplates = async () => {
     try {
-      const response = await fetch('/api/admin/role-templates?includeStats=true');
-      const data = await response.json();
-      
-      if (response.ok) {
-        setRoleTemplates(data.templates);
-      } else {
-        setError(data.error || 'Failed to fetch role templates');
-      }
+      const data = await ApiClient.get<{
+        templates: RoleTemplate[];
+        error?: string;
+      }>('/api/admin/role-templates?includeStats=true');
+
+      setRoleTemplates(data.templates);
     } catch (error) {
       console.error('Failed to fetch role templates:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -120,32 +126,24 @@ export function PermissionManager() {
   const updateRolePermissions = async (template: string, permissions: string[]) => {
     setIsSaving(true);
     setError('');
-    
+
     try {
-      const response = await fetch('/api/admin/role-templates', {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          template, 
-          permissions,
-          action: 'replace'
-        }),
+      await ApiClient.put<{ error?: string }>('/api/admin/role-templates', {
+        template,
+        permissions,
+        action: 'replace'
       });
-      
-      const data = await response.json();
-      
-      if (response.ok) {
-        await fetchRoleTemplates();
-        setSuccessMessage(`Role template "${template}" updated successfully`);
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } else {
-        setError(data.error || 'Failed to update role permissions');
-      }
+
+      await fetchRoleTemplates();
+      setSuccessMessage(`Role template "${template}" updated successfully`);
+      setTimeout(() => setSuccessMessage(''), 3000);
     } catch (error) {
       console.error('Failed to update role permissions:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsSaving(false);
     }

@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  BarChart3, 
-  TrendingUp 
+import {
+  AlertTriangle,
+  BarChart3,
+  TrendingUp
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function PopularItemsPage() {
   const [analytics, setAnalytics] = useState<any>(null);
@@ -18,26 +19,27 @@ export default function PopularItemsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get staff info to get restaurant ID
-      const staffResponse = await fetch('/api/auth/me');
-      if (!staffResponse.ok) {
-        throw new Error('Failed to get staff info');
-      }
-      const staffData = await staffResponse.json();
+      const { data: staffData } = await ApiClient.get<{
+        staff: {
+          restaurant: {
+            id: string;
+          };
+        };
+      }>('/auth/me');
+
       const restaurantId = staffData.staff.restaurant.id;
 
       // Fetch analytics
-      const response = await fetch(`/api/staff/analytics/${restaurantId}/popular-items?period=${period}&limit=${limit}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch popular items analytics');
-      }
-      
-      const data = await response.json();
+      const data = await ApiClient.get<{ analytics: any }>(
+        `/staff/analytics/${restaurantId}/popular-items?period=${period}&limit=${limit}`
+      );
+
       setAnalytics(data.analytics);
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch analytics');
+      setError(error instanceof ApiClientError ? error.message : 'Failed to fetch analytics');
     } finally {
       setLoading(false);
     }

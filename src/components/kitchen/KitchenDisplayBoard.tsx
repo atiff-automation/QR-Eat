@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface KitchenOrder {
   id: string;
@@ -230,18 +231,12 @@ export function KitchenDisplayBoard() {
 
   const fetchKitchenOrders = async () => {
     try {
-      const response = await fetch('/api/kitchen/orders');
-      const data = await response.json();
-
-      if (response.ok) {
-        setOrders(data.orders);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch kitchen orders');
-      }
+      const data = await ApiClient.get<{ orders: KitchenOrder[] }>('/kitchen/orders');
+      setOrders(data.orders);
+      setError('');
     } catch (error) {
       console.error('Failed to fetch kitchen orders:', error);
-      setError('Network error. Please check connection.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please check connection.');
     } finally {
       setLoading(false);
     }
@@ -256,27 +251,15 @@ export function KitchenDisplayBoard() {
         )
       );
 
-      const response = await fetch(`/api/orders/${orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (response.ok) {
-        console.log(
-          '[KitchenDisplay] Order status updated successfully, waiting for SSE confirmation'
-        );
-        // SSE will send the real update - no need to fetch manually
-        // This prevents race conditions between manual fetch and SSE update
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update order status');
-        // Revert optimistic update on error
-        fetchKitchenOrders();
-      }
+      await ApiClient.patch(`/orders/${orderId}/status`, { status: newStatus });
+      console.log(
+        '[KitchenDisplay] Order status updated successfully, waiting for SSE confirmation'
+      );
+      // SSE will send the real update - no need to fetch manually
+      // This prevents race conditions between manual fetch and SSE update
     } catch (error) {
       console.error('[KitchenDisplay] Failed to update order status:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
       // Revert optimistic update on error
       fetchKitchenOrders();
     }
@@ -294,26 +277,14 @@ export function KitchenDisplayBoard() {
         }))
       );
 
-      const response = await fetch(`/api/kitchen/items/${itemId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (response.ok) {
-        console.log(
-          '[KitchenDisplay] Item status updated successfully, waiting for SSE confirmation'
-        );
-        // SSE will send the real update - no need to fetch manually
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update item status');
-        // Revert optimistic update on error
-        fetchKitchenOrders();
-      }
+      await ApiClient.patch(`/kitchen/items/${itemId}/status`, { status: newStatus });
+      console.log(
+        '[KitchenDisplay] Item status updated successfully, waiting for SSE confirmation'
+      );
+      // SSE will send the real update - no need to fetch manually
     } catch (error) {
       console.error('[KitchenDisplay] Failed to update item status:', error);
-      setError('Network error. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
       // Revert optimistic update on error
       fetchKitchenOrders();
     }

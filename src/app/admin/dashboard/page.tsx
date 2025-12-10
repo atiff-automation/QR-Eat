@@ -19,6 +19,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function AdminDashboardPage() {
   const [user, setUser] = useState<{
@@ -28,17 +29,33 @@ export default function AdminDashboardPage() {
     email: string;
   } | null>(null);
   const [restaurants, setRestaurants] = useState<
-    Array<{ id: string; name: string; isActive: boolean; ownerId: string }>
+    Array<{
+      id: string;
+      name: string;
+      slug: string;
+      address: string;
+      isActive: boolean;
+      ownerId: string;
+      owner?: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        email: string;
+      };
+      _count?: {
+        staff: number;
+        tables: number;
+        orders: number;
+        menuItems: number;
+      };
+    }>
   >([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const checkAdminAuth = useCallback(async () => {
     try {
-      const response = await fetch('/api/auth/me');
-      if (response.ok) {
-        const data = await response.json();
-
+      const data = await ApiClient.get<{ user: { userType: string; firstName: string; lastName: string; email: string } }>('/auth/me');
         // Check if user is platform admin
         if (data.user.userType !== 'platform_admin') {
           // Redirect non-admin users
@@ -48,10 +65,6 @@ export default function AdminDashboardPage() {
 
         setUser(data.user);
         fetchRestaurants();
-      } else {
-        // Not authenticated, redirect to login
-        window.location.href = '/login';
-      }
     } catch (error) {
       console.error('Failed to check admin auth:', error);
       window.location.href = '/login';
@@ -64,37 +77,34 @@ export default function AdminDashboardPage() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await fetch('/api/restaurants?includeStats=true');
-      if (response.ok) {
-        const data = await response.json();
-        setRestaurants(data.restaurants);
-      }
+      const data = await ApiClient.get<{
+        restaurants: Array<{
+          id: string;
+          name: string;
+          slug: string;
+          address: string;
+          isActive: boolean;
+          ownerId: string;
+          owner?: {
+            id: string;
+            firstName: string;
+            lastName: string;
+            email: string;
+          };
+          _count?: {
+            staff: number;
+            tables: number;
+            orders: number;
+            menuItems: number;
+          };
+        }>;
+      }>('/restaurants?includeStats=true');
+      setRestaurants(data.restaurants);
     } catch (error) {
       console.error('Failed to fetch restaurants:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const getAuthToken = () => {
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';');
-      // Check for all possible auth cookie types
-      const authCookie = cookies.find((cookie) => {
-        const trimmed = cookie.trim();
-        return trimmed.startsWith('qr_auth_token=') ||
-               trimmed.startsWith('qr_owner_token=') ||
-               trimmed.startsWith('qr_staff_token=') ||
-               trimmed.startsWith('qr_admin_token=');
-      });
-      if (authCookie) {
-        const token = authCookie.split('=')[1];
-        console.log('Auth token found:', token ? 'Yes' : 'No');
-        return token;
-      }
-      console.log('No auth cookie found. Available cookies:', document.cookie);
-    }
-    return '';
   };
 
   const handleDeleteRestaurant = async (
@@ -110,23 +120,13 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-      });
-
-      if (response.ok) {
+      await ApiClient.delete<{ error?: string }>(`/restaurants/${restaurantId}`);
         setRestaurants(restaurants.filter((r) => r.id !== restaurantId));
         alert('Restaurant deleted successfully');
-      } else {
-        const data = await response.json();
-        alert(`Failed to delete restaurant: ${data.error}`);
-      }
     } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Failed to delete restaurant. Please try again.';
       console.error('Failed to delete restaurant:', error);
-      alert('Failed to delete restaurant. Please try again.');
+      alert(message);
     }
   };
 
@@ -135,33 +135,22 @@ export default function AdminDashboardPage() {
     currentStatus: boolean
   ) => {
     try {
-      const response = await fetch(`/api/restaurants/${restaurantId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
-
-      if (response.ok) {
+      await ApiClient.patch(`/restaurants/${restaurantId}`, { isActive: !currentStatus });
         setRestaurants(
           restaurants.map((r) =>
             r.id === restaurantId ? { ...r, isActive: !currentStatus } : r
           )
         );
-      } else {
-        alert('Failed to update restaurant status');
-      }
     } catch (error) {
+      const message = error instanceof ApiClientError ? error.message : 'Failed to update restaurant status. Please try again.';
       console.error('Failed to update restaurant status:', error);
-      alert('Failed to update restaurant status. Please try again.');
+      alert(message);
     }
   };
 
   const logout = async () => {
     try {
-      await fetch('/api/auth/logout', { method: 'POST' });
+      await ApiClient.post('/auth/logout', {});
       window.location.href = '/login';
     } catch (error) {
       console.error('Logout failed:', error);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Bell, X, Key, Users } from 'lucide-react';
 import { PasswordResetModal } from './PasswordResetModal';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Notification {
   id: string;
@@ -31,11 +32,8 @@ export function NotificationBell() {
 
   const fetchNotifications = async () => {
     try {
-      const response = await fetch('/api/notifications');
-      if (response.ok) {
-        const data = await response.json();
-        setNotifications(data.notifications || []);
-      }
+      const data = await ApiClient.get<{ notifications: Notification[] }>('/notifications');
+      setNotifications(data.notifications || []);
     } catch (error) {
       console.error('Failed to fetch notifications:', error);
     }
@@ -43,13 +41,9 @@ export function NotificationBell() {
 
   const markAsRead = async (notificationId: string) => {
     try {
-      await fetch(`/api/notifications/${notificationId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isRead: true })
-      });
-      
-      setNotifications(prev => 
+      await ApiClient.patch(`/notifications/${notificationId}`, { isRead: true });
+
+      setNotifications(prev =>
         prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
       );
     } catch (error) {
@@ -60,48 +54,44 @@ export function NotificationBell() {
   const handlePasswordReset = async (staffId: string, notificationId: string) => {
     setLoading(true);
     try {
-      const response = await fetch(`/api/owner/staff/${staffId}/reset-password`, {
-        method: 'POST'
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        
-        // Update the specific notification in state instead of refetching all
-        setNotifications(prev => prev.map(notification => {
-          if (notification.id === notificationId) {
-            return {
-              ...notification,
-              isRead: true,
-              metadata: {
-                ...(notification.metadata as any),
-                completed: true,
-                completedAt: new Date().toISOString()
-              }
-            };
-          }
-          return notification;
-        }));
-        
-        // Show password reset modal with new password
-        if (data.temporaryPassword) {
-          setPasswordResetData({
-            staffName: data.staffName,
-            staffEmail: data.staffEmail,
-            temporaryPassword: data.temporaryPassword
-          });
-          setShowPasswordModal(true);
-          setShowDropdown(false); // Close the notification dropdown
-        } else {
-          alert(`Password reset for ${data.staffName}. Check dashboard for details.`);
+      const data = await ApiClient.post<{
+        staffName: string;
+        staffEmail: string;
+        temporaryPassword?: string;
+      }>(`/owner/staff/${staffId}/reset-password`);
+
+      // Update the specific notification in state instead of refetching all
+      setNotifications(prev => prev.map(notification => {
+        if (notification.id === notificationId) {
+          return {
+            ...notification,
+            isRead: true,
+            metadata: {
+              ...(notification.metadata as any),
+              completed: true,
+              completedAt: new Date().toISOString()
+            }
+          };
         }
+        return notification;
+      }));
+
+      // Show password reset modal with new password
+      if (data.temporaryPassword) {
+        setPasswordResetData({
+          staffName: data.staffName,
+          staffEmail: data.staffEmail,
+          temporaryPassword: data.temporaryPassword
+        });
+        setShowPasswordModal(true);
+        setShowDropdown(false); // Close the notification dropdown
       } else {
-        const error = await response.json();
-        alert(`Failed to reset password: ${error.error}`);
+        alert(`Password reset for ${data.staffName}. Check dashboard for details.`);
       }
     } catch (error) {
       console.error('Failed to reset password:', error);
-      alert('Failed to reset password. Please try again.');
+      const errorMessage = error instanceof ApiClientError ? error.message : 'Failed to reset password. Please try again.';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }

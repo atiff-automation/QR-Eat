@@ -16,7 +16,6 @@ export async function POST(request: NextRequest) {
 
     // Find user based on type
     let user = null;
-    let tableName = '';
     
     switch (userType) {
       case 'staff':

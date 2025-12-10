@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function SimpleLoginPage() {
   const [email, setEmail] = useState('');
@@ -12,28 +13,20 @@ export default function SimpleLoginPage() {
     setMessage('Attempting login...');
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await ApiClient.post<{ user: any }>('/api/auth/login', { email, password });
 
-      const data = await response.json();
-      console.log('Response:', data);
-
-      if (response.ok) {
-        setMessage('Login successful! Redirecting...');
-        setTimeout(() => {
-          window.location.href = '/dashboard';
-        }, 1000);
-      } else {
-        setMessage(`Login failed: ${data.error}`);
-      }
+      console.log('Response:', response.data);
+      setMessage('Login successful! Redirecting...');
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1000);
     } catch (error) {
       console.error('Login error:', error);
-      setMessage(`Network error: ${error}`);
+      if (error instanceof ApiClientError) {
+        setMessage(`Login failed: ${error.message}`);
+      } else {
+        setMessage(`Network error: ${error}`);
+      }
     }
   };
 

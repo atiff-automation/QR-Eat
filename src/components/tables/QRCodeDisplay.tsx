@@ -1,14 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  Download, 
-  Copy, 
-  X, 
+import {
+  Download,
+  Copy,
+  X,
   AlertTriangle,
   ExternalLink,
   FileText
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface QRCodeDisplayProps {
   tableId: string;
@@ -60,17 +61,15 @@ export function QRCodeDisplay({
 
   const fetchQRCode = async () => {
     try {
-      const response = await fetch(`/api/tables/${tableId}/qr-code`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setQrData(data);
-      } else {
-        setError(data.error || 'Failed to generate QR code');
-      }
+      const data = await ApiClient.get<QRCodeData>(`/tables/${tableId}/qr-code`);
+      setQrData(data);
     } catch (error) {
       console.error('Failed to fetch QR code:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -78,21 +77,21 @@ export function QRCodeDisplay({
 
   const downloadQRCode = async (format: 'png' | 'svg') => {
     try {
-      const response = await fetch(`/api/tables/${tableId}/qr-code?format=${format === 'svg' ? 'svg' : 'image'}&download=true`);
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `table-${tableNumber}-qr.${format}`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      } else {
-        alert('Failed to download QR code');
-      }
+      const data = await ApiClient.get<Blob>(`/tables/${tableId}/qr-code`, {
+        params: {
+          format: format === 'svg' ? 'svg' : 'image',
+          download: 'true'
+        }
+      });
+
+      const url = window.URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `table-${tableNumber}-qr.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Download failed:', error);
       alert('Download failed. Please try again.');

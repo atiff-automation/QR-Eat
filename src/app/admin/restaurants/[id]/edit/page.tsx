@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { 
-  Save, 
+import {
+  Save,
   ArrowLeft,
   Building2,
   User,
@@ -15,6 +15,7 @@ import {
   DollarSign
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface Restaurant {
   id: string;
@@ -57,57 +58,31 @@ export default function EditRestaurantPage() {
     }
   }, [params.id]);
 
-  const getAuthToken = () => {
-    if (typeof document !== 'undefined') {
-      const cookies = document.cookie.split(';');
-      // Check for all possible auth cookie types
-      const authCookie = cookies.find((cookie) => {
-        const trimmed = cookie.trim();
-        return trimmed.startsWith('qr_auth_token=') ||
-               trimmed.startsWith('qr_owner_token=') ||
-               trimmed.startsWith('qr_staff_token=') ||
-               trimmed.startsWith('qr_admin_token=');
-      });
-      if (authCookie) {
-        return authCookie.split('=')[1];
-      }
-    }
-    return '';
-  };
-
   const fetchRestaurant = async (id: string) => {
     try {
-      const response = await fetch(`/api/restaurants/${id}?includeSettings=true`, {
-        headers: {
-          'Authorization': `Bearer ${getAuthToken()}`
-        }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRestaurant(data.restaurant);
-      } else {
-        setMessage('Failed to load restaurant');
-      }
+      const data = await ApiClient.get<{ restaurant: Restaurant }>(`/restaurants/${id}?includeSettings=true`);
+      setRestaurant(data.restaurant);
     } catch (error) {
       console.error('Failed to fetch restaurant:', error);
-      setMessage('Network error occurred');
+      const message = error instanceof ApiClientError ? error.message : 'Network error occurred';
+      setMessage(message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleInputChange = (field: string, value: any) => {
+  const handleInputChange = (field: string, value: string | boolean) => {
     if (!restaurant) return;
-    
+
     setRestaurant(prev => ({
       ...prev!,
       [field]: value
     }));
   };
 
-  const handleOwnerChange = (field: string, value: any) => {
+  const handleOwnerChange = (field: string, value: string) => {
     if (!restaurant) return;
-    
+
     setRestaurant(prev => ({
       ...prev!,
       owner: {
@@ -117,9 +92,9 @@ export default function EditRestaurantPage() {
     }));
   };
 
-  const handleSettingsChange = (field: string, value: any) => {
+  const handleSettingsChange = (field: string, value: boolean | number) => {
     if (!restaurant) return;
-    
+
     setRestaurant(prev => ({
       ...prev!,
       settings: {
@@ -131,44 +106,33 @@ export default function EditRestaurantPage() {
 
   const handleSave = async () => {
     if (!restaurant) return;
-    
+
     setSaving(true);
     setMessage('');
 
     try {
-      const response = await fetch(`/api/restaurants/${restaurant.id}`, {
-        method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${getAuthToken()}`
-        },
-        body: JSON.stringify({
-          name: restaurant.name,
-          slug: restaurant.slug,
-          description: restaurant.description,
-          address: restaurant.address,
-          phone: restaurant.phone,
-          email: restaurant.email,
-          website: restaurant.website,
-          isActive: restaurant.isActive,
-          currency: restaurant.currency,
-          timezone: restaurant.timezone,
-          owner: restaurant.owner,
-          settings: restaurant.settings
-        }),
+      await ApiClient.put<{ error?: string }>(`/restaurants/${restaurant.id}`, {
+        name: restaurant.name,
+        slug: restaurant.slug,
+        description: restaurant.description,
+        address: restaurant.address,
+        phone: restaurant.phone,
+        email: restaurant.email,
+        website: restaurant.website,
+        isActive: restaurant.isActive,
+        currency: restaurant.currency,
+        timezone: restaurant.timezone,
+        owner: restaurant.owner,
+        settings: restaurant.settings
       });
 
-      if (response.ok) {
-        setMessage('Restaurant updated successfully!');
-        setTimeout(() => {
-          router.push('/admin/restaurants');
-        }, 1500);
-      } else {
-        const data = await response.json();
-        setMessage(data.error || 'Failed to update restaurant');
-      }
+      setMessage('Restaurant updated successfully!');
+      setTimeout(() => {
+        router.push('/admin/restaurants');
+      }, 1500);
     } catch (error) {
-      setMessage('Network error. Please try again.');
+      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.';
+      setMessage(message);
     } finally {
       setSaving(false);
     }

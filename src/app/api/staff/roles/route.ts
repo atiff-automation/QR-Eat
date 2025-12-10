@@ -5,18 +5,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { UserType } from '@/lib/auth';
-import { verifyAuthToken } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/auth/AuthServiceV2';
+import { PERMISSION_GROUPS } from '@/lib/constants/permissions';
 
 // GET - List all roles for a restaurant
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
     const url = new URL(request.url);
     const restaurantId = url.searchParams.get('restaurantId');
 
@@ -24,19 +18,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'restaurantId parameter required' }, { status: 400 });
     }
 
-    // Check access permissions
-    let hasAccess = false;
-    
-    if (authResult.user.type === UserType.PLATFORM_ADMIN) {
-      hasAccess = true;
-    } else if (authResult.user.type === UserType.RESTAURANT_OWNER) {
-      hasAccess = authResult.user.user.restaurants.some(r => r.id === restaurantId);
-    } else if (authResult.user.type === UserType.STAFF) {
-      hasAccess = authResult.user.user.restaurantId === restaurantId;
-    }
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.VIEW_STAFF],
+      requireRestaurantId: restaurantId
+    });
 
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     // Fetch all available roles (global roles)
@@ -67,31 +59,27 @@ export async function GET(request: NextRequest) {
 // POST - Create new staff role
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
-    
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
-    }
-
-    // Only restaurant owners can create roles
-    if (authResult.user.type !== UserType.RESTAURANT_OWNER) {
-      return NextResponse.json({ error: 'Only restaurant owners can create roles' }, { status: 403 });
-    }
-
     const data = await request.json();
     const { name, description, permissions, restaurantId } = data;
 
     // Validate required fields
     if (!name || !restaurantId || !permissions) {
-      return NextResponse.json({ 
-        error: 'Missing required fields: name, restaurantId, permissions' 
+      return NextResponse.json({
+        error: 'Missing required fields: name, restaurantId, permissions'
       }, { status: 400 });
     }
 
-    // Verify owner actually owns this restaurant
-    const ownedRestaurant = authResult.user.user.restaurants.find(r => r.id === restaurantId);
-    if (!ownedRestaurant) {
-      return NextResponse.json({ error: 'Access denied to this restaurant' }, { status: 403 });
+    // Authenticate and authorize using modern AuthServiceV2
+    const authResult = await AuthServiceV2.validateToken(request, {
+      requiredPermissions: [PERMISSION_GROUPS.STAFF.MANAGE_STAFF],
+      requireRestaurantId: restaurantId
+    });
+
+    if (!authResult.success || !authResult.user) {
+      return NextResponse.json(
+        { error: authResult.error || 'Authentication required' },
+        { status: authResult.statusCode || 401 }
+      );
     }
 
     // Check if role name already exists (global unique)

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { AccessControl } from '@/components/dashboard/AccessControl';
 import { ImageUpload } from '@/components/ui/ImageUpload';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 import {
   Plus,
   RefreshCw,
@@ -107,54 +108,49 @@ export default function MenuPage() {
     try {
       // Add cache busting parameter to ensure fresh data
       const timestamp = new Date().getTime();
-      const response = await fetch(
-        `/api/admin/menu/categories?_t=${timestamp}`,
-        {
-          cache: 'no-store', // Ensure no caching
-          credentials: 'include',
-        }
+      const data = await ApiClient.get<{ categories: MenuCategory[] }>(
+        `/admin/menu/categories?_t=${timestamp}`
       );
-      const data = await response.json();
 
-      if (response.ok) {
-        setCategories(data.categories);
-        setError('');
-        console.log(
-          'Categories refreshed:',
-          data.categories.length,
-          'categories loaded'
-        );
-        // Debug: Log all items and their imageUrl
-        data.categories.forEach((cat: MenuCategory) => {
-          cat.menuItems.forEach((item: MenuItem) => {
-            console.log(
-              'Item:',
-              item.name,
-              'imageUrl:',
-              item.imageUrl,
-              'hasImage:',
-              !!item.imageUrl
-            );
-          });
-        });
-        // Log the specific category you're looking for
-        const melayuCategory = data.categories.find(
-          (cat: MenuCategory) => cat.name.toLowerCase() === 'melayu'
-        );
-        if (melayuCategory) {
+      setCategories(data.categories);
+      setError('');
+      console.log(
+        'Categories refreshed:',
+        data.categories.length,
+        'categories loaded'
+      );
+      // Debug: Log all items and their imageUrl
+      data.categories.forEach((cat: MenuCategory) => {
+        cat.menuItems.forEach((item: MenuItem) => {
           console.log(
-            'Melayu category found with',
-            melayuCategory.menuItems.length,
-            'items:',
-            melayuCategory.menuItems.map((item: MenuItem) => item.name)
+            'Item:',
+            item.name,
+            'imageUrl:',
+            item.imageUrl,
+            'hasImage:',
+            !!item.imageUrl
           );
-        }
-      } else {
-        setError(data.error || 'Failed to fetch categories');
+        });
+      });
+      // Log the specific category you're looking for
+      const melayuCategory = data.categories.find(
+        (cat: MenuCategory) => cat.name.toLowerCase() === 'melayu'
+      );
+      if (melayuCategory) {
+        console.log(
+          'Melayu category found with',
+          melayuCategory.menuItems.length,
+          'items:',
+          melayuCategory.menuItems.map((item: MenuItem) => item.name)
+        );
       }
     } catch (error) {
       console.error('Failed to fetch categories:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       if (showLoading) setLoading(false);
       else setRefreshing(false);
@@ -164,23 +160,19 @@ export default function MenuPage() {
   const fetchAnalytics = async (period = 'week') => {
     setAnalyticsLoading(true);
     try {
-      const response = await fetch(
-        `/api/admin/menu/analytics?period=${period}`,
-        {
-          credentials: 'include',
-        }
+      const data = await ApiClient.get<{ analytics: typeof analytics }>(
+        `/admin/menu/analytics?period=${period}`
       );
-      const data = await response.json();
 
-      if (response.ok) {
-        setAnalytics(data.analytics);
-        setError('');
-      } else {
-        setError(data.error || 'Failed to fetch analytics');
-      }
+      setAnalytics(data.analytics);
+      setError('');
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setAnalyticsLoading(false);
     }
@@ -193,56 +185,41 @@ export default function MenuPage() {
 
   const toggleItemAvailability = async (item: MenuItem) => {
     try {
-      const response = await fetch(`/api/admin/menu/items/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          isAvailable: !item.isAvailable,
-        }),
+      await ApiClient.patch(`/api/admin/menu/items/${item.id}`, {
+        isAvailable: !item.isAvailable,
       });
 
-      if (response.ok) {
-        await fetchCategories(false);
-        console.log(
-          `${item.name} ${item.isAvailable ? 'disabled' : 'enabled'} successfully`
-        );
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update item availability');
-      }
+      await fetchCategories(false);
+      console.log(
+        `${item.name} ${item.isAvailable ? 'disabled' : 'enabled'} successfully`
+      );
     } catch (error) {
       console.error('Failed to toggle item availability:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     }
   };
 
   const toggleCategoryStatus = async (category: MenuCategory) => {
     try {
-      const response = await fetch(
-        `/api/admin/menu/categories/${category.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({
-            isActive: !category.isActive,
-          }),
-        }
-      );
+      await ApiClient.patch(`/api/admin/menu/categories/${category.id}`, {
+        isActive: !category.isActive,
+      });
 
-      if (response.ok) {
-        await fetchCategories(false);
-        console.log(
-          `${category.name} ${category.isActive ? 'disabled' : 'enabled'} successfully`
-        );
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update category status');
-      }
+      await fetchCategories(false);
+      console.log(
+        `${category.name} ${category.isActive ? 'disabled' : 'enabled'} successfully`
+      );
     } catch (error) {
       console.error('Failed to toggle category status:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     }
   };
 
@@ -927,33 +904,25 @@ function AddModal({
       console.log('Sending request to:', endpoint);
       console.log('Form data being sent:', requestData);
 
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify(requestData),
-      });
+      const responseData = await ApiClient.post<{ category?: { id: string } }>(
+        endpoint,
+        requestData
+      );
 
-      if (response.ok) {
-        const responseData = await response.json();
-        // Pass the category ID back for items so we can navigate to it
-        const categoryId =
-          type === 'item' ? formData.categoryId : responseData.category?.id;
-        onSuccess(categoryId);
-      } else {
-        const data = await response.json();
-        console.error('API Error Response:', data);
-        setError(data.error || `Failed to create ${type}`);
-        if (data.details) {
-          console.error('Validation Details:', data.details);
-        }
-        if (data.receivedData) {
-          console.error('Data sent to API:', data.receivedData);
-        }
-      }
+      // Pass the category ID back for items so we can navigate to it
+      const categoryId =
+        type === 'item' ? formData.categoryId : responseData.category?.id;
+      onSuccess(categoryId);
     } catch (error) {
       console.error(`Failed to create ${type}:`, error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+        if (error.details) {
+          console.error('Validation Details:', error.details);
+        }
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1317,26 +1286,20 @@ function EditItemModal({
     setError('');
 
     try {
-      const response = await fetch(`/api/admin/menu/items/${item.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          ...formData,
-          price: parseFloat(formData.price),
-          calories: formData.calories ? parseInt(formData.calories) : null,
-        }),
+      await ApiClient.patch(`/admin/menu/items/${item.id}`, {
+        ...formData,
+        price: parseFloat(formData.price),
+        calories: formData.calories ? parseInt(formData.calories) : null,
       });
 
-      if (response.ok) {
-        onSuccess();
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update item');
-      }
+      onSuccess();
     } catch (error) {
       console.error('Failed to update item:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -1675,25 +1638,16 @@ function EditCategoryModal({
     setError('');
 
     try {
-      const response = await fetch(
-        `/api/admin/menu/categories/${category.id}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify(formData),
-        }
-      );
+      await ApiClient.patch(`/admin/menu/categories/${category.id}`, formData);
 
-      if (response.ok) {
-        onSuccess();
-      } else {
-        const data = await response.json();
-        setError(data.error || 'Failed to update category');
-      }
+      onSuccess();
     } catch (error) {
       console.error('Failed to update category:', error);
-      setError('Network error. Please try again.');
+      if (error instanceof ApiClientError) {
+        setError(error.message);
+      } else {
+        setError('Network error. Please try again.');
+      }
     } finally {
       setIsSubmitting(false);
     }

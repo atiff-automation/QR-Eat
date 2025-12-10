@@ -8,20 +8,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  X, 
-  Save, 
-  Plus, 
-  Trash2, 
-  Building2, 
-  Shield, 
-  Users, 
+import {
+  X,
+  Save,
+  Plus,
+  Trash2,
+  Building2,
+  Shield,
+  Users,
   Check,
   AlertTriangle,
   User,
   Settings
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface User {
   id: string;
@@ -115,24 +116,27 @@ export function RoleAssignmentModal({
     setLoading(true);
     try {
       // Fetch role templates
-      const templatesResponse = await fetch('/api/admin/role-templates');
-      if (templatesResponse.ok) {
-        const templatesData = await templatesResponse.json();
-        setRoleTemplates(templatesData.templates || []);
+      const templatesResult = await ApiClient.get<{
+        templates: RoleTemplate[];
+      }>('/api/admin/role-templates');
+      if (templatesResult.ok && templatesResult.data) {
+        setRoleTemplates(templatesResult.data.templates || []);
       }
 
       // Fetch restaurants
-      const restaurantsResponse = await fetch('/api/admin/restaurants');
-      if (restaurantsResponse.ok) {
-        const restaurantsData = await restaurantsResponse.json();
-        setRestaurants(restaurantsData.restaurants || []);
+      const restaurantsResult = await ApiClient.get<{
+        restaurants: Restaurant[];
+      }>('/api/admin/restaurants');
+      if (restaurantsResult.ok && restaurantsResult.data) {
+        setRestaurants(restaurantsResult.data.restaurants || []);
       }
 
       // Fetch permissions
-      const permissionsResponse = await fetch('/api/admin/permissions');
-      if (permissionsResponse.ok) {
-        const permissionsData = await permissionsResponse.json();
-        setPermissions(permissionsData.permissions || []);
+      const permissionsResult = await ApiClient.get<{
+        permissions: Permission[];
+      }>('/api/admin/permissions');
+      if (permissionsResult.ok && permissionsResult.data) {
+        setPermissions(permissionsResult.data.permissions || []);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -172,29 +176,23 @@ export function RoleAssignmentModal({
         customPermissions: customPermissions.length > 0 ? customPermissions : null,
       };
 
-      const response = editingRoleId
-        ? await fetch(`/api/admin/users`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roleId: editingRoleId, ...payload }),
+      const data = editingRoleId
+        ? await ApiClient.put<{ error?: string }>('/api/admin/users', {
+            roleId: editingRoleId,
+            ...payload
           })
-        : await fetch(`/api/admin/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-          });
+        : await ApiClient.post<{ error?: string }>('/api/admin/users', payload);
 
-      if (response.ok) {
-        onRoleUpdated();
-        resetForm();
-        onClose();
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to save role: ${errorData.error}`);
-      }
+      onRoleUpdated();
+      resetForm();
+      onClose();
     } catch (error) {
       console.error('Failed to save role:', error);
-      alert('Failed to save role. Please try again.');
+      if (error instanceof ApiClientError) {
+        alert(`Failed to save role: ${error.message}`);
+      } else {
+        alert('Failed to save role. Please try again.');
+      }
     } finally {
       setSaving(false);
     }
@@ -206,22 +204,19 @@ export function RoleAssignmentModal({
     }
 
     try {
-      const response = await fetch(`/api/admin/users`, {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleId }),
+      await ApiClient.delete<{ error?: string }>('/api/admin/users', {
+        roleId
       });
 
-      if (response.ok) {
-        onRoleUpdated();
-        resetForm();
-      } else {
-        const errorData = await response.json();
-        alert(`Failed to delete role: ${errorData.error}`);
-      }
+      onRoleUpdated();
+      resetForm();
     } catch (error) {
       console.error('Failed to delete role:', error);
-      alert('Failed to delete role. Please try again.');
+      if (error instanceof ApiClientError) {
+        alert(`Failed to delete role: ${error.message}`);
+      } else {
+        alert('Failed to delete role. Please try again.');
+      }
     }
   };
 

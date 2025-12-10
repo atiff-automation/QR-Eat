@@ -12,19 +12,19 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  BarChart3, 
-  PieChart, 
-  TrendingUp, 
-  TrendingDown, 
-  Users, 
-  Shield, 
-  Key, 
-  Activity, 
-  AlertTriangle, 
-  CheckCircle, 
-  Calendar, 
-  Download, 
+import {
+  BarChart3,
+  PieChart,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Shield,
+  Key,
+  Activity,
+  AlertTriangle,
+  CheckCircle,
+  Calendar,
+  Download,
   RefreshCw,
   Eye,
   Filter,
@@ -37,6 +37,7 @@ import {
   Lock
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface RoleAnalytics {
   overview: {
@@ -129,13 +130,11 @@ export function RoleAnalyticsDashboard({ className = '' }: RoleAnalyticsDashboar
         ...(selectedUserType !== 'all' && { userType: selectedUserType })
       });
 
-      const response = await fetch(`/api/admin/analytics/roles?${params}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalytics(data.analytics);
-      } else {
-        console.error('Failed to fetch analytics:', response.statusText);
-      }
+      const data = await ApiClient.get<{
+        analytics: RoleAnalytics;
+      }>(`/api/admin/analytics/roles?${params}`);
+
+      setAnalytics(data.analytics);
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
     } finally {

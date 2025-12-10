@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface ImageUploadProps {
   value?: string;
@@ -68,20 +69,19 @@ export function ImageUpload({ value, onChange, className = '', disabled = false 
       const formData = new FormData();
       formData.append('image', file);
 
-      const response = await fetch('/api/upload/image', {
+      // Use ApiClient.request directly for FormData
+      const response = await ApiClient['request']<{ imageUrl: string }>('/api/upload/image', {
         method: 'POST',
         body: formData,
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        onChange(data.imageUrl);
+      onChange(response.imageUrl);
+    } catch (error) {
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Upload failed');
       } else {
-        setError(data.error || 'Upload failed');
+        setError('Upload failed. Please try again.');
       }
-    } catch {
-      setError('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }

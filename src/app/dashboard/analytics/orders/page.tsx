@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { 
-  AlertTriangle, 
-  ClipboardList, 
-  DollarSign, 
-  BarChart3, 
-  CheckCircle 
+import {
+  AlertTriangle,
+  ClipboardList,
+  DollarSign,
+  BarChart3,
+  CheckCircle
 } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 interface OrderAnalytics {
   period: string;
@@ -67,26 +68,27 @@ export default function OrderAnalyticsPage() {
     try {
       setLoading(true);
       setError(null);
-      
+
       // Get staff info to get restaurant ID
-      const staffResponse = await fetch('/api/auth/me');
-      if (!staffResponse.ok) {
-        throw new Error('Failed to get staff info');
-      }
-      const staffData = await staffResponse.json();
+      const staffData = await ApiClient.get<{
+        staff: {
+          restaurant: {
+            id: string;
+          };
+        };
+      }>('/auth/me');
+
       const restaurantId = staffData.staff.restaurant.id;
 
       // Fetch analytics
-      const response = await fetch(`/api/staff/analytics/${restaurantId}/orders?period=${period}&granularity=${granularity}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch analytics');
-      }
-      
-      const data = await response.json();
+      const data = await ApiClient.get<{ analytics: OrderAnalytics }>(
+        `/staff/analytics/${restaurantId}/orders?period=${period}&granularity=${granularity}`
+      );
+
       setAnalytics(data.analytics);
     } catch (error) {
       console.error('Error fetching analytics:', error);
-      setError(error instanceof Error ? error.message : 'Failed to fetch analytics');
+      setError(error instanceof ApiClientError ? error.message : 'Failed to fetch analytics');
     } finally {
       setLoading(false);
     }

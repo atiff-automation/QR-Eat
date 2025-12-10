@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService, AUTH_CONSTANTS, UserType, getCookieNameForUserType } from '@/lib/auth';
 import { prisma } from '@/lib/database';
-import { getSubdomainInfo, getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { canUserAccessRestaurantSubdomain } from '@/lib/subdomain-auth';
 

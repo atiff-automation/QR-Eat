@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { 
-  Users, 
-  Search, 
-  Filter,
+import {
+  Users,
+  Search,
   UserCheck,
   UserX,
   Shield,
@@ -13,6 +12,7 @@ import {
   Phone
 } from 'lucide-react';
 import Link from 'next/link';
+import { ApiClient } from '@/lib/api-client';
 
 interface User {
   id: string;
@@ -47,11 +47,8 @@ export default function AdminUsersPage() {
 
   const fetchUsers = async () => {
     try {
-      const response = await fetch('/api/admin/users');
-      if (response.ok) {
-        const data = await response.json();
-        setUsers(data.users || []);
-      }
+      const data = await ApiClient.get<{ users: User[] }>('/admin/users');
+      setUsers(data.users || []);
     } catch (error) {
       console.error('Failed to fetch users:', error);
     } finally {

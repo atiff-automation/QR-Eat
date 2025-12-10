@@ -1,0 +1,74 @@
+# Railway Environment Variables Configuration
+# Copy and paste these into Railway Dashboard → Your Service → Variables → Raw Editor
+
+# ============================================================
+# REQUIRED: Database Configuration
+# ============================================================
+DATABASE_URL=postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway
+
+# ============================================================
+# REQUIRED: Application Settings
+# ============================================================
+NODE_ENV=production
+PORT=3000
+
+# ============================================================
+# REQUIRED: JWT & Authentication
+# ============================================================
+JWT_SECRET=uz/PfmxzJOdEW3eC8yBIXDL6xxne6infcY4HQJOwzDY=
+JWT_EXPIRES_IN=24h
+NEXTAUTH_SECRET=IZnfkqip46Vry2QBpcQpfIo2PdrMoUh58E7ZxcstgeA=
+
+# ============================================================
+# IMPORTANT: URLs (Update after Railway generates domain)
+# ============================================================
+# FIRST DEPLOYMENT: Leave these as placeholders
+# AFTER DEPLOYMENT: Update with your actual Railway domain
+APP_URL=https://your-app.up.railway.app
+NEXTAUTH_URL=https://your-app.up.railway.app
+WEBHOOK_BASE_URL=https://your-app.up.railway.app
+
+# ============================================================
+# Payment Configuration
+# ============================================================
+TOYYIBPAY_PRODUCTION_URL=https://toyyibpay.com
+TOYYIBPAY_TIMEOUT=30000
+
+# ============================================================
+# Production Feature Flags
+# ============================================================
+ENABLE_DEBUG_LOGGING=false
+ENABLE_PRISMA_STUDIO=false
+MOCK_PAYMENTS=true
+MOCK_NOTIFICATIONS=true
+
+# ============================================================
+# INSTRUCTIONS:
+# ============================================================
+# 1. Go to Railway Dashboard
+# 2. Click on your web service (QR-Eat)
+# 3. Go to "Variables" tab
+# 4. Click "Raw Editor"
+# 5. Copy everything BELOW this line and paste it
+# 6. Click "Save"
+# 7. Railway will automatically redeploy
+
+# ============================================================
+# COPY FROM HERE ↓
+# ============================================================
+
+DATABASE_URL=postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway
+NODE_ENV=production
+PORT=3000
+JWT_SECRET=uz/PfmxzJOdEW3eC8yBIXDL6xxne6infcY4HQJOwzDY=
+JWT_EXPIRES_IN=24h
+NEXTAUTH_SECRET=IZnfkqip46Vry2QBpcQpfIo2PdrMoUh58E7ZxcstgeA=
+APP_URL=https://temporary-placeholder.com
+NEXTAUTH_URL=https://temporary-placeholder.com
+WEBHOOK_BASE_URL=https://temporary-placeholder.com
+TOYYIBPAY_PRODUCTION_URL=https://toyyibpay.com
+TOYYIBPAY_TIMEOUT=30000
+ENABLE_DEBUG_LOGGING=false
+ENABLE_PRISMA_STUDIO=false
+MOCK_PAYMENTS=true
+MOCK_NOTIFICATIONS=true

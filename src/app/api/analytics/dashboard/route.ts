@@ -5,12 +5,20 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { verifyAuthToken } from '@/lib/auth';
-import { UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await verifyAuthToken(request);
+    // Verify authentication using RBAC system
+    const token = request.cookies.get('qr_rbac_token')?.value ||
+                  request.cookies.get('qr_auth_token')?.value;
+
+    if (!token) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const authResult = await AuthServiceV2.validateToken(token);
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
@@ -19,10 +27,13 @@ export async function GET(request: NextRequest) {
     const restaurantId = url.searchParams.get('restaurantId');
     const timeframe = url.searchParams.get('timeframe') || '24h'; // 24h, 7d, 30d
 
+    // User type check
+    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+
     // Determine which restaurant(s) to get analytics for
     let restaurantIds: string[] = [];
-    
-    if (authResult.user.type === UserType.PLATFORM_ADMIN) {
+
+    if (userType === 'platform_admin') {
       if (restaurantId) {
         restaurantIds = [restaurantId];
       } else {
@@ -32,8 +43,13 @@ export async function GET(request: NextRequest) {
         });
         restaurantIds = allRestaurants.map(r => r.id);
       }
-    } else if (authResult.user.type === UserType.RESTAURANT_OWNER) {
-      const ownedRestaurants = authResult.user.user.restaurants;
+    } else if (userType === 'restaurant_owner') {
+      // Get owned restaurants
+      const ownedRestaurants = await prisma.restaurant.findMany({
+        where: { ownerId: authResult.user.id },
+        select: { id: true }
+      });
+
       if (restaurantId) {
         const isOwned = ownedRestaurants.some(r => r.id === restaurantId);
         if (!isOwned) {
@@ -43,8 +59,12 @@ export async function GET(request: NextRequest) {
       } else {
         restaurantIds = ownedRestaurants.map(r => r.id);
       }
-    } else if (authResult.user.type === UserType.STAFF) {
-      restaurantIds = [authResult.user.user.restaurantId];
+    } else if (userType === 'staff') {
+      const staffRestaurantId = authResult.user.currentRole?.restaurantId;
+      if (!staffRestaurantId) {
+        return NextResponse.json({ error: 'Restaurant access required' }, { status: 403 });
+      }
+      restaurantIds = [staffRestaurantId];
     }
 
     // Calculate date range

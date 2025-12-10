@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Lock, Eye, EyeOff, AlertCircle, CheckCircle, LogOut } from 'lucide-react';
+import { ApiClient, ApiClientError } from '@/lib/api-client';
 
 export default function ChangePasswordPage() {
   const [currentPassword, setCurrentPassword] = useState('');
@@ -21,17 +22,9 @@ export default function ChangePasswordPage() {
     // Check if user is authenticated and needs to change password
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/me', {
-          credentials: 'include'
-        });
-        
-        if (!response.ok) {
-          // Not authenticated, redirect to login
-          router.push('/login');
-          return;
-        }
-        
-        const data = await response.json();
+        const data = await ApiClient.get<{
+          user: any;
+        }>('/auth/me');
         
         // Only staff and restaurant owners with mustChangePassword should be on this page
         if (data.user.userType !== 'staff' && data.user.userType !== 'restaurant_owner') {
@@ -95,37 +88,21 @@ export default function ChangePasswordPage() {
     setIsLoading(true);
 
     try {
-      const response = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          currentPassword,
-          newPassword
-        })
+      await ApiClient.post('/auth/change-password', {
+        currentPassword,
+        newPassword
       });
 
-      const data = await response.json();
+      setSuccess('Password changed successfully! You will be logged out in 3 seconds...');
 
-      if (response.ok) {
-        setSuccess('Password changed successfully! You will be logged out in 3 seconds...');
-        
-        // Log out user after 3 seconds
-        setTimeout(async () => {
-          await fetch('/api/auth/logout', {
-            method: 'POST',
-            credentials: 'include'
-          });
-          router.push('/login');
-        }, 3000);
-      } else {
-        setError(data.error || 'Failed to change password');
-      }
+      // Log out user after 3 seconds
+      setTimeout(async () => {
+        await ApiClient.post('/auth/logout');
+        router.push('/login');
+      }, 3000);
     } catch (error) {
       console.error('Failed to change password:', error);
-      setError('Failed to change password. Please try again.');
+      setError(error instanceof ApiClientError ? error.message : 'Failed to change password. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -133,10 +110,7 @@ export default function ChangePasswordPage() {
 
   const handleLogout = async () => {
     try {
-      await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include'
-      });
+      await ApiClient.post('/auth/logout');
       router.push('/login');
     } catch (error) {
       console.error('Logout failed:', error);
