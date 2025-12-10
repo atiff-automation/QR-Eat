@@ -11,21 +11,29 @@ export async function GET(
     const { id: restaurantId, orderId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
 
     if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // User type check
-    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    const userType =
+      authResult.user.currentRole?.userType || authResult.user.userType;
     if (userType !== 'restaurant_owner') {
       return NextResponse.json(
         { error: 'Only restaurant owners can access orders' },
@@ -39,45 +47,45 @@ export async function GET(
         id: orderId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.id
-        }
+          ownerId: authResult.user.id,
+        },
       },
       include: {
-        orderItems: {
+        items: {
           include: {
             menuItem: {
               select: {
                 name: true,
                 price: true,
-                description: true
-              }
+                description: true,
+              },
             },
             variations: {
               include: {
                 variation: {
                   select: {
                     name: true,
-                    priceModifier: true
-                  }
-                }
-              }
-            }
-          }
+                    priceModifier: true,
+                  },
+                },
+              },
+            },
+          },
         },
         table: {
           select: {
             number: true,
-            name: true
-          }
+            name: true,
+          },
         },
         customerSession: {
           select: {
             customerName: true,
             customerPhone: true,
-            customerEmail: true
-          }
-        }
-      }
+            customerEmail: true,
+          },
+        },
+      },
     });
 
     if (!order) {
@@ -104,16 +112,20 @@ export async function GET(
       confirmedAt: order.confirmedAt?.toISOString(),
       readyAt: order.readyAt?.toISOString(),
       servedAt: order.servedAt?.toISOString(),
-      table: order.table ? {
-        number: order.table.number,
-        name: order.table.name
-      } : null,
-      customer: order.customerSession ? {
-        name: order.customerSession.customerName,
-        phone: order.customerSession.customerPhone,
-        email: order.customerSession.customerEmail
-      } : null,
-      orderItems: order.orderItems.map(item => ({
+      table: order.table
+        ? {
+            number: order.table.number,
+            name: order.table.name,
+          }
+        : null,
+      customer: order.customerSession
+        ? {
+            name: order.customerSession.customerName,
+            phone: order.customerSession.customerPhone,
+            email: order.customerSession.customerEmail,
+          }
+        : null,
+      orderItems: order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
@@ -123,32 +135,32 @@ export async function GET(
         menuItem: {
           name: item.menuItem.name,
           price: Number(item.menuItem.price),
-          description: item.menuItem.description
+          description: item.menuItem.description,
         },
-        variations: item.variations.map(variation => ({
+        variations: item.variations.map((variation) => ({
           id: variation.id,
           quantity: variation.quantity,
           unitPrice: Number(variation.unitPrice),
           totalAmount: Number(variation.totalAmount),
           variation: {
             name: variation.variation.name,
-            priceModifier: Number(variation.variation.priceModifier)
-          }
-        }))
-      }))
+            priceModifier: Number(variation.variation.priceModifier),
+          },
+        })),
+      })),
     };
 
     return NextResponse.json({
       success: true,
-      order: formattedOrder
+      order: formattedOrder,
     });
-
   } catch (error) {
     console.error('Failed to fetch order details:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch order details',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );
@@ -164,21 +176,29 @@ export async function PATCH(
     const { id: restaurantId, orderId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
 
     if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     // User type check
-    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    const userType =
+      authResult.user.currentRole?.userType || authResult.user.userType;
     if (userType !== 'restaurant_owner') {
       return NextResponse.json(
         { error: 'Only restaurant owners can update orders' },
@@ -196,12 +216,15 @@ export async function PATCH(
     }
 
     // Validate status
-    const validStatuses = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
+    const validStatuses = [
+      'pending',
+      'preparing',
+      'ready',
+      'completed',
+      'cancelled',
+    ];
     if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid status' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
     // Verify the restaurant belongs to the owner and order belongs to restaurant
@@ -210,9 +233,9 @@ export async function PATCH(
         id: orderId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.id
-        }
-      }
+          ownerId: authResult.user.id,
+        },
+      },
     });
 
     if (!existingOrder) {
@@ -223,7 +246,7 @@ export async function PATCH(
     }
 
     // Prepare update data based on status
-    const updateData: any = { status };
+    const updateData: Record<string, unknown> = { status };
     const now = new Date();
 
     switch (status) {
@@ -259,7 +282,7 @@ export async function PATCH(
     // Update the order
     const updatedOrder = await prisma.order.update({
       where: { id: orderId },
-      data: updateData
+      data: updateData,
     });
 
     return NextResponse.json({
@@ -270,16 +293,16 @@ export async function PATCH(
         status: updatedOrder.status,
         confirmedAt: updatedOrder.confirmedAt?.toISOString(),
         readyAt: updatedOrder.readyAt?.toISOString(),
-        servedAt: updatedOrder.servedAt?.toISOString()
-      }
+        servedAt: updatedOrder.servedAt?.toISOString(),
+      },
     });
-
   } catch (error) {
     console.error('Failed to update order:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to update order',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

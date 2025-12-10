@@ -4,14 +4,19 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { withQueryPerformance } from '@/lib/performance';
 
 // Simple in-memory cache for report data (5 minutes TTL)
-const reportCache = new Map<string, { data: any; timestamp: number }>();
+const reportCache = new Map<string, { data: unknown; timestamp: number }>();
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-function getCacheKey(restaurantId: string, reportType: string, startDate: Date, endDate: Date): string {
+function getCacheKey(
+  restaurantId: string,
+  reportType: string,
+  startDate: Date,
+  endDate: Date
+): string {
   return `${restaurantId}-${reportType}-${startDate.toISOString()}-${endDate.toISOString()}`;
 }
 
-function getCachedReport(key: string): any | null {
+function getCachedReport(key: string): unknown | null {
   const cached = reportCache.get(key);
   if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
     return cached.data;
@@ -22,7 +27,7 @@ function getCachedReport(key: string): any | null {
   return null;
 }
 
-function setCachedReport(key: string, data: any): void {
+function setCachedReport(key: string, data: unknown): void {
   reportCache.set(key, { data, timestamp: Date.now() });
 }
 
@@ -32,17 +37,24 @@ export async function POST(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
 
     if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { restaurantId } = await params;
@@ -50,18 +62,10 @@ export async function POST(
     // Verify staff has access to this restaurant
     const userRestaurantId = authResult.user.currentRole?.restaurantId;
     if (userRestaurantId !== restaurantId) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    const {
-      reportType,
-      dateRange,
-      format,
-      filters
-    } = await request.json();
+    const { reportType, dateRange, format, filters } = await request.json();
 
     if (!reportType || !dateRange) {
       return NextResponse.json(
@@ -80,31 +84,61 @@ export async function POST(
     if (!reportData) {
       // Generate report and cache it
       switch (reportType) {
-      case 'sales':
-        reportData = await generateSalesReport(restaurantId, startDate, endDate, filters);
-        break;
-      case 'menu':
-        reportData = await generateMenuReport(restaurantId, startDate, endDate, filters);
-        break;
-      case 'financial':
-        reportData = await generateFinancialReport(restaurantId, startDate, endDate, filters);
-        break;
-      case 'operational':
-        reportData = await generateOperationalReport(restaurantId, startDate, endDate, filters);
-        break;
-      case 'customer':
-        reportData = await generateCustomerReport(restaurantId, startDate, endDate, filters);
-        break;
-      case 'comprehensive':
-        reportData = await generateComprehensiveReport(restaurantId, startDate, endDate, filters);
-        break;
-      default:
-        return NextResponse.json(
-          { error: 'Invalid report type' },
-          { status: 400 }
-        );
+        case 'sales':
+          reportData = await generateSalesReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        case 'menu':
+          reportData = await generateMenuReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        case 'financial':
+          reportData = await generateFinancialReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        case 'operational':
+          reportData = await generateOperationalReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        case 'customer':
+          reportData = await generateCustomerReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        case 'comprehensive':
+          reportData = await generateComprehensiveReport(
+            restaurantId,
+            startDate,
+            endDate,
+            filters
+          );
+          break;
+        default:
+          return NextResponse.json(
+            { error: 'Invalid report type' },
+            { status: 400 }
+          );
       }
-      
+
       // Cache the generated report
       setCachedReport(cacheKey, reportData);
     }
@@ -126,20 +160,23 @@ export async function POST(
       return new Response(csvData, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="${reportType}-report-${new Date().toISOString().split('T')[0]}.csv"`
-        }
+          'Content-Disposition': `attachment; filename="${reportType}-report-${new Date().toISOString().split('T')[0]}.csv"`,
+        },
       });
     }
 
     if (format === 'pdf') {
       // For now, we'll return an HTML response that can be printed as PDF
       // In a real implementation, you'd use a proper PDF library like puppeteer
-      const htmlContent = generateHTMLReport(reportData, reportType, { start: startDate, end: endDate });
+      const htmlContent = generateHTMLReport(reportData, reportType, {
+        start: startDate,
+        end: endDate,
+      });
       return new Response(htmlContent, {
         headers: {
           'Content-Type': 'text/html',
-          'Content-Disposition': `inline; filename="${reportType}-report-${new Date().toISOString().split('T')[0]}.html"`
-        }
+          'Content-Disposition': `inline; filename="${reportType}-report-${new Date().toISOString().split('T')[0]}.html"`,
+        },
       });
     }
 
@@ -149,17 +186,16 @@ export async function POST(
         type: reportType,
         dateRange: {
           start: startDate.toISOString(),
-          end: endDate.toISOString()
+          end: endDate.toISOString(),
         },
         generatedAt: new Date().toISOString(),
         generatedBy: {
           id: authResult.staff.id,
-          name: `${authResult.staff.firstName} ${authResult.staff.lastName}`
+          name: `${authResult.staff.firstName} ${authResult.staff.lastName}`,
         },
-        data: reportData
-      }
+        data: reportData,
+      },
     });
-
   } catch (error) {
     console.error('Failed to generate report:', error);
     return NextResponse.json(
@@ -169,7 +205,11 @@ export async function POST(
   }
 }
 
-async function generateSalesReport(restaurantId: string, startDate: Date, endDate: Date, _filters?: Record<string, unknown>) {
+async function generateSalesReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   // Optimized sales summary with selective fields
   const salesSummary = await withQueryPerformance('sales_summary', () =>
     prisma.order.aggregate({
@@ -177,74 +217,94 @@ async function generateSalesReport(restaurantId: string, startDate: Date, endDat
         restaurantId,
         createdAt: {
           gte: startDate,
-          lte: endDate
+          lte: endDate,
         },
-        status: 'served'
+        status: 'served',
       },
       _sum: {
         totalAmount: true,
         subtotalAmount: true,
-        taxAmount: true
+        taxAmount: true,
       },
       _count: {
-        id: true
+        id: true,
       },
       _avg: {
-        totalAmount: true
-      }
+        totalAmount: true,
+      },
     })
   );
 
   // Daily sales breakdown
-  const dailySales = await getDailySalesBreakdown(restaurantId, startDate, endDate);
+  const dailySales = await getDailySalesBreakdown(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   // Sales by category
-  const categorySales = await getCategorySales(restaurantId, startDate, endDate);
+  const categorySales = await getCategorySales(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   // Top selling items
-  const topItems = await getTopSellingItems(restaurantId, startDate, endDate, 10);
+  const topItems = await getTopSellingItems(
+    restaurantId,
+    startDate,
+    endDate,
+    10
+  );
 
   return {
     summary: {
       totalRevenue: Number(salesSummary._sum.totalAmount || 0),
       totalOrders: salesSummary._count.id,
       averageOrderValue: Number(salesSummary._avg.totalAmount || 0),
-      totalTax: Number(salesSummary._sum.taxAmount || 0)
+      totalTax: Number(salesSummary._sum.taxAmount || 0),
     },
     dailyBreakdown: dailySales,
     categoryBreakdown: categorySales,
-    topSellingItems: topItems
+    topSellingItems: topItems,
   };
 }
 
-async function generateMenuReport(restaurantId: string, startDate: Date, endDate: Date, _filters?: Record<string, unknown>) {
+async function generateMenuReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   // Menu performance summary
   const menuItems = await prisma.menuItem.findMany({
     where: {
       category: {
-        restaurantId
-      }
+        restaurantId,
+      },
     },
     include: {
       category: true,
-      orderItems: {
+      items: {
         where: {
           order: {
             createdAt: {
               gte: startDate,
-              lte: endDate
+              lte: endDate,
             },
-            status: 'served'
-          }
-        }
-      }
-    }
+            status: 'served',
+          },
+        },
+      },
+    },
   });
 
-  const menuPerformance = menuItems.map(item => {
-    const orderItems = item.orderItems;
+  const menuPerformance = menuItems.map((item) => {
+    const orderItems = item.items;
     const totalQuantity = orderItems.reduce((sum, oi) => sum + oi.quantity, 0);
-    const totalRevenue = orderItems.reduce((sum, oi) => sum + Number(oi.totalAmount), 0);
+    const totalRevenue = orderItems.reduce(
+      (sum, oi) => sum + Number(oi.totalAmount),
+      0
+    );
 
     return {
       id: item.id,
@@ -255,54 +315,65 @@ async function generateMenuReport(restaurantId: string, startDate: Date, endDate
       revenue: totalRevenue,
       timesOrdered: orderItems.length,
       isAvailable: item.isAvailable,
-      performance: calculateItemPerformance(totalQuantity, totalRevenue, item.price)
+      performance: calculateItemPerformance(
+        totalQuantity,
+        totalRevenue,
+        item.price
+      ),
     };
   });
 
   // Items not ordered
-  const itemsNotOrdered = menuPerformance.filter(item => item.quantitySold === 0);
+  const itemsNotOrdered = menuPerformance.filter(
+    (item) => item.quantitySold === 0
+  );
 
   // Top and bottom performers
   const topPerformers = menuPerformance
-    .filter(item => item.quantitySold > 0)
+    .filter((item) => item.quantitySold > 0)
     .sort((a, b) => b.quantitySold - a.quantitySold)
     .slice(0, 10);
 
   const bottomPerformers = menuPerformance
-    .filter(item => item.quantitySold > 0)
+    .filter((item) => item.quantitySold > 0)
     .sort((a, b) => a.quantitySold - b.quantitySold)
     .slice(0, 10);
 
   return {
     summary: {
       totalMenuItems: menuItems.length,
-      activeItems: menuItems.filter(item => item.isAvailable).length,
-      itemsOrdered: menuPerformance.filter(item => item.quantitySold > 0).length,
-      itemsNotOrdered: itemsNotOrdered.length
+      activeItems: menuItems.filter((item) => item.isAvailable).length,
+      itemsOrdered: menuPerformance.filter((item) => item.quantitySold > 0)
+        .length,
+      itemsNotOrdered: itemsNotOrdered.length,
     },
     itemsNotOrdered,
     topPerformers,
     bottomPerformers,
-    fullMenuPerformance: menuPerformance
+    fullMenuPerformance: menuPerformance,
   };
 }
 
-async function generateFinancialReport(restaurantId: string, startDate: Date, endDate: Date, _filters?: Record<string, unknown>) {
+async function generateFinancialReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   // Revenue analytics
   const revenueData = await prisma.order.aggregate({
     where: {
       restaurantId,
       createdAt: {
         gte: startDate,
-        lte: endDate
+        lte: endDate,
       },
-      status: 'served'
+      status: 'served',
     },
     _sum: {
       totalAmount: true,
       subtotalAmount: true,
-      taxAmount: true
-    }
+      taxAmount: true,
+    },
   });
 
   // Payment method breakdown
@@ -313,17 +384,17 @@ async function generateFinancialReport(restaurantId: string, startDate: Date, en
         restaurantId,
         createdAt: {
           gte: startDate,
-          lte: endDate
-        }
+          lte: endDate,
+        },
       },
-      status: 'completed'
+      status: 'completed',
     },
     _sum: {
-      amount: true
+      amount: true,
     },
     _count: {
-      id: true
-    }
+      id: true,
+    },
   });
 
   // Refunds
@@ -333,118 +404,171 @@ async function generateFinancialReport(restaurantId: string, startDate: Date, en
         restaurantId,
         createdAt: {
           gte: startDate,
-          lte: endDate
-        }
+          lte: endDate,
+        },
       },
       status: {
-        in: ['refunded', 'partially_refunded']
-      }
+        in: ['refunded', 'partially_refunded'],
+      },
     },
     _sum: {
-      amount: true
+      amount: true,
     },
     _count: {
-      id: true
-    }
+      id: true,
+    },
   });
 
   return {
     revenue: {
       gross: Number(revenueData._sum.totalAmount || 0),
       net: Number(revenueData._sum.subtotalAmount || 0),
-      tax: Number(revenueData._sum.taxAmount || 0)
+      tax: Number(revenueData._sum.taxAmount || 0),
     },
-    paymentMethods: paymentMethods.map(pm => ({
+    paymentMethods: paymentMethods.map((pm) => ({
       method: pm.paymentMethod,
       amount: Number(pm._sum.amount || 0),
-      transactions: pm._count.id
+      transactions: pm._count.id,
     })),
     refunds: {
       totalAmount: Number(refundData._sum.amount || 0),
-      totalCount: refundData._count.id
-    }
+      totalCount: refundData._count.id,
+    },
   };
 }
 
-async function generateOperationalReport(restaurantId: string, startDate: Date, endDate: Date, _filters?: Record<string, unknown>) {
+async function generateOperationalReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   // Order processing times
-  const processingTimes = await getOrderProcessingTimes(restaurantId, startDate, endDate);
+  const processingTimes = await getOrderProcessingTimes(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   // Table utilization
-  const tableUtilization = await getTableUtilization(restaurantId, startDate, endDate);
+  const tableUtilization = await getTableUtilization(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   // Peak hours analysis
-  const peakHours = await getPeakHoursAnalysis(restaurantId, startDate, endDate);
+  const peakHours = await getPeakHoursAnalysis(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   // Staff performance (if available)
-  const staffPerformance = await getStaffPerformance(restaurantId, startDate, endDate);
+  const staffPerformance = await getStaffPerformance(
+    restaurantId,
+    startDate,
+    endDate
+  );
 
   return {
     orderProcessing: processingTimes,
     tableUtilization,
     peakHours,
-    staffPerformance
+    staffPerformance,
   };
 }
 
-async function generateCustomerReport(restaurantId: string, startDate: Date, endDate: Date, _filters?: Record<string, unknown>) {
+async function generateCustomerReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   // Customer sessions
   const customerSessions = await prisma.customerSession.findMany({
     where: {
       table: {
-        restaurantId
+        restaurantId,
       },
       startedAt: {
         gte: startDate,
-        lte: endDate
-      }
+        lte: endDate,
+      },
     },
     include: {
       orders: {
         select: {
           totalAmount: true,
-          status: true
-        }
-      }
-    }
+          status: true,
+        },
+      },
+    },
   });
 
   const totalSessions = customerSessions.length;
-  const sessionsWithOrders = customerSessions.filter(s => s.orders.length > 0);
-  const conversionRate = totalSessions > 0 ? (sessionsWithOrders.length / totalSessions) * 100 : 0;
+  const sessionsWithOrders = customerSessions.filter(
+    (s) => s.orders.length > 0
+  );
+  const conversionRate =
+    totalSessions > 0 ? (sessionsWithOrders.length / totalSessions) * 100 : 0;
 
   // Average session value
   const totalSessionValue = sessionsWithOrders.reduce((sum, session) => {
-    return sum + session.orders.reduce((orderSum, order) => orderSum + Number(order.totalAmount), 0);
+    return (
+      sum +
+      session.orders.reduce(
+        (orderSum, order) => orderSum + Number(order.totalAmount),
+        0
+      )
+    );
   }, 0);
 
-  const averageSessionValue = sessionsWithOrders.length > 0 ? totalSessionValue / sessionsWithOrders.length : 0;
+  const averageSessionValue =
+    sessionsWithOrders.length > 0
+      ? totalSessionValue / sessionsWithOrders.length
+      : 0;
 
   return {
     summary: {
       totalSessions,
       sessionsWithOrders: sessionsWithOrders.length,
       conversionRate: Math.round(conversionRate * 100) / 100,
-      averageSessionValue: Math.round(averageSessionValue * 100) / 100
+      averageSessionValue: Math.round(averageSessionValue * 100) / 100,
     },
-    sessionDetails: customerSessions.map(session => ({
+    sessionDetails: customerSessions.map((session) => ({
       sessionId: session.id,
       tableId: session.tableId,
-      duration: session.endedAt ? 
-        Math.round((session.endedAt.getTime() - session.startedAt.getTime()) / 60000) : null,
+      duration: session.endedAt
+        ? Math.round(
+            (session.endedAt.getTime() - session.startedAt.getTime()) / 60000
+          )
+        : null,
       orders: session.orders.length,
-      totalSpent: session.orders.reduce((sum, order) => sum + Number(order.totalAmount), 0)
-    }))
+      totalSpent: session.orders.reduce(
+        (sum, order) => sum + Number(order.totalAmount),
+        0
+      ),
+    })),
   };
 }
 
-async function generateComprehensiveReport(restaurantId: string, startDate: Date, endDate: Date, filters?: Record<string, unknown>) {
-  const [salesReport, menuReport, financialReport, operationalReport, customerReport] = await Promise.all([
+async function generateComprehensiveReport(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date,
+  filters?: Record<string, unknown>
+) {
+  const [
+    salesReport,
+    menuReport,
+    financialReport,
+    operationalReport,
+    customerReport,
+  ] = await Promise.all([
     generateSalesReport(restaurantId, startDate, endDate, filters),
     generateMenuReport(restaurantId, startDate, endDate, filters),
     generateFinancialReport(restaurantId, startDate, endDate, filters),
     generateOperationalReport(restaurantId, startDate, endDate, filters),
-    generateCustomerReport(restaurantId, startDate, endDate, filters)
+    generateCustomerReport(restaurantId, startDate, endDate, filters),
   ]);
 
   return {
@@ -453,46 +577,60 @@ async function generateComprehensiveReport(restaurantId: string, startDate: Date
       total_revenue: salesReport.summary.totalRevenue,
       total_orders: salesReport.summary.totalOrders,
       customer_conversion_rate: customerReport.summary.conversionRate,
-      top_performing_item: salesReport.topSellingItems[0]?.name || 'N/A'
+      top_performing_item: salesReport.topSellingItems[0]?.name || 'N/A',
     },
     sales: salesReport,
     menu: menuReport,
     financial: financialReport,
     operational: operationalReport,
-    customer: customerReport
+    customer: customerReport,
   };
 }
 
 // Helper functions
-async function getDailySalesBreakdown(restaurantId: string, startDate: Date, endDate: Date) {
+async function getDailySalesBreakdown(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   const orders = await prisma.order.findMany({
     where: {
       restaurantId,
       createdAt: {
         gte: startDate,
-        lte: endDate
+        lte: endDate,
       },
-      status: 'served'
+      status: 'served',
     },
     select: {
       createdAt: true,
-      totalAmount: true
-    }
+      totalAmount: true,
+    },
   });
 
   const dailyData = new Map();
-  orders.forEach(order => {
+  orders.forEach((order) => {
     const dateKey = order.createdAt.toISOString().split('T')[0];
-    const existing = dailyData.get(dateKey) || { date: dateKey, revenue: 0, orders: 0 };
+    const existing = dailyData.get(dateKey) || {
+      date: dateKey,
+      revenue: 0,
+      orders: 0,
+    };
     existing.revenue += Number(order.totalAmount);
     existing.orders += 1;
     dailyData.set(dateKey, existing);
   });
 
-  return Array.from(dailyData.values()).sort((a, b) => a.date.localeCompare(b.date));
+  return Array.from(dailyData.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
 }
 
-async function getCategorySales(restaurantId: string, startDate: Date, endDate: Date) {
+async function getCategorySales(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   const categoryData = await prisma.orderItem.groupBy({
     by: ['menuItemId'],
     where: {
@@ -500,38 +638,38 @@ async function getCategorySales(restaurantId: string, startDate: Date, endDate: 
         restaurantId,
         createdAt: {
           gte: startDate,
-          lte: endDate
+          lte: endDate,
         },
-        status: 'served'
-      }
+        status: 'served',
+      },
     },
     _sum: {
       totalAmount: true,
-      quantity: true
-    }
+      quantity: true,
+    },
   });
 
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: {
-        in: categoryData.map(item => item.menuItemId)
-      }
+        in: categoryData.map((item) => item.menuItemId),
+      },
     },
     include: {
-      category: true
-    }
+      category: true,
+    },
   });
 
   const categoryMap = new Map();
-  categoryData.forEach(item => {
-    const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+  categoryData.forEach((item) => {
+    const menuItem = menuItems.find((mi) => mi.id === item.menuItemId);
     if (menuItem?.category) {
       const categoryId = menuItem.category.id;
       const existing = categoryMap.get(categoryId) || {
         categoryId,
         name: menuItem.category.name,
         revenue: 0,
-        quantity: 0
+        quantity: 0,
       };
       existing.revenue += Number(item._sum.totalAmount || 0);
       existing.quantity += item._sum.quantity || 0;
@@ -542,7 +680,12 @@ async function getCategorySales(restaurantId: string, startDate: Date, endDate: 
   return Array.from(categoryMap.values()).sort((a, b) => b.revenue - a.revenue);
 }
 
-async function getTopSellingItems(restaurantId: string, startDate: Date, endDate: Date, limit: number) {
+async function getTopSellingItems(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date,
+  limit: number
+) {
   const topItems = await prisma.orderItem.groupBy({
     by: ['menuItemId'],
     where: {
@@ -550,37 +693,37 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
         restaurantId,
         createdAt: {
           gte: startDate,
-          lte: endDate
+          lte: endDate,
         },
-        status: 'served'
-      }
+        status: 'served',
+      },
     },
     _sum: {
       quantity: true,
-      totalAmount: true
+      totalAmount: true,
     },
     orderBy: {
       _sum: {
-        quantity: 'desc'
-      }
+        quantity: 'desc',
+      },
     },
-    take: limit
+    take: limit,
   });
 
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: {
-        in: topItems.map(item => item.menuItemId)
-      }
-    }
+        in: topItems.map((item) => item.menuItemId),
+      },
+    },
   });
 
-  return topItems.map(item => {
-    const menuItem = menuItems.find(mi => mi.id === item.menuItemId);
+  return topItems.map((item) => {
+    const menuItem = menuItems.find((mi) => mi.id === item.menuItemId);
     return {
       name: menuItem?.name || 'Unknown',
       quantitySold: item._sum.quantity || 0,
-      revenue: Number(item._sum.totalAmount || 0)
+      revenue: Number(item._sum.totalAmount || 0),
     };
   });
 }
@@ -593,89 +736,105 @@ function calculateItemPerformance(quantity: number): string {
   return 'Poor';
 }
 
-async function getOrderProcessingTimes(restaurantId: string, startDate: Date, endDate: Date) {
+async function getOrderProcessingTimes(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   const orders = await prisma.order.findMany({
     where: {
       restaurantId,
       createdAt: {
         gte: startDate,
-        lte: endDate
+        lte: endDate,
       },
       status: 'served',
       confirmedAt: { not: null },
-      servedAt: { not: null }
+      servedAt: { not: null },
     },
     select: {
       confirmedAt: true,
-      servedAt: true
-    }
+      servedAt: true,
+    },
   });
 
-  const processingTimes = orders.map(order => {
-    if (order.confirmedAt && order.servedAt) {
-      return Math.round((order.servedAt.getTime() - order.confirmedAt.getTime()) / 60000);
-    }
-    return null;
-  }).filter(Boolean);
+  const processingTimes = orders
+    .map((order) => {
+      if (order.confirmedAt && order.servedAt) {
+        return Math.round(
+          (order.servedAt.getTime() - order.confirmedAt.getTime()) / 60000
+        );
+      }
+      return null;
+    })
+    .filter(Boolean);
 
-  const averageTime = processingTimes.length > 0 
-    ? processingTimes.reduce((sum, time) => sum + time!, 0) / processingTimes.length 
-    : 0;
+  const averageTime =
+    processingTimes.length > 0
+      ? processingTimes.reduce((sum, time) => sum + time!, 0) /
+        processingTimes.length
+      : 0;
 
   return {
     averageProcessingTime: Math.round(averageTime),
     totalOrders: processingTimes.length,
-    processingTimeDistribution: getTimeDistribution(processingTimes)
+    processingTimeDistribution: getTimeDistribution(processingTimes),
   };
 }
 
-function getTimeDistribution(times: (number | null)[]): Array<{range: string; count: number; percentage: number}> {
+function getTimeDistribution(
+  times: (number | null)[]
+): Array<{ range: string; count: number; percentage: number }> {
   const ranges = [
     { min: 0, max: 15, label: '0-15 min' },
     { min: 15, max: 30, label: '15-30 min' },
     { min: 30, max: 45, label: '30-45 min' },
-    { min: 45, max: Infinity, label: '45+ min' }
+    { min: 45, max: Infinity, label: '45+ min' },
   ];
 
-  return ranges.map(range => {
-    const count = times.filter(time => 
-      time !== null && time >= range.min && time < range.max
+  return ranges.map((range) => {
+    const count = times.filter(
+      (time) => time !== null && time >= range.min && time < range.max
     ).length;
 
     return {
       range: range.label,
       count,
-      percentage: times.length > 0 ? (count / times.length) * 100 : 0
+      percentage: times.length > 0 ? (count / times.length) * 100 : 0,
     };
   });
 }
 
-async function getTableUtilization(_restaurantId: string, _startDate: Date, _endDate: Date) {
+async function getTableUtilization() {
   // This would require more complex logic to track table occupancy
   // For now, return a placeholder structure
   return {
     averageUtilization: 75,
     peakUtilization: 95,
-    lowUtilization: 45
+    lowUtilization: 45,
   };
 }
 
-async function getPeakHoursAnalysis(restaurantId: string, startDate: Date, endDate: Date) {
+async function getPeakHoursAnalysis(
+  restaurantId: string,
+  startDate: Date,
+  endDate: Date
+) {
   const orders = await prisma.order.findMany({
     where: {
       restaurantId,
       createdAt: {
         gte: startDate,
-        lte: endDate
-      }
+        lte: endDate,
+      },
     },
     select: {
-      createdAt: true
-    }
+      createdAt: true,
+    },
   });
 
   const hourCounts = new Array(24).fill(0);
-  orders.forEach(order => {
+  orders.forEach((order) => {
     const hour = order.createdAt.getHours();
     hourCounts[hour]++;
   });
@@ -683,26 +842,29 @@ async function getPeakHoursAnalysis(restaurantId: string, startDate: Date, endDa
   return hourCounts.map((count, hour) => ({
     hour,
     orders: count,
-    period: `${hour.toString().padStart(2, '0')}:00`
+    period: `${hour.toString().padStart(2, '0')}:00`,
   }));
 }
 
-async function getStaffPerformance(_restaurantId: string, _startDate: Date, _endDate: Date) {
+async function getStaffPerformance() {
   // This would track staff-specific metrics
   // For now, return a placeholder
   return {
-    message: 'Staff performance tracking would be implemented here'
+    message: 'Staff performance tracking would be implemented here',
   };
 }
 
-function convertToCSV(data: Record<string, unknown>, reportType: string): string {
+function convertToCSV(
+  data: Record<string, unknown>,
+  reportType: string
+): string {
   let csvContent = '';
-  
+
   if (reportType === 'comprehensive') {
     // Special handling for comprehensive reports
     csvContent = `Report Type,Comprehensive Report\n`;
     csvContent += `Generated,${new Date().toLocaleDateString()}\n\n`;
-    
+
     // Executive Summary
     if (data.executive_summary) {
       csvContent += `Executive Summary\n`;
@@ -712,7 +874,7 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
       csvContent += `Conversion Rate,${data.executive_summary.customer_conversion_rate}%\n`;
       csvContent += `Top Item,${data.executive_summary.top_performing_item}\n\n`;
     }
-    
+
     // Sales Summary
     if (data.sales?.summary) {
       csvContent += `Sales Summary\n`;
@@ -721,17 +883,22 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
       csvContent += `Average Order Value,$${data.sales.summary.averageOrderValue}\n`;
       csvContent += `Total Tax,$${data.sales.summary.totalTax}\n\n`;
     }
-    
+
     // Top Selling Items
     if (data.sales?.topSellingItems) {
       csvContent += `Top Selling Items\n`;
       csvContent += `Rank,Item Name,Quantity Sold,Revenue\n`;
-      data.sales.topSellingItems.forEach((item: {name: string; quantitySold: number; revenue: number}, index: number) => {
-        csvContent += `${index + 1},${item.name},${item.quantitySold},$${item.revenue}\n`;
-      });
+      data.sales.topSellingItems.forEach(
+        (
+          item: { name: string; quantitySold: number; revenue: number },
+          index: number
+        ) => {
+          csvContent += `${index + 1},${item.name},${item.quantitySold},$${item.revenue}\n`;
+        }
+      );
       csvContent += `\n`;
     }
-    
+
     // Menu Performance
     if (data.menu?.summary) {
       csvContent += `Menu Performance\n`;
@@ -740,7 +907,7 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
       csvContent += `Items Ordered,${data.menu.summary.itemsOrdered}\n`;
       csvContent += `Items Not Ordered,${data.menu.summary.itemsNotOrdered}\n\n`;
     }
-    
+
     // Financial Summary
     if (data.financial?.revenue) {
       csvContent += `Financial Summary\n`;
@@ -748,7 +915,7 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
       csvContent += `Net Revenue,$${data.financial.revenue.net}\n`;
       csvContent += `Tax Collected,$${data.financial.revenue.tax}\n\n`;
     }
-    
+
     // Customer Analytics
     if (data.customer?.summary) {
       csvContent += `Customer Analytics\n`;
@@ -757,7 +924,7 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
       csvContent += `Conversion Rate,${data.customer.summary.conversionRate}%\n`;
       csvContent += `Average Session Value,$${data.customer.summary.averageSessionValue}\n`;
     }
-    
+
     return csvContent;
   } else if (reportType === 'sales' && data.summary) {
     // Sales report CSV
@@ -768,33 +935,47 @@ function convertToCSV(data: Record<string, unknown>, reportType: string): string
     csvContent += `Total Orders,${data.summary.totalOrders}\n`;
     csvContent += `Average Order Value,$${data.summary.averageOrderValue}\n`;
     csvContent += `Total Tax,$${data.summary.totalTax}\n\n`;
-    
+
     if (data.topSellingItems) {
       csvContent += `Top Selling Items\n`;
       csvContent += `Rank,Item Name,Quantity Sold,Revenue\n`;
-      data.topSellingItems.forEach((item: {name: string; quantitySold: number; revenue: number}, index: number) => {
-        csvContent += `${index + 1},${item.name},${item.quantitySold},$${item.revenue}\n`;
-      });
+      data.topSellingItems.forEach(
+        (
+          item: { name: string; quantitySold: number; revenue: number },
+          index: number
+        ) => {
+          csvContent += `${index + 1},${item.name},${item.quantitySold},$${item.revenue}\n`;
+        }
+      );
     }
-    
+
     return csvContent;
   } else {
     // Generic CSV conversion for other report types
     const headers = Object.keys(data).join(',');
     const rows = [headers];
-    
-    rows.push(Object.values(data).map(value => 
-      typeof value === 'object' ? JSON.stringify(value) : String(value)
-    ).join(','));
+
+    rows.push(
+      Object.values(data)
+        .map((value) =>
+          typeof value === 'object' ? JSON.stringify(value) : String(value)
+        )
+        .join(',')
+    );
 
     return rows.join('\n');
   }
 }
 
-function generateHTMLReport(data: any, reportType: string, dateRange: { start: Date, end: Date }): string {
-  const title = reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report';
+function generateHTMLReport(
+  data: unknown,
+  reportType: string,
+  dateRange: { start: Date; end: Date }
+): string {
+  const title =
+    reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report';
   const dateStr = `${dateRange.start.toLocaleDateString()} - ${dateRange.end.toLocaleDateString()}`;
-  
+
   let htmlContent = `
     <!DOCTYPE html>
     <html>
@@ -875,9 +1056,16 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
             </thead>
             <tbody>
       `;
-      data.topSellingItems.slice(0, 10).forEach((item: {name: string; quantitySold: number; revenue: number}, index: number) => {
-        htmlContent += `<tr><td>${index + 1}</td><td>${item.name}</td><td>${item.quantitySold}</td><td>$${item.revenue.toFixed(2)}</td></tr>`;
-      });
+      data.topSellingItems
+        .slice(0, 10)
+        .forEach(
+          (
+            item: { name: string; quantitySold: number; revenue: number },
+            index: number
+          ) => {
+            htmlContent += `<tr><td>${index + 1}</td><td>${item.name}</td><td>${item.quantitySold}</td><td>$${item.revenue.toFixed(2)}</td></tr>`;
+          }
+        );
       htmlContent += `</tbody></table></div>`;
     }
 
@@ -891,9 +1079,11 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
             </thead>
             <tbody>
       `;
-      data.dailyBreakdown.forEach((day: {date: string; revenue: number; orders: number}) => {
-        htmlContent += `<tr><td>${new Date(day.date).toLocaleDateString()}</td><td>$${day.revenue.toFixed(2)}</td><td>${day.orders}</td></tr>`;
-      });
+      data.dailyBreakdown.forEach(
+        (day: { date: string; revenue: number; orders: number }) => {
+          htmlContent += `<tr><td>${new Date(day.date).toLocaleDateString()}</td><td>$${day.revenue.toFixed(2)}</td><td>${day.orders}</td></tr>`;
+        }
+      );
       htmlContent += `</tbody></table></div>`;
     }
   } else if (reportType === 'menu' && data.summary) {
@@ -931,9 +1121,22 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
             </thead>
             <tbody>
       `;
-      data.topPerformers.slice(0, 10).forEach((item: {name: string; category: string; price: number; quantitySold: number; revenue: number}, index: number) => {
-        htmlContent += `<tr><td>${index + 1}</td><td>${item.name}</td><td>${item.category}</td><td>$${item.price.toFixed(2)}</td><td>${item.quantitySold}</td><td>$${item.revenue.toFixed(2)}</td></tr>`;
-      });
+      data.topPerformers
+        .slice(0, 10)
+        .forEach(
+          (
+            item: {
+              name: string;
+              category: string;
+              price: number;
+              quantitySold: number;
+              revenue: number;
+            },
+            index: number
+          ) => {
+            htmlContent += `<tr><td>${index + 1}</td><td>${item.name}</td><td>${item.category}</td><td>$${item.price.toFixed(2)}</td><td>${item.quantitySold}</td><td>$${item.revenue.toFixed(2)}</td></tr>`;
+          }
+        );
       htmlContent += `</tbody></table></div>`;
     }
   } else if (reportType === 'financial' && data.revenue) {
@@ -967,10 +1170,15 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
             </thead>
             <tbody>
       `;
-      data.paymentMethods.forEach((method: {method: string; amount: number; transactions: number}) => {
-        const percentage = ((method.amount / data.revenue.gross) * 100).toFixed(1);
-        htmlContent += `<tr><td>${method.method.charAt(0).toUpperCase() + method.method.slice(1)}</td><td>$${method.amount.toFixed(2)}</td><td>${method.transactions}</td><td>${percentage}%</td></tr>`;
-      });
+      data.paymentMethods.forEach(
+        (method: { method: string; amount: number; transactions: number }) => {
+          const percentage = (
+            (method.amount / data.revenue.gross) *
+            100
+          ).toFixed(1);
+          htmlContent += `<tr><td>${method.method.charAt(0).toUpperCase() + method.method.slice(1)}</td><td>$${method.amount.toFixed(2)}</td><td>${method.transactions}</td><td>${percentage}%</td></tr>`;
+        }
+      );
       htmlContent += `</tbody></table></div>`;
     }
   } else if (reportType === 'customer' && data.summary) {
@@ -1024,7 +1232,7 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
         </div>
       `;
     }
-    
+
     if (data.sales?.summary) {
       htmlContent += `
         <div class="section">
@@ -1050,7 +1258,7 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
         </div>
       `;
     }
-    
+
     if (data.menu?.summary) {
       htmlContent += `
         <div class="section">
@@ -1076,7 +1284,7 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
         </div>
       `;
     }
-    
+
     if (data.financial?.revenue) {
       htmlContent += `
         <div class="section">
@@ -1098,7 +1306,7 @@ function generateHTMLReport(data: any, reportType: string, dateRange: { start: D
         </div>
       `;
     }
-    
+
     if (data.customer?.summary) {
       htmlContent += `
         <div class="section">
