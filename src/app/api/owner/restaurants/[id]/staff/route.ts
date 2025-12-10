@@ -5,6 +5,7 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { UserType } from '@/lib/rbac/types';
 import { Sanitizer } from '@/lib/validation';
 import { EmailService } from '@/lib/email';
+import { buildLoginUrl } from '@/lib/url-config';
 
 // GET - Fetch staff for a restaurant
 export async function GET(
@@ -15,8 +16,9 @@ export async function GET(
     const { id: restaurantId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -46,8 +48,8 @@ export async function GET(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.id
-      }
+        ownerId: authResult.user.id,
+      },
     });
 
     if (!restaurant) {
@@ -60,7 +62,7 @@ export async function GET(
     // Fetch staff with their roles
     const staff = await prisma.staff.findMany({
       where: {
-        restaurantId
+        restaurantId,
       },
       include: {
         role: {
@@ -68,26 +70,26 @@ export async function GET(
             id: true,
             name: true,
             description: true,
-            permissions: true
-          }
-        }
+            permissions: true,
+          },
+        },
       },
       orderBy: {
-        createdAt: 'desc'
-      }
+        createdAt: 'desc',
+      },
     });
 
     return NextResponse.json({
       success: true,
-      staff
+      staff,
     });
-
   } catch (error) {
     console.error('Failed to fetch staff:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch staff',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );
@@ -103,8 +105,9 @@ export async function POST(
     const { id: restaurantId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -134,8 +137,8 @@ export async function POST(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.id
-      }
+        ownerId: authResult.user.id,
+      },
     });
 
     if (!restaurant) {
@@ -148,7 +151,14 @@ export async function POST(
     const requestData = await request.json();
 
     // Validate required fields
-    const requiredFields = ['username', 'email', 'firstName', 'lastName', 'roleId', 'tempPassword'];
+    const requiredFields = [
+      'username',
+      'email',
+      'firstName',
+      'lastName',
+      'roleId',
+      'tempPassword',
+    ];
     for (const field of requiredFields) {
       if (!requestData[field]) {
         return NextResponse.json(
@@ -160,7 +170,7 @@ export async function POST(
 
     // Check if username already exists
     const existingUsername = await prisma.staff.findUnique({
-      where: { username: requestData.username }
+      where: { username: requestData.username },
     });
 
     if (existingUsername) {
@@ -172,7 +182,7 @@ export async function POST(
 
     // Check if email already exists
     const existingEmail = await prisma.staff.findUnique({
-      where: { email: requestData.email.toLowerCase() }
+      where: { email: requestData.email.toLowerCase() },
     });
 
     if (existingEmail) {
@@ -184,7 +194,7 @@ export async function POST(
 
     // Validate role exists
     const role = await prisma.staffRole.findUnique({
-      where: { id: requestData.roleId }
+      where: { id: requestData.roleId },
     });
 
     if (!role) {
@@ -195,7 +205,9 @@ export async function POST(
     }
 
     // Hash the temporary password
-    const hashedPassword = await AuthService.hashPassword(requestData.tempPassword);
+    const hashedPassword = await AuthService.hashPassword(
+      requestData.tempPassword
+    );
 
     // Create staff member
     const staff = await prisma.staff.create({
@@ -205,11 +217,13 @@ export async function POST(
         passwordHash: hashedPassword,
         firstName: Sanitizer.sanitizeString(requestData.firstName),
         lastName: Sanitizer.sanitizeString(requestData.lastName),
-        phone: requestData.phone ? Sanitizer.sanitizePhone(requestData.phone) : null,
+        phone: requestData.phone
+          ? Sanitizer.sanitizePhone(requestData.phone)
+          : null,
         restaurantId,
         roleId: requestData.roleId,
         isActive: true,
-        mustChangePassword: true
+        mustChangePassword: true,
       },
       include: {
         role: {
@@ -217,15 +231,15 @@ export async function POST(
             id: true,
             name: true,
             description: true,
-            permissions: true
-          }
-        }
-      }
+            permissions: true,
+          },
+        },
+      },
     });
 
     // Send welcome email to the staff member
     try {
-      const loginUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/login`;
+      const loginUrl = buildLoginUrl(request);
       await EmailService.sendEmail({
         to: staff.email,
         subject: `Welcome to ${restaurant.name} - Your Staff Account`,
@@ -258,7 +272,7 @@ export async function POST(
           
           Best regards,
           The ${restaurant.name} Team
-        `
+        `,
       });
     } catch (emailError) {
       console.error('Failed to send welcome email:', emailError);
@@ -274,16 +288,16 @@ export async function POST(
         email: staff.email,
         firstName: staff.firstName,
         lastName: staff.lastName,
-        role: staff.role
-      }
+        role: staff.role,
+      },
     });
-
   } catch (error) {
     console.error('Failed to create staff:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to create staff',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

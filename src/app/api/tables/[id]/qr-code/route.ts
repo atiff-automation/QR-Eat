@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { generateQRCodeImage, generateQRCodeSVG } from '@/lib/qr-utils';
+import { buildQrCodeUrl } from '@/lib/url-config';
 
 export async function GET(
   request: NextRequest,
@@ -9,8 +10,9 @@ export async function GET(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -75,12 +77,8 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Generate QR code URL
-    const baseUrl =
-      request.headers.get('origin') ||
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      'http://localhost:3000';
-    const qrUrl = `${baseUrl}/qr/${table.qrCodeToken}`;
+    // Generate QR code URL using centralized configuration
+    const qrUrl = buildQrCodeUrl(table.qrCodeToken, request);
 
     if (format === 'svg') {
       // Generate SVG QR code

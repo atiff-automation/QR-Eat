@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { v4 as uuidv4 } from 'uuid';
+import { buildQrCodeUrl } from '@/lib/url-config';
 
 export async function POST(
   request: NextRequest,
@@ -9,9 +10,10 @@ export async function POST(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value || 
-                  request.cookies.get('qr_auth_token')?.value;
-    
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -20,7 +22,7 @@ export async function POST(
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
-    
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -34,23 +36,19 @@ export async function POST(
     const currentTable = await prisma.table.findUnique({
       where: { id: tableId },
       include: {
-        restaurant: true
-      }
+        restaurant: true,
+      },
     });
 
     if (!currentTable) {
-      return NextResponse.json(
-        { error: 'Table not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
     // Check if user has permission to update this table
-    if (currentTable.restaurantId !== authResult.user.currentRole.restaurantId) {
-      return NextResponse.json(
-        { error: 'Access denied' },
-        { status: 403 }
-      );
+    if (
+      currentTable.restaurantId !== authResult.user.currentRole.restaurantId
+    ) {
+      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Generate new QR code token
@@ -61,8 +59,8 @@ export async function POST(
       where: { id: tableId },
       data: {
         qrCodeToken: newQrCodeToken,
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     // Log the QR code regeneration
@@ -74,23 +72,22 @@ export async function POST(
         oldValues: { qrCodeToken: currentTable.qrCodeToken },
         newValues: { qrCodeToken: newQrCodeToken },
         changedBy: authResult.user.id,
-        ipAddress: request.headers.get('x-forwarded-for') || 
-                   request.headers.get('x-real-ip') ||
-                   'unknown'
-      }
+        ipAddress:
+          request.headers.get('x-forwarded-for') ||
+          request.headers.get('x-real-ip') ||
+          'unknown',
+      },
     });
 
-    // Generate the new QR URL
-    const baseUrl = request.headers.get('origin') || process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
-    const qrUrl = `${baseUrl}/qr/${newQrCodeToken}`;
+    // Generate the new QR URL using centralized configuration
+    const qrUrl = buildQrCodeUrl(newQrCodeToken, request);
 
     return NextResponse.json({
       success: true,
       table: updatedTable,
       qrUrl,
-      message: 'QR code regenerated successfully'
+      message: 'QR code regenerated successfully',
     });
-
   } catch (error) {
     console.error('Failed to regenerate QR code:', error);
     return NextResponse.json(
