@@ -11,6 +11,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 import { pgPubSub, PG_EVENTS } from '@/lib/postgres-pubsub';
 import { EventPersistenceService } from '@/lib/event-persistence';
+import {
+  SSE_KEEP_ALIVE_INTERVAL_MS,
+  SSE_RESPONSE_HEADERS,
+  SSE_EVENT_TYPES,
+} from '@/lib/constants/sse';
 
 // Connection tracking types
 interface ActiveConnection {
@@ -81,7 +86,7 @@ export async function GET(request: NextRequest) {
 
         // Send initial connection message
         const initialMessage = {
-          type: 'connection',
+          type: SSE_EVENT_TYPES.CONNECTION,
           data: {
             connectionId,
             timestamp: Date.now(),
@@ -99,7 +104,8 @@ export async function GET(request: NextRequest) {
         // Set up PostgreSQL LISTEN subscription for this connection
         setupPostgresSubscription(connectionId);
 
-        // Send keep-alive ping every 30 seconds
+        // Send keep-alive ping to prevent proxy/load balancer timeout
+        // Uses industry standard interval (15s) to stay within typical proxy timeouts (20-30s)
         const keepAliveInterval = setInterval(() => {
           try {
             controller.enqueue(`: ping\n\n`);
@@ -107,7 +113,7 @@ export async function GET(request: NextRequest) {
             clearInterval(keepAliveInterval);
             cleanup(connectionId);
           }
-        }, 30000);
+        }, SSE_KEEP_ALIVE_INTERVAL_MS);
 
         // Store interval for cleanup
         const conn = activeConnections.get(connectionId);
@@ -120,15 +126,10 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Return SSE response
+    // Return SSE response with HTTP/2-compliant headers
+    // Note: Connection header is FORBIDDEN in HTTP/2 (RFC 7540 Section 8.1.2.2)
     return new Response(stream, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Cache-Control',
-      },
+      headers: SSE_RESPONSE_HEADERS,
     });
   } catch (error) {
     console.error('SSE setup error:', error);
@@ -312,15 +313,15 @@ function checkEventPermission(
 function getEventType(channel: string): string {
   switch (channel) {
     case PG_EVENTS.ORDER_STATUS_CHANGED:
-      return 'order_status_changed';
+      return SSE_EVENT_TYPES.ORDER_STATUS_CHANGED;
     case PG_EVENTS.ORDER_CREATED:
-      return 'order_created';
+      return SSE_EVENT_TYPES.ORDER_CREATED;
     case PG_EVENTS.ORDER_ITEM_STATUS_CHANGED:
-      return 'order_item_status_changed';
+      return SSE_EVENT_TYPES.ORDER_ITEM_STATUS_CHANGED;
     case PG_EVENTS.KITCHEN_NOTIFICATION:
-      return 'kitchen_notification';
+      return SSE_EVENT_TYPES.KITCHEN_NOTIFICATION;
     case PG_EVENTS.RESTAURANT_NOTIFICATION:
-      return 'restaurant_notification';
+      return SSE_EVENT_TYPES.RESTAURANT_NOTIFICATION;
     default:
       return 'unknown';
   }
