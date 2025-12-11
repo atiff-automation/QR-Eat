@@ -59,11 +59,28 @@ export class ApiClientError extends Error {
 export class ApiClient {
   private static baseUrl = API_CONFIG.BASE_URL;
 
+  // Token expiration tracking for automatic refresh
+  private static tokenExpiresAt: Date | null = null;
+  private static refreshInProgress = false;
+  private static refreshPromise: Promise<void> | null = null;
+
+  // Refresh token 5 minutes before expiration
+  private static readonly TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+
+  // 401 retry tracking (prevent infinite retry loops)
+  private static readonly MAX_RETRY_ATTEMPTS = 1;
+  private static retryAttempts = new Map<string, number>();
+
   /**
    * Build URL with query parameters
    */
-  private static buildUrl(endpoint: string, params?: Record<string, string | number | boolean | undefined>): string {
-    const url = endpoint.startsWith('/api') ? endpoint : `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
+  private static buildUrl(
+    endpoint: string,
+    params?: Record<string, string | number | boolean | undefined>
+  ): string {
+    const url = endpoint.startsWith('/api')
+      ? endpoint
+      : `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
     if (!params) return url;
 
@@ -79,6 +96,136 @@ export class ApiClient {
   }
 
   /**
+   * Set token expiration time (called after successful login or token refresh)
+   */
+  static setTokenExpiration(expiresAt: Date | string) {
+    this.tokenExpiresAt =
+      typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
+  }
+
+  /**
+   * Clear token expiration (called on logout)
+   */
+  static clearTokenExpiration() {
+    this.tokenExpiresAt = null;
+    this.refreshInProgress = false;
+    this.refreshPromise = null;
+  }
+
+  /**
+   * Check if token needs refresh
+   */
+  private static needsTokenRefresh(): boolean {
+    if (!this.tokenExpiresAt) return false;
+
+    const now = new Date();
+    const expiresAt = new Date(this.tokenExpiresAt);
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
+
+    // Refresh if token expires within threshold (5 minutes)
+    return (
+      timeUntilExpiry <= this.TOKEN_REFRESH_THRESHOLD_MS && timeUntilExpiry > 0
+    );
+  }
+
+  /**
+   * Refresh access token using refresh token
+   * Prevents concurrent refresh requests by using a shared promise
+   */
+  private static async refreshTokenIfNeeded(): Promise<void> {
+    // Don't refresh if not needed or if already refreshing
+    if (!this.needsTokenRefresh()) return;
+
+    // If already refreshing, wait for that refresh to complete
+    if (this.refreshInProgress && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    // Start new refresh
+    this.refreshInProgress = true;
+    this.refreshPromise = (async () => {
+      try {
+        // Call refresh endpoint (skip our own interceptor to avoid infinite loop)
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          // Refresh failed - clear token and redirect to login
+          this.clearTokenExpiration();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/auth/login';
+          }
+          throw new ApiClientError('Session expired', 401);
+        }
+
+        const data = (await response.json()) as {
+          success: boolean;
+          tokenExpiration?: { accessToken: string };
+        };
+
+        // Update token expiration time
+        if (data.success && data.tokenExpiration?.accessToken) {
+          this.setTokenExpiration(data.tokenExpiration.accessToken);
+        }
+      } catch (error) {
+        this.clearTokenExpiration();
+        throw error;
+      } finally {
+        this.refreshInProgress = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
+   * Force token refresh (used by 401 interceptor)
+   * Called when we receive a 401 error to attempt recovery
+   */
+  private static async forceTokenRefresh(): Promise<void> {
+    // If already refreshing, wait for that refresh to complete
+    if (this.refreshInProgress && this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    // Start new refresh
+    this.refreshInProgress = true;
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!response.ok) {
+          this.clearTokenExpiration();
+          throw new ApiClientError('Session expired', 401);
+        }
+
+        const data = (await response.json()) as {
+          success: boolean;
+          tokenExpiration?: { accessToken: string };
+        };
+
+        if (data.success && data.tokenExpiration?.accessToken) {
+          this.setTokenExpiration(data.tokenExpiration.accessToken);
+        }
+      } catch (error) {
+        this.clearTokenExpiration();
+        throw error;
+      } finally {
+        this.refreshInProgress = false;
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
+  /**
    * Make an API request with automatic credential inclusion
    * Throws ApiClientError on failure (standard JavaScript pattern)
    */
@@ -86,13 +233,32 @@ export class ApiClient {
     endpoint: string,
     options: ApiRequestOptions = {}
   ): Promise<T> {
-    const { params, timeout = API_CONFIG.DEFAULT_TIMEOUT, ...fetchOptions } = options;
+    const {
+      params,
+      timeout = API_CONFIG.DEFAULT_TIMEOUT,
+      ...fetchOptions
+    } = options;
+
+    // Automatically refresh token if needed (skip for auth endpoints to avoid loops)
+    if (
+      !endpoint.includes('/api/auth/refresh') &&
+      !endpoint.includes('/api/auth/login')
+    ) {
+      try {
+        await this.refreshTokenIfNeeded();
+      } catch (error) {
+        // If refresh fails, let the request proceed (will handle 401 in Phase 6)
+        console.error('Token refresh failed:', error);
+      }
+    }
 
     // Build URL with query parameters
     const url = this.buildUrl(endpoint, params);
 
     // Build headers: Don't set Content-Type for FormData (browser sets it with boundary)
-    const headers: HeadersInit = { ...fetchOptions.headers };
+    const headers: Record<string, string> = {
+      ...((fetchOptions.headers as Record<string, string>) || {}),
+    };
 
     // Only set Content-Type for JSON if body is not FormData
     const isFormData = fetchOptions.body instanceof FormData;
@@ -134,9 +300,54 @@ export class ApiClient {
 
       // Handle error responses - throw error (standard JavaScript pattern)
       if (!response.ok) {
-        const errorMessage = (data as ApiError)?.message || (data as ApiError)?.error || 'Request failed';
+        // Special handling for 401 Unauthorized - attempt token refresh and retry
+        if (response.status === 401 && !endpoint.includes('/api/auth/')) {
+          const requestKey = `${endpoint}:${JSON.stringify(options)}`;
+          const attempts = this.retryAttempts.get(requestKey) || 0;
+
+          // Only retry once to prevent infinite loops
+          if (attempts < this.MAX_RETRY_ATTEMPTS) {
+            this.retryAttempts.set(requestKey, attempts + 1);
+
+            try {
+              // Force token refresh
+              await this.forceTokenRefresh();
+
+              // Retry the original request
+              const retryResult = await this.request<T>(endpoint, options);
+
+              // Clear retry counter on success
+              this.retryAttempts.delete(requestKey);
+
+              return retryResult;
+            } catch {
+              // Clear retry counter and fall through to throw original error
+              this.retryAttempts.delete(requestKey);
+
+              // Redirect to login if refresh fails
+              if (typeof window !== 'undefined') {
+                window.location.href = '/auth/login';
+              }
+            }
+          } else {
+            // Max retries exceeded - clear counter and redirect to login
+            this.retryAttempts.delete(requestKey);
+            if (typeof window !== 'undefined') {
+              window.location.href = '/auth/login';
+            }
+          }
+        }
+
+        const errorMessage =
+          (data as ApiError)?.message ||
+          (data as ApiError)?.error ||
+          'Request failed';
         throw new ApiClientError(errorMessage, response.status, data);
       }
+
+      // Clear retry counter on successful response
+      const requestKey = `${endpoint}:${JSON.stringify(options)}`;
+      this.retryAttempts.delete(requestKey);
 
       // Return data directly (not wrapped in response object)
       return data;
@@ -149,12 +360,21 @@ export class ApiClient {
 
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
-          throw new ApiClientError(API_ERROR_MESSAGES.TIMEOUT, API_CONFIG.HTTP_STATUS.TIMEOUT);
+          throw new ApiClientError(
+            API_ERROR_MESSAGES.TIMEOUT,
+            API_CONFIG.HTTP_STATUS.TIMEOUT
+          );
         }
-        throw new ApiClientError(error.message, API_CONFIG.HTTP_STATUS.INTERNAL_SERVER_ERROR);
+        throw new ApiClientError(
+          error.message,
+          API_CONFIG.HTTP_STATUS.INTERNAL_SERVER_ERROR
+        );
       }
 
-      throw new ApiClientError(API_ERROR_MESSAGES.UNKNOWN_ERROR, API_CONFIG.HTTP_STATUS.INTERNAL_SERVER_ERROR);
+      throw new ApiClientError(
+        API_ERROR_MESSAGES.UNKNOWN_ERROR,
+        API_CONFIG.HTTP_STATUS.INTERNAL_SERVER_ERROR
+      );
     }
   }
 

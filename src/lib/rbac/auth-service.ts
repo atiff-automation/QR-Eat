@@ -1,6 +1,6 @@
 /**
  * Enhanced Authentication Service V2 for RBAC
- * 
+ *
  * This file implements the new authentication service that integrates with the RBAC system
  * and replaces the problematic multi-cookie authentication approach.
  */
@@ -12,19 +12,13 @@ import { SecurityUtils } from '../security';
 import {
   EnhancedJWTPayload,
   EnhancedAuthenticatedUser,
-  EnhancedAuthResult,
   UserRole,
   RestaurantContext,
   UserType,
-  RoleSwitchRequest,
-  RoleSwitchResult,
-  RBAC_CONSTANTS,
   RBACError,
   InvalidTokenError,
   SessionExpiredError,
   PermissionDeniedError,
-  isValidUserType,
-  isValidRoleTemplate
 } from './types';
 import { EnhancedJWTService } from './jwt';
 import { PermissionManager } from './permissions';
@@ -82,13 +76,12 @@ export class AuthServiceV2 {
   ): Promise<AuthenticationResult> {
     try {
       // Validate credentials using existing auth service
-      const authenticatedUser = await AuthService.authenticateUser(email, password);
+      const authenticatedUser = await AuthService.authenticateUser(
+        email,
+        password
+      );
       if (!authenticatedUser) {
-        throw new RBACError(
-          'Invalid credentials',
-          'INVALID_CREDENTIALS',
-          401
-        );
+        throw new RBACError('Invalid credentials', 'INVALID_CREDENTIALS', 401);
       }
 
       // Get user details based on type
@@ -106,7 +99,10 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.PLATFORM_ADMIN;
-          mustChangePassword = authenticatedUser.user.mustChangePassword || false;
+          mustChangePassword =
+            ('mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword) ||
+            false;
           break;
         case UserType.RESTAURANT_OWNER:
           userId = authenticatedUser.user.id;
@@ -114,7 +110,10 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.RESTAURANT_OWNER;
-          mustChangePassword = authenticatedUser.user.mustChangePassword || false;
+          mustChangePassword =
+            ('mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword) ||
+            false;
           break;
         case UserType.STAFF:
           userId = authenticatedUser.user.id;
@@ -122,19 +121,21 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.STAFF;
-          mustChangePassword = authenticatedUser.user.mustChangePassword || false;
+          mustChangePassword =
+            ('mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword) ||
+            false;
           break;
         default:
-          throw new RBACError(
-            'Invalid user type',
-            'INVALID_USER_TYPE',
-            400
-          );
+          throw new RBACError('Invalid user type', 'INVALID_USER_TYPE', 400);
       }
 
       // Get all available roles for this user
-      const availableRoles = await this.getUserAvailableRoles(userId, restaurantSlug);
-      
+      const availableRoles = await this.getUserAvailableRoles(
+        userId,
+        restaurantSlug
+      );
+
       if (availableRoles.length === 0) {
         throw new RBACError(
           'No active roles found for user',
@@ -144,13 +145,17 @@ export class AuthServiceV2 {
       }
 
       // Select default role (highest privilege or restaurant-specific)
-      const defaultRole = this.selectDefaultRole(availableRoles, restaurantSlug);
+      const defaultRole = this.selectDefaultRole(
+        availableRoles,
+        restaurantSlug
+      );
 
       // Compute permissions for default role
-      const permissions = await PermissionManager.computeUserPermissions(userId);
+      const permissions =
+        await PermissionManager.computeUserPermissions(userId);
 
       // Get restaurant context if applicable
-      const restaurantContext = defaultRole.restaurantId 
+      const restaurantContext = defaultRole.restaurantId
         ? await this.getRestaurantContext(defaultRole.restaurantId)
         : undefined;
 
@@ -161,7 +166,7 @@ export class AuthServiceV2 {
         restaurantContextId: defaultRole.restaurantId,
         permissions,
         ipAddress,
-        userAgent
+        userAgent,
       };
 
       const session = await SessionManager.createSession(sessionParams);
@@ -179,7 +184,7 @@ export class AuthServiceV2 {
         permissions,
         isActive: true,
         lastLoginAt: new Date(),
-        mustChangePassword
+        mustChangePassword,
       };
 
       // Generate JWT token
@@ -204,8 +209,8 @@ export class AuthServiceV2 {
           restaurantId: defaultRole.restaurantId,
           metadata: {
             userType,
-            loginMethod: 'password'
-          }
+            loginMethod: 'password',
+          },
         }
       );
 
@@ -215,11 +220,11 @@ export class AuthServiceV2 {
         session: {
           id: session.id,
           sessionId: session.sessionId,
-          expiresAt: session.expiresAt
+          expiresAt: session.expiresAt,
         },
         currentRole: defaultRole,
         availableRoles,
-        permissions
+        permissions,
       };
     } catch (error) {
       // Log failed authentication
@@ -230,8 +235,8 @@ export class AuthServiceV2 {
           ipAddress,
           userAgent,
           metadata: {
-            attemptedRestaurant: restaurantSlug
-          }
+            attemptedRestaurant: restaurantSlug,
+          },
         }
       );
 
@@ -261,26 +266,28 @@ export class AuthServiceV2 {
       if (!session) {
         return {
           success: false,
-          error: 'Invalid session'
+          error: 'Invalid session',
         };
       }
 
       // Validate new role is available to user
       const availableRoles = await this.getUserAvailableRoles(session.userId);
-      const newRole = availableRoles.find(role => role.id === newRoleId);
+      const newRole = availableRoles.find((role) => role.id === newRoleId);
 
       if (!newRole) {
         return {
           success: false,
-          error: 'Role not available for user'
+          error: 'Role not available for user',
         };
       }
 
       // Compute new permissions
-      const newPermissions = await PermissionManager.computeUserPermissions(session.userId);
+      const newPermissions = await PermissionManager.computeUserPermissions(
+        session.userId
+      );
 
       // Get restaurant context for new role
-      const restaurantContext = newRole.restaurantId 
+      const restaurantContext = newRole.restaurantId
         ? await this.getRestaurantContext(newRole.restaurantId)
         : undefined;
 
@@ -288,7 +295,7 @@ export class AuthServiceV2 {
       await SessionManager.updateSession(sessionId, {
         currentRoleId: newRoleId,
         restaurantContextId: newRole.restaurantId,
-        permissions: newPermissions
+        permissions: newPermissions,
       });
 
       // Get user details for token generation
@@ -296,7 +303,7 @@ export class AuthServiceV2 {
       if (!userDetails) {
         return {
           success: false,
-          error: 'User not found'
+          error: 'User not found',
         };
       }
 
@@ -311,7 +318,7 @@ export class AuthServiceV2 {
         availableRoles,
         restaurantContext,
         permissions: newPermissions,
-        isActive: true
+        isActive: true,
       };
 
       // Generate new token
@@ -334,8 +341,8 @@ export class AuthServiceV2 {
           restaurantId: newRole.restaurantId,
           metadata: {
             fromTemplate: session.currentRoleId,
-            toTemplate: newRole.roleTemplate
-          }
+            toTemplate: newRole.roleTemplate,
+          },
         }
       );
 
@@ -344,12 +351,12 @@ export class AuthServiceV2 {
         token: newToken,
         currentRole: newRole,
         permissions: newPermissions,
-        restaurantContext
+        restaurantContext,
       };
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Role switch failed'
+        error: error instanceof Error ? error.message : 'Role switch failed',
       };
     }
   }
@@ -360,9 +367,12 @@ export class AuthServiceV2 {
   static async validateToken(token: string): Promise<TokenValidationResult> {
     try {
       if (process.env.NODE_ENV === 'development') {
-        console.log('🔍 AuthServiceV2.validateToken: Starting validation for token:', token.substring(0, 20) + '...');
+        console.log(
+          '🔍 AuthServiceV2.validateToken: Starting validation for token:',
+          token.substring(0, 20) + '...'
+        );
       }
-      
+
       // Verify JWT token
       const payload = await EnhancedJWTService.verifyToken(token);
 
@@ -371,7 +381,7 @@ export class AuthServiceV2 {
       if (!session) {
         return {
           isValid: false,
-          error: 'Session not found or expired'
+          error: 'Session not found or expired',
         };
       }
 
@@ -380,7 +390,7 @@ export class AuthServiceV2 {
       if (!user) {
         return {
           isValid: false,
-          error: 'User not found or inactive'
+          error: 'User not found or inactive',
         };
       }
 
@@ -394,33 +404,37 @@ export class AuthServiceV2 {
         session: {
           id: session.id,
           sessionId: session.sessionId,
-          expiresAt: session.expiresAt
-        }
+          expiresAt: session.expiresAt,
+        },
       };
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
         console.log('🚫 AuthServiceV2.validateToken: Caught error:', {
-          errorType: error.constructor.name,
-          message: error.message,
-          stack: error.stack?.split('\n').slice(0, 5)
+          errorType:
+            error instanceof Error ? error.constructor.name : 'unknown',
+          message: error instanceof Error ? error.message : String(error),
+          stack:
+            error instanceof Error
+              ? error.stack?.split('\n').slice(0, 5)
+              : undefined,
         });
       }
-      
+
       if (error instanceof SessionExpiredError) {
         return {
           isValid: false,
-          error: 'Session expired'
+          error: 'Session expired',
         };
       }
       if (error instanceof InvalidTokenError) {
         return {
           isValid: false,
-          error: 'Invalid token'
+          error: 'Invalid token',
         };
       }
       return {
         isValid: false,
-        error: 'Token validation failed'
+        error: 'Token validation failed',
       };
     }
   }
@@ -434,23 +448,100 @@ export class AuthServiceV2 {
     userAgent?: string
   ): Promise<string> {
     try {
-      return await EnhancedJWTService.refreshToken(currentToken, ipAddress, userAgent);
+      return await EnhancedJWTService.refreshToken(
+        currentToken,
+        ipAddress,
+        userAgent
+      );
     } catch (error) {
       if (error instanceof RBACError) {
         throw error;
       }
-      throw new RBACError(
-        'Token refresh failed',
-        'TOKEN_REFRESH_FAILED',
-        401
+      throw new RBACError('Token refresh failed', 'TOKEN_REFRESH_FAILED', 401);
+    }
+  }
+
+  /**
+   * Generate new access token from existing session
+   * Used by refresh token flow to create new access tokens without re-authentication
+   */
+  static async generateTokenFromSession(
+    sessionId: string,
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<string | null> {
+    try {
+      // Retrieve session from database
+      const session = await SessionManager.getSession(sessionId);
+      if (!session) {
+        return null;
+      }
+
+      // Validate session is not expired
+      if (session.expiresAt < new Date()) {
+        return null;
+      }
+
+      // Get user details
+      const userDetails = await this.getUserDetails(session.userId);
+      if (!userDetails) {
+        return null;
+      }
+
+      // Get current role from session
+      const availableRoles = await this.getUserAvailableRoles(session.userId);
+      const currentRole = availableRoles.find(
+        (role) => role.id === session.currentRoleId
       );
+
+      if (!currentRole) {
+        return null;
+      }
+
+      // Get restaurant context if applicable
+      const restaurantContext = session.restaurantContextId
+        ? await this.getRestaurantContext(session.restaurantContextId)
+        : undefined;
+
+      // Create enhanced user object for token generation
+      const enhancedUser: EnhancedAuthenticatedUser = {
+        id: session.userId,
+        email: userDetails.email,
+        firstName: userDetails.firstName,
+        lastName: userDetails.lastName,
+        userType: userDetails.userType,
+        currentRole,
+        availableRoles,
+        restaurantContext,
+        permissions: session.permissions,
+        isActive: true,
+      };
+
+      // Generate new JWT token with existing session context
+      const newToken = await EnhancedJWTService.generateToken(
+        enhancedUser,
+        sessionId,
+        ipAddress,
+        userAgent
+      );
+
+      // Update session last activity
+      await SessionManager.updateLastActivity(sessionId);
+
+      return newToken;
+    } catch (error) {
+      console.error('Failed to generate token from session:', error);
+      return null;
     }
   }
 
   /**
    * Logout user
    */
-  static async logout(sessionId: string, context?: { ipAddress?: string; userAgent?: string }): Promise<void> {
+  static async logout(
+    sessionId: string,
+    context?: { ipAddress?: string; userAgent?: string }
+  ): Promise<void> {
     try {
       // Get session info for logging
       const session = await SessionManager.getSession(sessionId);
@@ -460,19 +551,15 @@ export class AuthServiceV2 {
 
       // Log logout
       if (session) {
-        await AuditLogger.logLogout(
-          session.userId,
-          sessionId,
-          {
-            ipAddress: context?.ipAddress,
-            userAgent: context?.userAgent,
-            metadata: {
-              sessionDuration: Date.now() - session.lastActivity.getTime()
-            }
-          }
-        );
+        await AuditLogger.logLogout(session.userId, sessionId, {
+          ipAddress: context?.ipAddress,
+          userAgent: context?.userAgent,
+          metadata: {
+            sessionDuration: Date.now() - session.lastActivity.getTime(),
+          },
+        });
       }
-    } catch (error) {
+    } catch {
       // Silent fail for logout - not critical
     }
   }
@@ -483,7 +570,7 @@ export class AuthServiceV2 {
   static async logoutAll(userId: string): Promise<void> {
     try {
       await SessionManager.invalidateAllUserSessions(userId);
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to logout all sessions',
         'LOGOUT_ALL_FAILED',
@@ -506,18 +593,18 @@ export class AuthServiceV2 {
       if (restaurantSlug) {
         const restaurant = await prisma.restaurant.findUnique({
           where: { slug: restaurantSlug },
-          select: { id: true, isActive: true }
+          select: { id: true, isActive: true },
         });
 
         if (restaurant && restaurant.isActive) {
-          availableRoles = availableRoles.filter(role => 
-            role.restaurantId === restaurant.id || !role.restaurantId
+          availableRoles = availableRoles.filter(
+            (role) => role.restaurantId === restaurant.id || !role.restaurantId
           );
         }
       }
 
       return availableRoles;
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get user roles',
         'GET_USER_ROLES_FAILED',
@@ -535,34 +622,40 @@ export class AuthServiceV2 {
   ): UserRole {
     // Priority order: platform_admin > restaurant_owner > manager > kitchen_staff
     const rolePriority = {
-      'platform_admin': 4,
-      'restaurant_owner': 3,
-      'manager': 2,
-      'kitchen_staff': 1
+      platform_admin: 4,
+      restaurant_owner: 3,
+      manager: 2,
+      kitchen_staff: 1,
     };
 
     // If restaurant slug provided, prefer roles for that restaurant
     if (restaurantSlug) {
-      const restaurantRoles = availableRoles.filter(role => role.restaurantId);
+      const restaurantRoles = availableRoles.filter(
+        (role) => role.restaurantId
+      );
       if (restaurantRoles.length > 0) {
-        return restaurantRoles.sort((a, b) => 
-          (rolePriority[b.roleTemplate as keyof typeof rolePriority] || 0) - 
-          (rolePriority[a.roleTemplate as keyof typeof rolePriority] || 0)
+        return restaurantRoles.sort(
+          (a, b) =>
+            (rolePriority[b.roleTemplate as keyof typeof rolePriority] || 0) -
+            (rolePriority[a.roleTemplate as keyof typeof rolePriority] || 0)
         )[0];
       }
     }
 
     // Otherwise, select highest priority role
-    return availableRoles.sort((a, b) => 
-      (rolePriority[b.roleTemplate as keyof typeof rolePriority] || 0) - 
-      (rolePriority[a.roleTemplate as keyof typeof rolePriority] || 0)
+    return availableRoles.sort(
+      (a, b) =>
+        (rolePriority[b.roleTemplate as keyof typeof rolePriority] || 0) -
+        (rolePriority[a.roleTemplate as keyof typeof rolePriority] || 0)
     )[0];
   }
 
   /**
    * Get restaurant context
    */
-  static async getRestaurantContext(restaurantId: string): Promise<RestaurantContext> {
+  static async getRestaurantContext(
+    restaurantId: string
+  ): Promise<RestaurantContext> {
     try {
       const restaurant = await prisma.restaurant.findUnique({
         where: { id: restaurantId },
@@ -572,8 +665,8 @@ export class AuthServiceV2 {
           slug: true,
           isActive: true,
           timezone: true,
-          currency: true
-        }
+          currency: true,
+        },
       });
 
       if (!restaurant) {
@@ -590,7 +683,7 @@ export class AuthServiceV2 {
         slug: restaurant.slug,
         isActive: restaurant.isActive,
         timezone: restaurant.timezone,
-        currency: restaurant.currency
+        currency: restaurant.currency,
       };
     } catch (error) {
       if (error instanceof RBACError) {
@@ -617,7 +710,7 @@ export class AuthServiceV2 {
       // Try platform admin first
       const platformAdmin = await prisma.platformAdmin.findUnique({
         where: { id: userId },
-        select: { email: true, firstName: true, lastName: true }
+        select: { email: true, firstName: true, lastName: true },
       });
 
       if (platformAdmin) {
@@ -625,14 +718,14 @@ export class AuthServiceV2 {
           email: platformAdmin.email,
           firstName: platformAdmin.firstName,
           lastName: platformAdmin.lastName,
-          userType: UserType.PLATFORM_ADMIN
+          userType: UserType.PLATFORM_ADMIN,
         };
       }
 
       // Try restaurant owner
       const restaurantOwner = await prisma.restaurantOwner.findUnique({
         where: { id: userId },
-        select: { email: true, firstName: true, lastName: true }
+        select: { email: true, firstName: true, lastName: true },
       });
 
       if (restaurantOwner) {
@@ -640,14 +733,14 @@ export class AuthServiceV2 {
           email: restaurantOwner.email,
           firstName: restaurantOwner.firstName,
           lastName: restaurantOwner.lastName,
-          userType: UserType.RESTAURANT_OWNER
+          userType: UserType.RESTAURANT_OWNER,
         };
       }
 
       // Try staff
       const staff = await prisma.staff.findUnique({
         where: { id: userId },
-        select: { email: true, firstName: true, lastName: true }
+        select: { email: true, firstName: true, lastName: true },
       });
 
       if (staff) {
@@ -655,12 +748,12 @@ export class AuthServiceV2 {
           email: staff.email,
           firstName: staff.firstName,
           lastName: staff.lastName,
-          userType: UserType.STAFF
+          userType: UserType.STAFF,
         };
       }
 
       return null;
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -668,7 +761,10 @@ export class AuthServiceV2 {
   /**
    * Update last login time for user
    */
-  static async updateLastLoginTime(userId: string, userType: UserType): Promise<void> {
+  static async updateLastLoginTime(
+    userId: string,
+    userType: UserType
+  ): Promise<void> {
     try {
       const now = new Date();
 
@@ -676,23 +772,23 @@ export class AuthServiceV2 {
         case UserType.PLATFORM_ADMIN:
           await prisma.platformAdmin.update({
             where: { id: userId },
-            data: { lastLoginAt: now }
+            data: { lastLoginAt: now },
           });
           break;
         case UserType.RESTAURANT_OWNER:
           await prisma.restaurantOwner.update({
             where: { id: userId },
-            data: { lastLoginAt: now }
+            data: { lastLoginAt: now },
           });
           break;
         case UserType.STAFF:
           await prisma.staff.update({
             where: { id: userId },
-            data: { lastLoginAt: now }
+            data: { lastLoginAt: now },
           });
           break;
       }
-    } catch (error) {
+    } catch {
       // Silent fail - not critical
     }
   }
@@ -721,9 +817,10 @@ export class AuthServiceV2 {
     permission: string
   ): Promise<boolean> {
     try {
-      const permissions = await PermissionManager.computeUserPermissions(userId);
+      const permissions =
+        await PermissionManager.computeUserPermissions(userId);
       return PermissionManager.hasPermission(permissions, permission);
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -753,37 +850,38 @@ export class AuthServiceV2 {
   }> {
     try {
       const sessionStats = await SessionManager.getSessionStatistics();
-      
+
       // Count users by type
       const platformAdmins = await prisma.platformAdmin.count({
-        where: { isActive: true }
+        where: { isActive: true },
       });
       const restaurantOwners = await prisma.restaurantOwner.count({
-        where: { isActive: true }
+        where: { isActive: true },
       });
       const staff = await prisma.staff.count({
-        where: { isActive: true }
+        where: { isActive: true },
       });
 
       const totalUsers = platformAdmins + restaurantOwners + staff;
 
       // Count active users (users with active sessions)
       const activeUserIds = new Set(
-        (await SessionManager.getUserSessions('')).map(s => s.userId)
+        (await SessionManager.getUserSessions('')).map((s) => s.userId)
       );
 
       return {
         totalUsers,
         activeUsers: activeUserIds.size,
-        totalSessions: sessionStats.totalActiveSessions + sessionStats.expiredSessionsCount,
+        totalSessions:
+          sessionStats.totalActiveSessions + sessionStats.expiredSessionsCount,
         activeSessions: sessionStats.totalActiveSessions,
         usersByType: {
           platform_admin: platformAdmins,
           restaurant_owner: restaurantOwners,
-          staff: staff
-        }
+          staff: staff,
+        },
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get auth statistics',
         'GET_AUTH_STATISTICS_FAILED',

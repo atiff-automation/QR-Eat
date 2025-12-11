@@ -1,6 +1,6 @@
 /**
  * Enhanced RBAC Types for JWT System
- * 
+ *
  * This file defines the comprehensive type structure for the new RBAC system
  * that replaces the problematic multi-cookie authentication system.
  */
@@ -12,18 +12,18 @@ export interface EnhancedJWTPayload {
   email: string;
   firstName: string;
   lastName: string;
-  
+
   // Role & Context
   currentRole: UserRole;
   availableRoles: UserRole[];
   restaurantContext?: RestaurantContext;
-  
+
   // Permissions (computed)
   permissions: string[];
-  
+
   // Session Management
   sessionId: string;
-  
+
   // JWT Standard Claims
   iat: number;
   exp: number;
@@ -61,13 +61,17 @@ export interface Permission {
 }
 
 // Role Template Definitions
-export type RoleTemplate = 'platform_admin' | 'restaurant_owner' | 'manager' | 'kitchen_staff';
+export type RoleTemplate =
+  | 'platform_admin'
+  | 'restaurant_owner'
+  | 'manager'
+  | 'kitchen_staff';
 
 // User Types
 export enum UserType {
   PLATFORM_ADMIN = 'platform_admin',
   RESTAURANT_OWNER = 'restaurant_owner',
-  STAFF = 'staff'
+  STAFF = 'staff',
 }
 
 // Session Management
@@ -141,7 +145,7 @@ export interface RBACLogEntry {
   resource: string;
   fromRole?: string;
   toRole?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   createdAt: Date;
@@ -247,15 +251,18 @@ export class RoleSwitchError extends RBACError {
 
 // Constants
 export const RBAC_CONSTANTS = {
-  // JWT Configuration
+  // JWT Configuration (Access Token - Short-lived)
   JWT_ISSUER: 'qr-restaurant-system',
   JWT_ALGORITHM: 'HS256' as const,
-  JWT_EXPIRES_IN: '24h',
-  
+  JWT_EXPIRES_IN: '30m', // 30 minutes for production security
+
+  // Refresh Token Configuration (Long-lived)
+  REFRESH_TOKEN_EXPIRES_IN: 14 * 24 * 60 * 60 * 1000, // 14 days in milliseconds
+
   // Session Configuration
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
   SESSION_CLEANUP_INTERVAL: 60 * 60 * 1000, // 1 hour cleanup interval
-  
+
   // Permission Categories
   PERMISSION_CATEGORIES: [
     'platform',
@@ -268,24 +275,20 @@ export const RBAC_CONSTANTS = {
     'settings',
     'billing',
     'subscriptions',
-    'users'
+    'users',
   ] as const,
-  
+
   // Role Templates
   ROLE_TEMPLATES: [
     'platform_admin',
     'restaurant_owner',
     'manager',
-    'kitchen_staff'
+    'kitchen_staff',
   ] as const,
-  
+
   // User Types
-  USER_TYPES: [
-    'platform_admin',
-    'restaurant_owner',
-    'staff'
-  ] as const,
-  
+  USER_TYPES: ['platform_admin', 'restaurant_owner', 'staff'] as const,
+
   // Audit Actions
   AUDIT_ACTIONS: [
     'LOGIN',
@@ -293,8 +296,8 @@ export const RBAC_CONSTANTS = {
     'ROLE_SWITCH',
     'PERMISSION_DENIED',
     'TOKEN_REFRESH',
-    'SESSION_EXPIRED'
-  ] as const
+    'SESSION_EXPIRED',
+  ] as const,
 } as const;
 
 // Type Guards
@@ -302,24 +305,32 @@ export function isValidUserType(userType: string): userType is UserType {
   return Object.values(UserType).includes(userType as UserType);
 }
 
-export function isValidRoleTemplate(template: string): template is RoleTemplate {
+export function isValidRoleTemplate(
+  template: string
+): template is RoleTemplate {
   return RBAC_CONSTANTS.ROLE_TEMPLATES.includes(template as RoleTemplate);
 }
 
-export function isEnhancedJWTPayload(payload: any): payload is EnhancedJWTPayload {
+export function isEnhancedJWTPayload(
+  payload: unknown
+): payload is EnhancedJWTPayload {
+  if (!payload || typeof payload !== 'object') return false;
+
+  const p = payload as Record<string, unknown>;
+
   return (
-    payload &&
-    typeof payload.userId === 'string' &&
-    typeof payload.email === 'string' &&
-    typeof payload.firstName === 'string' &&
-    typeof payload.lastName === 'string' &&
-    payload.currentRole &&
-    Array.isArray(payload.availableRoles) &&
-    Array.isArray(payload.permissions) &&
-    typeof payload.sessionId === 'string' &&
-    typeof payload.iat === 'number' &&
-    typeof payload.exp === 'number' &&
-    typeof payload.iss === 'string' &&
-    typeof payload.sub === 'string'
+    typeof p.userId === 'string' &&
+    typeof p.email === 'string' &&
+    typeof p.firstName === 'string' &&
+    typeof p.lastName === 'string' &&
+    typeof p.currentRole === 'object' &&
+    p.currentRole !== null &&
+    Array.isArray(p.availableRoles) &&
+    Array.isArray(p.permissions) &&
+    typeof p.sessionId === 'string' &&
+    typeof p.iat === 'number' &&
+    typeof p.exp === 'number' &&
+    typeof p.iss === 'string' &&
+    typeof p.sub === 'string'
   );
 }

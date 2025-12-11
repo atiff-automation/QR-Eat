@@ -29,6 +29,7 @@ model PlatformAdmin {
   sessions         PlatformAdminSession[]
   auditLogs        AuditLog[]             @relation("AdminAuditLogs")
   processedPayments Payment[]
+  refreshTokens     RefreshToken[]
 
   @@map("platform_admins")
 }
@@ -74,6 +75,7 @@ model RestaurantOwner {
   sessions          RestaurantOwnerSession[]
   auditLogs         AuditLog[]               @relation("OwnerAuditLogs")
   processedPayments Payment[]
+  refreshTokens     RefreshToken[]
 
   @@map("restaurant_owners")
 }
@@ -453,6 +455,7 @@ model Staff {
   payments   Payment[]      // POS payments processed by this staff member
   sessions   StaffSession[]
   auditLogs  AuditLog[]     @relation("StaffAuditLogs")
+  refreshTokens RefreshToken[]
 
   @@index([restaurantId])
   @@index([roleId])
@@ -871,6 +874,50 @@ model UserSession {
   @@index([restaurantContextId])
   @@index([expiresAt])
   @@map("user_sessions")
+}
+
+// Refresh Token for Secure Token Rotation
+// Following multi-user-type pattern (platform_admin, restaurant_owner, staff)
+model RefreshToken {
+  id              String   @id @default(uuid())
+  token           String   @unique // Hashed token for security
+  userId          String // Generic userId field
+  userType        String // 'platform_admin', 'restaurant_owner', 'staff'
+  sessionId       String // Links to UserSession
+
+  // Multi-user FK fields (following Payment model pattern)
+  adminId         String?
+  ownerId         String?
+  staffId         String?
+
+  expiresAt       DateTime
+  lastUsed        DateTime  @default(now())
+  ipAddress       String?
+  userAgent       String?
+  deviceInfo      Json      @default("{}")
+
+  // Security fields
+  isRevoked       Boolean   @default(false)
+  revokedAt       DateTime?
+  revokedReason   String?
+
+  createdAt       DateTime  @default(now())
+
+  // Relations
+  admin           PlatformAdmin?    @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  owner           RestaurantOwner?  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  staff           Staff?            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+  @@index([userType])
+  @@index([sessionId])
+  @@index([adminId])
+  @@index([ownerId])
+  @@index([staffId])
+  @@index([expiresAt])
+  @@index([isRevoked])
+  @@map("refresh_tokens")
 }
 
 // Enhanced Audit Log for RBAC

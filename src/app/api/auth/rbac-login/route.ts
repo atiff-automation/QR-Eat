@@ -1,6 +1,6 @@
 /**
  * RBAC-Integrated Authentication Endpoint
- * 
+ *
  * This endpoint provides authentication using the new RBAC system,
  * replacing the problematic multi-cookie authentication approach.
  */
@@ -11,6 +11,7 @@ import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { SecurityUtils } from '@/lib/security';
 import { getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
+import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
@@ -36,15 +37,15 @@ export async function POST(request: NextRequest) {
       userAgent,
       metadata: {
         endpoint: 'rbac-login',
-        requestTime: new Date().toISOString()
-      }
+        requestTime: new Date().toISOString(),
+      },
     };
 
     // Rate limiting by IP
     const now = Date.now();
     const clientKey = `${clientIP}:${email}`;
     const rateLimit = rateLimitMap.get(clientKey);
-    
+
     if (rateLimit) {
       if (now < rateLimit.resetTime) {
         if (rateLimit.attempts >= RATE_LIMIT_MAX_ATTEMPTS) {
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
             `Rate limit exceeded for ${email}`,
             auditContext
           );
-          
+
           return NextResponse.json(
             { error: 'Too many login attempts. Please try again later.' },
             { status: 429 }
@@ -63,15 +64,22 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // Reset the rate limit window
-        rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        rateLimitMap.set(clientKey, {
+          attempts: 1,
+          resetTime: now + RATE_LIMIT_WINDOW,
+        });
       }
     } else {
-      rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      rateLimitMap.set(clientKey, {
+        attempts: 1,
+        resetTime: now + RATE_LIMIT_WINDOW,
+      });
     }
 
     // Check if this is a subdomain request
-    const currentSlug = getRestaurantSlugFromSubdomain(request) || restaurantSlug;
-    
+    const currentSlug =
+      getRestaurantSlugFromSubdomain(request) || restaurantSlug;
+
     // If subdomain access, validate the restaurant exists
     let tenantContext = null;
     if (currentSlug) {
@@ -101,7 +109,7 @@ export async function POST(request: NextRequest) {
       if (currentRateLimit) {
         rateLimitMap.set(clientKey, {
           attempts: currentRateLimit.attempts + 1,
-          resetTime: currentRateLimit.resetTime
+          resetTime: currentRateLimit.resetTime,
         });
       }
 
@@ -113,7 +121,9 @@ export async function POST(request: NextRequest) {
       );
 
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid credentials' },
+        {
+          error: error instanceof Error ? error.message : 'Invalid credentials',
+        },
         { status: 401 }
       );
     }
@@ -121,6 +131,19 @@ export async function POST(request: NextRequest) {
     // Success - clear rate limit and extract result
     rateLimitMap.delete(clientKey);
     const { token, user, session } = authResult;
+
+    // Generate refresh token for seamless authentication
+    const refreshTokenResult = await RefreshTokenService.createRefreshToken({
+      userId: user.id,
+      userType: user.userType,
+      sessionId: session.sessionId,
+      ipAddress: clientIP,
+      userAgent,
+      deviceInfo: {
+        browser: userAgent,
+        loginTime: new Date().toISOString(),
+      },
+    });
 
     // Add tenant context if subdomain access
     const responseData: Record<string, unknown> = {
@@ -134,12 +157,17 @@ export async function POST(request: NextRequest) {
         currentRole: user.currentRole,
         availableRoles: user.availableRoles,
         permissions: user.permissions,
-        mustChangePassword: user.mustChangePassword
+        mustChangePassword: user.mustChangePassword,
       },
       session: {
         id: session.sessionId,
-        expiresAt: session.expiresAt
-      }
+        expiresAt: session.expiresAt,
+      },
+      // Include token expiration info for client-side monitoring
+      tokenExpiration: {
+        accessToken: session.expiresAt,
+        refreshToken: refreshTokenResult.expiresAt,
+      },
     };
 
     // Add tenant context if subdomain access
@@ -148,7 +176,7 @@ export async function POST(request: NextRequest) {
         id: tenantContext.id,
         name: tenantContext.name,
         slug: tenantContext.slug,
-        isActive: tenantContext.isActive
+        isActive: tenantContext.isActive,
       };
     }
 
@@ -159,14 +187,25 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json(responseData);
 
-    // Set single RBAC authentication cookie
+    // Set access token cookie (short-lived: 30 minutes)
     response.cookies.set({
       name: 'qr_rbac_token',
       value: token,
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 24 * 60 * 60, // 24 hours
+      maxAge: 30 * 60, // 30 minutes
+      path: '/',
+    });
+
+    // Set refresh token cookie (long-lived: 14 days)
+    response.cookies.set({
+      name: 'qr_refresh_token',
+      value: refreshTokenResult.token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 14 * 24 * 60 * 60, // 14 days
       path: '/',
     });
 
@@ -175,10 +214,10 @@ export async function POST(request: NextRequest) {
       'qr_auth_token',
       'qr_owner_token',
       'qr_staff_token',
-      'qr_admin_token'
+      'qr_admin_token',
     ];
 
-    legacyCookies.forEach(cookieName => {
+    legacyCookies.forEach((cookieName) => {
       if (request.cookies.get(cookieName)) {
         response.cookies.set({
           name: cookieName,
@@ -201,18 +240,18 @@ export async function POST(request: NextRequest) {
         roleTemplate: user.currentRole.roleTemplate,
         sessionId: session.sessionId,
         permissions: user.permissions.length,
-        restaurantContext: user.restaurantContext?.name || 'None'
+        restaurantContext: user.restaurantContext?.name || 'None',
       });
     }
 
     return response;
   } catch (error) {
     console.error('RBAC Login error:', error);
-    
+
     // Log security event for system errors
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    
+
     await AuditLogger.logSecurityEvent(
       'system',
       'AUTHENTICATION_ERROR',
@@ -223,9 +262,10 @@ export async function POST(request: NextRequest) {
         userAgent,
         metadata: {
           endpoint: 'rbac-login',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString(),
+        },
       }
     );
 
@@ -250,7 +290,7 @@ export async function PATCH(request: NextRequest) {
 
     // Get current token from cookie
     const currentToken = request.cookies.get('qr_rbac_token')?.value;
-    
+
     if (!currentToken) {
       return NextResponse.json(
         { error: 'No authentication token found' },
@@ -289,12 +329,12 @@ export async function PATCH(request: NextRequest) {
         lastName: user.lastName,
         currentRole: user.currentRole,
         availableRoles: user.availableRoles,
-        permissions: user.permissions
+        permissions: user.permissions,
       },
       session: {
         id: session.sessionId,
-        expiresAt: session.expiresAt
-      }
+        expiresAt: session.expiresAt,
+      },
     };
 
     // Add restaurant context if available
@@ -321,7 +361,7 @@ export async function PATCH(request: NextRequest) {
         userId: user.id,
         newRole: user.currentRole.roleTemplate,
         sessionId: session.sessionId,
-        permissions: user.permissions.length
+        permissions: user.permissions.length,
       });
     }
 
