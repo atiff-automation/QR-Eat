@@ -11,6 +11,7 @@
 'use client';
 
 import { DollarSign, ShoppingCart, Clock } from 'lucide-react';
+import { formatCurrency } from '@/lib/utils/format';
 
 interface CashierHeaderProps {
   totalOrders: number;
@@ -51,7 +52,7 @@ export function CashierHeader({
             <div>
               <p className="text-xs text-gray-600">Total Revenue</p>
               <p className="text-lg font-semibold text-gray-900">
-                RM {totalRevenue.toFixed(2)}
+                {formatCurrency(totalRevenue)}
               </p>
             </div>
           </div>
