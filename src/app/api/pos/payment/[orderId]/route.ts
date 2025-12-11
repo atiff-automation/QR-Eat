@@ -39,7 +39,7 @@ export async function POST(
     // Get tenant context and verify authentication
     const context = getTenantContext(request);
     requireAuth(context);
-    requirePermission(context!, 'payments', 'create');
+    requirePermission(context!, 'payments', 'write');
 
     const { orderId } = await params;
 
@@ -97,30 +97,45 @@ export async function POST(
     // Generate unique receipt number
     const receiptNumber = generateReceiptNumber();
 
+    // Determine specific FK field based on user type
+    const userType = context!.userType;
+    const userId = context!.userId!;
+    const paymentData: Record<string, unknown> = {
+      orderId: order.id,
+      paymentMethod: validatedData.paymentMethod,
+      amount: order.totalAmount,
+      processingFee: new Decimal(0),
+      netAmount: order.totalAmount,
+      status: PAYMENT_STATUS.COMPLETED,
+      processedBy: userId,
+      processedByType: userType,
+      cashReceived: validatedData.cashReceived
+        ? new Decimal(validatedData.cashReceived)
+        : null,
+      changeGiven,
+      receiptNumber,
+      externalTransactionId: validatedData.externalTransactionId,
+      paymentMetadata: validatedData.notes
+        ? { notes: validatedData.notes }
+        : {},
+      processedAt: new Date(),
+      completedAt: new Date(),
+    };
+
+    // Set the appropriate FK field based on user type
+    if (userType === 'platform_admin') {
+      paymentData.processedByAdminId = userId;
+    } else if (userType === 'restaurant_owner') {
+      paymentData.processedByOwnerId = userId;
+    } else if (userType === 'staff') {
+      paymentData.processedByStaffId = userId;
+    }
+
     // Process payment in transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create payment record
       const payment = await tx.payment.create({
-        data: {
-          orderId: order.id,
-          paymentMethod: validatedData.paymentMethod,
-          amount: order.totalAmount,
-          processingFee: new Decimal(0),
-          netAmount: order.totalAmount,
-          status: PAYMENT_STATUS.COMPLETED,
-          processedBy: context!.userId!,
-          cashReceived: validatedData.cashReceived
-            ? new Decimal(validatedData.cashReceived)
-            : null,
-          changeGiven,
-          receiptNumber,
-          externalTransactionId: validatedData.externalTransactionId,
-          paymentMetadata: validatedData.notes
-            ? { notes: validatedData.notes }
-            : {},
-          processedAt: new Date(),
-          completedAt: new Date(),
-        },
+        data: paymentData,
       });
 
       // Update order payment status
@@ -131,23 +146,37 @@ export async function POST(
         },
       });
 
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          tableName: 'payments',
-          recordId: payment.id,
-          operation: 'CREATE',
-          newValues: {
-            orderId: order.id,
-            orderNumber: order.orderNumber,
-            paymentMethod: validatedData.paymentMethod,
-            amount: order.totalAmount.toString(),
-            receiptNumber,
-          },
-          changedBy: context!.userId!,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent') || 'unknown',
+      // Create audit log with proper user type tracking
+      const auditData: Record<string, unknown> = {
+        tableName: 'payments',
+        recordId: payment.id,
+        operation: 'CREATE',
+        newValues: {
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          paymentMethod: validatedData.paymentMethod,
+          amount: order.totalAmount.toString(),
+          receiptNumber,
+          processedBy: userId,
+          processedByType: userType,
         },
+        changedBy: userId,
+        changedByType: userType,
+        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        userAgent: request.headers.get('user-agent') || 'unknown',
+      };
+
+      // Set the appropriate audit trail FK based on user type
+      if (userType === 'platform_admin') {
+        auditData.adminId = userId;
+      } else if (userType === 'restaurant_owner') {
+        auditData.ownerId = userId;
+      } else if (userType === 'staff') {
+        auditData.staffId = userId;
+      }
+
+      await tx.auditLog.create({
+        data: auditData,
       });
 
       return { payment, updatedOrder };

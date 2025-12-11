@@ -1,9 +1,9 @@
 /**
  * RBAC-Enhanced Dashboard Layout
- * 
+ *
  * This component provides the main dashboard layout with integrated RBAC functionality,
  * implementing Phase 3.2.1 of the RBAC Implementation Plan.
- * 
+ *
  * Features:
  * - Role-based navigation filtering
  * - Permission-based component rendering
@@ -16,17 +16,18 @@
 import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { 
-  Home, 
-  ClipboardList, 
-  ChefHat, 
-  UtensilsCrossed, 
-  Users, 
-  BarChart3, 
+import {
+  Home,
+  ClipboardList,
+  ChefHat,
+  UtensilsCrossed,
+  Users,
+  BarChart3,
   Settings,
   Menu,
   X,
-  LogOut
+  LogOut,
+  CreditCard,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
@@ -43,7 +44,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
-  
+
   // Debug logging
   if (process.env.NODE_ENV === 'development') {
     console.log('🏗️ DashboardLayout render:', {
@@ -51,10 +52,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       hasUser: !!user,
       hasCurrentRole: !!currentRole,
       user: user,
-      currentRole: currentRole
+      currentRole: currentRole,
     });
   }
-  
+
   const handleLogout = async () => {
     try {
       await ApiClient.post('/auth/logout');
@@ -63,7 +64,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       console.error('Logout error:', error);
     }
   };
-  
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -74,7 +75,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     );
   }
-  
+
   if (!user || !currentRole) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -90,7 +91,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       </div>
     );
   }
-  
+
   // Navigation items with permission requirements
   const navigationItems = [
     {
@@ -129,6 +130,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'menu:read',
     },
     {
+      name: 'Cashier',
+      href: '/dashboard/cashier',
+      icon: CreditCard,
+      current: pathname.startsWith('/dashboard/cashier'),
+      permission: 'orders:write',
+    },
+    {
       name: 'Staff',
       href: '/dashboard/staff',
       icon: Users,
@@ -150,24 +158,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'settings:read',
     },
   ];
-  
+
   const getPageTitle = () => {
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname.includes('/orders')) return 'Orders';
     if (pathname.includes('/tables')) return 'Tables';
     if (pathname.includes('/kitchen')) return 'Kitchen Display';
     if (pathname.includes('/menu')) return 'Menu Management';
+    if (pathname.includes('/cashier')) return 'Cashier / POS';
     if (pathname.includes('/staff')) return 'Staff Management';
     if (pathname.includes('/reports')) return 'Reports';
     if (pathname.includes('/settings')) return 'Settings';
     return 'Dashboard';
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
-      <div className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setIsSidebarOpen(false)}></div>
+      <div
+        className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}
+      >
+        <div
+          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          onClick={() => setIsSidebarOpen(false)}
+        ></div>
         <div className="relative flex flex-col w-64 bg-white h-full">
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <span className="text-lg font-semibold text-gray-900">Menu</span>
@@ -198,7 +212,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </nav>
         </div>
       </div>
-      
+
       {/* Desktop sidebar */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
         <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
@@ -215,7 +229,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </div>
             </div>
           </div>
-          
+
           <nav className="flex-1 px-4 py-4 space-y-2">
             {navigationItems.map((item) => (
               <PermissionGuard key={item.name} permission={item.permission}>
@@ -233,13 +247,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </PermissionGuard>
             ))}
           </nav>
-          
+
           <div className="flex-shrink-0 border-t border-gray-200 p-4">
             <div className="flex items-center mb-3">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
                   <span className="text-white text-sm font-medium">
-                    {user.firstName[0]}{user.lastName[0]}
+                    {user.firstName[0]}
+                    {user.lastName[0]}
                   </span>
                 </div>
               </div>
@@ -247,12 +262,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <p className="text-sm font-medium text-gray-900">
                   {user.firstName} {user.lastName}
                 </p>
-                <p className="text-xs text-gray-500">
-                  {user.email}
-                </p>
+                <p className="text-xs text-gray-500">{user.email}</p>
               </div>
             </div>
-            
+
             <button
               onClick={handleLogout}
               className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
@@ -263,7 +276,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
       </div>
-      
+
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
@@ -281,16 +294,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   {getPageTitle()}
                 </h1>
               </div>
-              
+
               <div className="flex items-center space-x-4">
                 {/* Role Switcher */}
                 <RoleSwitcher />
-                
+
                 {/* Notifications */}
                 <PermissionGuard permission="notifications:read">
                   <NotificationBell />
                 </PermissionGuard>
-                
+
                 {/* Restaurant Time */}
                 {restaurantContext && (
                   <div className="text-sm text-gray-500">
@@ -301,11 +314,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
-                      minute: '2-digit'
+                      minute: '2-digit',
                     })}
                   </div>
                 )}
-                
+
                 {/* Mobile logout */}
                 <div className="lg:hidden">
                   <button
@@ -320,11 +333,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
           </div>
         </header>
-        
+
         {/* Page content */}
-        <main className="flex-1">
-          {children}
-        </main>
+        <main className="flex-1">{children}</main>
       </div>
     </div>
   );

@@ -26,8 +26,9 @@ model PlatformAdmin {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  sessions  PlatformAdminSession[]
-  auditLogs AuditLog[]             @relation("AdminAuditLogs")
+  sessions         PlatformAdminSession[]
+  auditLogs        AuditLog[]             @relation("AdminAuditLogs")
+  processedPayments Payment[]
 
   @@map("platform_admins")
 }
@@ -69,9 +70,10 @@ model RestaurantOwner {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  restaurants Restaurant[]
-  sessions    RestaurantOwnerSession[]
-  auditLogs   AuditLog[]               @relation("OwnerAuditLogs")
+  restaurants       Restaurant[]
+  sessions          RestaurantOwnerSession[]
+  auditLogs         AuditLog[]               @relation("OwnerAuditLogs")
+  processedPayments Payment[]
 
   @@map("restaurant_owners")
 }
@@ -631,10 +633,16 @@ model Payment {
   status                String    @default("pending")
 
   // POS System Fields
-  processedBy           String?   // Staff ID who processed payment at counter
   cashReceived          Decimal?  @db.Decimal(10, 2)  // For cash payments
   changeGiven           Decimal?  @db.Decimal(10, 2)  // For cash payments
   receiptNumber         String?   @unique             // Unique receipt identifier
+
+  // Multi-user-type pattern (following AuditLog architecture)
+  processedBy           String?   // Generic user ID who processed payment
+  processedByType       String?   // User type: 'platform_admin', 'restaurant_owner', 'staff'
+  processedByAdminId    String?   // FK to platform_admins (if admin processed)
+  processedByOwnerId    String?   // FK to restaurant_owners (if owner processed)
+  processedByStaffId    String?   // FK to staff (if staff processed)
 
   externalPaymentId     String?
   externalTransactionId String?
@@ -647,10 +655,16 @@ model Payment {
   failedAt              DateTime?
   updatedAt             DateTime  @updatedAt
 
-  order            Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  processedByStaff Staff? @relation(fields: [processedBy], references: [id])
+  order                 Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  processedByAdmin      PlatformAdmin?    @relation(fields: [processedByAdminId], references: [id])
+  processedByOwner      RestaurantOwner?  @relation(fields: [processedByOwnerId], references: [id])
+  processedByStaff      Staff?            @relation(fields: [processedByStaffId], references: [id])
 
   @@index([processedBy])
+  @@index([processedByType])
+  @@index([processedByAdminId])
+  @@index([processedByOwnerId])
+  @@index([processedByStaffId])
   @@index([receiptNumber])
   @@index([status])
   @@index([createdAt])

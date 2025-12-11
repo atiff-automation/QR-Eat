@@ -10,7 +10,7 @@ async function main() {
   // 1. CREATE PLATFORM ADMIN
   // ==============================================
   const hashedPassword = await bcrypt.hash('admin123', 12);
-  
+
   const platformAdmin = await prisma.platformAdmin.upsert({
     where: { email: 'admin@qrorder.com' },
     update: {},
@@ -35,7 +35,7 @@ async function main() {
       update: {},
       create: {
         name: 'Basic',
-        monthlyFee: 99.00,
+        monthlyFee: 99.0,
         transactionFeeRate: 0.029, // 2.9%
         maxTables: 10,
         maxStaff: 5,
@@ -54,7 +54,7 @@ async function main() {
       update: {},
       create: {
         name: 'Pro',
-        monthlyFee: 199.00,
+        monthlyFee: 199.0,
         transactionFeeRate: 0.025, // 2.5%
         maxTables: 25,
         maxStaff: 15,
@@ -73,8 +73,8 @@ async function main() {
       update: {},
       create: {
         name: 'Enterprise',
-        monthlyFee: 399.00,
-        transactionFeeRate: 0.020, // 2.0%
+        monthlyFee: 399.0,
+        transactionFeeRate: 0.02, // 2.0%
         maxTables: null, // unlimited
         maxStaff: null, // unlimited
         features: {
@@ -90,7 +90,10 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created subscription plans:', subscriptionPlans.map(p => p.name));
+  console.log(
+    '✅ Created subscription plans:',
+    subscriptionPlans.map((p) => p.name)
+  );
 
   // ==============================================
   // 3. CREATE STAFF ROLES (SYSTEM ROLES)
@@ -183,13 +186,16 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created staff roles:', staffRoles.map(r => r.name));
+  console.log(
+    '✅ Created staff roles:',
+    staffRoles.map((r) => r.name)
+  );
 
   // ==============================================
   // 4. CREATE RESTAURANT OWNERS
   // ==============================================
   const ownerPassword = await bcrypt.hash('owner123', 12);
-  
+
   const restaurantOwners = await Promise.all([
     // Owner 1: Single Location Owner
     prisma.restaurantOwner.upsert({
@@ -225,7 +231,10 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created restaurant owners:', restaurantOwners.map(o => o.email));
+  console.log(
+    '✅ Created restaurant owners:',
+    restaurantOwners.map((o) => o.email)
+  );
 
   // ==============================================
   // 5. CREATE RESTAURANTS
@@ -317,14 +326,21 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created restaurants:', restaurants.map(r => r.name));
+  console.log(
+    '✅ Created restaurants:',
+    restaurants.map((r) => r.name)
+  );
 
   // ==============================================
   // 6. CREATE SUBSCRIPTIONS
   // ==============================================
   const now = new Date();
-  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
-  
+  const nextMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    now.getDate()
+  );
+
   const subscriptions = await Promise.all([
     // Mario's Basic subscription
     prisma.subscription.create({
@@ -369,9 +385,9 @@ async function main() {
   // ==============================================
   // 7. CREATE ROLE HIERARCHIES FOR EACH RESTAURANT
   // ==============================================
-  const managerRole = staffRoles.find(r => r.name === 'Manager')!;
-  const waiterRole = staffRoles.find(r => r.name === 'Waiter')!;
-  const kitchenRole = staffRoles.find(r => r.name === 'Kitchen')!;
+  const managerRole = staffRoles.find((r) => r.name === 'Manager')!;
+  const waiterRole = staffRoles.find((r) => r.name === 'Waiter')!;
+  const kitchenRole = staffRoles.find((r) => r.name === 'Kitchen')!;
 
   for (const restaurant of restaurants) {
     await Promise.all([
@@ -456,7 +472,7 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created menu categories for Mario\'s:', categories.length);
+  console.log("✅ Created menu categories for Mario's:", categories.length);
 
   // Create menu items
   const menuItems = await Promise.all([
@@ -466,7 +482,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[0].id,
         name: 'Bruschetta alla Nonna',
-        description: 'Traditional toasted bread with fresh tomatoes, garlic, and basil',
+        description:
+          'Traditional toasted bread with fresh tomatoes, garlic, and basil',
         price: 12.99,
         preparationTime: 8,
         calories: 180,
@@ -482,7 +499,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[0].id,
         name: 'Antipasto Misto',
-        description: 'Mixed Italian cured meats, cheeses, and marinated vegetables',
+        description:
+          'Mixed Italian cured meats, cheeses, and marinated vegetables',
         price: 18.99,
         preparationTime: 5,
         calories: 320,
@@ -498,7 +516,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[1].id,
         name: 'Spaghetti Carbonara',
-        description: 'Classic Roman pasta with eggs, pancetta, and pecorino romano',
+        description:
+          'Classic Roman pasta with eggs, pancetta, and pecorino romano',
         price: 22.99,
         preparationTime: 15,
         calories: 680,
@@ -514,7 +533,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[1].id,
         name: 'Penne Arrabbiata',
-        description: 'Spicy tomato sauce with garlic, red chilies, and fresh basil',
+        description:
+          'Spicy tomato sauce with garlic, red chilies, and fresh basil',
         price: 19.99,
         preparationTime: 12,
         calories: 520,
@@ -530,7 +550,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[2].id,
         name: 'Pizza Margherita',
-        description: 'San Marzano tomatoes, fresh mozzarella di bufala, and basil',
+        description:
+          'San Marzano tomatoes, fresh mozzarella di bufala, and basil',
         price: 24.99,
         preparationTime: 12,
         calories: 650,
@@ -562,7 +583,8 @@ async function main() {
         restaurantId: marioRestaurant.id,
         categoryId: categories[3].id,
         name: 'Tiramisu della Casa',
-        description: 'Traditional tiramisu with espresso-soaked ladyfingers and mascarpone',
+        description:
+          'Traditional tiramisu with espresso-soaked ladyfingers and mascarpone',
         price: 9.99,
         preparationTime: 3,
         calories: 420,
@@ -579,7 +601,7 @@ async function main() {
         categoryId: categories[4].id,
         name: 'Chianti Classico',
         description: 'Traditional Tuscan red wine, bottle',
-        price: 45.00,
+        price: 45.0,
         preparationTime: 2,
         calories: 125,
         allergens: ['sulfites'],
@@ -590,7 +612,7 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created menu items for Mario\'s:', menuItems.length);
+  console.log("✅ Created menu items for Mario's:", menuItems.length);
 
   // Create tables for Mario's
   const tables = await Promise.all([
@@ -599,11 +621,13 @@ async function main() {
         restaurantId: marioRestaurant.id,
         tableNumber: '1',
         tableName: 'Window Table',
-        qrCodeToken: Buffer.from(JSON.stringify({
-          tableId: 'mario-table-1',
-          restaurant: marioRestaurant.slug,
-          timestamp: Date.now(),
-        })).toString('base64url'),
+        qrCodeToken: Buffer.from(
+          JSON.stringify({
+            tableId: 'mario-table-1',
+            restaurant: marioRestaurant.slug,
+            timestamp: Date.now(),
+          })
+        ).toString('base64url'),
         capacity: 2,
         status: 'available',
         locationDescription: 'By the front window',
@@ -614,11 +638,13 @@ async function main() {
         restaurantId: marioRestaurant.id,
         tableNumber: '2',
         tableName: 'Center Table',
-        qrCodeToken: Buffer.from(JSON.stringify({
-          tableId: 'mario-table-2',
-          restaurant: marioRestaurant.slug,
-          timestamp: Date.now(),
-        })).toString('base64url'),
+        qrCodeToken: Buffer.from(
+          JSON.stringify({
+            tableId: 'mario-table-2',
+            restaurant: marioRestaurant.slug,
+            timestamp: Date.now(),
+          })
+        ).toString('base64url'),
         capacity: 4,
         status: 'available',
         locationDescription: 'Center dining area',
@@ -629,11 +655,13 @@ async function main() {
         restaurantId: marioRestaurant.id,
         tableNumber: '3',
         tableName: 'Romantic Booth',
-        qrCodeToken: Buffer.from(JSON.stringify({
-          tableId: 'mario-table-3',
-          restaurant: marioRestaurant.slug,
-          timestamp: Date.now(),
-        })).toString('base64url'),
+        qrCodeToken: Buffer.from(
+          JSON.stringify({
+            tableId: 'mario-table-3',
+            restaurant: marioRestaurant.slug,
+            timestamp: Date.now(),
+          })
+        ).toString('base64url'),
         capacity: 2,
         status: 'available',
         locationDescription: 'Intimate corner booth',
@@ -641,7 +669,7 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created tables for Mario\'s:', tables.length);
+  console.log("✅ Created tables for Mario's:", tables.length);
 
   // Create staff for Mario's
   const staffPassword = await bcrypt.hash('staff123', 12);
@@ -659,7 +687,7 @@ async function main() {
         phone: '+1-555-123-0001',
         employeeId: 'EMP001',
         hireDate: new Date('2024-01-15'),
-        hourlyRate: 25.00,
+        hourlyRate: 25.0,
         isActive: true,
         emailVerified: true,
         mustChangePassword: true,
@@ -678,7 +706,7 @@ async function main() {
         phone: '+1-555-123-0002',
         employeeId: 'EMP002',
         hireDate: new Date('2024-02-01'),
-        hourlyRate: 18.00,
+        hourlyRate: 18.0,
         isActive: true,
         emailVerified: true,
         mustChangePassword: true,
@@ -697,7 +725,7 @@ async function main() {
         phone: '+1-555-123-0003',
         employeeId: 'EMP003',
         hireDate: new Date('2024-01-20'),
-        hourlyRate: 20.00,
+        hourlyRate: 20.0,
         isActive: true,
         emailVerified: true,
         mustChangePassword: true,
@@ -705,86 +733,204 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created staff for Mario\'s:', staff.length);
+  console.log("✅ Created staff for Mario's:", staff.length);
 
   // ==============================================
   // 9. RBAC PERMISSIONS AND ROLE TEMPLATES
   // ==============================================
-  
+
   // Create RBAC permissions
   const rbacPermissions = [
     // Platform Management (Super Admin only)
-    { key: 'platform:read', description: 'View platform information', category: 'platform' },
-    { key: 'platform:write', description: 'Edit platform settings', category: 'platform' },
-    { key: 'platform:delete', description: 'Delete platform data', category: 'platform' },
-    
+    {
+      key: 'platform:read',
+      description: 'View platform information',
+      category: 'platform',
+    },
+    {
+      key: 'platform:write',
+      description: 'Edit platform settings',
+      category: 'platform',
+    },
+    {
+      key: 'platform:delete',
+      description: 'Delete platform data',
+      category: 'platform',
+    },
+
     // Restaurant Management
-    { key: 'restaurant:read', description: 'View restaurant information', category: 'restaurant' },
-    { key: 'restaurant:write', description: 'Edit restaurant settings', category: 'restaurant' },
-    { key: 'restaurant:settings', description: 'Access restaurant settings', category: 'restaurant' },
-    { key: 'restaurants:create', description: 'Create new restaurants', category: 'restaurant' },
-    { key: 'restaurants:read', description: 'View all restaurants', category: 'restaurant' },
-    { key: 'restaurants:write', description: 'Edit any restaurant', category: 'restaurant' },
-    { key: 'restaurants:delete', description: 'Delete restaurants', category: 'restaurant' },
-    
+    {
+      key: 'restaurant:read',
+      description: 'View restaurant information',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurant:write',
+      description: 'Edit restaurant settings',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurant:settings',
+      description: 'Access restaurant settings',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurants:create',
+      description: 'Create new restaurants',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurants:read',
+      description: 'View all restaurants',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurants:write',
+      description: 'Edit any restaurant',
+      category: 'restaurant',
+    },
+    {
+      key: 'restaurants:delete',
+      description: 'Delete restaurants',
+      category: 'restaurant',
+    },
+
     // Order Management
     { key: 'orders:read', description: 'View orders', category: 'orders' },
-    { key: 'orders:write', description: 'Create and edit orders', category: 'orders' },
-    { key: 'orders:kitchen', description: 'Kitchen display access', category: 'orders' },
-    { key: 'orders:update', description: 'Update order progress/status', category: 'orders' },
-    { key: 'orders:fulfill', description: 'Mark orders as ready/served', category: 'orders' },
-    
+    {
+      key: 'orders:write',
+      description: 'Create and edit orders',
+      category: 'orders',
+    },
+    {
+      key: 'orders:kitchen',
+      description: 'Kitchen display access',
+      category: 'orders',
+    },
+    {
+      key: 'orders:update',
+      description: 'Update order progress/status',
+      category: 'orders',
+    },
+    {
+      key: 'orders:fulfill',
+      description: 'Mark orders as ready/served',
+      category: 'orders',
+    },
+
     // Table Management
     { key: 'tables:read', description: 'View tables', category: 'tables' },
     { key: 'tables:write', description: 'Manage tables', category: 'tables' },
     { key: 'tables:qr', description: 'Generate QR codes', category: 'tables' },
-    
+
     // Staff Management
-    { key: 'staff:read', description: 'View staff information', category: 'staff' },
-    { key: 'staff:write', description: 'Edit staff information', category: 'staff' },
-    { key: 'staff:invite', description: 'Invite new staff members', category: 'staff' },
-    { key: 'staff:delete', description: 'Delete staff members', category: 'staff' },
-    { key: 'staff:roles', description: 'Manage staff roles', category: 'staff' },
-    
+    {
+      key: 'staff:read',
+      description: 'View staff information',
+      category: 'staff',
+    },
+    {
+      key: 'staff:write',
+      description: 'Edit staff information',
+      category: 'staff',
+    },
+    {
+      key: 'staff:invite',
+      description: 'Invite new staff members',
+      category: 'staff',
+    },
+    {
+      key: 'staff:delete',
+      description: 'Delete staff members',
+      category: 'staff',
+    },
+    {
+      key: 'staff:roles',
+      description: 'Manage staff roles',
+      category: 'staff',
+    },
+
     // Analytics & Reporting
-    { key: 'analytics:read', description: 'View analytics and reports', category: 'analytics' },
-    { key: 'analytics:export', description: 'Export data', category: 'analytics' },
-    { key: 'analytics:platform', description: 'View platform-wide analytics', category: 'analytics' },
-    
+    {
+      key: 'analytics:read',
+      description: 'View analytics and reports',
+      category: 'analytics',
+    },
+    {
+      key: 'analytics:export',
+      description: 'Export data',
+      category: 'analytics',
+    },
+    {
+      key: 'analytics:platform',
+      description: 'View platform-wide analytics',
+      category: 'analytics',
+    },
+
     // Menu Management
     { key: 'menu:read', description: 'View menu items', category: 'menu' },
     { key: 'menu:write', description: 'Manage menu items', category: 'menu' },
     { key: 'menu:delete', description: 'Delete menu items', category: 'menu' },
-    
+
     // Settings
-    { key: 'settings:read', description: 'View settings', category: 'settings' },
-    { key: 'settings:write', description: 'Edit settings', category: 'settings' },
-    { key: 'settings:platform', description: 'Edit platform settings', category: 'settings' },
-    
+    {
+      key: 'settings:read',
+      description: 'View settings',
+      category: 'settings',
+    },
+    {
+      key: 'settings:write',
+      description: 'Edit settings',
+      category: 'settings',
+    },
+    {
+      key: 'settings:platform',
+      description: 'Edit platform settings',
+      category: 'settings',
+    },
+
     // Billing & Subscriptions
-    { key: 'billing:read', description: 'View billing information', category: 'billing' },
-    { key: 'billing:write', description: 'Manage billing', category: 'billing' },
-    { key: 'subscriptions:read', description: 'View subscriptions', category: 'subscriptions' },
-    { key: 'subscriptions:write', description: 'Manage subscriptions', category: 'subscriptions' },
-    
+    {
+      key: 'billing:read',
+      description: 'View billing information',
+      category: 'billing',
+    },
+    {
+      key: 'billing:write',
+      description: 'Manage billing',
+      category: 'billing',
+    },
+    {
+      key: 'subscriptions:read',
+      description: 'View subscriptions',
+      category: 'subscriptions',
+    },
+    {
+      key: 'subscriptions:write',
+      description: 'Manage subscriptions',
+      category: 'subscriptions',
+    },
+
     // User Management (Super Admin)
     { key: 'users:read', description: 'View all users', category: 'users' },
     { key: 'users:write', description: 'Manage users', category: 'users' },
     { key: 'users:delete', description: 'Delete users', category: 'users' },
   ];
 
-  const permissions = await Promise.all(rbacPermissions.map(perm => 
-    prisma.permission.upsert({
-      where: { permissionKey: perm.key },
-      update: {},
-      create: {
-        permissionKey: perm.key,
-        description: perm.description,
-        category: perm.category,
-        isActive: true,
-      },
-    })
-  ));
+  const permissions = await Promise.all(
+    rbacPermissions.map((perm) =>
+      prisma.permission.upsert({
+        where: { permissionKey: perm.key },
+        update: {},
+        create: {
+          permissionKey: perm.key,
+          description: perm.description,
+          category: perm.category,
+          isActive: true,
+        },
+      })
+    )
+  );
 
   console.log('✅ Created RBAC permissions:', permissions.length);
 
@@ -793,58 +939,91 @@ async function main() {
     {
       template: 'platform_admin',
       permissions: [
-        'platform:read', 'platform:write', 'platform:delete',
-        'restaurants:create', 'restaurants:read', 'restaurants:write', 'restaurants:delete',
-        'subscriptions:read', 'subscriptions:write',
-        'billing:read', 'billing:write',
-        'analytics:platform', 'analytics:export',
-        'users:read', 'users:write', 'users:delete',
-        'settings:platform'
-      ]
+        'platform:read',
+        'platform:write',
+        'platform:delete',
+        'restaurants:create',
+        'restaurants:read',
+        'restaurants:write',
+        'restaurants:delete',
+        'subscriptions:read',
+        'subscriptions:write',
+        'billing:read',
+        'billing:write',
+        'analytics:platform',
+        'analytics:export',
+        'users:read',
+        'users:write',
+        'users:delete',
+        'settings:platform',
+      ],
     },
     {
       template: 'restaurant_owner',
       permissions: [
-        'restaurant:read', 'restaurant:write', 'restaurant:settings',
-        'orders:read', 'orders:write', 'orders:fulfill',
-        'tables:read', 'tables:write', 'tables:qr',
-        'staff:read', 'staff:write', 'staff:invite', 'staff:delete', 'staff:roles',
-        'analytics:read', 'analytics:export',
-        'menu:read', 'menu:write', 'menu:delete',
-        'settings:read', 'settings:write',
-        'billing:read'
-      ]
+        'restaurant:read',
+        'restaurant:write',
+        'restaurant:settings',
+        'orders:read',
+        'orders:write',
+        'orders:fulfill',
+        'tables:read',
+        'tables:write',
+        'tables:qr',
+        'staff:read',
+        'staff:write',
+        'staff:invite',
+        'staff:delete',
+        'staff:roles',
+        'analytics:read',
+        'analytics:export',
+        'menu:read',
+        'menu:write',
+        'menu:delete',
+        'settings:read',
+        'settings:write',
+        'billing:read',
+        'payments:read',
+        'payments:write',
+      ],
     },
     {
       template: 'manager',
       permissions: [
         'restaurant:read',
-        'orders:read', 'orders:write', 'orders:fulfill',
-        'tables:read', 'tables:write', 'tables:qr',
+        'orders:read',
+        'orders:write',
+        'orders:fulfill',
+        'tables:read',
+        'tables:write',
+        'tables:qr',
         'staff:read', // Can only VIEW staff, not manage
         'analytics:read',
-        'menu:read', 'menu:write',
-        'settings:read'
-      ]
+        'menu:read',
+        'menu:write',
+        'settings:read',
+      ],
     },
     {
       template: 'kitchen_staff',
       permissions: [
-        'orders:read', 'orders:kitchen', 'orders:update', // Can view and update order progress
-        'menu:read' // Can view menu items for order details
-      ]
-    }
+        'orders:read',
+        'orders:kitchen',
+        'orders:update', // Can view and update order progress
+        'menu:read', // Can view menu items for order details
+      ],
+    },
   ];
 
   const rolePermissions = await Promise.all(
-    roleTemplates.flatMap(roleTemplate =>
-      roleTemplate.permissions.map(permissionKey =>
+    roleTemplates.flatMap((roleTemplate) =>
+      roleTemplate.permissions.map((permissionKey) =>
         prisma.rolePermission.upsert({
           where: {
             roleTemplate_permissionKey: {
               roleTemplate: roleTemplate.template,
-              permissionKey: permissionKey
-            }
+              permissionKey: permissionKey,
+            },
           },
           update: {},
           create: {
@@ -939,12 +1118,17 @@ async function main() {
     }),
   ]);
 
-  console.log('✅ Created initial user roles:', [platformAdminRole, ...ownerRoles, ...staffUserRoles].length);
+  console.log(
+    '✅ Created initial user roles:',
+    [platformAdminRole, ...ownerRoles, ...staffUserRoles].length
+  );
 
   // ==============================================
   // 10. SUMMARY AND TEST CREDENTIALS
   // ==============================================
-  console.log('\n🎉 Multi-tenant SaaS database seeding completed successfully!');
+  console.log(
+    '\n🎉 Multi-tenant SaaS database seeding completed successfully!'
+  );
   console.log('\n📊 Summary:');
   console.log(`Platform Admins: 1`);
   console.log(`Subscription Plans: ${subscriptionPlans.length}`);
@@ -962,19 +1146,21 @@ async function main() {
   console.log('Mario (Single Location): mario@rossigroup.com / owner123');
   console.log('John (Chain Owner): john@tastychainfood.com / owner123');
 
-  console.log('\n👥 Staff (Mario\'s Restaurant):');
+  console.log("\n👥 Staff (Mario's Restaurant):");
   console.log('Manager: mario@marios-authentic.com / staff123');
   console.log('Waiter: luigi@marios-authentic.com / staff123');
   console.log('Kitchen: giuseppe@marios-authentic.com / staff123');
 
   console.log('\n🍽️ Restaurant Subdomains:');
-  restaurants.forEach(restaurant => {
+  restaurants.forEach((restaurant) => {
     console.log(`${restaurant.name}: http://${restaurant.slug}.localhost:3000`);
   });
 
-  console.log('\n📱 Mario\'s QR Codes:');
-  tables.forEach(table => {
-    console.log(`Table ${table.tableNumber}: http://${marioRestaurant.slug}.localhost:3000/table/${table.qrCodeToken}`);
+  console.log("\n📱 Mario's QR Codes:");
+  tables.forEach((table) => {
+    console.log(
+      `Table ${table.tableNumber}: http://${marioRestaurant.slug}.localhost:3000/table/${table.qrCodeToken}`
+    );
   });
 
   console.log('\n🛠️ Admin URLs:');
