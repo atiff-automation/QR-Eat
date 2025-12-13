@@ -273,11 +273,32 @@ function isPublicApiRoute(pathname: string): boolean {
 
 /**
  * Redirect to login page with return URL
+ *
+ * Following CLAUDE.md principles:
+ * - Single Responsibility: Handle authentication failures appropriately
+ * - Type Safety: Proper TypeScript usage
+ * - Error Handling: Different responses for API vs page routes
+ *
+ * API routes receive JSON error responses (401)
+ * Page routes receive HTML redirects to login page
  */
 function redirectToLogin(
   request: NextRequest,
   currentPath?: string
 ): NextResponse {
+  // API routes must return JSON, not HTML redirects
+  // This prevents "Unexpected token '<'" errors when frontend expects JSON
+  if (currentPath?.startsWith('/api/')) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Authentication required',
+      },
+      { status: 401 }
+    );
+  }
+
+  // Page routes get redirected to login as usual
   const redirectUrl = new URL('/login', request.url);
   if (currentPath && currentPath !== '/login') {
     redirectUrl.searchParams.set('redirect', currentPath);
