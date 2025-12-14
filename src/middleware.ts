@@ -5,6 +5,7 @@ import {
   logSubdomainInfo,
   isReservedSubdomain,
 } from '@/lib/subdomain';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 
 // Security headers for all responses
 const SECURITY_HEADERS = {
@@ -225,11 +226,11 @@ async function handleSubdomainRouting(
 function isPublicRoute(pathname: string): boolean {
   const publicRoutes = [
     '/',
-    '/login',
-    '/register',
-    '/forgot-password',
-    '/reset-password',
-    '/staff-password-help',
+    AUTH_ROUTES.LOGIN,
+    AUTH_ROUTES.REGISTER,
+    AUTH_ROUTES.FORGOT_PASSWORD,
+    AUTH_ROUTES.RESET_PASSWORD,
+    AUTH_ROUTES.STAFF_PASSWORD_HELP,
     '/qr/',
     '/menu/',
     '/restaurant/',
@@ -299,8 +300,8 @@ function redirectToLogin(
   }
 
   // Page routes get redirected to login as usual
-  const redirectUrl = new URL('/login', request.url);
-  if (currentPath && currentPath !== '/login') {
+  const redirectUrl = new URL(AUTH_ROUTES.LOGIN, request.url);
+  if (currentPath && currentPath !== AUTH_ROUTES.LOGIN) {
     redirectUrl.searchParams.set('redirect', currentPath);
   }
   return NextResponse.redirect(redirectUrl);

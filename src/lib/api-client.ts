@@ -23,6 +23,7 @@
  */
 
 import { API_CONFIG, API_ERROR_MESSAGES, CONTENT_TYPES } from './api-constants';
+import { AUTH_ROUTES } from './auth-routes';
 
 export interface ApiRequestOptions extends RequestInit {
   /** Query parameters to append to the URL */
@@ -155,7 +156,7 @@ export class ApiClient {
           // Refresh failed - clear token and redirect to login
           this.clearTokenExpiration();
           if (typeof window !== 'undefined') {
-            window.location.href = '/auth/login';
+            window.location.href = AUTH_ROUTES.LOGIN;
           }
           throw new ApiClientError('Session expired', 401);
         }
@@ -326,14 +327,14 @@ export class ApiClient {
 
               // Redirect to login if refresh fails
               if (typeof window !== 'undefined') {
-                window.location.href = '/auth/login';
+                window.location.href = AUTH_ROUTES.LOGIN;
               }
             }
           } else {
             // Max retries exceeded - clear counter and redirect to login
             this.retryAttempts.delete(requestKey);
             if (typeof window !== 'undefined') {
-              window.location.href = '/auth/login';
+              window.location.href = AUTH_ROUTES.LOGIN;
             }
           }
         }

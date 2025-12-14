@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Eye, EyeOff } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 
 function ResetPasswordForm() {
   const [token, setToken] = useState('');
@@ -16,7 +17,7 @@ function ResetPasswordForm() {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
-  
+
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -70,20 +71,27 @@ function ResetPasswordForm() {
     }
 
     try {
-      const data = await ApiClient.patch<{ message: string }>('/auth/reset-password', {
-        token,
-        newPassword: password
-      });
+      const data = await ApiClient.patch<{ message: string }>(
+        '/auth/reset-password',
+        {
+          token,
+          newPassword: password,
+        }
+      );
 
       setMessage(data.message);
       setSuccess(true);
       // Redirect to login after 3 seconds
       setTimeout(() => {
-        router.push('/login');
+        router.push(AUTH_ROUTES.LOGIN);
       }, 3000);
     } catch (error) {
       console.error('Password reset error:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -107,7 +115,10 @@ function ResetPasswordForm() {
           <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
             <div className="space-y-4">
               <div>
-                <label htmlFor="token" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="token"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Reset Token
                 </label>
                 <input
@@ -123,7 +134,10 @@ function ResetPasswordForm() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   New Password
                 </label>
                 <div className="mt-1 relative">
@@ -149,25 +163,41 @@ function ResetPasswordForm() {
                     )}
                   </button>
                 </div>
-                
+
                 {password && (
                   <div className="mt-2 text-sm">
                     <p className="text-gray-600 mb-1">Password requirements:</p>
                     <ul className="space-y-1">
-                      <li className={`flex items-center ${password.length >= 6 ? 'text-green-600' : 'text-red-600'}`}>
-                        <span className="mr-2">{password.length >= 6 ? '✓' : '✗'}</span>
+                      <li
+                        className={`flex items-center ${password.length >= 6 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        <span className="mr-2">
+                          {password.length >= 6 ? '✓' : '✗'}
+                        </span>
                         At least 6 characters
                       </li>
-                      <li className={`flex items-center ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
-                        <span className="mr-2">{/[A-Z]/.test(password) ? '✓' : '✗'}</span>
+                      <li
+                        className={`flex items-center ${/[A-Z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        <span className="mr-2">
+                          {/[A-Z]/.test(password) ? '✓' : '✗'}
+                        </span>
                         One uppercase letter
                       </li>
-                      <li className={`flex items-center ${/[a-z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
-                        <span className="mr-2">{/[a-z]/.test(password) ? '✓' : '✗'}</span>
+                      <li
+                        className={`flex items-center ${/[a-z]/.test(password) ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        <span className="mr-2">
+                          {/[a-z]/.test(password) ? '✓' : '✗'}
+                        </span>
                         One lowercase letter
                       </li>
-                      <li className={`flex items-center ${/[0-9]/.test(password) ? 'text-green-600' : 'text-red-600'}`}>
-                        <span className="mr-2">{/[0-9]/.test(password) ? '✓' : '✗'}</span>
+                      <li
+                        className={`flex items-center ${/[0-9]/.test(password) ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        <span className="mr-2">
+                          {/[0-9]/.test(password) ? '✓' : '✗'}
+                        </span>
                         One number
                       </li>
                     </ul>
@@ -176,7 +206,10 @@ function ResetPasswordForm() {
               </div>
 
               <div>
-                <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                <label
+                  htmlFor="confirmPassword"
+                  className="block text-sm font-medium text-gray-700"
+                >
                   Confirm New Password
                 </label>
                 <div className="mt-1 relative">
@@ -202,7 +235,7 @@ function ResetPasswordForm() {
                     )}
                   </button>
                 </div>
-                
+
                 {confirmPassword && password && (
                   <div className="mt-1 text-sm">
                     {password === confirmPassword ? (
@@ -224,7 +257,11 @@ function ResetPasswordForm() {
             <div>
               <button
                 type="submit"
-                disabled={loading || passwordErrors.length > 0 || password !== confirmPassword}
+                disabled={
+                  loading ||
+                  passwordErrors.length > 0 ||
+                  password !== confirmPassword
+                }
                 className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading ? 'Resetting...' : 'Reset Password'}
@@ -243,8 +280,8 @@ function ResetPasswordForm() {
         )}
 
         <div className="text-center">
-          <Link 
-            href="/login" 
+          <Link
+            href="/login"
             className="inline-flex items-center text-sm text-blue-600 hover:text-blue-500"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />

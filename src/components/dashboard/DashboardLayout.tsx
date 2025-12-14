@@ -28,12 +28,14 @@ import {
   X,
   LogOut,
   CreditCard,
+  type LucideIcon,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { RoleSwitcher } from '@/components/rbac/RoleSwitcher';
 import { NotificationBell } from './NotificationBell';
 import { ApiClient } from '@/lib/api-client';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -59,7 +61,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const handleLogout = async () => {
     try {
       await ApiClient.post('/auth/logout');
-      router.push('/login');
+      router.push(AUTH_ROUTES.LOGIN);
     } catch (error) {
       console.error('Logout error:', error);
     }
@@ -82,7 +84,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <div className="text-center">
           <p className="text-red-600 mb-4">Authentication required</p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push(AUTH_ROUTES.LOGIN)}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
           >
             Go to Login
@@ -93,13 +95,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   // Navigation items with permission requirements
-  const navigationItems = [
+  const navigationItems: Array<{
+    name: string;
+    href: string;
+    icon: LucideIcon;
+    current: boolean;
+    permission: string | undefined;
+  }> = [
     {
       name: 'Dashboard',
       href: '/dashboard',
       icon: Home,
       current: pathname === '/dashboard',
-      permission: null, // No permission required for dashboard home
+      permission: undefined, // No permission required for dashboard home
     },
     {
       name: 'Orders',

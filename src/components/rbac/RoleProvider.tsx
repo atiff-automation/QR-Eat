@@ -22,6 +22,7 @@ import {
 } from 'react';
 import { UserRole, RestaurantContext } from '@/lib/rbac/types';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 
 interface RoleContextType {
   user: {
@@ -68,7 +69,13 @@ export function RoleProvider({ children }: { children: ReactNode }) {
     try {
       console.log('🔍 RoleProvider: Fetching user info from /api/auth/me');
       const data = await ApiClient.get<{
-        user: any;
+        user: {
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+          mustChangePassword?: boolean;
+        };
         currentRole: UserRole;
         availableRoles: UserRole[];
         permissions: string[];
@@ -76,44 +83,42 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         restaurantContext: RestaurantContext;
       }>('/auth/me');
 
+      console.log('🔍 RoleProvider: Response received, Data:', data);
+      console.log('✅ RoleProvider: User info loaded successfully');
       console.log(
-        '🔍 RoleProvider: Response received, Data:',
-        data
+        '🔍 RoleProvider: mustChangePassword value:',
+        data.user?.mustChangePassword
       );
-        console.log('✅ RoleProvider: User info loaded successfully');
+
+      setUser(data.user);
+      setCurrentRole(data.currentRole);
+      setAvailableRoles(data.availableRoles);
+      setPermissions(data.permissions);
+      setSessionId(data.session?.id);
+      setRestaurantContext(data.restaurantContext);
+
+      // Check if user must change password and redirect if necessary
+      if (data.user?.mustChangePassword) {
         console.log(
-          '🔍 RoleProvider: mustChangePassword value:',
-          data.user?.mustChangePassword
+          '🔐 RoleProvider: User must change password, checking current page'
         );
-
-        setUser(data.user);
-        setCurrentRole(data.currentRole);
-        setAvailableRoles(data.availableRoles);
-        setPermissions(data.permissions);
-        setSessionId(data.session?.id);
-        setRestaurantContext(data.restaurantContext);
-
-        // Check if user must change password and redirect if necessary
-        if (data.user?.mustChangePassword) {
-          console.log(
-            '🔐 RoleProvider: User must change password, checking current page'
-          );
-          if (
-            typeof window !== 'undefined' &&
-            !window.location.pathname.includes('/change-password') &&
-            !window.location.pathname.includes('/login')
-          ) {
-            console.log('🔄 RoleProvider: Redirecting to change password page');
-            window.location.href = '/change-password';
-            return;
-          }
+        if (
+          typeof window !== 'undefined' &&
+          !window.location.pathname.includes('/change-password') &&
+          !window.location.pathname.includes('/login')
+        ) {
+          console.log('🔄 RoleProvider: Redirecting to change password page');
+          window.location.href = AUTH_ROUTES.CHANGE_PASSWORD;
+          return;
         }
+      }
     } catch (error) {
       console.error('❌ RoleProvider: Error fetching user info:', error);
 
-      const errorMessage = error instanceof ApiClientError
-        ? error.message
-        : 'Failed to fetch user info';
+      const errorMessage =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to fetch user info';
       console.error('❌ RoleProvider: Error:', errorMessage);
 
       // Only redirect to login if not already on login page
@@ -122,7 +127,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
         !window.location.pathname.includes('/login')
       ) {
         console.log('🔄 RoleProvider: Redirecting to login due to error');
-        window.location.href = '/login';
+        window.location.href = AUTH_ROUTES.LOGIN;
       }
     } finally {
       setIsLoading(false);
@@ -146,9 +151,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Role switch error:', error);
-      throw error instanceof ApiClientError
-        ? new Error(error.message)
-        : error;
+      throw error instanceof ApiClientError ? new Error(error.message) : error;
     }
   };
 

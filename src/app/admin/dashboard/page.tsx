@@ -18,6 +18,7 @@ import {
   Shield,
   LogOut,
 } from 'lucide-react';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 import Link from 'next/link';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 
@@ -55,19 +56,26 @@ export default function AdminDashboardPage() {
 
   const checkAdminAuth = useCallback(async () => {
     try {
-      const data = await ApiClient.get<{ user: { userType: string; firstName: string; lastName: string; email: string } }>('/auth/me');
-        // Check if user is platform admin
-        if (data.user.userType !== 'platform_admin') {
-          // Redirect non-admin users
-          window.location.href = '/dashboard';
-          return;
-        }
+      const data = await ApiClient.get<{
+        user: {
+          userType: string;
+          firstName: string;
+          lastName: string;
+          email: string;
+        };
+      }>('/auth/me');
+      // Check if user is platform admin
+      if (data.user.userType !== 'platform_admin') {
+        // Redirect non-admin users
+        window.location.href = '/dashboard';
+        return;
+      }
 
-        setUser(data.user);
-        fetchRestaurants();
+      setUser(data.user);
+      fetchRestaurants();
     } catch (error) {
       console.error('Failed to check admin auth:', error);
-      window.location.href = '/login';
+      window.location.href = AUTH_ROUTES.LOGIN;
     }
   }, []);
 
@@ -120,11 +128,16 @@ export default function AdminDashboardPage() {
     }
 
     try {
-      await ApiClient.delete<{ error?: string }>(`/restaurants/${restaurantId}`);
-        setRestaurants(restaurants.filter((r) => r.id !== restaurantId));
-        alert('Restaurant deleted successfully');
+      await ApiClient.delete<{ error?: string }>(
+        `/restaurants/${restaurantId}`
+      );
+      setRestaurants(restaurants.filter((r) => r.id !== restaurantId));
+      alert('Restaurant deleted successfully');
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Failed to delete restaurant. Please try again.';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to delete restaurant. Please try again.';
       console.error('Failed to delete restaurant:', error);
       alert(message);
     }
@@ -135,14 +148,19 @@ export default function AdminDashboardPage() {
     currentStatus: boolean
   ) => {
     try {
-      await ApiClient.patch(`/restaurants/${restaurantId}`, { isActive: !currentStatus });
-        setRestaurants(
-          restaurants.map((r) =>
-            r.id === restaurantId ? { ...r, isActive: !currentStatus } : r
-          )
-        );
+      await ApiClient.patch(`/restaurants/${restaurantId}`, {
+        isActive: !currentStatus,
+      });
+      setRestaurants(
+        restaurants.map((r) =>
+          r.id === restaurantId ? { ...r, isActive: !currentStatus } : r
+        )
+      );
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Failed to update restaurant status. Please try again.';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to update restaurant status. Please try again.';
       console.error('Failed to update restaurant status:', error);
       alert(message);
     }
@@ -151,7 +169,7 @@ export default function AdminDashboardPage() {
   const logout = async () => {
     try {
       await ApiClient.post('/auth/logout', {});
-      window.location.href = '/login';
+      window.location.href = AUTH_ROUTES.LOGIN;
     } catch (error) {
       console.error('Logout failed:', error);
     }

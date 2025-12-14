@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { ApiClient } from '@/lib/api-client';
+import { AUTH_ROUTES } from '@/lib/auth-routes';
 
 interface AccessControlProps {
   children: React.ReactNode;
@@ -25,70 +26,75 @@ export function AccessControl({
     const checkAccess = async () => {
       try {
         const data = await ApiClient.get<{
-          user: any;
-          currentRole: any;
+          user: {
+            userType: string;
+            mustChangePassword?: boolean;
+          };
+          currentRole: {
+            roleTemplate: string;
+          };
           permissions: string[];
         }>('/auth/me');
-          const userData = data.user;
-          const currentRole = data.currentRole;
-          const userPermissions = data.permissions || [];
+        const userData = data.user;
+        const currentRole = data.currentRole;
+        const userPermissions = data.permissions || [];
 
-          // Always allow restaurant owners
-          if (userData.userType === 'restaurant_owner') {
+        // Always allow restaurant owners
+        if (userData.userType === 'restaurant_owner') {
+          setAuthorized(true);
+          return;
+        }
+
+        // For staff, check permissions and roles
+        if (userData.userType === 'staff') {
+          // Kitchen staff should be redirected to kitchen display
+          if (
+            currentRole &&
+            currentRole.roleTemplate &&
+            currentRole.roleTemplate.toLowerCase() === 'kitchen_staff'
+          ) {
+            router.replace('/kitchen');
+            return;
+          }
+
+          // Check if role is allowed
+          const roleAllowed =
+            allowedRoles.length === 0 ||
+            allowedRoles.some(
+              (allowedRole) =>
+                currentRole &&
+                currentRole.roleTemplate &&
+                currentRole.roleTemplate
+                  .toLowerCase()
+                  .includes(allowedRole.toLowerCase())
+            );
+
+          // Check if has required permissions
+          const hasPermissions =
+            requiredPermissions.length === 0 ||
+            requiredPermissions.every((permission) =>
+              userPermissions.includes(permission)
+            );
+
+          if (roleAllowed && hasPermissions) {
             setAuthorized(true);
-            return;
-          }
-
-          // For staff, check permissions and roles
-          if (userData.userType === 'staff') {
-            // Kitchen staff should be redirected to kitchen display
-            if (
-              currentRole &&
-              currentRole.roleTemplate &&
-              currentRole.roleTemplate.toLowerCase() === 'kitchen_staff'
-            ) {
-              router.replace('/kitchen');
-              return;
-            }
-
-            // Check if role is allowed
-            const roleAllowed =
-              allowedRoles.length === 0 ||
-              allowedRoles.some(
-                (allowedRole) =>
-                  currentRole &&
-                  currentRole.roleTemplate &&
-                  currentRole.roleTemplate
-                    .toLowerCase()
-                    .includes(allowedRole.toLowerCase())
-              );
-
-            // Check if has required permissions
-            const hasPermissions =
-              requiredPermissions.length === 0 ||
-              requiredPermissions.every((permission) =>
-                userPermissions.includes(permission)
-              );
-
-            if (roleAllowed && hasPermissions) {
-              setAuthorized(true);
-            } else {
-              // Redirect based on their role template
-              if (currentRole.roleTemplate.toLowerCase() === 'kitchen_staff') {
-                router.replace('/kitchen');
-              } else {
-                router.replace(redirectTo);
-              }
-              return;
-            }
           } else {
-            // Other user types not allowed
-            router.replace('/login');
+            // Redirect based on their role template
+            if (currentRole.roleTemplate.toLowerCase() === 'kitchen_staff') {
+              router.replace('/kitchen');
+            } else {
+              router.replace(redirectTo);
+            }
             return;
           }
+        } else {
+          // Other user types not allowed
+          router.replace(AUTH_ROUTES.LOGIN);
+          return;
+        }
       } catch (error) {
         console.error('Access check failed:', error);
-        router.replace('/login');
+        router.replace(AUTH_ROUTES.LOGIN);
         return;
       } finally {
         setLoading(false);
