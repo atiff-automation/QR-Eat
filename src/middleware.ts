@@ -259,6 +259,7 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/auth/register',
     '/api/auth/forgot-password',
     '/api/auth/reset-password',
+    '/api/auth/refresh', // Allow token refresh even with expired token
     '/api/auth/staff-password-request',
     '/api/auth/validate-token', // Our new validation endpoint
     '/api/qr/',

@@ -24,6 +24,9 @@
 
 import { API_CONFIG, API_ERROR_MESSAGES, CONTENT_TYPES } from './api-constants';
 import { AUTH_ROUTES } from './auth-routes';
+import toast from 'react-hot-toast';
+import { TOAST_MESSAGES } from './constants/toast-messages';
+import { AUTH_INTERVALS } from './constants/polling-config';
 
 export interface ApiRequestOptions extends RequestInit {
   /** Query parameters to append to the URL */
@@ -71,6 +74,9 @@ export class ApiClient {
   // 401 retry tracking (prevent infinite retry loops)
   private static readonly MAX_RETRY_ATTEMPTS = 1;
   private static retryAttempts = new Map<string, number>();
+
+  // Toast notification throttling (prevent spam)
+  private static lastToastTime = 0;
 
   /**
    * Build URL with query parameters
@@ -183,8 +189,21 @@ export class ApiClient {
   }
 
   /**
+   * Check if we should show a toast notification (throttled)
+   */
+  private static shouldShowToast(): boolean {
+    const now = Date.now();
+    if (now - this.lastToastTime > AUTH_INTERVALS.TOAST_THROTTLE) {
+      this.lastToastTime = now;
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Force token refresh (used by 401 interceptor)
    * Called when we receive a 401 error to attempt recovery
+   * Shows user-friendly toast notifications
    */
   private static async forceTokenRefresh(): Promise<void> {
     // If already refreshing, wait for that refresh to complete
@@ -194,6 +213,13 @@ export class ApiClient {
 
     // Start new refresh
     this.refreshInProgress = true;
+
+    // Show loading toast (throttled to prevent spam)
+    let toastId: string | undefined;
+    if (this.shouldShowToast() && typeof window !== 'undefined') {
+      toastId = toast.loading(TOAST_MESSAGES.AUTH.SESSION_REFRESHING);
+    }
+
     this.refreshPromise = (async () => {
       try {
         const response = await fetch('/api/auth/refresh', {
@@ -203,6 +229,19 @@ export class ApiClient {
 
         if (!response.ok) {
           this.clearTokenExpiration();
+
+          // Show error toast and redirect
+          if (toastId && typeof window !== 'undefined') {
+            toast.error(TOAST_MESSAGES.AUTH.SESSION_EXPIRED, { id: toastId });
+          }
+
+          // Delay redirect to show message
+          if (typeof window !== 'undefined') {
+            setTimeout(() => {
+              window.location.href = AUTH_ROUTES.LOGIN;
+            }, AUTH_INTERVALS.REDIRECT_DELAY);
+          }
+
           throw new ApiClientError('Session expired', 401);
         }
 
@@ -213,6 +252,13 @@ export class ApiClient {
 
         if (data.success && data.tokenExpiration?.accessToken) {
           this.setTokenExpiration(data.tokenExpiration.accessToken);
+
+          // Show success toast
+          if (toastId && typeof window !== 'undefined') {
+            toast.success(TOAST_MESSAGES.AUTH.SESSION_REFRESHED, {
+              id: toastId,
+            });
+          }
         }
       } catch (error) {
         this.clearTokenExpiration();

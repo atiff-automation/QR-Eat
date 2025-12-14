@@ -1,9 +1,9 @@
 /**
  * Tables Management Page with RBAC Integration
- * 
+ *
  * This page implements Phase 3.3.2 of the RBAC Implementation Plan,
  * replacing legacy authentication with the new RBAC system.
- * 
+ *
  * Features:
  * - RBAC-based permission checking
  * - Role-aware table management access
@@ -18,6 +18,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { Smartphone, Copy, RefreshCw, Users, ChefHat } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 interface Table {
   id: string;
@@ -57,7 +58,11 @@ function TablesContent() {
       setTables(data.tables);
     } catch (error) {
       console.error('Failed to fetch tables:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     } finally {
       setLoading(false);
     }
@@ -66,8 +71,8 @@ function TablesContent() {
   useEffect(() => {
     if (restaurantContext?.id) {
       fetchTables();
-      // Set up real-time updates every 30 seconds
-      const interval = setInterval(fetchTables, 30000);
+      // Set up real-time updates using POLLING_INTERVALS constant
+      const interval = setInterval(fetchTables, POLLING_INTERVALS.TABLES);
       return () => clearInterval(interval);
     }
   }, [restaurantContext?.id, fetchTables]);
@@ -79,7 +84,11 @@ function TablesContent() {
       fetchTables(); // Refresh tables
     } catch (error) {
       console.error('Failed to update table status:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
@@ -90,13 +99,19 @@ function TablesContent() {
 
   const regenerateQRCode = async (tableId: string) => {
     try {
-      const data = await ApiClient.post<{ qrUrl: string }>(`/tables/${tableId}/regenerate-qr`);
+      const data = await ApiClient.post<{ qrUrl: string }>(
+        `/tables/${tableId}/regenerate-qr`
+      );
 
       alert(`QR code regenerated successfully!\nNew URL: ${data.qrUrl}`);
       fetchTables(); // Refresh tables
     } catch (error) {
       console.error('Failed to regenerate QR code:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
@@ -128,9 +143,12 @@ function TablesContent() {
     }
 
     try {
-      const data = await ApiClient.post<{ printHTML: string }>('/tables/bulk-qr', {
-        tableIds: selectedTables
-      });
+      const data = await ApiClient.post<{ printHTML: string }>(
+        '/tables/bulk-qr',
+        {
+          tableIds: selectedTables,
+        }
+      );
 
       // Open print window with all QR codes
       const printWindow = window.open('', '_blank');
@@ -142,7 +160,11 @@ function TablesContent() {
       }
     } catch (error) {
       console.error('Failed to generate bulk QR codes:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
@@ -343,7 +365,9 @@ function TablesContent() {
                   </label>
                   <select
                     value={table.status}
-                    onChange={(e) => updateTableStatus(table.id, e.target.value)}
+                    onChange={(e) =>
+                      updateTableStatus(table.id, e.target.value)
+                    }
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium bg-white"
                   >
                     {statusOptions.map((option) => (
@@ -561,7 +585,11 @@ function AddTableModal({
       onClose();
     } catch (error) {
       console.error('Failed to create table:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }

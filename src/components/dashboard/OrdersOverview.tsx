@@ -47,59 +47,71 @@ export function OrdersOverview() {
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
 
-  const handleRealTimeUpdate = (data: { type: string; data: Record<string, unknown> }) => {
+  const handleRealTimeUpdate = (data: {
+    type: string;
+    data: Record<string, unknown>;
+  }) => {
     console.log('Real-time update received:', data);
-    
+
     switch (data.type) {
       case 'order_status_changed':
-        console.log('Dashboard updating order status:', data.data.orderId, 'from', data.data.oldStatus, 'to', data.data.newStatus);
-        
+        console.log(
+          'Dashboard updating order status:',
+          data.data.orderId,
+          'from',
+          data.data.oldStatus,
+          'to',
+          data.data.newStatus
+        );
+
         // Update specific order status
-        setOrders(prevOrders => {
-          const updated = prevOrders.map(order => {
-            if (order.id === data.data.orderId) {
+        setOrders((prevOrders) => {
+          const updated = prevOrders.map((order) => {
+            if (order.id === (data.data.orderId as string)) {
               console.log('Found order to update:', order.orderNumber);
-              return { ...order, status: data.data.newStatus };
+              return { ...order, status: data.data.newStatus as string };
             }
             return order;
           });
-          
+
           // If order not found in current list, refresh orders
-          const foundOrder = prevOrders.find(order => order.id === data.data.orderId);
+          const foundOrder = prevOrders.find(
+            (order) => order.id === (data.data.orderId as string)
+          );
           if (!foundOrder) {
             console.log('Order not found in current list, refreshing...');
             fetchOrders();
             return prevOrders;
           }
-          
+
           return updated;
         });
-        
+
         // Refresh stats to get updated counts
         fetchStats();
         break;
-        
+
       case 'order_created':
         // Add new order to the list and refresh stats
         console.log('New order created, refreshing dashboard orders...');
         fetchOrders();
         fetchStats();
         break;
-        
+
       case 'restaurant_notification':
         console.log('Restaurant notification:', data.data.message);
         // Could show toast notification here
         break;
-        
+
       case 'kitchen_notification':
         console.log('Kitchen notification:', data.data.message);
         // These are meant for kitchen display
         break;
-        
+
       case 'connection':
         console.log('SSE connection established:', data.data.message);
         break;
-        
+
       default:
         console.log('Unknown event type:', data.type);
     }
@@ -108,10 +120,10 @@ export function OrdersOverview() {
   useEffect(() => {
     fetchOrders();
     fetchStats();
-    
+
     // Set up Server-Sent Events for real-time updates
     const eventSource = new EventSource('/api/events/orders');
-    
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -123,13 +135,6 @@ export function OrdersOverview() {
 
     eventSource.onerror = (error) => {
       console.error('SSE connection error:', error);
-      // Fallback to polling if SSE fails
-      const fallbackInterval = setInterval(() => {
-        fetchOrders();
-        fetchStats();
-      }, 15000);
-      
-      return () => clearInterval(fallbackInterval);
     };
 
     eventSource.onopen = () => {
@@ -149,18 +154,27 @@ export function OrdersOverview() {
       }
       params.limit = '20';
 
-      const data = await ApiClient.get<{ success: boolean; orders: OrderSummary[] }>('/orders', { params });
+      const data = await ApiClient.get<{
+        success: boolean;
+        orders: OrderSummary[];
+      }>('/orders', { params });
 
       setOrders(data.orders);
     } catch (error) {
       console.error('Failed to fetch orders:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
   const fetchStats = async () => {
     try {
-      const data = await ApiClient.get<{ success: boolean; stats: OrderStats }>('/orders/stats');
+      const data = await ApiClient.get<{ success: boolean; stats: OrderStats }>(
+        '/orders/stats'
+      );
 
       setStats(data.stats);
     } catch (error) {
@@ -179,7 +193,11 @@ export function OrdersOverview() {
       setError(''); // Clear any previous errors
     } catch (error) {
       console.error('Failed to update order status:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
@@ -219,8 +237,12 @@ export function OrdersOverview() {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">Total Orders</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.totalOrders}</p>
+                <p className="text-sm font-medium text-gray-700">
+                  Total Orders
+                </p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.totalOrders}
+                </p>
               </div>
             </div>
           </div>
@@ -234,7 +256,9 @@ export function OrdersOverview() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.pendingOrders}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.pendingOrders}
+                </p>
               </div>
             </div>
           </div>
@@ -248,7 +272,9 @@ export function OrdersOverview() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Preparing</p>
-                <p className="text-2xl font-semibold text-gray-900">{stats.preparingOrders}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {stats.preparingOrders}
+                </p>
               </div>
             </div>
           </div>
@@ -262,7 +288,9 @@ export function OrdersOverview() {
               </div>
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Revenue</p>
-                <p className="text-2xl font-semibold text-gray-900">{formatPrice(stats.totalRevenue)}</p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {formatPrice(stats.totalRevenue)}
+                </p>
               </div>
             </div>
           </div>
@@ -342,7 +370,9 @@ export function OrdersOverview() {
                       <div className="text-sm text-gray-900">
                         Table {order.table.tableNumber}
                         {order.table.tableName && (
-                          <div className="text-sm text-gray-500">{order.table.tableName}</div>
+                          <div className="text-sm text-gray-500">
+                            {order.table.tableName}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -371,7 +401,9 @@ export function OrdersOverview() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusDisplay.color}`}>
+                      <span
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusDisplay.color}`}
+                      >
                         {statusDisplay.label}
                       </span>
                     </td>
@@ -382,7 +414,9 @@ export function OrdersOverview() {
                       <div className="flex space-x-2">
                         {order.status === 'pending' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'confirmed')}
+                            onClick={() =>
+                              updateOrderStatus(order.id, 'confirmed')
+                            }
                             className="text-blue-600 hover:text-blue-900"
                           >
                             Confirm
@@ -390,7 +424,9 @@ export function OrdersOverview() {
                         )}
                         {order.status === 'confirmed' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'preparing')}
+                            onClick={() =>
+                              updateOrderStatus(order.id, 'preparing')
+                            }
                             className="text-orange-600 hover:text-orange-900"
                           >
                             Start
@@ -406,7 +442,9 @@ export function OrdersOverview() {
                         )}
                         {order.status === 'ready' && (
                           <button
-                            onClick={() => updateOrderStatus(order.id, 'served')}
+                            onClick={() =>
+                              updateOrderStatus(order.id, 'served')
+                            }
                             className="text-gray-600 hover:text-gray-900"
                           >
                             Served

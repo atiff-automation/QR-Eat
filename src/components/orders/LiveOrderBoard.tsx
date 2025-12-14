@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { User, UtensilsCrossed, Clock } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
+import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 interface LiveOrder {
   id: string;
@@ -45,7 +47,7 @@ interface LiveOrderBoardProps {
 }
 
 export function LiveOrderBoard({
-  refreshInterval = 30000,
+  refreshInterval = POLLING_INTERVALS.ORDERS,
 }: LiveOrderBoardProps) {
   const [orders, setOrders] = useState<LiveOrder[]>([]);
   const [metrics, setMetrics] = useState<KitchenMetrics | null>(null);
@@ -54,6 +56,13 @@ export function LiveOrderBoard({
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const eventSourceRef = useRef<EventSource | null>(null);
+
+  // Auth-aware polling as fallback
+  const { data: pollingData, error: pollingError } = useAuthAwarePolling<{
+    orders: LiveOrder[];
+    metrics: KitchenMetrics;
+    timestamp: string;
+  }>('/api/orders/live', refreshInterval);
 
   // Handle real-time updates from SSE
   const handleRealTimeUpdate = (data: {
@@ -126,11 +135,27 @@ export function LiveOrderBoard({
     }
   };
 
+  // Update from polling data
   useEffect(() => {
-    fetchLiveOrders();
+    if (pollingData) {
+      setOrders(pollingData.orders);
+      setMetrics(pollingData.metrics);
+      setLastUpdate(new Date(pollingData.timestamp));
+      setError('');
+      setLoading(false);
+    }
+  }, [pollingData]);
 
+  // Handle polling errors
+  useEffect(() => {
+    if (pollingError) {
+      setError(pollingError.message);
+      setLoading(false);
+    }
+  }, [pollingError]);
+
+  useEffect(() => {
     // Set up Server-Sent Events for real-time updates
-    // Note: Polling fallback below ensures we catch any missed events
     console.log('[LiveOrderBoard] Establishing SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
     eventSourceRef.current = eventSource;
@@ -147,7 +172,6 @@ export function LiveOrderBoard({
     eventSource.onerror = (error) => {
       console.error('[LiveOrderBoard] SSE connection error:', error);
       setSseConnected(false);
-      // EventSource will automatically try to reconnect
     };
 
     eventSource.onopen = () => {
@@ -155,30 +179,11 @@ export function LiveOrderBoard({
       setSseConnected(true);
     };
 
-    // Keep polling as fallback (runs even when SSE connected for reliability)
-    // Polling catches any events that SSE might have missed
-    let fallbackInterval: NodeJS.Timeout | undefined;
-    if (refreshInterval > 0) {
-      fallbackInterval = setInterval(() => {
-        if (!sseConnected) {
-          console.log(
-            '[LiveOrderBoard] SSE not connected, using fallback polling'
-          );
-        } else {
-          console.log('[LiveOrderBoard] Periodic polling check (SSE backup)');
-        }
-        fetchLiveOrders();
-      }, refreshInterval);
-    }
-
     return () => {
       console.log('[LiveOrderBoard] Cleaning up SSE connection');
       eventSource.close();
-      if (fallbackInterval) {
-        clearInterval(fallbackInterval);
-      }
     };
-  }, [refreshInterval]);
+  }, []);
 
   const fetchLiveOrders = async () => {
     try {
@@ -189,7 +194,7 @@ export function LiveOrderBoard({
         metrics: KitchenMetrics;
         timestamp: string;
       }>('/api/orders/live', {
-        params: since ? { since } : undefined
+        params: since ? { since } : undefined,
       });
 
       setOrders(response.orders);
@@ -217,7 +222,9 @@ export function LiveOrderBoard({
         )
       );
 
-      await ApiClient.patch(`/api/orders/${orderId}/status`, { status: newStatus });
+      await ApiClient.patch(`/api/orders/${orderId}/status`, {
+        status: newStatus,
+      });
 
       console.log(
         '[LiveOrderBoard] Order status updated successfully, waiting for SSE confirmation'

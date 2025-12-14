@@ -94,7 +94,7 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       setCurrentRole(data.currentRole);
       setAvailableRoles(data.availableRoles);
       setPermissions(data.permissions);
-      setSessionId(data.session?.id);
+      setSessionId(data.session?.id ?? null);
       setRestaurantContext(data.restaurantContext);
 
       // Check if user must change password and redirect if necessary

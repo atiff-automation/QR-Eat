@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
+import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 interface KitchenOrder {
   id: string;
@@ -45,7 +47,11 @@ export function KitchenDisplayBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [sseConnected, setSseConnected] = useState(false);
+
+  // Auth-aware polling as fallback for SSE
+  const { data: pollingData, error: pollingError } = useAuthAwarePolling<{
+    orders: KitchenOrder[];
+  }>('/kitchen/orders', POLLING_INTERVALS.KITCHEN);
 
   const handleRealTimeUpdate = (data: {
     type: string;
@@ -85,7 +91,7 @@ export function KitchenDisplayBoard() {
                 'to',
                 data.data.newStatus
               );
-              return { ...order, status: data.data.newStatus };
+              return { ...order, status: data.data.newStatus as string };
             }
             return order;
           });
@@ -101,7 +107,7 @@ export function KitchenDisplayBoard() {
 
           // If order not found in current list, refresh orders
           const foundOrder = prevOrders.find(
-            (order) => order.id === data.data.orderId
+            (order) => order.id === (data.data.orderId as string)
           );
           if (!foundOrder) {
             console.log('Order not found in current list, refreshing...');
@@ -111,7 +117,7 @@ export function KitchenDisplayBoard() {
 
           // Check if the new status should still be displayed in kitchen
           const kitchenStatuses = ['confirmed', 'preparing', 'ready'];
-          if (!kitchenStatuses.includes(data.data.newStatus)) {
+          if (!kitchenStatuses.includes(data.data.newStatus as string)) {
             console.log(
               'Order status',
               data.data.newStatus,
@@ -175,9 +181,24 @@ export function KitchenDisplayBoard() {
     }
   };
 
+  // Update orders from auth-aware polling fallback
   useEffect(() => {
-    fetchKitchenOrders();
+    if (pollingData) {
+      setOrders(pollingData.orders);
+      setError('');
+      setLoading(false);
+    }
+  }, [pollingData]);
 
+  // Handle polling errors
+  useEffect(() => {
+    if (pollingError) {
+      setError(pollingError.message);
+      setLoading(false);
+    }
+  }, [pollingError]);
+
+  useEffect(() => {
     // Set up Server-Sent Events for real-time updates
     console.log('[KitchenDisplayBoard] Establishing SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
@@ -202,28 +223,12 @@ export function KitchenDisplayBoard() {
       setSseConnected(true);
     };
 
-    // Keep polling as fallback (runs even when SSE connected for reliability)
-    // Polling catches any events that SSE might have missed
-    const pollingInterval = setInterval(() => {
-      if (!sseConnected) {
-        console.log(
-          '[KitchenDisplayBoard] SSE not connected, using fallback polling'
-        );
-      } else {
-        console.log(
-          '[KitchenDisplayBoard] Periodic polling check (SSE backup)'
-        );
-      }
-      fetchKitchenOrders();
-    }, 30000); // 30 second interval
-
     // Update current time every second for timing displays
     const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
     return () => {
       console.log('[KitchenDisplayBoard] Cleaning up SSE connection');
       eventSource.close();
-      clearInterval(pollingInterval);
       clearInterval(timeInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,12 +236,18 @@ export function KitchenDisplayBoard() {
 
   const fetchKitchenOrders = async () => {
     try {
-      const data = await ApiClient.get<{ orders: KitchenOrder[] }>('/kitchen/orders');
+      const data = await ApiClient.get<{ orders: KitchenOrder[] }>(
+        '/kitchen/orders'
+      );
       setOrders(data.orders);
       setError('');
     } catch (error) {
       console.error('Failed to fetch kitchen orders:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please check connection.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please check connection.'
+      );
     } finally {
       setLoading(false);
     }
@@ -259,7 +270,11 @@ export function KitchenDisplayBoard() {
       // This prevents race conditions between manual fetch and SSE update
     } catch (error) {
       console.error('[KitchenDisplay] Failed to update order status:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
       // Revert optimistic update on error
       fetchKitchenOrders();
     }
@@ -277,14 +292,20 @@ export function KitchenDisplayBoard() {
         }))
       );
 
-      await ApiClient.patch(`/kitchen/items/${itemId}/status`, { status: newStatus });
+      await ApiClient.patch(`/kitchen/items/${itemId}/status`, {
+        status: newStatus,
+      });
       console.log(
         '[KitchenDisplay] Item status updated successfully, waiting for SSE confirmation'
       );
       // SSE will send the real update - no need to fetch manually
     } catch (error) {
       console.error('[KitchenDisplay] Failed to update item status:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Network error. Please try again.');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
       // Revert optimistic update on error
       fetchKitchenOrders();
     }

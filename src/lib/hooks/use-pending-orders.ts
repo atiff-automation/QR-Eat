@@ -14,6 +14,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { OrderWithDetails } from '@/types/pos';
 import { fetchPendingOrders } from '@/lib/services/payment-service';
+import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 interface UsePendingOrdersOptions {
   autoRefresh?: boolean;
@@ -33,7 +34,8 @@ interface UsePendingOrdersReturn {
 export function usePendingOrders(
   options: UsePendingOrdersOptions = {}
 ): UsePendingOrdersReturn {
-  const { autoRefresh = true, refreshInterval = 30000 } = options;
+  const { autoRefresh = true, refreshInterval = POLLING_INTERVALS.ORDERS } =
+    options;
 
   const [orders, setOrders] = useState<OrderWithDetails[]>([]);
   const [isLoading, setIsLoading] = useState(true);
