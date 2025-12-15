@@ -1,20 +1,16 @@
 /**
  * Owner Restaurants API
- * Simple cookie-based authentication for owner dashboard
+ * RBAC-based authentication for owner dashboard
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthService, AUTH_CONSTANTS } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get JWT token from any user-type specific cookie
-    const token = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
-    
+    // RBAC Authentication
+    const token = request.cookies.get('qr_rbac_token')?.value;
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -22,26 +18,27 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify token
-    const payload = AuthService.verifyToken(token);
-    if (!payload) {
+    const validation = await AuthServiceV2.validateToken(token);
+    if (!validation.isValid || !validation.user) {
       return NextResponse.json(
-        { error: 'Invalid token' },
+        { error: 'Invalid or expired token' },
         { status: 401 }
       );
     }
 
+    const user = validation.user;
+
     // Only restaurant owners can access this endpoint
-    if (payload.userType !== 'restaurant_owner') {
+    if (user.currentRole.userType !== 'restaurant_owner') {
       return NextResponse.json(
-        { error: 'Access denied' },
+        { error: 'Access denied: Only restaurant owners can access this endpoint' },
         { status: 403 }
       );
     }
 
     // Fetch restaurants owned by this user
     const restaurants = await prisma.restaurant.findMany({
-      where: { ownerId: payload.userId },
+      where: { ownerId: user.id },
       select: {
         id: true,
         name: true,

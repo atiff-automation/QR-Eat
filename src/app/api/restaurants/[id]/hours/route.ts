@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthService, UserType } from '@/lib/auth';
+import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 interface DayHours {
   isOpen: boolean;
@@ -27,17 +27,17 @@ interface OperatingHours {
   friday: DayHours;
   saturday: DayHours;
   sunday: DayHours;
-  
+
   // Special dates (overrides regular schedule)
   specialDates?: {
     [date: string]: DayHours & {
       reason?: string; // "Holiday", "Private Event", etc.
     };
   };
-  
+
   // Timezone for proper display
   timezone: string;
-  
+
   // Last updated timestamp
   lastUpdated: string;
 }
@@ -49,21 +49,22 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader) {
+
+    // RBAC Authentication
+    const token = request.cookies.get('qr_rbac_token')?.value;
+    if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const payload = AuthService.verifyToken(token);
-    
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    const validation = await AuthServiceV2.validateToken(token);
+    if (!validation.isValid || !validation.user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Check access
-    const hasAccess = await checkRestaurantAccess(payload, id);
+    const user = validation.user;
+
+    // Check access using RBAC user
+    const hasAccess = await checkRestaurantAccessRBAC(user, id);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -104,25 +105,28 @@ export async function PUT(
 ) {
   try {
     const { id } = await params;
-    const authHeader = request.headers.get('authorization');
-    
-    if (!authHeader) {
+
+    // RBAC Authentication  
+    const token = request.cookies.get('qr_rbac_token')?.value;
+    if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const payload = AuthService.verifyToken(token);
-    
-    if (!payload) {
-      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    const validation = await AuthServiceV2.validateToken(token);
+    if (!validation.isValid || !validation.user) {
+      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
     }
 
-    // Check access (only owners can modify hours)
-    if (payload.userType !== UserType.RESTAURANT_OWNER && payload.userType !== UserType.PLATFORM_ADMIN) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    const user = validation.user;
+
+    // Check permission - only owners and admins can modify hours
+    const canModify = user.currentRole.userType === 'restaurant_owner' ||
+      user.currentRole.userType === 'platform_admin';
+    if (!canModify) {
+      return NextResponse.json({ error: 'Permission denied: Only owners can modify hours' }, { status: 403 });
     }
 
-    const hasAccess = await checkRestaurantAccess(payload, id);
+    const hasAccess = await checkRestaurantAccessRBAC(user, id);
     if (!hasAccess) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -203,7 +207,7 @@ function validateOperatingHours(hours: any): OperatingHours | null {
   }
 
   const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-  
+
   for (const day of daysOfWeek) {
     if (!hours[day] || typeof hours[day] !== 'object') {
       return null;
@@ -230,24 +234,27 @@ function validateOperatingHours(hours: any): OperatingHours | null {
   return hours as OperatingHours;
 }
 
-// Helper function to check restaurant access
-async function checkRestaurantAccess(payload: any, restaurantId: string): Promise<boolean> {
+// Helper function to check restaurant access with RBAC
+async function checkRestaurantAccessRBAC(user: any, restaurantId: string): Promise<boolean> {
   try {
-    if (payload.userType === UserType.PLATFORM_ADMIN) {
+    // Platform admins have access to all restaurants
+    if (user.currentRole.userType === 'platform_admin') {
       return true;
     }
 
-    if (payload.userType === UserType.RESTAURANT_OWNER) {
+    // Restaurant owners can access their own restaurants
+    if (user.currentRole.userType === 'restaurant_owner') {
       const restaurant = await prisma.restaurant.findFirst({
         where: {
           id: restaurantId,
-          ownerId: payload.userId
+          ownerId: user.id
         }
       });
       return !!restaurant;
     }
 
-    if (payload.userType === UserType.STAFF && payload.restaurantId === restaurantId) {
+    // Staff can access their assigned restaurant
+    if (user.restaurantContext?.id === restaurantId) {
       return true;
     }
 
