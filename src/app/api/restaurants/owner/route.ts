@@ -1,39 +1,40 @@
 /**
  * Owner Restaurants API
  * RBAC-based authentication for owner dashboard
+ * 
+ * Following CLAUDE.md principles:
+ * - Type Safety: Proper TypeScript types throughout
+ * - Error Handling: Comprehensive error cases
+ * - RBAC Integration: Shared helpers for authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import {
+  validateRBACToken,
+  createErrorResponse,
+  logAccessDenied,
+  hasRoleType
+} from '@/lib/rbac/route-helpers';
+import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
 
 export async function GET(request: NextRequest) {
   try {
-    // RBAC Authentication
-    const token = request.cookies.get('qr_rbac_token')?.value;
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+    // RBAC Authentication with proper types
+    const authResult = await validateRBACToken(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(
+        authResult.error!.message,
+        authResult.error!.status
       );
     }
 
-    const validation = await AuthServiceV2.validateToken(token);
-    if (!validation.isValid || !validation.user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
-
-    const user = validation.user;
+    const user: EnhancedAuthenticatedUser = authResult.user;
 
     // Only restaurant owners can access this endpoint
-    if (user.currentRole.userType !== 'restaurant_owner') {
-      return NextResponse.json(
-        { error: 'Access denied: Only restaurant owners can access this endpoint' },
-        { status: 403 }
-      );
+    if (!hasRoleType(user, 'restaurant_owner')) {
+      await logAccessDenied(user, 'owner:restaurants', 'Not a restaurant owner', request);
+      return createErrorResponse('Access denied: Only restaurant owners can access this endpoint', 403);
     }
 
     // Fetch restaurants owned by this user

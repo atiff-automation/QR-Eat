@@ -1,11 +1,22 @@
 /**
  * Restaurant Profile Management API
  * Allows restaurant owners to manage their public restaurant profile
+ * 
+ * Following CLAUDE.md principles:
+ * - Type Safety: Proper TypeScript types throughout
+ * - Error Handling: Comprehensive error cases
+ * - RBAC Integration: Shared helpers for authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import {
+  validateRBACToken,
+  checkRestaurantAccess,
+  createErrorResponse,
+  logAccessDenied
+} from '@/lib/rbac/route-helpers';
+import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
 
 // GET - Fetch restaurant profile for editing
 export async function GET(
@@ -15,23 +26,22 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // RBAC Authentication
-    const token = request.cookies.get('qr_rbac_token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    // RBAC Authentication with proper types
+    const authResult = await validateRBACToken(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(
+        authResult.error!.message,
+        authResult.error!.status
+      );
     }
 
-    const validation = await AuthServiceV2.validateToken(token);
-    if (!validation.isValid || !validation.user) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-    }
+    const user: EnhancedAuthenticatedUser = authResult.user;
 
-    const user = validation.user;
-
-    // Check if user has access to this restaurant
-    const hasAccess = await checkRestaurantAccessRBAC(user, id);
+    // Check restaurant access
+    const hasAccess = await checkRestaurantAccess(user, id);
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      await logAccessDenied(user, `restaurant:${id}:profile`, 'No access to this restaurant', request);
+      return createErrorResponse('Access denied', 403);
     }
 
     // Fetch restaurant profile
@@ -90,23 +100,22 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    // RBAC Authentication
-    const token = request.cookies.get('qr_rbac_token')?.value;
-    if (!token) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    // RBAC Authentication with proper types
+    const authResult = await validateRBACToken(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(
+        authResult.error!.message,
+        authResult.error!.status
+      );
     }
 
-    const validation = await AuthServiceV2.validateToken(token);
-    if (!validation.isValid || !validation.user) {
-      return NextResponse.json({ error: 'Invalid or expired token' }, { status: 401 });
-    }
+    const user: EnhancedAuthenticatedUser = authResult.user;
 
-    const user = validation.user;
-
-    // Check if user has access to this restaurant
-    const hasAccess = await checkRestaurantAccessRBAC(user, id);
+    // Check restaurant access
+    const hasAccess = await checkRestaurantAccess(user, id);
     if (!hasAccess) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+      await logAccessDenied(user, `restaurant:${id}:profile`, 'No access to this restaurant', request);
+      return createErrorResponse('Access denied', 403);
     }
 
     const updateData = await request.json();
@@ -158,36 +167,7 @@ export async function PUT(
   }
 }
 
-// Helper function to check restaurant access with RBAC
-async function checkRestaurantAccessRBAC(user: any, restaurantId: string): Promise<boolean> {
-  try {
-    // Platform admins have access to all restaurants
-    if (user.currentRole.userType === 'platform_admin') {
-      return true;
-    }
 
-    // Restaurant owners can access their own restaurants
-    if (user.currentRole.userType === 'restaurant_owner') {
-      const restaurant = await prisma.restaurant.findFirst({
-        where: {
-          id: restaurantId,
-          ownerId: user.id
-        }
-      });
-      return !!restaurant;
-    }
-
-    // Staff can access their assigned restaurant (read-only in most cases)
-    if (user.restaurantContext?.id === restaurantId) {
-      return true;
-    }
-
-    return false;
-  } catch (error) {
-    console.error('Error checking restaurant access:', error);
-    return false;
-  }
-}
 
 // Helper function to validate and sanitize profile data
 function validateProfileData(data: any) {
