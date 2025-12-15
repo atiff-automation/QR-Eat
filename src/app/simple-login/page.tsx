@@ -13,9 +13,27 @@ export default function SimpleLoginPage() {
     setMessage('Attempting login...');
 
     try {
-      const response = await ApiClient.post<{ user: any }>('/api/auth/login', { email, password });
+      const response = await ApiClient.post<{
+        user: {
+          id: string;
+          email: string;
+          firstName: string;
+          lastName: string;
+        };
+        tokenExpiration?: { accessToken: string | Date };
+      }>('/api/auth/login', { email, password });
 
-      console.log('Response:', response.data);
+      console.log('Response:', response);
+
+      // ✅ Initialize token expiration tracking for automatic refresh
+      if (response.tokenExpiration?.accessToken) {
+        ApiClient.setTokenExpiration(response.tokenExpiration.accessToken);
+        console.log(
+          '✅ Token expiration set:',
+          response.tokenExpiration.accessToken
+        );
+      }
+
       setMessage('Login successful! Redirecting...');
       setTimeout(() => {
         window.location.href = '/dashboard';

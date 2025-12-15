@@ -1,9 +1,9 @@
 /**
  * RBAC-Enhanced Authentication Endpoint
- * 
+ *
  * This endpoint provides authentication using the new RBAC system,
  * replacing the legacy multi-cookie authentication approach.
- * 
+ *
  * Implements Phase 5.2.1 of RBAC Implementation Plan
  */
 
@@ -13,6 +13,8 @@ import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { resolveTenant } from '@/lib/tenant-resolver';
 import { SecurityUtils } from '@/lib/security';
 import { getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
+import { EnhancedJWTService } from '@/lib/rbac/jwt';
+import { RBAC_CONSTANTS } from '@/lib/rbac/types';
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
@@ -39,15 +41,15 @@ export async function POST(request: NextRequest) {
       userAgent,
       metadata: {
         endpoint: 'login',
-        requestTime: new Date().toISOString()
-      }
+        requestTime: new Date().toISOString(),
+      },
     };
 
     // Rate limiting by IP
     const now = Date.now();
     const clientKey = `${clientIP}:${email}`;
     const rateLimit = rateLimitMap.get(clientKey);
-    
+
     if (rateLimit) {
       if (now < rateLimit.resetTime) {
         if (rateLimit.attempts >= RATE_LIMIT_MAX_ATTEMPTS) {
@@ -58,7 +60,7 @@ export async function POST(request: NextRequest) {
             `Rate limit exceeded for ${email}`,
             auditContext
           );
-          
+
           return NextResponse.json(
             { error: 'Too many login attempts. Please try again later.' },
             { status: 429 }
@@ -66,15 +68,22 @@ export async function POST(request: NextRequest) {
         }
       } else {
         // Reset the rate limit window
-        rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
+        rateLimitMap.set(clientKey, {
+          attempts: 1,
+          resetTime: now + RATE_LIMIT_WINDOW,
+        });
       }
     } else {
-      rateLimitMap.set(clientKey, { attempts: 1, resetTime: now + RATE_LIMIT_WINDOW });
+      rateLimitMap.set(clientKey, {
+        attempts: 1,
+        resetTime: now + RATE_LIMIT_WINDOW,
+      });
     }
 
     // Check if this is a subdomain request
-    const currentSlug = getRestaurantSlugFromSubdomain(request) || restaurantSlug;
-    
+    const currentSlug =
+      getRestaurantSlugFromSubdomain(request) || restaurantSlug;
+
     // If subdomain access, validate the restaurant exists
     let tenantContext = null;
     if (currentSlug) {
@@ -104,7 +113,7 @@ export async function POST(request: NextRequest) {
       if (currentRateLimit) {
         rateLimitMap.set(clientKey, {
           attempts: currentRateLimit.attempts + 1,
-          resetTime: currentRateLimit.resetTime
+          resetTime: currentRateLimit.resetTime,
         });
       }
 
@@ -116,7 +125,9 @@ export async function POST(request: NextRequest) {
       );
 
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : 'Invalid credentials' },
+        {
+          error: error instanceof Error ? error.message : 'Invalid credentials',
+        },
         { status: 401 }
       );
     }
@@ -125,6 +136,12 @@ export async function POST(request: NextRequest) {
     rateLimitMap.delete(clientKey);
 
     const { token, user, session } = authResult;
+
+    // Calculate token expiration times
+    const accessTokenExpiration = EnhancedJWTService.getTokenExpirationTime();
+    const refreshTokenExpiration = new Date(
+      Date.now() + RBAC_CONSTANTS.REFRESH_TOKEN_EXPIRES_IN
+    );
 
     // Prepare response data according to RBAC plan specification
     const responseData: Record<string, unknown> = {
@@ -137,12 +154,17 @@ export async function POST(request: NextRequest) {
         currentRole: user.currentRole,
         availableRoles: user.availableRoles,
         permissions: user.permissions,
-        mustChangePassword: user.mustChangePassword
+        mustChangePassword: user.mustChangePassword,
       },
       session: {
         id: session.sessionId,
-        expiresAt: session.expiresAt
-      }
+        expiresAt: session.expiresAt,
+      },
+      // ✅ ADD TOKEN EXPIRATION TRACKING
+      tokenExpiration: {
+        accessToken: accessTokenExpiration,
+        refreshToken: refreshTokenExpiration,
+      },
     };
 
     // Add tenant context if subdomain access
@@ -151,7 +173,7 @@ export async function POST(request: NextRequest) {
         id: tenantContext.id,
         name: tenantContext.name,
         slug: tenantContext.slug,
-        isActive: tenantContext.isActive
+        isActive: tenantContext.isActive,
       };
     }
 
@@ -178,10 +200,10 @@ export async function POST(request: NextRequest) {
       'qr_auth_token',
       'qr_owner_token',
       'qr_staff_token',
-      'qr_admin_token'
+      'qr_admin_token',
     ];
 
-    legacyCookies.forEach(cookieName => {
+    legacyCookies.forEach((cookieName) => {
       if (request.cookies.get(cookieName)) {
         response.cookies.set({
           name: cookieName,
@@ -204,18 +226,18 @@ export async function POST(request: NextRequest) {
         roleTemplate: user.currentRole.roleTemplate,
         sessionId: session.sessionId,
         permissions: user.permissions.length,
-        restaurantContext: user.restaurantContext?.name || 'None'
+        restaurantContext: user.restaurantContext?.name || 'None',
       });
     }
 
     return response;
   } catch (error) {
     console.error('RBAC Login error:', error);
-    
+
     // Log security event for system errors
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    
+
     await AuditLogger.logSecurityEvent(
       'system',
       'AUTHENTICATION_ERROR',
@@ -226,9 +248,10 @@ export async function POST(request: NextRequest) {
         userAgent,
         metadata: {
           endpoint: 'login',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString(),
+        },
       }
     );
 

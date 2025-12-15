@@ -1,7 +1,7 @@
 /**
  * Enhanced JWT System for RBAC
- * 
- * This file implements the new JWT system that replaces the problematic 
+ *
+ * This file implements the new JWT system that replaces the problematic
  * multi-cookie authentication system with a single, secure JWT token.
  */
 
@@ -17,7 +17,7 @@ import {
   InvalidTokenError,
   SessionExpiredError,
   RBACError,
-  isEnhancedJWTPayload
+  isEnhancedJWTPayload,
 } from './types';
 
 // JWT Configuration
@@ -25,7 +25,7 @@ const JWT_CONFIG: JWTConfig = {
   secret: process.env.JWT_SECRET || 'fallback-secret-for-development',
   expiresIn: process.env.JWT_EXPIRES_IN || RBAC_CONSTANTS.JWT_EXPIRES_IN,
   issuer: RBAC_CONSTANTS.JWT_ISSUER,
-  algorithm: RBAC_CONSTANTS.JWT_ALGORITHM
+  algorithm: RBAC_CONSTANTS.JWT_ALGORITHM,
 };
 
 export class EnhancedJWTService {
@@ -34,9 +34,7 @@ export class EnhancedJWTService {
    */
   static async generateToken(
     user: EnhancedAuthenticatedUser,
-    sessionId: string,
-    ipAddress?: string,
-    userAgent?: string
+    sessionId: string
   ): Promise<string> {
     try {
       const now = Math.floor(Date.now() / 1000);
@@ -49,28 +47,28 @@ export class EnhancedJWTService {
         email: user.email,
         firstName: user.firstName,
         lastName: user.lastName,
-        
+
         // Role & Context
         currentRole: user.currentRole,
         availableRoles: user.availableRoles,
         restaurantContext: user.restaurantContext,
-        
+
         // Permissions (computed)
         permissions: user.permissions,
-        
+
         // Session Management
         sessionId,
-        
+
         // JWT Standard Claims
         iat: now,
         exp,
         iss: JWT_CONFIG.issuer,
-        sub: user.id
+        sub: user.id,
       };
 
       // Generate JWT token
       const token = jwt.sign(payload, JWT_CONFIG.secret, {
-        algorithm: JWT_CONFIG.algorithm
+        algorithm: JWT_CONFIG.algorithm,
       });
 
       // Update existing session with token hash
@@ -80,8 +78,8 @@ export class EnhancedJWTService {
         where: { sessionId },
         data: {
           jwtTokenHash: tokenHash,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       return token;
@@ -107,13 +105,13 @@ export class EnhancedJWTService {
           secretLength: JWT_CONFIG.secret.length,
           expiresIn: JWT_CONFIG.expiresIn,
           issuer: JWT_CONFIG.issuer,
-          algorithm: JWT_CONFIG.algorithm
+          algorithm: JWT_CONFIG.algorithm,
         });
       }
-      
+
       // Verify JWT signature and decode
-      const decoded = jwt.verify(token, JWT_CONFIG.secret) as any;
-      
+      const decoded = jwt.verify(token, JWT_CONFIG.secret) as jwt.JwtPayload;
+
       // Debug: Log decoded payload structure
       if (process.env.NODE_ENV === 'development') {
         console.log('🔍 JWT Decoded payload:', {
@@ -130,10 +128,12 @@ export class EnhancedJWTService {
           hasIss: typeof decoded.iss === 'string',
           hasSub: typeof decoded.sub === 'string',
           actualStructure: Object.keys(decoded),
-          permissions: decoded.permissions ? decoded.permissions.length : 'none'
+          permissions: decoded.permissions
+            ? decoded.permissions.length
+            : 'none',
         });
       }
-      
+
       // Validate payload structure
       if (!isEnhancedJWTPayload(decoded)) {
         throw new InvalidTokenError('Invalid payload structure');
@@ -152,9 +152,9 @@ export class EnhancedJWTService {
           sessionId: decoded.sessionId,
           jwtTokenHash: tokenHash,
           expiresAt: {
-            gt: new Date()
-          }
-        }
+            gt: new Date(),
+          },
+        },
       });
 
       if (!session) {
@@ -164,7 +164,7 @@ export class EnhancedJWTService {
       // Update last activity
       await prisma.userSession.update({
         where: { id: session.id },
-        data: { lastActivity: new Date() }
+        data: { lastActivity: new Date() },
       });
 
       return decoded;
@@ -173,22 +173,22 @@ export class EnhancedJWTService {
         console.log('🚫 EnhancedJWTService.verifyToken: Caught error:', {
           errorType: error.constructor.name,
           message: error.message,
-          stack: error.stack?.split('\n').slice(0, 3)
+          stack: error.stack?.split('\n').slice(0, 3),
         });
       }
-      
+
       if (error instanceof RBACError) {
         throw error;
       }
-      
+
       if (error instanceof jwt.TokenExpiredError) {
         throw new SessionExpiredError();
       }
-      
+
       if (error instanceof jwt.JsonWebTokenError) {
         throw new InvalidTokenError(error.message);
       }
-      
+
       throw new RBACError(
         'Token verification failed',
         'TOKEN_VERIFICATION_FAILED',
@@ -200,15 +200,11 @@ export class EnhancedJWTService {
   /**
    * Refresh JWT token
    */
-  static async refreshToken(
-    currentToken: string,
-    ipAddress?: string,
-    userAgent?: string
-  ): Promise<string> {
+  static async refreshToken(currentToken: string): Promise<string> {
     try {
       // Verify current token
       const payload = await this.verifyToken(currentToken);
-      
+
       // Get fresh user data
       const user = await this.reconstructUserFromPayload(payload);
       if (!user) {
@@ -220,24 +216,15 @@ export class EnhancedJWTService {
 
       // Generate new session ID and token
       const newSessionId = this.generateSessionId();
-      const newToken = await this.generateToken(
-        user,
-        newSessionId,
-        ipAddress,
-        userAgent
-      );
+      const newToken = await this.generateToken(user, newSessionId);
 
       return newToken;
     } catch (error) {
       if (error instanceof RBACError) {
         throw error;
       }
-      
-      throw new RBACError(
-        'Token refresh failed',
-        'TOKEN_REFRESH_FAILED',
-        401
-      );
+
+      throw new RBACError('Token refresh failed', 'TOKEN_REFRESH_FAILED', 401);
     }
   }
 
@@ -247,9 +234,9 @@ export class EnhancedJWTService {
   static async invalidateSession(sessionId: string): Promise<void> {
     try {
       await prisma.userSession.deleteMany({
-        where: { sessionId }
+        where: { sessionId },
       });
-    } catch (error) {
+    } catch {
       // Silent fail - session might already be deleted
     }
   }
@@ -260,9 +247,9 @@ export class EnhancedJWTService {
   static async invalidateAllUserSessions(userId: string): Promise<void> {
     try {
       await prisma.userSession.deleteMany({
-        where: { userId }
+        where: { userId },
       });
-    } catch (error) {
+    } catch {
       // Silent fail - sessions might already be deleted
     }
   }
@@ -270,7 +257,7 @@ export class EnhancedJWTService {
   /**
    * Validate JWT payload structure
    */
-  static validatePayload(payload: any): ValidationResult {
+  static validatePayload(payload: unknown): ValidationResult {
     const errors: string[] = [];
 
     if (!payload) {
@@ -280,9 +267,18 @@ export class EnhancedJWTService {
 
     // Check required fields
     const requiredFields = [
-      'userId', 'email', 'firstName', 'lastName',
-      'currentRole', 'availableRoles', 'permissions',
-      'sessionId', 'iat', 'exp', 'iss', 'sub'
+      'userId',
+      'email',
+      'firstName',
+      'lastName',
+      'currentRole',
+      'availableRoles',
+      'permissions',
+      'sessionId',
+      'iat',
+      'exp',
+      'iss',
+      'sub',
     ];
 
     for (const field of requiredFields) {
@@ -318,7 +314,7 @@ export class EnhancedJWTService {
 
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
     };
   }
 
@@ -348,10 +344,10 @@ export class EnhancedJWTService {
       const encoder = new TextEncoder();
       const data = encoder.encode(token);
       const hash = await crypto.subtle.digest('SHA-256', data);
-      
+
       // Convert ArrayBuffer to hex string
       return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, '0'))
+        .map((b) => b.toString(16).padStart(2, '0'))
         .join('');
     } catch (error) {
       // Fallback for Node.js environments
@@ -376,12 +372,27 @@ export class EnhancedJWTService {
     const value = parseInt(amount, 10);
 
     switch (unit) {
-      case 's': return value;
-      case 'm': return value * 60;
-      case 'h': return value * 60 * 60;
-      case 'd': return value * 24 * 60 * 60;
-      default: return 24 * 60 * 60;
+      case 's':
+        return value;
+      case 'm':
+        return value * 60;
+      case 'h':
+        return value * 60 * 60;
+      case 'd':
+        return value * 24 * 60 * 60;
+      default:
+        return 24 * 60 * 60;
     }
+  }
+
+  /**
+   * Get JWT token expiration timestamp
+   * Returns a Date object representing when the token will expire
+   * based on the JWT_EXPIRES_IN configuration
+   */
+  static getTokenExpirationTime(): Date {
+    const expiresInSeconds = this.parseExpiresIn(JWT_CONFIG.expiresIn);
+    return new Date(Date.now() + expiresInSeconds * 1000);
   }
 
   /**
@@ -396,20 +407,22 @@ export class EnhancedJWTService {
         where: {
           id: payload.currentRole.id,
           userId: payload.userId,
-          isActive: true
+          isActive: true,
         },
         include: {
-          restaurant: payload.currentRole.restaurantId ? {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              isActive: true,
-              timezone: true,
-              currency: true
-            }
-          } : false
-        }
+          restaurant: payload.currentRole.restaurantId
+            ? {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                  isActive: true,
+                  timezone: true,
+                  currency: true,
+                },
+              }
+            : false,
+        },
       });
 
       if (!userRole) {
@@ -421,13 +434,13 @@ export class EnhancedJWTService {
       if (userRole.userType === 'staff') {
         const staff = await prisma.staff.findUnique({
           where: { id: payload.userId },
-          select: { mustChangePassword: true }
+          select: { mustChangePassword: true },
         });
         mustChangePassword = staff?.mustChangePassword || false;
       } else if (userRole.userType === 'restaurant_owner') {
         const owner = await prisma.restaurantOwner.findUnique({
           where: { id: payload.userId },
-          select: { mustChangePassword: true }
+          select: { mustChangePassword: true },
         });
         mustChangePassword = owner?.mustChangePassword || false;
       } else if (userRole.userType === 'platform_admin') {
@@ -439,7 +452,7 @@ export class EnhancedJWTService {
       const availableRoles = await prisma.userRole.findMany({
         where: {
           userId: payload.userId,
-          isActive: true
+          isActive: true,
         },
         include: {
           restaurant: {
@@ -449,10 +462,10 @@ export class EnhancedJWTService {
               slug: true,
               isActive: true,
               timezone: true,
-              currency: true
-            }
-          }
-        }
+              currency: true,
+            },
+          },
+        },
       });
 
       // Get fresh permissions
@@ -463,36 +476,47 @@ export class EnhancedJWTService {
         email: payload.email,
         firstName: payload.firstName,
         lastName: payload.lastName,
-        userType: payload.currentRole.userType as any,
+        userType: payload.currentRole.userType as
+          | 'platform_admin'
+          | 'restaurant_owner'
+          | 'staff',
         currentRole: {
           id: userRole.id,
-          userType: userRole.userType as any,
+          userType: userRole.userType as
+            | 'platform_admin'
+            | 'restaurant_owner'
+            | 'staff',
           roleTemplate: userRole.roleTemplate,
           restaurantId: userRole.restaurantId || undefined,
           customPermissions: userRole.customPermissions as string[],
-          isActive: userRole.isActive
+          isActive: userRole.isActive,
         },
-        availableRoles: availableRoles.map(role => ({
+        availableRoles: availableRoles.map((role) => ({
           id: role.id,
-          userType: role.userType as any,
+          userType: role.userType as
+            | 'platform_admin'
+            | 'restaurant_owner'
+            | 'staff',
           roleTemplate: role.roleTemplate,
           restaurantId: role.restaurantId || undefined,
           customPermissions: role.customPermissions as string[],
-          isActive: role.isActive
+          isActive: role.isActive,
         })),
-        restaurantContext: userRole.restaurant ? {
-          id: userRole.restaurant.id,
-          name: userRole.restaurant.name,
-          slug: userRole.restaurant.slug,
-          isActive: userRole.restaurant.isActive,
-          timezone: userRole.restaurant.timezone,
-          currency: userRole.restaurant.currency
-        } : undefined,
+        restaurantContext: userRole.restaurant
+          ? {
+              id: userRole.restaurant.id,
+              name: userRole.restaurant.name,
+              slug: userRole.restaurant.slug,
+              isActive: userRole.restaurant.isActive,
+              timezone: userRole.restaurant.timezone,
+              currency: userRole.restaurant.currency,
+            }
+          : undefined,
         permissions,
         isActive: true,
-        mustChangePassword
+        mustChangePassword,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -503,7 +527,7 @@ export class EnhancedJWTService {
   static async computeUserPermissions(userId: string): Promise<string[]> {
     try {
       const userRoles = await prisma.userRole.findMany({
-        where: { userId, isActive: true }
+        where: { userId, isActive: true },
       });
 
       const permissions = new Set<string>();
@@ -513,12 +537,12 @@ export class EnhancedJWTService {
         const templatePermissions = await prisma.rolePermission.findMany({
           where: { roleTemplate: role.roleTemplate },
           include: {
-            permission: true
-          }
+            permission: true,
+          },
         });
 
         // Add template permissions
-        templatePermissions.forEach(rp => {
+        templatePermissions.forEach((rp) => {
           if (rp.permission.isActive) {
             permissions.add(rp.permission.permissionKey);
           }
@@ -526,12 +550,14 @@ export class EnhancedJWTService {
 
         // Add custom permissions
         if (role.customPermissions) {
-          (role.customPermissions as string[]).forEach(p => permissions.add(p));
+          (role.customPermissions as string[]).forEach((p) =>
+            permissions.add(p)
+          );
         }
       }
 
       return Array.from(permissions);
-    } catch (error) {
+    } catch {
       return [];
     }
   }
@@ -544,11 +570,11 @@ export class EnhancedJWTService {
       await prisma.userSession.deleteMany({
         where: {
           expiresAt: {
-            lt: new Date()
-          }
-        }
+            lt: new Date(),
+          },
+        },
       });
-    } catch (error) {
+    } catch {
       // Silent fail - cleanup is not critical
     }
   }
@@ -559,7 +585,7 @@ export class EnhancedJWTService {
   static async getSessionInfo(sessionId: string): Promise<UserSession | null> {
     try {
       const session = await prisma.userSession.findFirst({
-        where: { sessionId }
+        where: { sessionId },
       });
 
       if (!session) {
@@ -577,9 +603,9 @@ export class EnhancedJWTService {
         expiresAt: session.expiresAt,
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
-        userAgent: session.userAgent || undefined
+        userAgent: session.userAgent || undefined,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -590,5 +616,5 @@ export const JWT_CONSTANTS = {
   HEADER_NAME: 'authorization',
   COOKIE_NAME: 'qr_auth_token',
   BEARER_PREFIX: 'Bearer ',
-  SESSION_CLEANUP_INTERVAL: RBAC_CONSTANTS.SESSION_CLEANUP_INTERVAL
+  SESSION_CLEANUP_INTERVAL: RBAC_CONSTANTS.SESSION_CLEANUP_INTERVAL,
 } as const;

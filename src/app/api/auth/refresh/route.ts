@@ -21,6 +21,7 @@ import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { SecurityUtils } from '@/lib/security';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
+import { EnhancedJWTService } from '@/lib/rbac/jwt';
 
 // =============================================================================
 // Rate Limiting Configuration
@@ -190,11 +191,14 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Calculate token expiration times dynamically
+    const accessTokenExpiration = EnhancedJWTService.getTokenExpirationTime();
+
     const response = NextResponse.json({
       success: true,
       message: 'Token refreshed successfully',
       tokenExpiration: {
-        accessToken: new Date(Date.now() + 30 * 60 * 1000), // 30 minutes
+        accessToken: accessTokenExpiration, // ✅ Now dynamic based on JWT_EXPIRES_IN
         refreshToken: newRefreshToken.expiresAt,
       },
     });
