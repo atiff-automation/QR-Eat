@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { UserType, AuthService, AUTH_CONSTANTS } from './auth';
 import { prisma } from './database';
+import { AuthServiceV2 } from './rbac/auth-service';
 
 export interface TenantContext {
   userId: string;
@@ -24,7 +25,7 @@ export interface RestaurantContext {
 /**
  * Extract tenant context from middleware headers or fallback to direct token verification
  */
-export function getTenantContext(request: NextRequest): TenantContext | null {
+export async function getTenantContext(request: NextRequest): Promise<TenantContext | null> {
   const userId = request.headers.get('x-user-id');
   const userType = request.headers.get('x-user-type') as UserType;
   const email = request.headers.get('x-user-email');
@@ -89,17 +90,19 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
   // Fallback: Extract token directly and verify
   try {
     // Check for new RBAC token first, then fall back to old tokens for backward compatibility
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
+    const rbacToken = request.cookies.get('qr_rbac_token')?.value;
+    const legacyToken =
       request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
       request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
       request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
       request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
       AuthService.extractTokenFromHeader(request.headers.get('authorization'));
 
+    const token = rbacToken || legacyToken;
+
     if (process.env.NODE_ENV === 'development') {
       console.log('🔧 getTenantContext fallback: Cookie search', {
-        hasRbacToken: !!request.cookies.get('qr_rbac_token')?.value,
+        hasRbacToken: !!rbacToken,
         hasOwnerToken: !!request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)
           ?.value,
         hasStaffToken: !!request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)
@@ -109,6 +112,7 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
         hasGenericToken: !!request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)
           ?.value,
         tokenFound: !!token,
+        isRbacToken: !!rbacToken,
         allCookies: Object.fromEntries(
           Array.from(request.cookies.getAll()).map((c) => [
             c.name,
@@ -122,6 +126,52 @@ export function getTenantContext(request: NextRequest): TenantContext | null {
       return null;
     }
 
+    // If we have an RBAC token, use the RBAC validation system
+    if (rbacToken) {
+      try {
+        const validation = await AuthServiceV2.validateToken(rbacToken);
+
+        if (validation.isValid && validation.user) {
+          const user = validation.user;
+
+          // Convert RBAC permissions array to tenant-context object format
+          const permissions: Record<string, string[]> = {};
+          user.permissions.forEach((permission: string) => {
+            if (typeof permission === 'string' && permission.includes(':')) {
+              const [resource, action] = permission.split(':', 2);
+              if (!permissions[resource]) {
+                permissions[resource] = [];
+              }
+              permissions[resource].push(action);
+            }
+          });
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log('✅ getTenantContext: RBAC token validated successfully', {
+              userId: user.id,
+              userType: user.currentRole.userType,
+              permissions: Object.keys(permissions),
+            });
+          }
+
+          return {
+            userId: user.id,
+            userType: user.currentRole.userType as UserType,
+            email: user.email,
+            restaurantId: user.restaurantContext?.id,
+            ownerId: user.currentRole.userType === 'restaurant_owner' ? user.id : undefined,
+            permissions,
+            isAdmin: user.currentRole.userType === 'platform_admin',
+            restaurantSlug: user.restaurantContext?.slug,
+          };
+        }
+      } catch (error) {
+        console.error('RBAC token validation failed:', error);
+        // Fall through to legacy auth system
+      }
+    }
+
+    // Fallback to legacy auth system for old tokens
     const payload = AuthService.verifyToken(token);
     if (!payload) {
       return null;

@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get tenant context from middleware headers
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
 
     // Get user info from context

@@ -9,7 +9,7 @@ import {
 
 export async function GET(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'reservations', 'read');
 
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'reservations', 'write');
 

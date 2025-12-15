@@ -11,7 +11,7 @@ import { UsernameGenerator } from '@/lib/username-generator';
 
 export async function GET(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'read');
 
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'write');
 

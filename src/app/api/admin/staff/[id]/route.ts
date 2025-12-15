@@ -9,7 +9,7 @@ import {
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'write');
 
@@ -159,7 +159,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'delete');
 

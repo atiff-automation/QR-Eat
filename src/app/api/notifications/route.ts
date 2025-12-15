@@ -4,7 +4,7 @@ import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
 
     const url = new URL(request.url);
@@ -79,7 +79,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
 
     const data = await request.json();
@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
 
     const data = await request.json();

@@ -37,7 +37,7 @@ export async function POST(
 ) {
   try {
     // Get tenant context and verify authentication
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'payments', 'write');
 

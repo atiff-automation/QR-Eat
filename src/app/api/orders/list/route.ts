@@ -5,7 +5,7 @@ import { getTenantContext } from '@/lib/get-tenant-context';
 export async function GET(request: NextRequest) {
   try {
     // Get tenant context from middleware headers (secure, not user-controllable)
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
 
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status');

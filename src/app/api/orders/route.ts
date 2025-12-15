@@ -10,7 +10,7 @@ import {
 export async function GET(request: NextRequest) {
   try {
     // Get tenant context from middleware headers
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 

@@ -22,7 +22,7 @@ import { ORDER_STATUS, PAYMENT_STATUS } from '@/lib/order-utils';
 export async function GET(request: NextRequest) {
   try {
     // Get tenant context and verify authentication
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 

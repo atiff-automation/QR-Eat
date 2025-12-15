@@ -62,7 +62,7 @@ export async function PATCH(
 ) {
   try {
     // Require authentication for PATCH operations (staff only)
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
 
     if (!context?.userId) {
       return NextResponse.json(

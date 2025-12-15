@@ -218,7 +218,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get current user context
-    const context = getTenantContext(request);
+    const context = await getTenantContext(request);
 
     if (!context) {
       return NextResponse.json(
