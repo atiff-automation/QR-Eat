@@ -1,72 +1,75 @@
+/**
+ * Single Notification Management API
+ * Handle marking individual notifications as read/unread
+ * 
+ * Following CLAUDE.md principles:
+ * - Type Safety: Proper TypeScript types throughout
+ * - Error Handling: Comprehensive error cases
+ * - RBAC Integration: Shared helpers for authentication
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthService, AUTH_CONSTANTS } from '@/lib/auth';
-import { cookies } from 'next/headers';
+import {
+  validateRBACToken,
+  createErrorResponse,
+  logAccessDenied
+} from '@/lib/rbac/route-helpers';
+import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const cookieStore = await cookies();
-    const token =
-      cookieStore.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
-      cookieStore.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
-      cookieStore.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
-      cookieStore.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
-      AuthService.extractTokenFromHeader(request.headers.get('authorization'));
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+    // RBAC Authentication with proper types
+    const authResult = await validateRBACToken(request);
+    if (!authResult.success || !authResult.user) {
+      return createErrorResponse(
+        authResult.error!.message,
+        authResult.error!.status
       );
     }
 
-    const payload = AuthService.verifyToken(token);
-    if (!payload) {
-      return NextResponse.json(
-        { error: 'Invalid or expired token' },
-        { status: 401 }
-      );
-    }
+    const user: EnhancedAuthenticatedUser = authResult.user;
 
     const { isRead } = await request.json();
     const notificationId = params.id;
 
-    // Update notification if it belongs to the current user
+    // Update notification only if it belongs to the current user
     const notification = await prisma.notification.findFirst({
       where: {
         id: notificationId,
-        userId: payload.userId,
-        userType: payload.userType
+        userId: user.id,
+        userType: user.currentRole.userType
       }
     });
 
     if (!notification) {
-      return NextResponse.json(
-        { error: 'Notification not found' },
-        { status: 404 }
+      await logAccessDenied(
+        user,
+        `notification:${notificationId}`,
+        'Notification not found or access denied',
+        request
       );
+      return createErrorResponse('Notification not found', 404);
     }
 
     const updatedNotification = await prisma.notification.update({
       where: { id: notificationId },
-      data: { 
+      data: {
         isRead,
         readAt: isRead ? new Date() : null
       }
     });
 
     return NextResponse.json({
+      success: true,
       notification: updatedNotification
     });
 
   } catch (error) {
     console.error('Notification update error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    return createErrorResponse('Internal server error', 500);
   }
 }

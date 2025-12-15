@@ -1,7 +1,22 @@
+/**
+ * Debug Authentication Endpoint
+ * DEVELOPMENT ONLY - Provides authentication debugging information
+ * 
+ * SECURITY: This endpoint is disabled in production
+ */
+
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService, AUTH_CONSTANTS } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
+  // SECURITY: Only allow in development
+  if (process.env.NODE_ENV !== 'development') {
+    return NextResponse.json(
+      { error: 'This endpoint is only available in development' },
+      { status: 403 }
+    );
+  }
+
   try {
     console.log('Debug Auth Route - Starting...');
     console.log('Request pathname:', request.nextUrl.pathname);
@@ -15,26 +30,26 @@ export async function GET(request: NextRequest) {
     const staffToken = request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value;
     const adminToken = request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value;
     const legacyToken = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
-    
+
     console.log('🔍 Cookie Debug:', {
       ownerToken: ownerToken ? `${ownerToken.substring(0, 20)}...` : 'NONE',
       staffToken: staffToken ? `${staffToken.substring(0, 20)}...` : 'NONE',
       adminToken: adminToken ? `${adminToken.substring(0, 20)}...` : 'NONE',
       legacyToken: legacyToken ? `${legacyToken.substring(0, 20)}...` : 'NONE'
     });
-    
+
     const token = ownerToken || staffToken || adminToken || legacyToken ||
-                  AuthService.extractTokenFromHeader(request.headers.get('authorization'));
-    
+      AuthService.extractTokenFromHeader(request.headers.get('authorization'));
+
     console.log('Token found:', !!token);
     console.log('Request URL:', request.url);
     console.log('Pathname:', request.nextUrl.pathname);
-    
+
     // Check route classification (simulate middleware logic)
     const pathname = request.nextUrl.pathname;
     const protectedApiRoutes = [
       '/api/staff',
-      '/api/orders', 
+      '/api/orders',
       '/api/menu',
       '/api/restaurants',
       '/api/subscriptions',
@@ -48,14 +63,14 @@ export async function GET(request: NextRequest) {
     );
 
     console.log('Is protected route:', isProtectedApiRoute);
-    
+
     if (token) {
       console.log('Token length:', token.length);
-      
+
       // Verify token
       const payload = AuthService.verifyToken(token);
       console.log('Token valid:', !!payload);
-      
+
       if (payload) {
         console.log('Payload keys:', Object.keys(payload));
         console.log('User ID:', payload.userId);
