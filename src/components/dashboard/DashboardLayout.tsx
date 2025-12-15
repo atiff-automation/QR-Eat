@@ -294,11 +294,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <div className="flex items-center">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
-                  className="lg:hidden mr-4 text-gray-400 hover:text-gray-600"
+                  className="touch-target lg:hidden mr-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  aria-label="Open navigation menu"
                 >
                   <Menu className="h-6 w-6" />
                 </button>
-                <h1 className="text-xl font-semibold text-gray-900">
+                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
                   {getPageTitle()}
                 </h1>
               </div>
@@ -312,13 +313,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <NotificationBell />
                 </PermissionGuard>
 
-                {/* Restaurant Time */}
+                {/* Restaurant Time - Abbreviated on mobile */}
                 {restaurantContext && (
-                  <div className="text-sm text-gray-500">
+                  <div className="hidden sm:block text-sm text-gray-500">
                     {new Date().toLocaleString('en-US', {
                       timeZone: restaurantContext.timezone,
                       weekday: 'short',
-                      year: 'numeric',
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
@@ -331,10 +331,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <div className="lg:hidden">
                   <button
                     onClick={handleLogout}
-                    className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded-md text-sm flex items-center"
+                    className="touch-target bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm flex items-center gap-1"
+                    aria-label="Logout"
                   >
-                    <LogOut className="h-4 w-4 mr-1" />
-                    Logout
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden xs:inline">Logout</span>
                   </button>
                 </div>
               </div>

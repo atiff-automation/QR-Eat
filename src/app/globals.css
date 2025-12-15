@@ -42,3 +42,55 @@ input:focus, textarea:focus, select:focus {
   color: #111827 !important;
   background-color: #ffffff !important;
 }
+
+/* ===========================
+   Mobile Optimizations
+   =========================== */
+
+/* Smooth scrolling for touch devices */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent text size adjustment on orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Improve tap highlight */
+* {
+  -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
+}
+
+/* Safe area padding for notched devices */
+@supports (padding: env(safe-area-inset-top)) {
+  .safe-area-padding {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+}
+
+/* Minimum touch target size (44x44px - iOS HIG / Material Design) */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Prevent pull-to-refresh on mobile */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Better mobile button states */
+button, a {
+  -webkit-touch-callout: none;
+}
+

@@ -250,23 +250,23 @@ export default function MenuPage() {
       allowedRoles={['manager', 'admin']}
       requiredPermissions={['menu:read']}
     >
-      <div className="p-6 space-y-6">
+      <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
               Menu Management
             </h1>
-            <p className="text-gray-800">
+            <p className="text-sm sm:text-base text-gray-800">
               Manage your restaurant menu, categories, and items
             </p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
             {/* View Mode Toggle */}
             <div className="flex rounded-lg bg-gray-100 p-1">
               <button
                 onClick={() => setViewMode('categories')}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewMode === 'categories'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-700 hover:text-gray-900'
@@ -276,7 +276,7 @@ export default function MenuPage() {
               </button>
               <button
                 onClick={() => setViewMode('items')}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewMode === 'items'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-700 hover:text-gray-900'
@@ -286,7 +286,7 @@ export default function MenuPage() {
               </button>
               <button
                 onClick={() => setViewMode('analytics')}
-                className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
                   viewMode === 'analytics'
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-700 hover:text-gray-900'
@@ -302,10 +302,12 @@ export default function MenuPage() {
                     viewMode === 'categories' ? 'category' : 'item'
                   )
                 }
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium flex items-center"
+                className="touch-target bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2 rounded-lg font-medium flex items-center justify-center gap-2"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add {viewMode === 'categories' ? 'Category' : 'Item'}
+                <Plus className="h-4 w-4" />
+                <span>
+                  Add {viewMode === 'categories' ? 'Category' : 'Item'}
+                </span>
               </button>
             )}
           </div>

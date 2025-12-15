@@ -12,24 +12,24 @@ import {
 
 export default function DashboardPage() {
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
       {/* Welcome Section */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900 mb-2">
           Welcome to your Dashboard
         </h2>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           Monitor your restaurant operations, manage orders, and track
           performance in real-time.
         </p>
       </div>
 
       {/* Quick Action Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <PermissionGuard permission="orders:read">
           <Link
             href="/dashboard/orders"
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -37,9 +37,11 @@ export default function DashboardPage() {
                   <ClipboardList className="h-5 w-5 text-blue-600" />
                 </div>
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4">
                 <h3 className="text-sm font-medium text-gray-900">Orders</h3>
-                <p className="text-xs text-gray-500">Manage all orders</p>
+                <p className="text-xs text-gray-500 hidden sm:block">
+                  Manage all orders
+                </p>
               </div>
             </div>
           </Link>
@@ -48,7 +50,7 @@ export default function DashboardPage() {
         <PermissionGuard permission="tables:read">
           <Link
             href="/dashboard/tables"
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -56,9 +58,11 @@ export default function DashboardPage() {
                   <ChefHat className="h-5 w-5 text-green-600" />
                 </div>
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4">
                 <h3 className="text-sm font-medium text-gray-900">Tables</h3>
-                <p className="text-xs text-gray-500">View table status</p>
+                <p className="text-xs text-gray-500 hidden sm:block">
+                  View table status
+                </p>
               </div>
             </div>
           </Link>
@@ -67,7 +71,7 @@ export default function DashboardPage() {
         <PermissionGuard permission="menu:read">
           <Link
             href="/dashboard/menu"
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -75,9 +79,11 @@ export default function DashboardPage() {
                   <UtensilsCrossed className="h-5 w-5 text-purple-600" />
                 </div>
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4">
                 <h3 className="text-sm font-medium text-gray-900">Menu</h3>
-                <p className="text-xs text-gray-500">Manage menu items</p>
+                <p className="text-xs text-gray-500 hidden sm:block">
+                  Manage menu items
+                </p>
               </div>
             </div>
           </Link>
@@ -86,7 +92,7 @@ export default function DashboardPage() {
         <PermissionGuard permission="analytics:read">
           <Link
             href="/dashboard/reports"
-            className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -94,9 +100,11 @@ export default function DashboardPage() {
                   <BarChart3 className="h-5 w-5 text-orange-600" />
                 </div>
               </div>
-              <div className="ml-4">
+              <div className="ml-3 sm:ml-4">
                 <h3 className="text-sm font-medium text-gray-900">Reports</h3>
-                <p className="text-xs text-gray-500">View analytics</p>
+                <p className="text-xs text-gray-500 hidden sm:block">
+                  View analytics
+                </p>
               </div>
             </div>
           </Link>
@@ -107,12 +115,12 @@ export default function DashboardPage() {
       <PermissionGuard permission="orders:read">
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
+            <h2 className="text-base sm:text-lg font-semibold text-gray-900">
               Orders Overview
             </h2>
             <Link
               href="/dashboard/orders"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="text-blue-600 hover:text-blue-800 text-xs sm:text-sm font-medium"
             >
               View All Orders →
             </Link>
@@ -122,17 +130,19 @@ export default function DashboardPage() {
       </PermissionGuard>
 
       {/* System Health */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
+        <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-4">
           System Health
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">Database</p>
+              <p className="text-xs sm:text-sm font-medium text-gray-900">
+                Database
+              </p>
               <p className="text-xs text-gray-500">Connected</p>
             </div>
           </div>
@@ -141,7 +151,7 @@ export default function DashboardPage() {
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs sm:text-sm font-medium text-gray-900">
                 Authentication
               </p>
               <p className="text-xs text-gray-500">Active</p>
@@ -152,7 +162,7 @@ export default function DashboardPage() {
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs sm:text-sm font-medium text-gray-900">
                 Payment System
               </p>
               <p className="text-xs text-gray-500">Operational</p>
@@ -163,7 +173,7 @@ export default function DashboardPage() {
               <div className="w-2 h-2 bg-green-400 rounded-full"></div>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-gray-900">
+              <p className="text-xs sm:text-sm font-medium text-gray-900">
                 Real-time Updates
               </p>
               <p className="text-xs text-gray-500">SSE Active</p>
