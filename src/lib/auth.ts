@@ -50,7 +50,7 @@ export interface StaffWithRoleAndRestaurant extends Staff {
   };
 }
 
-export type AuthenticatedUser = 
+export type AuthenticatedUser =
   | { type: UserType.PLATFORM_ADMIN; user: PlatformAdmin }
   | { type: UserType.RESTAURANT_OWNER; user: RestaurantOwnerWithRestaurants }
   | { type: UserType.STAFF; user: StaffWithRoleAndRestaurant };
@@ -72,105 +72,23 @@ export class AuthService {
     return bcrypt.compare(password, hashedPassword);
   }
 
-  // DEPRECATED: Use EnhancedJWTService.generateToken from RBAC system instead
-  static generateToken(user: AuthenticatedUser): string {
-    console.warn('AuthService.generateToken is deprecated. Use EnhancedJWTService.generateToken from RBAC system instead.');
-    try {
-      let payload: JWTPayload;
+  /**
+   * REMOVED - This method has been fully replaced by RBAC system
+   * Use: EnhancedJWTService.generateToken from @/lib/rbac/auth-service
+   * Migration Date: 2025-12-16
+   */
 
-    switch (user.type) {
-      case UserType.PLATFORM_ADMIN:
-        payload = {
-          userId: user.user.id,
-          userType: UserType.PLATFORM_ADMIN,
-          email: user.user.email,
-          permissions: { 
-            platform: ['read', 'write', 'delete', 'admin'],
-            restaurants: ['read', 'write', 'delete'],
-            users: ['read', 'write', 'delete'],
-            billing: ['read', 'write'],
-            analytics: ['read']
-          },
-        };
-        break;
+  /**
+   * REMOVED - This method has been fully replaced by RBAC system
+   * Use: AuthServiceV2.validateToken from @/lib/rbac/auth-service  
+   * Migration Date: 2025-12-16
+   */
 
-      case UserType.RESTAURANT_OWNER:
-        payload = {
-          userId: user.user.id,
-          userType: UserType.RESTAURANT_OWNER,
-          email: user.user.email,
-          permissions: {
-            restaurants: ['read', 'write'],
-            staff: ['read', 'write', 'delete'],
-            menu: ['read', 'write', 'delete'],
-            orders: ['read', 'write'],
-            analytics: ['read'],
-            billing: ['read'],
-            subscription: ['read', 'write']
-          },
-        };
-        break;
-
-      case UserType.STAFF:
-        payload = {
-          userId: user.user.id,
-          userType: UserType.STAFF,
-          email: user.user.email,
-          username: user.user.username,
-          restaurantId: user.user.restaurantId,
-          roleId: user.user.roleId,
-          permissions: user.user.role.permissions as Record<string, string[]>,
-        };
-        break;
-
-      default:
-        throw new Error('Invalid user type for token generation');
-    }
-
-      return jwt.sign(payload, JWT_SECRET, {
-        expiresIn: JWT_EXPIRES_IN,
-      } as jwt.SignOptions);
-    } catch (error) {
-      throw new Error('Failed to generate authentication token');
-    }
-  }
-
-  // DEPRECATED: Use EnhancedJWTService.verifyToken from RBAC system instead
-  static verifyToken(token: string): JWTPayload | null {
-    console.warn('AuthService.verifyToken is deprecated. Use EnhancedJWTService.verifyToken from RBAC system instead.');
-    try {
-      return jwt.verify(token, JWT_SECRET) as JWTPayload;
-    } catch (error) {
-      // Silent fail for security - log generic error only
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Token verification failed:', error instanceof Error ? error.message : 'Unknown error');
-      }
-      return null;
-    }
-  }
-
-  // DEPRECATED: Use EnhancedJWTService.refreshToken from RBAC system instead
-  static async refreshToken(token: string): Promise<string | null> {
-    console.warn('AuthService.refreshToken is deprecated. Use EnhancedJWTService.refreshToken from RBAC system instead.');
-    const payload = this.verifyToken(token);
-    if (!payload) return null;
-
-    // Generate new token with same payload but fresh expiration
-    const newPayload: JWTPayload = {
-      userId: payload.userId,
-      userType: payload.userType,
-      email: payload.email,
-      username: payload.username,
-      restaurantId: payload.restaurantId,
-      roleId: payload.roleId,
-      ownerId: payload.ownerId,
-      permissions: payload.permissions,
-    };
-
-    return jwt.sign(newPayload, JWT_SECRET, {
-      expiresIn: JWT_EXPIRES_IN,
-    } as jwt.SignOptions);
-  }
+  /**
+   * REMOVED - This method has been fully replaced by RBAC system
+   * Use: EnhancedJWTService.refreshToken from @/lib/rbac/auth-service
+   * Migration Date: 2025-12-16
+   */
 
   static hasPermission(
     permissions: Record<string, string[]>,
@@ -231,7 +149,7 @@ export class AuthService {
     // Try staff - include restaurant info to check if restaurant is active
     const staff = await prisma.staff.findUnique({
       where: { email: normalizedEmail },
-      include: { 
+      include: {
         role: true,
         restaurant: {
           select: {
@@ -287,35 +205,35 @@ export class AuthService {
   }
 }
 
-// Legacy AUTH_CONSTANTS - DEPRECATED
-// These constants are deprecated and should not be used in new code.
-// Use RBAC_CONSTANTS from @/lib/rbac/types instead.
-// Kept for backward compatibility during migration.
+/**
+ * DEPRECATED: Legacy AUTH_CONSTANTS - DO NOT USE IN NEW CODE
+ * 
+ * All legacy cookie names have been replaced with 'qr_rbac_token'
+ * Migration completed: 2025-12-16
+ * 
+ * This object is kept ONLY for:
+ * 1. Debug endpoint reference
+ * 2. Old documentation
+ * 3. Migration tracking
+ * 
+ * Use RBAC_CONSTANTS from @/lib/rbac/types instead
+ */
 export const AUTH_CONSTANTS = {
-  COOKIE_NAME: 'qr_auth_token', // DEPRECATED: Use 'qr_rbac_token'
-  OWNER_COOKIE_NAME: 'qr_owner_token', // DEPRECATED: Use 'qr_rbac_token'
-  STAFF_COOKIE_NAME: 'qr_staff_token', // DEPRECATED: Use 'qr_rbac_token'
-  ADMIN_COOKIE_NAME: 'qr_admin_token', // DEPRECATED: Use 'qr_rbac_token'
-  HEADER_NAME: 'authorization',
-  SESSION_DURATION: '24h', // DEPRECATED: Defined in RBAC system
-  MAX_LOGIN_ATTEMPTS: 5, // DEPRECATED: Defined in RBAC system
-  LOCKOUT_DURATION: 15 * 60 * 1000, // DEPRECATED: Defined in RBAC system
+  COOKIE_NAME: 'qr_auth_token',          // REMOVED - Use 'qr_rbac_token'
+  OWNER_COOKIE_NAME: 'qr_owner_token',    // REMOVED - Use 'qr_rbac_token'
+  STAFF_COOKIE_NAME: 'qr_staff_token',    // REMOVED - Use 'qr_rbac_token'
+  ADMIN_COOKIE_NAME: 'qr_admin_token',    // REMOVED - Use 'qr_rbac_token'
+  HEADER_NAME: 'authorization',           // Still valid for debug purposes
+  SESSION_DURATION: '24h',                // REMOVED - See RBAC system
+  MAX_LOGIN_ATTEMPTS: 5,                  // REMOVED - See RBAC system
+  LOCKOUT_DURATION: 15 * 60 * 1000,       // REMOVED - See RBAC system
 } as const;
 
-// DEPRECATED: Use RBAC role management instead
-export function getCookieNameForUserType(userType: UserType): string {
-  console.warn('getCookieNameForUserType is deprecated. Use RBAC system instead.');
-  switch (userType) {
-    case UserType.PLATFORM_ADMIN:
-      return AUTH_CONSTANTS.ADMIN_COOKIE_NAME;
-    case UserType.RESTAURANT_OWNER:
-      return AUTH_CONSTANTS.OWNER_COOKIE_NAME;
-    case UserType.STAFF:
-      return AUTH_CONSTANTS.STAFF_COOKIE_NAME;
-    default:
-      return AUTH_CONSTANTS.COOKIE_NAME;
-  }
-}
+/**
+ * REMOVED FUNCTION: getCookieNameForUserType
+ * Fully replaced by RBAC unified token system
+ * Migration Date: 2025-12-16
+ */
 
 export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
@@ -334,131 +252,18 @@ export interface AuthVerificationResult {
   staff?: StaffWithRole;
 }
 
-// DEPRECATED: Use AuthServiceV2.validateToken from RBAC system instead
-export async function verifyAuthToken(request: NextRequest): Promise<AuthVerificationResult> {
-  console.warn('verifyAuthToken is deprecated. Use AuthServiceV2.validateToken from RBAC system instead.');
-  try {
-    // Log authentication attempt
-    const ip = SecurityUtils.getClientIP(request);
-    const userAgent = request.headers.get('user-agent') || 'unknown';
-    
-    // Try to get token from any user-type specific cookie first, then from header
-    let token = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
-      request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value;
-    
-    if (!token) {
-      const authHeader = request.headers.get(AUTH_CONSTANTS.HEADER_NAME);
-      token = AuthService.extractTokenFromHeader(authHeader) || undefined;
-    }
-
-    if (!token) {
-      SecurityUtils.logSecurityEvent('Authentication attempt without token', { ip, userAgent });
-      return {
-        isValid: false,
-        error: 'No authentication token provided'
-      };
-    }
-
-    // Verify the JWT token
-    const payload = AuthService.verifyToken(token);
-    if (!payload) {
-      return {
-        isValid: false,
-        error: 'Invalid or expired token'
-      };
-    }
-
-    let user: AuthenticatedUser | null = null;
-
-    // Get user based on user type in payload
-    switch (payload.userType) {
-      case UserType.PLATFORM_ADMIN:
-        const platformAdmin = await prisma.platformAdmin.findUnique({
-          where: { id: payload.userId }
-        });
-        if (platformAdmin && platformAdmin.isActive) {
-          user = { type: UserType.PLATFORM_ADMIN, user: platformAdmin };
-          // Update last activity
-          await prisma.platformAdmin.update({
-            where: { id: platformAdmin.id },
-            data: { lastLoginAt: new Date() }
-          });
-        }
-        break;
-
-      case UserType.RESTAURANT_OWNER:
-        const restaurantOwner = await prisma.restaurantOwner.findUnique({
-          where: { id: payload.userId },
-          include: {
-            restaurants: {
-              select: {
-                id: true,
-                name: true,
-                slug: true
-              }
-            }
-          }
-        });
-        if (restaurantOwner && restaurantOwner.isActive) {
-          user = { type: UserType.RESTAURANT_OWNER, user: restaurantOwner };
-          // Update last activity
-          await prisma.restaurantOwner.update({
-            where: { id: restaurantOwner.id },
-            data: { lastLoginAt: new Date() }
-          });
-        }
-        break;
-
-      case UserType.STAFF:
-        const staff = await prisma.staff.findUnique({
-          where: { id: payload.userId },
-          include: {
-            role: true,
-            restaurant: true
-          }
-        });
-        if (staff && staff.isActive) {
-          user = { type: UserType.STAFF, user: staff };
-          // Update last activity
-          await prisma.staff.update({
-            where: { id: staff.id },
-            data: { lastLoginAt: new Date() }
-          });
-        }
-        break;
-
-      default:
-        return {
-          isValid: false,
-          error: 'Invalid user type in token'
-        };
-    }
-
-    if (!user) {
-      return {
-        isValid: false,
-        error: 'User not found or account is disabled'
-      };
-    }
-
-    return {
-      isValid: true,
-      user,
-      payload,
-      // Backward compatibility: populate staff field if user is staff
-      staff: user.type === UserType.STAFF ? user.user : undefined
-    };
-
-  } catch (error) {
-    // Log generic error only for security
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Auth verification error occurred');
-    }
-    return {
-      isValid: false,
-      error: 'Authentication verification failed'
-    };
-  }
-}
+/**
+ * REMOVED FUNCTION: verifyAuthToken
+ * 
+ * Fully replaced by: AuthServiceV2.validateToken from @/lib/rbac/auth-service
+ * Migration Date: 2025-12-16
+ * 
+ * Previous functionality:
+ * - Multi-cookie token lookup (qr_auth_token, qr_owner_token, qr_staff_token, qr_admin_token)
+ * - Legacy JWT validation
+ * - User lookup and activity tracking
+ * 
+ * New RBAC equivalent:
+ * const validation = await AuthServiceV2.validateToken(token);
+ * if (validation.isValid && validation.user) { // use validation.user }
+ */
