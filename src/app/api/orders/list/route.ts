@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withTenantContext } from '@/lib/database';
-import { getTenantContext } from '@/lib/get-tenant-context';
+import { getTenantContext } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
   try {
