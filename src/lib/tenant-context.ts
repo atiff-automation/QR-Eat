@@ -1,6 +1,6 @@
 /**
  * Tenant Context Module - RBAC Edition
- * 
+ *
  * Following CLAUDE.md principles:
  * - Type Safety: Proper TypeScript interfaces
  * - Error Handling: Comprehensive error scenarios
@@ -14,8 +14,12 @@ import { AuthServiceV2 } from './rbac/auth-service';
 import type { EnhancedAuthenticatedUser } from './rbac/types';
 import { AuditLogger } from './rbac/audit-logger';
 
-// Legacy UserType kept for backward compatibility in return type
-export type UserType = 'restaurant_owner' | 'staff' | 'platform_admin';
+// UserType enum for runtime type safety and proper comparisons
+export enum UserType {
+  PLATFORM_ADMIN = 'platform_admin',
+  RESTAURANT_OWNER = 'restaurant_owner',
+  STAFF = 'staff',
+}
 
 export interface TenantContext {
   userId: string;
@@ -38,15 +42,17 @@ export interface RestaurantContext {
 
 /**
  * Extract tenant context from RBAC authentication
- * 
+ *
  * Priority:
  * 1. Middleware headers (set by RBAC middleware) - fastest
  * 2. Direct RBAC token validation - fallback
- * 
+ *
  * @param request - Next.js request object
  * @returns TenantContext or null if not authenticated
  */
-export async function getTenantContext(request: NextRequest): Promise<TenantContext | null> {
+export async function getTenantContext(
+  request: NextRequest
+): Promise<TenantContext | null> {
   // STRATEGY 1: Check middleware headers first (most efficient)
   const contextFromHeaders = extractContextFromHeaders(request);
   if (contextFromHeaders) {
@@ -79,7 +85,10 @@ function extractContextFromHeaders(request: NextRequest): TenantContext | null {
   const permissions = parsePermissionsHeader(permissionsHeader);
 
   if (process.env.NODE_ENV === 'development') {
-    console.log('✅ getTenantContext: Using middleware headers', { userId, userType });
+    console.log('✅ getTenantContext: Using middleware headers', {
+      userId,
+      userType,
+    });
   }
 
   return {
@@ -98,7 +107,9 @@ function extractContextFromHeaders(request: NextRequest): TenantContext | null {
  * Extract context from RBAC token cookie
  * @internal
  */
-async function extractContextFromToken(request: NextRequest): Promise<TenantContext | null> {
+async function extractContextFromToken(
+  request: NextRequest
+): Promise<TenantContext | null> {
   const token = request.cookies.get('qr_rbac_token')?.value;
 
   if (!token) {
@@ -125,8 +136,8 @@ async function extractContextFromToken(request: NextRequest): Promise<TenantCont
           metadata: {
             path: request.nextUrl.pathname,
             hasToken: true,
-            validationFailed: true
-          }
+            validationFailed: true,
+          },
         }
       );
 
@@ -141,7 +152,7 @@ async function extractContextFromToken(request: NextRequest): Promise<TenantCont
     if (process.env.NODE_ENV === 'development') {
       console.log('✅ getTenantContext: RBAC token validated', {
         userId: user.id,
-        userType: user.currentRole.userType
+        userType: user.currentRole.userType,
       });
     }
 
@@ -160,8 +171,8 @@ async function extractContextFromToken(request: NextRequest): Promise<TenantCont
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           path: request.nextUrl.pathname,
-          error: error instanceof Error ? error.stack : String(error)
-        }
+          error: error instanceof Error ? error.stack : String(error),
+        },
       }
     );
 
@@ -173,7 +184,9 @@ async function extractContextFromToken(request: NextRequest): Promise<TenantCont
  * Convert RBAC user to TenantContext format
  * @internal
  */
-function convertUserToTenantContext(user: EnhancedAuthenticatedUser): TenantContext {
+function convertUserToTenantContext(
+  user: EnhancedAuthenticatedUser
+): TenantContext {
   const permissions = parsePermissionsArray(user.permissions);
 
   return {
@@ -181,7 +194,8 @@ function convertUserToTenantContext(user: EnhancedAuthenticatedUser): TenantCont
     userType: user.currentRole.userType as UserType,
     email: user.email,
     restaurantId: user.restaurantContext?.id,
-    ownerId: user.currentRole.userType === 'restaurant_owner' ? user.id : undefined,
+    ownerId:
+      user.currentRole.userType === 'restaurant_owner' ? user.id : undefined,
     permissions,
     isAdmin: user.currentRole.userType === 'platform_admin',
     restaurantSlug: user.restaurantContext?.slug,
@@ -192,14 +206,18 @@ function convertUserToTenantContext(user: EnhancedAuthenticatedUser): TenantCont
  * Parse permissions header from middleware
  * @internal
  */
-function parsePermissionsHeader(header: string | null): Record<string, string[]> {
+function parsePermissionsHeader(
+  header: string | null
+): Record<string, string[]> {
   if (!header) {
     return {};
   }
 
   try {
     const rbacPermissions = JSON.parse(header);
-    return parsePermissionsArray(Array.isArray(rbacPermissions) ? rbacPermissions : []);
+    return parsePermissionsArray(
+      Array.isArray(rbacPermissions) ? rbacPermissions : []
+    );
   } catch {
     return {};
   }
@@ -210,7 +228,9 @@ function parsePermissionsHeader(header: string | null): Record<string, string[]>
  * Example: ["orders:read", "orders:write"] -> { orders: ["read", "write"] }
  * @internal
  */
-function parsePermissionsArray(permissionsArray: string[]): Record<string, string[]> {
+function parsePermissionsArray(
+  permissionsArray: string[]
+): Record<string, string[]> {
   const permissions: Record<string, string[]> = {};
 
   permissionsArray.forEach((permission) => {
