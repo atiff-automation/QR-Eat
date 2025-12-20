@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -44,6 +44,7 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, currentRole, restaurantContext, isLoading } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
   const router = useRouter();
   const pathname = usePathname();
 
@@ -57,6 +58,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       currentRole: currentRole,
     });
   }
+
+  // Update current time every second for live clock display
+  useEffect(() => {
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+
+    return () => clearInterval(timeInterval);
+  }, []);
 
   const handleLogout = async () => {
     try {
@@ -316,7 +326,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {/* Restaurant Time - Abbreviated on mobile */}
                 {restaurantContext && (
                   <div className="hidden sm:block text-sm text-gray-500">
-                    {new Date().toLocaleString('en-US', {
+                    {currentTime.toLocaleString('en-US', {
                       timeZone: restaurantContext.timezone,
                       weekday: 'short',
                       month: 'short',
