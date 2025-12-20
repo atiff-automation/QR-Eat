@@ -215,6 +215,10 @@ export function KitchenDisplayBoard() {
   }, [pollingError]);
 
   useEffect(() => {
+    // Fetch initial data on mount
+    console.log('[KitchenDisplayBoard] Fetching initial data...');
+    fetchKitchenOrders();
+
     // Set up Server-Sent Events for real-time updates
     console.log('[KitchenDisplayBoard] Establishing SSE connection...');
     const eventSource = new EventSource('/api/events/orders');

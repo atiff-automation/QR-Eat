@@ -170,6 +170,10 @@ export function LiveOrderBoard({
   }, [pollingError]);
 
   useEffect(() => {
+    // Fetch initial data on mount
+    console.log('[LiveOrderBoard] Fetching initial data...');
+    fetchLiveOrders();
+
     // Set up Server-Sent Events for real-time updates
     console.log('[LiveOrderBoard] Establishing SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
