@@ -1,5 +1,6 @@
 /**
  * Centralized API Client
+ * @module API Client - Reactive Token Refresh Implementation
  *
  * Single source of truth for all API requests to ensure:
  * - Consistent authentication (credentials included in all requests)
