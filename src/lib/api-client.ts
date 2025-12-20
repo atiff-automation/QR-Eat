@@ -126,12 +126,19 @@ export class ApiClient {
    * Shows user-friendly toast notifications
    */
   private static async forceTokenRefresh(): Promise<void> {
+    console.log('🔄 forceTokenRefresh: Called', {
+      refreshInProgress: this.refreshInProgress,
+      hasPromise: !!this.refreshPromise,
+    });
+
     // If already refreshing, wait for that refresh to complete
     if (this.refreshInProgress && this.refreshPromise) {
+      console.log('🔄 forceTokenRefresh: Waiting for existing refresh');
       return this.refreshPromise;
     }
 
     // Start new refresh
+    console.log('🔄 forceTokenRefresh: Starting new refresh');
     this.refreshInProgress = true;
 
     // Show loading toast (throttled to prevent spam)
@@ -174,12 +181,15 @@ export class ApiClient {
               id: toastId,
             });
           }
+          console.log('✅ forceTokenRefresh: Refresh completed successfully');
         }
       } catch (error) {
+        console.error('❌ forceTokenRefresh: Refresh failed', error);
         throw error;
       } finally {
         this.refreshInProgress = false;
         this.refreshPromise = null;
+        console.log('🔄 forceTokenRefresh: Cleanup complete');
       }
     })();
 
@@ -199,7 +209,9 @@ export class ApiClient {
       '/api/auth/logout',
       '/api/auth/refresh',
     ];
-    return authPaths.some((path) => endpoint.includes(path));
+    const isAuth = authPaths.some((path) => endpoint.includes(path));
+    console.log(`🔐 ApiClient.isAuthEndpoint("${endpoint}") = ${isAuth}`);
+    return isAuth;
   }
 
   /**
@@ -268,19 +280,38 @@ export class ApiClient {
 
       // Handle error responses - throw error (standard JavaScript pattern)
       if (!response.ok) {
+        console.log(`🔍 ApiClient: Response not OK for ${endpoint}`, {
+          status: response.status,
+          isAuthEndpoint: this.isAuthEndpoint(endpoint),
+        });
+
         // Reactive 401 handling: attempt token refresh and retry
         // Skip auth endpoints to prevent infinite loops (login, logout, refresh)
         if (response.status === 401 && !this.isAuthEndpoint(endpoint)) {
           const requestKey = `${endpoint}:${JSON.stringify(options)}`;
           const attempts = this.retryAttempts.get(requestKey) || 0;
 
+          console.log(`🔄 ApiClient: 401 detected for ${endpoint}`, {
+            attempts,
+            maxAttempts: this.MAX_RETRY_ATTEMPTS,
+            willRetry: attempts < this.MAX_RETRY_ATTEMPTS,
+          });
+
           // Only retry once to prevent infinite loops
           if (attempts < this.MAX_RETRY_ATTEMPTS) {
             this.retryAttempts.set(requestKey, attempts + 1);
 
+            console.log(
+              `🚀 ApiClient: Triggering token refresh for ${endpoint}`
+            );
+
             try {
               // Attempt token refresh
               await this.forceTokenRefresh();
+
+              console.log(
+                `✅ ApiClient: Token refresh successful, retrying ${endpoint}`
+              );
 
               // Retry the original request with refreshed token
               const retryResult = await this.request<T>(endpoint, options);
@@ -288,20 +319,29 @@ export class ApiClient {
               // Clear retry counter on success
               this.retryAttempts.delete(requestKey);
 
+              console.log(`✅ ApiClient: Retry successful for ${endpoint}`);
               return retryResult;
-            } catch {
+            } catch (refreshError) {
               // Clear retry counter and fall through to throw original error
               this.retryAttempts.delete(requestKey);
 
+              console.error(
+                `❌ ApiClient: Refresh failed for ${endpoint}`,
+                refreshError
+              );
+
               // Redirect to login if refresh fails
               if (typeof window !== 'undefined') {
+                console.log(`🔄 ApiClient: Redirecting to login`);
                 window.location.href = AUTH_ROUTES.LOGIN;
               }
             }
           } else {
             // Max retries exceeded - clear counter and redirect to login
+            console.log(`❌ ApiClient: Max retries exceeded for ${endpoint}`);
             this.retryAttempts.delete(requestKey);
             if (typeof window !== 'undefined') {
+              console.log(`🔄 ApiClient: Redirecting to login (max retries)`);
               window.location.href = AUTH_ROUTES.LOGIN;
             }
           }
@@ -311,6 +351,12 @@ export class ApiClient {
           (data as ApiError)?.message ||
           (data as ApiError)?.error ||
           'Request failed';
+
+        console.log(`❌ ApiClient: Throwing error for ${endpoint}`, {
+          status: response.status,
+          message: errorMessage,
+        });
+
         throw new ApiClientError(errorMessage, response.status, data);
       }
 
