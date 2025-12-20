@@ -22,12 +22,7 @@
  * @see CLAUDE.md - Coding Standards: Single Source of Truth, DRY, Centralized Approaches
  */
 
-import {
-  API_CONFIG,
-  API_ERROR_MESSAGES,
-  CONTENT_TYPES,
-  AUTH_CONFIG,
-} from './api-constants';
+import { API_CONFIG, API_ERROR_MESSAGES, CONTENT_TYPES } from './api-constants';
 import { AUTH_ROUTES } from './auth-routes';
 import toast from 'react-hot-toast';
 import { TOAST_MESSAGES } from './constants/toast-messages';
@@ -68,37 +63,9 @@ export class ApiClientError extends Error {
 export class ApiClient {
   private static baseUrl = API_CONFIG.BASE_URL;
 
-  // Token expiration tracking for automatic refresh
-  private static tokenExpiresAt: Date | null = null;
+  // Refresh state tracking (prevent concurrent refreshes)
   private static refreshInProgress = false;
   private static refreshPromise: Promise<void> | null = null;
-
-  /**
-   * Token refresh threshold - configurable via AUTH_CONFIG
-   *
-   * Default: 2 minutes before expiration
-   * Configurable via: TOKEN_REFRESH_THRESHOLD_MS environment variable
-   *
-   * Industry standard (fixed threshold, not percentage):
-   * - Toast POS: 3 minutes
-   * - Square POS: 5 minutes
-   * - Clover POS: 10 minutes
-   * - Our default: 2 minutes (balance between efficiency and safety)
-   *
-   * Efficiency with 30m production tokens: 28/30 = 93%
-   * Efficiency with 5m testing tokens: 3/5 = 60% (acceptable for testing)
-   *
-   * @see api-constants.ts AUTH_CONFIG for configuration
-   * @see CLAUDE.md - No Hardcoding, Single Source of Truth
-   */
-  private static get TOKEN_REFRESH_THRESHOLD_MS(): number {
-    // Enforce min/max bounds for safety
-    const threshold = AUTH_CONFIG.TOKEN_REFRESH_THRESHOLD_MS;
-    return Math.max(
-      AUTH_CONFIG.MIN_REFRESH_THRESHOLD_MS,
-      Math.min(threshold, AUTH_CONFIG.MAX_REFRESH_THRESHOLD_MS)
-    );
-  }
 
   // 401 retry tracking (prevent infinite retry loops)
   private static readonly MAX_RETRY_ATTEMPTS = 1;
@@ -132,89 +99,12 @@ export class ApiClient {
   }
 
   /**
-   * Set token expiration time (called after successful login or token refresh)
+   * Clear refresh state (called on logout)
    */
-  static setTokenExpiration(expiresAt: Date | string) {
-    this.tokenExpiresAt =
-      typeof expiresAt === 'string' ? new Date(expiresAt) : expiresAt;
-  }
-
-  /**
-   * Clear token expiration (called on logout)
-   */
-  static clearTokenExpiration() {
-    this.tokenExpiresAt = null;
+  static clearRefreshState() {
     this.refreshInProgress = false;
     this.refreshPromise = null;
-  }
-
-  /**
-   * Check if token needs refresh
-   */
-  private static needsTokenRefresh(): boolean {
-    if (!this.tokenExpiresAt) return false;
-
-    const now = new Date();
-    const expiresAt = new Date(this.tokenExpiresAt);
-    const timeUntilExpiry = expiresAt.getTime() - now.getTime();
-
-    // Refresh if token expires within threshold (5 minutes)
-    return (
-      timeUntilExpiry <= this.TOKEN_REFRESH_THRESHOLD_MS && timeUntilExpiry > 0
-    );
-  }
-
-  /**
-   * Refresh access token using refresh token
-   * Prevents concurrent refresh requests by using a shared promise
-   */
-  private static async refreshTokenIfNeeded(): Promise<void> {
-    // Don't refresh if not needed or if already refreshing
-    if (!this.needsTokenRefresh()) return;
-
-    // If already refreshing, wait for that refresh to complete
-    if (this.refreshInProgress && this.refreshPromise) {
-      return this.refreshPromise;
-    }
-
-    // Start new refresh
-    this.refreshInProgress = true;
-    this.refreshPromise = (async () => {
-      try {
-        // Call refresh endpoint (skip our own interceptor to avoid infinite loop)
-        const response = await fetch('/api/auth/refresh', {
-          method: 'POST',
-          credentials: 'include',
-        });
-
-        if (!response.ok) {
-          // Refresh failed - clear token and redirect to login
-          this.clearTokenExpiration();
-          if (typeof window !== 'undefined') {
-            window.location.href = AUTH_ROUTES.LOGIN;
-          }
-          throw new ApiClientError('Session expired', 401);
-        }
-
-        const data = (await response.json()) as {
-          success: boolean;
-          tokenExpiration?: { accessToken: string };
-        };
-
-        // Update token expiration time
-        if (data.success && data.tokenExpiration?.accessToken) {
-          this.setTokenExpiration(data.tokenExpiration.accessToken);
-        }
-      } catch (error) {
-        this.clearTokenExpiration();
-        throw error;
-      } finally {
-        this.refreshInProgress = false;
-        this.refreshPromise = null;
-      }
-    })();
-
-    return this.refreshPromise;
+    this.retryAttempts.clear();
   }
 
   /**
@@ -257,8 +147,6 @@ export class ApiClient {
         });
 
         if (!response.ok) {
-          this.clearTokenExpiration();
-
           // Show error toast and redirect
           if (toastId && typeof window !== 'undefined') {
             toast.error(TOAST_MESSAGES.AUTH.SESSION_EXPIRED, { id: toastId });
@@ -276,12 +164,9 @@ export class ApiClient {
 
         const data = (await response.json()) as {
           success: boolean;
-          tokenExpiration?: { accessToken: string };
         };
 
-        if (data.success && data.tokenExpiration?.accessToken) {
-          this.setTokenExpiration(data.tokenExpiration.accessToken);
-
+        if (data.success) {
           // Show success toast
           if (toastId && typeof window !== 'undefined') {
             toast.success(TOAST_MESSAGES.AUTH.SESSION_REFRESHED, {
@@ -290,7 +175,6 @@ export class ApiClient {
           }
         }
       } catch (error) {
-        this.clearTokenExpiration();
         throw error;
       } finally {
         this.refreshInProgress = false;
@@ -302,8 +186,28 @@ export class ApiClient {
   }
 
   /**
+   * Check if endpoint is an auth endpoint (should not trigger refresh)
+   */
+  private static isAuthEndpoint(endpoint: string): boolean {
+    const authPaths = [
+      '/auth/login',
+      '/auth/rbac-login',
+      '/auth/logout',
+      '/auth/rbac-logout',
+      '/api/auth/login',
+      '/api/auth/logout',
+      '/api/auth/refresh',
+    ];
+    return authPaths.some((path) => endpoint.includes(path));
+  }
+
+  /**
    * Make an API request with automatic credential inclusion
    * Throws ApiClientError on failure (standard JavaScript pattern)
+   *
+   * Uses pure reactive token refresh: requests are made normally,
+   * and if a 401 is received, token refresh is attempted and request retried.
+   * This is simpler and more reliable than proactive refresh.
    */
   private static async request<T = unknown>(
     endpoint: string,
@@ -314,19 +218,6 @@ export class ApiClient {
       timeout = API_CONFIG.DEFAULT_TIMEOUT,
       ...fetchOptions
     } = options;
-
-    // Automatically refresh token if needed (skip for auth endpoints to avoid loops)
-    if (
-      !endpoint.includes('/api/auth/refresh') &&
-      !endpoint.includes('/api/auth/login')
-    ) {
-      try {
-        await this.refreshTokenIfNeeded();
-      } catch (error) {
-        // If refresh fails, let the request proceed (will handle 401 in Phase 6)
-        console.error('Token refresh failed:', error);
-      }
-    }
 
     // Build URL with query parameters
     const url = this.buildUrl(endpoint, params);
@@ -376,8 +267,9 @@ export class ApiClient {
 
       // Handle error responses - throw error (standard JavaScript pattern)
       if (!response.ok) {
-        // Special handling for 401 Unauthorized - attempt token refresh and retry
-        if (response.status === 401 && !endpoint.includes('/api/auth/')) {
+        // Reactive 401 handling: attempt token refresh and retry
+        // Skip auth endpoints to prevent infinite loops (login, logout, refresh)
+        if (response.status === 401 && !this.isAuthEndpoint(endpoint)) {
           const requestKey = `${endpoint}:${JSON.stringify(options)}`;
           const attempts = this.retryAttempts.get(requestKey) || 0;
 
@@ -386,10 +278,10 @@ export class ApiClient {
             this.retryAttempts.set(requestKey, attempts + 1);
 
             try {
-              // Force token refresh
+              // Attempt token refresh
               await this.forceTokenRefresh();
 
-              // Retry the original request
+              // Retry the original request with refreshed token
               const retryResult = await this.request<T>(endpoint, options);
 
               // Clear retry counter on success

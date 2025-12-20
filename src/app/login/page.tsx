@@ -62,9 +62,6 @@ function LoginForm() {
       console.log('🎯 Login response received:', data);
       console.log('🍪 Cookies after login:', document.cookie);
 
-      // ✅ Initialize automatic token refresh system
-      ApiClient.setTokenExpiration(data.tokenExpiration.accessToken);
-
       // Handle redirect with subdomain awareness
       const finalRedirect = handlePostLoginRedirect(
         authContext,
