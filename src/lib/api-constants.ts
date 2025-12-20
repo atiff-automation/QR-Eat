@@ -75,3 +75,63 @@ export const API_ERROR_MESSAGES = {
   NOT_FOUND: 'Resource not found',
   SERVER_ERROR: 'Server error. Please try again later.',
 } as const;
+
+/**
+ * Authentication and Token Refresh Configuration
+ *
+ * Following industry best practices from Toast POS, Square POS, and Clover POS:
+ * - Use FIXED threshold (not percentage-based) for consistent behavior
+ * - Default: 2 minutes before expiry (works with any token lifetime)
+ * - Efficiency: 93% with 30-min tokens, 60% with 5-min tokens
+ *
+ * Environment Variables:
+ * - TOKEN_REFRESH_THRESHOLD_MS: Override default threshold (in milliseconds)
+ *
+ * Production Recommendations:
+ * - JWT_EXPIRES_IN=30m (30-minute access tokens)
+ * - TOKEN_REFRESH_THRESHOLD_MS=120000 (2 minutes = 120,000ms)
+ * - Efficiency: 28/30 minutes = 93%
+ *
+ * Testing Configuration:
+ * - JWT_EXPIRES_IN=5m (5-minute access tokens for fast iteration)
+ * - TOKEN_REFRESH_THRESHOLD_MS=120000 (same 2 minutes)
+ * - Efficiency: 3/5 minutes = 60% (acceptable for testing)
+ *
+ * @see CLAUDE.md - No Hardcoding, Single Source of Truth
+ * @see Industry Standards: Toast POS (3 min), Square POS (5 min), Clover POS (10 min)
+ */
+export const AUTH_CONFIG = {
+  /**
+   * Token refresh threshold in milliseconds
+   *
+   * How long BEFORE token expiry should we attempt to refresh?
+   *
+   * Default: 2 minutes (120,000 ms)
+   * - Allows time for network latency, retries, and clock skew
+   * - Industry standard: 2-5 minutes fixed threshold
+   * - NOT percentage-based (fixed value works better for production)
+   *
+   * Why 2 minutes?
+   * 1. Network latency & retries: Up to 8 seconds worst case
+   * 2. Clock skew tolerance: Handles 1-2 min time differences between client/server
+   * 3. Grace period: Multiple retry attempts if refresh fails
+   *
+   * Can be overridden via TOKEN_REFRESH_THRESHOLD_MS environment variable
+   */
+  TOKEN_REFRESH_THRESHOLD_MS: parseInt(
+    process.env.TOKEN_REFRESH_THRESHOLD_MS || '120000', // 2 minutes default
+    10
+  ),
+
+  /**
+   * Minimum allowed threshold (30 seconds)
+   * Prevents too-aggressive refresh attempts
+   */
+  MIN_REFRESH_THRESHOLD_MS: 30_000,
+
+  /**
+   * Maximum allowed threshold (10 minutes)
+   * Prevents refresh window from being too large
+   */
+  MAX_REFRESH_THRESHOLD_MS: 10 * 60 * 1000,
+} as const;

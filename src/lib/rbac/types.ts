@@ -300,6 +300,38 @@ export const RBAC_CONSTANTS = {
   ] as const,
 } as const;
 
+// Login Response Types
+export interface LoginResponse extends Record<string, unknown> {
+  success: boolean;
+  message: string;
+  userType: UserType;
+  user: {
+    id: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    currentRole: UserRole;
+    availableRoles: UserRole[];
+    permissions: string[];
+    mustChangePassword?: boolean;
+  };
+  session: {
+    id: string;
+    expiresAt: Date;
+  };
+  tokenExpiration: {
+    accessToken: Date;
+    refreshToken: Date;
+  };
+  tenant?: {
+    id: string;
+    name: string;
+    slug: string;
+    isActive: boolean;
+  };
+  restaurant?: RestaurantContext;
+}
+
 // Type Guards
 export function isValidUserType(userType: string): userType is UserType {
   return Object.values(UserType).includes(userType as UserType);

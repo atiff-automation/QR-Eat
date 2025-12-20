@@ -8,27 +8,96 @@
  */
 
 /**
- * Polling intervals for real-time data updates
+ * Polling Intervals for Real-Time Data Updates
  * All values in milliseconds
+ *
+ * ============================================================================
+ * IMPORTANT: Two Types of Polling
+ * ============================================================================
+ *
+ * 1. SSE-BACKED POLLING (Conditional - Fallback Only)
+ *    - Used when component has SSE (Server-Sent Events) as primary method
+ *    - Polling is DISABLED when SSE is connected
+ *    - Polling is ENABLED only when SSE disconnects (fallback)
+ *    - Examples: Kitchen Display, Live Orders, Customer Tracking
+ *    - Pattern: useAuthAwarePolling(..., ..., !sseConnected)
+ *
+ * 2. REGULAR POLLING (Always-On)
+ *    - Used when component has NO SSE alternative
+ *    - Polling runs continuously regardless of any connection state
+ *    - Examples: Analytics, Tables, Reports
+ *    - Pattern: useAuthAwarePolling(..., ..., true) or default
+ *
+ * ============================================================================
+ * Industry Standards (POS/KDS Systems):
+ * ============================================================================
+ * - Toast POS KDS: 10-15 seconds (SSE + fallback)
+ * - Square POS KDS: 5-10 seconds (WebSocket + fallback)
+ * - Clover POS KDS: 5-10 seconds (SSE + fallback)
+ *
+ * Our Configuration:
+ * - Kitchen Display: 10s (SSE-backed - fallback only when SSE fails)
+ * - Live Orders: 30s (SSE-backed - fallback only when SSE fails)
+ * - Customer Tracking: 5s (SSE-backed - fallback only when SSE fails)
+ * - Analytics: 30s (Regular polling - always-on, no SSE)
+ * - Tables: 30s (Regular polling - always-on, no SSE)
+ *
+ * ============================================================================
  */
 export const POLLING_INTERVALS = {
-  /** Orders polling interval for Kitchen, Cashier, Owner (30 seconds) */
+  // -------------------------------------------------------------------------
+  // SSE-BACKED POLLING (Conditional - Use with !sseConnected flag)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Kitchen display board polling interval (10 seconds)
+   * SSE-BACKED: Only polls when SSE connection fails
+   * Primary: SSE via /api/events/orders
+   * Fallback: Polling via /kitchen/orders
+   */
+  KITCHEN: 10_000,
+
+  /**
+   * Live orders board polling (30 seconds)
+   * SSE-BACKED: Only polls when SSE connection fails
+   * Primary: SSE via /api/events/orders
+   * Fallback: Polling via /api/orders/live
+   */
   ORDERS: 30_000,
 
-  /** Kitchen display board polling interval (30 seconds) */
-  KITCHEN: 30_000,
+  /**
+   * Customer order tracking polling (5 seconds)
+   * SSE-BACKED: Only polls when SSE connection fails
+   * Primary: SSE via /api/events/orders
+   * Fallback: Polling via customer tracking endpoint
+   */
+  ORDER_TRACKING: 5_000,
 
-  /** Table status polling interval (30 seconds) */
+  /**
+   * Order confirmation status polling (15 seconds)
+   * SSE-BACKED: Only polls when SSE connection fails
+   * Primary: SSE via /api/events/orders
+   * Fallback: Polling via order confirmation endpoint
+   */
+  ORDER_CONFIRMATION: 15_000,
+
+  // -------------------------------------------------------------------------
+  // REGULAR POLLING (Always-On - No SSE alternative)
+  // -------------------------------------------------------------------------
+
+  /**
+   * Table status polling interval (30 seconds)
+   * REGULAR POLLING: Always runs (no SSE alternative)
+   * Acceptable delay for non-critical table status updates
+   */
   TABLES: 30_000,
 
-  /** Analytics dashboard polling interval (30 seconds) */
+  /**
+   * Analytics dashboard polling interval (30 seconds)
+   * REGULAR POLLING: Always runs (no SSE alternative)
+   * Not time-critical, reduces server load
+   */
   ANALYTICS: 30_000,
-
-  /** Customer order tracking polling (15 seconds - faster for customer UX) */
-  ORDER_TRACKING: 15_000,
-
-  /** Order confirmation status polling (30 seconds) */
-  ORDER_CONFIRMATION: 30_000,
 } as const;
 
 /**

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   getClientSubdomainAuthContext,
@@ -10,33 +10,35 @@ import {
   handlePostLoginRedirect,
 } from '@/lib/subdomain-auth';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { LoginResponse } from '@/lib/rbac/types';
 
 function LoginForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   // Subdomain and redirect handling
   const [redirectTo, setRedirectTo] = useState('/dashboard');
-  const [authContext, setAuthContext] = useState(getClientSubdomainAuthContext());
+  const [authContext, setAuthContext] = useState(
+    getClientSubdomainAuthContext()
+  );
   const [formConfig, setFormConfig] = useState(getLoginFormConfig(authContext));
   const searchParams = useSearchParams();
-  
-  
+
   useEffect(() => {
     // Update context when component mounts
     const context = getClientSubdomainAuthContext();
     setAuthContext(context);
     setFormConfig(getLoginFormConfig(context));
-    
+
     // Handle redirect parameter
     const redirect = searchParams.get('redirect');
-    
+
     if (typeof window !== 'undefined') {
       const urlParams = new URLSearchParams(window.location.search);
       const urlRedirect = urlParams.get('redirect');
-      
+
       const finalRedirect = redirect || urlRedirect;
       if (finalRedirect) {
         setRedirectTo(finalRedirect);
@@ -52,13 +54,23 @@ function LoginForm() {
     try {
       const payload = createSubdomainLoginPayload(email, password, authContext);
 
-      const data = await ApiClient.post<any>('/auth/rbac-login', payload);
+      const data = await ApiClient.post<LoginResponse>(
+        '/auth/rbac-login',
+        payload
+      );
 
       console.log('🎯 Login response received:', data);
       console.log('🍪 Cookies after login:', document.cookie);
 
+      // ✅ Initialize automatic token refresh system
+      ApiClient.setTokenExpiration(data.tokenExpiration.accessToken);
+
       // Handle redirect with subdomain awareness
-      const finalRedirect = handlePostLoginRedirect(authContext, data, redirectTo);
+      const finalRedirect = handlePostLoginRedirect(
+        authContext,
+        data,
+        redirectTo
+      );
 
       // Use Next.js router for better cookie handling
       console.log('🔄 Redirecting to:', finalRedirect);
@@ -81,7 +93,9 @@ function LoginForm() {
   };
 
   const quickLogin = (optionId: string) => {
-    const option = formConfig.quickLoginOptions.find(opt => opt.id === optionId);
+    const option = formConfig.quickLoginOptions.find(
+      (opt) => opt.id === optionId
+    );
     if (option) {
       setEmail(option.email);
       setPassword(option.password);
@@ -160,8 +174,8 @@ function LoginForm() {
           </div>
 
           <div className="text-center">
-            <Link 
-              href="/forgot-password" 
+            <Link
+              href="/forgot-password"
               className="text-sm text-indigo-600 hover:text-indigo-500"
             >
               Forgot your password?
@@ -175,7 +189,9 @@ function LoginForm() {
                   <div className="w-full border-t border-gray-300" />
                 </div>
                 <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-gray-50 text-gray-500">Quick Login</span>
+                  <span className="px-2 bg-gray-50 text-gray-500">
+                    Quick Login
+                  </span>
                 </div>
               </div>
 
@@ -214,7 +230,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

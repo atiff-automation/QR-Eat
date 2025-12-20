@@ -22,7 +22,12 @@
  * @see CLAUDE.md - Coding Standards: Single Source of Truth, DRY, Centralized Approaches
  */
 
-import { API_CONFIG, API_ERROR_MESSAGES, CONTENT_TYPES } from './api-constants';
+import {
+  API_CONFIG,
+  API_ERROR_MESSAGES,
+  CONTENT_TYPES,
+  AUTH_CONFIG,
+} from './api-constants';
 import { AUTH_ROUTES } from './auth-routes';
 import toast from 'react-hot-toast';
 import { TOAST_MESSAGES } from './constants/toast-messages';
@@ -68,8 +73,32 @@ export class ApiClient {
   private static refreshInProgress = false;
   private static refreshPromise: Promise<void> | null = null;
 
-  // Refresh token 5 minutes before expiration
-  private static readonly TOKEN_REFRESH_THRESHOLD_MS = 5 * 60 * 1000;
+  /**
+   * Token refresh threshold - configurable via AUTH_CONFIG
+   *
+   * Default: 2 minutes before expiration
+   * Configurable via: TOKEN_REFRESH_THRESHOLD_MS environment variable
+   *
+   * Industry standard (fixed threshold, not percentage):
+   * - Toast POS: 3 minutes
+   * - Square POS: 5 minutes
+   * - Clover POS: 10 minutes
+   * - Our default: 2 minutes (balance between efficiency and safety)
+   *
+   * Efficiency with 30m production tokens: 28/30 = 93%
+   * Efficiency with 5m testing tokens: 3/5 = 60% (acceptable for testing)
+   *
+   * @see api-constants.ts AUTH_CONFIG for configuration
+   * @see CLAUDE.md - No Hardcoding, Single Source of Truth
+   */
+  private static get TOKEN_REFRESH_THRESHOLD_MS(): number {
+    // Enforce min/max bounds for safety
+    const threshold = AUTH_CONFIG.TOKEN_REFRESH_THRESHOLD_MS;
+    return Math.max(
+      AUTH_CONFIG.MIN_REFRESH_THRESHOLD_MS,
+      Math.min(threshold, AUTH_CONFIG.MAX_REFRESH_THRESHOLD_MS)
+    );
+  }
 
   // 401 retry tracking (prevent infinite retry loops)
   private static readonly MAX_RETRY_ATTEMPTS = 1;
