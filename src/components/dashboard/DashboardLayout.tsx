@@ -34,7 +34,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { RoleSwitcher } from '@/components/rbac/RoleSwitcher';
 import { NotificationBell } from './NotificationBell';
-import { RestaurantClock } from './RestaurantClock';
+import { DashboardClock } from '@/components/ui/LiveClock';
 import { ApiClient } from '@/lib/api-client';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
 
@@ -314,13 +314,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <NotificationBell />
                 </PermissionGuard>
 
-                {/* Restaurant Time - Abbreviated on mobile */}
-                {restaurantContext && (
-                  <RestaurantClock
-                    timezone={restaurantContext.timezone}
-                    className="hidden sm:block text-sm text-gray-500"
-                  />
-                )}
+                {/* Live Clock - Local Browser Timezone */}
+                <DashboardClock />
 
                 {/* Mobile logout */}
                 <div className="lg:hidden">

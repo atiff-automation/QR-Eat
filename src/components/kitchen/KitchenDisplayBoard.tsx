@@ -5,6 +5,7 @@ import { ChefHat } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
+import { KitchenClock } from '@/components/ui/LiveClock';
 
 interface KitchenOrder {
   id: string;
@@ -46,7 +47,6 @@ export function KitchenDisplayBoard() {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [currentTime, setCurrentTime] = useState(new Date());
   const [sseConnected, setSseConnected] = useState(false);
 
   /**
@@ -243,13 +243,9 @@ export function KitchenDisplayBoard() {
       setSseConnected(true);
     };
 
-    // Update current time every second for timing displays
-    const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
-
     return () => {
       console.log('[KitchenDisplayBoard] Cleaning up SSE connection');
       eventSource.close();
-      clearInterval(timeInterval);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -333,7 +329,7 @@ export function KitchenDisplayBoard() {
 
   const getOrderAge = (createdAt: string) => {
     const created = new Date(createdAt);
-    const diffMs = currentTime.getTime() - created.getTime();
+    const diffMs = new Date().getTime() - created.getTime();
     const diffMins = Math.floor(diffMs / 60000);
     return diffMins;
   };
@@ -382,14 +378,7 @@ export function KitchenDisplayBoard() {
           <h1 className="text-3xl font-bold text-white">
             Kitchen Display System
           </h1>
-          <div className="text-right">
-            <div className="text-2xl font-mono">
-              {currentTime.toLocaleTimeString()}
-            </div>
-            <div className="text-sm text-gray-300">
-              {currentTime.toLocaleDateString()}
-            </div>
-          </div>
+          <KitchenClock className="text-right text-white" />
         </div>
 
         {error && (
