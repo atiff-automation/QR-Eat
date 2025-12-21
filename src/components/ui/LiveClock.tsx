@@ -142,23 +142,26 @@ export const DashboardClock = memo(DashboardClockComponent);
 /**
  * Convenience component for kitchen display
  * Shows time and date separately for large display
+ *
+ * Performance: Updates every 60 seconds (no seconds shown)
+ * Kitchen staff need minute-precision, not second-precision
  */
 export const KitchenClock = memo(
   ({ className = '' }: { className?: string }) => {
     const [currentTime, setCurrentTime] = useState(new Date());
 
     useEffect(() => {
-      // Kitchen display shows seconds, so update every second
-      // But still only update state if value changed
+      // Kitchen display updates every 60 seconds (no seconds shown)
+      // Only update if minute actually changed
       const timeInterval = setInterval(() => {
         const newTime = new Date();
         setCurrentTime((prevTime) => {
-          // Only update if second changed
-          return prevTime.getSeconds() !== newTime.getSeconds()
-            ? newTime
-            : prevTime;
+          // Only update if minute or hour changed
+          const prevMinute = prevTime.getHours() * 60 + prevTime.getMinutes();
+          const newMinute = newTime.getHours() * 60 + newTime.getMinutes();
+          return prevMinute !== newMinute ? newTime : prevTime;
         });
-      }, 1000);
+      }, 60000); // Update every 60 seconds
 
       return () => clearInterval(timeInterval);
     }, []);
@@ -166,7 +169,10 @@ export const KitchenClock = memo(
     return (
       <div className={className}>
         <div className="text-4xl font-bold">
-          {currentTime.toLocaleTimeString()}
+          {currentTime.toLocaleTimeString('en-US', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}
         </div>
         <div className="text-xl text-gray-600">
           {currentTime.toLocaleDateString()}
