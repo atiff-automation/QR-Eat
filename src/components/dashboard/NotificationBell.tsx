@@ -1,24 +1,23 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Bell, X, Key, Users } from 'lucide-react';
+import { useState } from 'react';
+import { Bell, Key } from 'lucide-react';
 import { PasswordResetModal } from './PasswordResetModal';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
-
-interface Notification {
-  id: string;
-  title: string;
-  message: string;
-  type: string;
-  isRead: boolean;
-  createdAt: string;
-  metadata?: any;
-}
+import {
+  useNotifications,
+  useMarkNotificationAsRead,
+  useResetStaffPassword,
+} from '@/lib/hooks/queries/useNotifications';
 
 export function NotificationBell() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  // TanStack Query hooks (replaces manual state management)
+  const { notifications } = useNotifications();
+  const { mutate: markAsRead } = useMarkNotificationAsRead();
+  const { mutate: resetPassword, isPending: isResetting } =
+    useResetStaffPassword();
+
+  // Local UI state
   const [showDropdown, setShowDropdown] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [passwordResetData, setPasswordResetData] = useState<{
     staffName: string;
@@ -26,82 +25,45 @@ export function NotificationBell() {
     temporaryPassword: string;
   } | null>(null);
 
-  useEffect(() => {
-    fetchNotifications();
-  }, []);
-
-  const fetchNotifications = async () => {
-    try {
-      const data = await ApiClient.get<{ notifications: Notification[] }>('/notifications');
-      setNotifications(data.notifications || []);
-    } catch (error) {
-      console.error('Failed to fetch notifications:', error);
-    }
+  const handleMarkAsRead = (notificationId: string) => {
+    markAsRead(notificationId);
   };
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      await ApiClient.patch(`/notifications/${notificationId}`, { isRead: true });
-
-      setNotifications(prev =>
-        prev.map(n => n.id === notificationId ? { ...n, isRead: true } : n)
-      );
-    } catch (error) {
-      console.error('Failed to mark notification as read:', error);
-    }
-  };
-
-  const handlePasswordReset = async (staffId: string, notificationId: string) => {
-    setLoading(true);
-    try {
-      const data = await ApiClient.post<{
-        staffName: string;
-        staffEmail: string;
-        temporaryPassword?: string;
-      }>(`/owner/staff/${staffId}/reset-password`);
-
-      // Update the specific notification in state instead of refetching all
-      setNotifications(prev => prev.map(notification => {
-        if (notification.id === notificationId) {
-          return {
-            ...notification,
-            isRead: true,
-            metadata: {
-              ...(notification.metadata as any),
-              completed: true,
-              completedAt: new Date().toISOString()
-            }
-          };
-        }
-        return notification;
-      }));
-
-      // Show password reset modal with new password
-      if (data.temporaryPassword) {
-        setPasswordResetData({
-          staffName: data.staffName,
-          staffEmail: data.staffEmail,
-          temporaryPassword: data.temporaryPassword
-        });
-        setShowPasswordModal(true);
-        setShowDropdown(false); // Close the notification dropdown
-      } else {
-        alert(`Password reset for ${data.staffName}. Check dashboard for details.`);
+  const handlePasswordReset = (staffId: string, notificationId: string) => {
+    resetPassword(
+      { staffId, notificationId },
+      {
+        onSuccess: (data) => {
+          if (data.temporaryPassword) {
+            setPasswordResetData({
+              staffName: data.staffName,
+              staffEmail: data.staffEmail,
+              temporaryPassword: data.temporaryPassword,
+            });
+            setShowPasswordModal(true);
+            setShowDropdown(false);
+          } else {
+            alert(
+              `Password reset for ${data.staffName}. Check dashboard for details.`
+            );
+          }
+        },
+        onError: (error) => {
+          alert(error.message || 'Failed to reset password. Please try again.');
+        },
       }
-    } catch (error) {
-      console.error('Failed to reset password:', error);
-      const errorMessage = error instanceof ApiClientError ? error.message : 'Failed to reset password. Please try again.';
-      alert(errorMessage);
-    } finally {
-      setLoading(false);
-    }
+    );
   };
 
-  const unreadCount = notifications.filter(n => 
-    !n.isRead && !(n.metadata as any)?.completed
+  // Calculate actual unread count (excluding completed)
+  const actualUnreadCount = notifications.filter(
+    (n) => !n.isRead && !(n.metadata as Record<string, unknown>)?.completed
   ).length;
 
-  const getNotificationIcon = (type: string, metadata?: any) => {
+  const getNotificationIcon = (
+    type: string,
+    metadata?: Record<string, unknown>
+  ) => {
     if (metadata?.action === 'password_reset_request') {
       if (metadata?.completed) {
         return <Key className="h-4 w-4 text-green-500" />;
@@ -118,9 +80,9 @@ export function NotificationBell() {
         className="relative p-2 text-gray-600 hover:text-gray-800 focus:outline-none"
       >
         <Bell className="h-6 w-6" />
-        {unreadCount > 0 && (
+        {actualUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {actualUnreadCount > 9 ? '9+' : actualUnreadCount}
           </span>
         )}
       </button>
@@ -129,9 +91,11 @@ export function NotificationBell() {
         <div className="absolute right-0 mt-2 w-80 bg-white rounded-md shadow-lg border border-gray-200 z-50">
           <div className="py-2">
             <div className="px-4 py-2 border-b border-gray-200">
-              <h3 className="text-sm font-medium text-gray-900">Notifications</h3>
+              <h3 className="text-sm font-medium text-gray-900">
+                Notifications
+              </h3>
             </div>
-            
+
             <div className="max-h-64 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="px-4 py-3 text-sm text-gray-500 text-center">
@@ -142,15 +106,21 @@ export function NotificationBell() {
                   <div
                     key={notification.id}
                     className={`px-4 py-3 border-b border-gray-100 ${
-                      !notification.isRead && !(notification.metadata as any)?.completed 
-                        ? 'bg-blue-50' 
-                        : (notification.metadata as any)?.completed 
-                          ? 'bg-green-50' 
+                      !notification.isRead &&
+                      !(notification.metadata as Record<string, unknown>)
+                        ?.completed
+                        ? 'bg-blue-50'
+                        : (notification.metadata as Record<string, unknown>)
+                              ?.completed
+                          ? 'bg-green-50'
                           : 'bg-white'
                     }`}
                   >
                     <div className="flex items-start space-x-3">
-                      {getNotificationIcon(notification.type, notification.metadata)}
+                      {getNotificationIcon(
+                        notification.type,
+                        notification.metadata
+                      )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900">
                           {notification.title}
@@ -161,8 +131,9 @@ export function NotificationBell() {
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(notification.createdAt).toLocaleString()}
                         </p>
-                        
-                        {notification.metadata?.action === 'password_reset_request' && (
+
+                        {notification.metadata?.action ===
+                          'password_reset_request' && (
                           <div className="mt-2 flex space-x-2">
                             {notification.metadata?.completed ? (
                               <div className="flex items-center space-x-2">
@@ -170,23 +141,31 @@ export function NotificationBell() {
                                   ✓ Password Reset Completed
                                 </span>
                                 <span className="text-xs text-gray-500">
-                                  {new Date(notification.metadata.completedAt).toLocaleString()}
+                                  {new Date(
+                                    notification.metadata.completedAt
+                                  ).toLocaleString()}
                                 </span>
                               </div>
                             ) : (
                               <>
                                 <button
-                                  onClick={() => handlePasswordReset(
-                                    notification.metadata.staffId,
-                                    notification.id
-                                  )}
-                                  disabled={loading}
+                                  onClick={() =>
+                                    handlePasswordReset(
+                                      notification.metadata.staffId,
+                                      notification.id
+                                    )
+                                  }
+                                  disabled={isResetting}
                                   className="px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
                                 >
-                                  {loading ? 'Resetting...' : 'Reset Password'}
+                                  {isResetting
+                                    ? 'Resetting...'
+                                    : 'Reset Password'}
                                 </button>
                                 <button
-                                  onClick={() => markAsRead(notification.id)}
+                                  onClick={() =>
+                                    handleMarkAsRead(notification.id)
+                                  }
                                   className="px-3 py-1 bg-gray-300 text-gray-700 text-xs rounded hover:bg-gray-400"
                                 >
                                   Mark Read
@@ -196,16 +175,18 @@ export function NotificationBell() {
                           </div>
                         )}
                       </div>
-                      
-                      {!notification.isRead && !(notification.metadata as any)?.completed && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                      )}
+
+                      {!notification.isRead &&
+                        !(notification.metadata as Record<string, unknown>)
+                          ?.completed && (
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                        )}
                     </div>
                   </div>
                 ))
               )}
             </div>
-            
+
             {notifications.length > 0 && (
               <div className="px-4 py-2 border-t border-gray-200">
                 <button
