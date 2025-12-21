@@ -12,6 +12,7 @@ import { resolveTenant } from '@/lib/tenant-resolver';
 import { SecurityUtils } from '@/lib/security';
 import { getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
+import { EnhancedJWTService } from '@/lib/rbac/jwt';
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
@@ -165,7 +166,7 @@ export async function POST(request: NextRequest) {
       },
       // Include token expiration info for client-side monitoring
       tokenExpiration: {
-        accessToken: session.expiresAt,
+        accessToken: EnhancedJWTService.getTokenExpirationTime(),
         refreshToken: refreshTokenResult.expiresAt,
       },
     };

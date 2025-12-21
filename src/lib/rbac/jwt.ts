@@ -28,6 +28,14 @@ const JWT_CONFIG: JWTConfig = {
   algorithm: RBAC_CONSTANTS.JWT_ALGORITHM,
 };
 
+// Debug logging - check what JWT_EXPIRES_IN is being used
+console.log('🔧 JWT_CONFIG initialized:', {
+  expiresIn: JWT_CONFIG.expiresIn,
+  fromEnv: process.env.JWT_EXPIRES_IN,
+  fallback: RBAC_CONSTANTS.JWT_EXPIRES_IN,
+  usingEnv: !!process.env.JWT_EXPIRES_IN,
+});
+
 export class EnhancedJWTService {
   /**
    * Generate a new JWT token with enhanced RBAC payload
@@ -363,18 +371,23 @@ export class EnhancedJWTService {
    * Parse expires in string to seconds
    */
   static parseExpiresIn(expiresIn: string): number {
+    console.log('🔧 parseExpiresIn called with:', expiresIn);
     const match = expiresIn.match(/^(\d+)([smhd])$/);
     if (!match) {
+      console.log('❌ parseExpiresIn: No match, using default 24 hours');
       return 24 * 60 * 60; // Default 24 hours
     }
 
     const [, amount, unit] = match;
     const value = parseInt(amount, 10);
 
+    console.log('✅ parseExpiresIn: Parsed', { amount, unit, value });
+
     switch (unit) {
       case 's':
         return value;
       case 'm':
+        console.log('✅ parseExpiresIn: Returning', value * 60, 'seconds');
         return value * 60;
       case 'h':
         return value * 60 * 60;
