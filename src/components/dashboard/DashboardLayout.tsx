@@ -13,7 +13,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -34,6 +34,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { RoleSwitcher } from '@/components/rbac/RoleSwitcher';
 import { NotificationBell } from './NotificationBell';
+import { RestaurantClock } from './RestaurantClock';
 import { ApiClient } from '@/lib/api-client';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
 
@@ -44,7 +45,6 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, currentRole, restaurantContext, isLoading } = useRole();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const router = useRouter();
   const pathname = usePathname();
 
@@ -58,15 +58,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       currentRole: currentRole,
     });
   }
-
-  // Update current time every second for live clock display
-  useEffect(() => {
-    const timeInterval = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
-
-    return () => clearInterval(timeInterval);
-  }, []);
 
   const handleLogout = async () => {
     try {
@@ -325,16 +316,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
                 {/* Restaurant Time - Abbreviated on mobile */}
                 {restaurantContext && (
-                  <div className="hidden sm:block text-sm text-gray-500">
-                    {currentTime.toLocaleString('en-US', {
-                      timeZone: restaurantContext.timezone,
-                      weekday: 'short',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </div>
+                  <RestaurantClock
+                    timezone={restaurantContext.timezone}
+                    className="hidden sm:block text-sm text-gray-500"
+                  />
                 )}
 
                 {/* Mobile logout */}
