@@ -20,6 +20,36 @@
 
 import { useState, useEffect, memo, useCallback } from 'react';
 
+/**
+ * Clock Update Intervals (milliseconds)
+ * Controls how frequently the clock component updates its display
+ */
+const UPDATE_INTERVAL_MS = {
+  /** Update every second when showing seconds (HH:MM:SS) */
+  WITH_SECONDS: 1000,
+  /** Update every minute when not showing seconds (HH:MM) */
+  WITHOUT_SECONDS: 60000,
+} as const;
+
+/**
+ * Default Date Format Options
+ * Used when no custom dateFormat is provided
+ */
+const DEFAULT_DATE_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: 'short',
+  month: 'short',
+  day: 'numeric',
+} as const;
+
+/**
+ * Default Time Format Options (without seconds)
+ * Used when no custom timeFormat is provided
+ */
+const DEFAULT_TIME_FORMAT: Intl.DateTimeFormatOptions = {
+  hour: '2-digit',
+  minute: '2-digit',
+} as const;
+
 interface LiveClockProps {
   /**
    * Show seconds in the time display
@@ -69,25 +99,20 @@ function LiveClockComponent({
 
   const formatTime = useCallback(
     (date: Date): string => {
-      const defaultTimeFormat: Intl.DateTimeFormatOptions = {
-        hour: '2-digit',
-        minute: '2-digit',
+      // Build time format with optional seconds
+      const builtTimeFormat: Intl.DateTimeFormatOptions = {
+        ...DEFAULT_TIME_FORMAT,
         ...(showSeconds && { second: '2-digit' }),
       };
 
-      const defaultDateFormat: Intl.DateTimeFormatOptions = {
-        weekday: 'short',
-        month: 'short',
-        day: 'numeric',
-      };
+      const finalTimeFormat = timeFormat || builtTimeFormat;
+      const finalDateFormat = dateFormat || DEFAULT_DATE_FORMAT;
 
-      const finalTimeFormat = timeFormat || defaultTimeFormat;
-      const finalDateFormat = dateFormat || defaultDateFormat;
-
-      const timeString = date.toLocaleTimeString('en-US', finalTimeFormat);
+      // Use browser's local timezone (undefined = browser default locale)
+      const timeString = date.toLocaleTimeString(undefined, finalTimeFormat);
 
       if (showDate) {
-        const dateString = date.toLocaleDateString('en-US', finalDateFormat);
+        const dateString = date.toLocaleDateString(undefined, finalDateFormat);
         return `${dateString}${separator}${timeString}`;
       }
 
@@ -98,7 +123,9 @@ function LiveClockComponent({
 
   useEffect(() => {
     // Smart interval: 1s if showing seconds, 60s if not
-    const interval = showSeconds ? 1000 : 60000;
+    const interval = showSeconds
+      ? UPDATE_INTERVAL_MS.WITH_SECONDS
+      : UPDATE_INTERVAL_MS.WITHOUT_SECONDS;
 
     const timeInterval = setInterval(() => {
       const newTime = new Date();
@@ -161,7 +188,7 @@ export const KitchenClock = memo(
           const newMinute = newTime.getHours() * 60 + newTime.getMinutes();
           return prevMinute !== newMinute ? newTime : prevTime;
         });
-      }, 60000); // Update every 60 seconds
+      }, UPDATE_INTERVAL_MS.WITHOUT_SECONDS);
 
       return () => clearInterval(timeInterval);
     }, []);
@@ -169,13 +196,10 @@ export const KitchenClock = memo(
     return (
       <div className={className}>
         <div className="text-4xl font-bold">
-          {currentTime.toLocaleTimeString('en-US', {
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {currentTime.toLocaleTimeString(undefined, DEFAULT_TIME_FORMAT)}
         </div>
         <div className="text-xl text-gray-600">
-          {currentTime.toLocaleDateString()}
+          {currentTime.toLocaleDateString(undefined, DEFAULT_DATE_FORMAT)}
         </div>
       </div>
     );
