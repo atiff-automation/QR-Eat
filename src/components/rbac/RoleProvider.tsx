@@ -26,6 +26,7 @@ import {
 import { UserRole, RestaurantContext } from '@/lib/rbac/types';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
 import { ApiClient } from '@/lib/api-client';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import {
   useAuthUser,
   useSwitchRole as useAuthSwitchRole,
@@ -161,8 +162,14 @@ export function RoleProvider({ children }: { children: ReactNode }) {
       console.log(
         '⏳ RoleProvider: Auth error detected but token refresh in progress, waiting...'
       );
-      // Return loading state while refresh completes
-      return null;
+      // Show loading UI while refresh completes (prevents blank screen)
+      return (
+        <LoadingSpinner
+          fullScreen
+          message="Refreshing your session..."
+          size="lg"
+        />
+      );
     }
 
     // Token refresh not in progress - this is a genuine auth failure

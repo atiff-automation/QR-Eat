@@ -129,6 +129,9 @@ export const AUTH_INTERVALS = {
 
   /** Token refresh retry delay on failure (3 seconds) */
   REFRESH_RETRY_DELAY: 3_000,
+
+  /** Maximum time to wait for token refresh before timeout (10 seconds) */
+  REFRESH_TIMEOUT: 10_000,
 } as const;
 
 /**
