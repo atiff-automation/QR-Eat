@@ -156,11 +156,22 @@ export class ApiClient {
     }
 
     this.refreshPromise = (async () => {
+      // Create abort controller for timeout enforcement
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort();
+        console.log('⏱️ forceTokenRefresh: Timeout reached, aborting request');
+      }, AUTH_INTERVALS.REFRESH_TIMEOUT);
+
       try {
         const response = await fetch('/api/auth/refresh', {
           method: 'POST',
           credentials: 'include',
+          signal: controller.signal,
         });
+
+        // Clear timeout on successful response
+        clearTimeout(timeoutId);
 
         if (!response.ok) {
           // Show error toast and redirect
@@ -192,7 +203,29 @@ export class ApiClient {
           console.log('✅ forceTokenRefresh: Refresh completed successfully');
         }
       } catch (error) {
-        console.error('❌ forceTokenRefresh: Refresh failed', error);
+        // Handle timeout specifically
+        if (error instanceof Error && error.name === 'AbortError') {
+          console.error(
+            '⏱️ forceTokenRefresh: Request timed out after 10 seconds'
+          );
+
+          // Show timeout error and redirect
+          if (toastId && typeof window !== 'undefined') {
+            toast.error('Session refresh timed out. Please login again.', {
+              id: toastId,
+            });
+          }
+
+          // Redirect to login after delay
+          if (typeof window !== 'undefined') {
+            setTimeout(() => {
+              window.location.href = AUTH_ROUTES.LOGIN;
+            }, AUTH_INTERVALS.REDIRECT_DELAY);
+          }
+        } else {
+          console.error('❌ forceTokenRefresh: Refresh failed', error);
+        }
+
         throw error;
       } finally {
         this.refreshInProgress = false;
