@@ -109,6 +109,14 @@ export class ApiClient {
   }
 
   /**
+   * Check if token refresh is currently in progress
+   * Used by RoleProvider to avoid premature login redirects during refresh
+   */
+  static isRefreshInProgress(): boolean {
+    return this.refreshInProgress;
+  }
+
+  /**
    * Check if we should show a toast notification (throttled)
    */
   private static shouldShowToast(): boolean {

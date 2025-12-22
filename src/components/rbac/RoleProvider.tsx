@@ -25,6 +25,7 @@ import {
 } from 'react';
 import { UserRole, RestaurantContext } from '@/lib/rbac/types';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
+import { ApiClient } from '@/lib/api-client';
 import {
   useAuthUser,
   useSwitchRole as useAuthSwitchRole,
@@ -146,12 +147,28 @@ export function RoleProvider({ children }: { children: ReactNode }) {
   );
 
   // Handle authentication errors AFTER all hooks have been called
+  // CRITICAL: Don't redirect if token refresh is in progress (race condition fix)
   if (
     error &&
     typeof window !== 'undefined' &&
     !window.location.pathname.includes('/login')
   ) {
-    console.log('🔄 RoleProvider: Redirecting to login due to error');
+    // Check if ApiClient is currently refreshing the token
+    const isRefreshing = ApiClient.isRefreshInProgress();
+
+    if (isRefreshing) {
+      // Token refresh in progress - wait for it to complete instead of redirecting
+      console.log(
+        '⏳ RoleProvider: Auth error detected but token refresh in progress, waiting...'
+      );
+      // Return loading state while refresh completes
+      return null;
+    }
+
+    // Token refresh not in progress - this is a genuine auth failure
+    console.log(
+      '🔄 RoleProvider: Redirecting to login due to auth error (no refresh in progress)'
+    );
     window.location.href = AUTH_ROUTES.LOGIN;
     return null;
   }

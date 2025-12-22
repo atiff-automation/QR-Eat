@@ -35,9 +35,9 @@ export async function GET(
         const qrData = decodeQRToken(token);
         if (qrData) {
           table = await prisma.table.findFirst({
-            where: { 
+            where: {
               id: qrData.tableId,
-              restaurant: { slug: qrData.restaurant }
+              restaurant: { slug: qrData.restaurant },
             },
             include: {
               restaurant: {
@@ -60,7 +60,10 @@ export async function GET(
     }
 
     if (!table) {
-      return NextResponse.json({ error: 'Invalid or expired QR code' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Invalid or expired QR code' },
+        { status: 404 }
+      );
     }
 
     if (!table.restaurant.isActive) {
@@ -71,6 +74,7 @@ export async function GET(
     }
 
     // Return table info (allow menu viewing regardless of status)
+    // Convert Prisma Decimal types to numbers for JSON serialization (consistent with menu endpoint)
     return NextResponse.json({
       table: {
         id: table.id,
@@ -79,13 +83,20 @@ export async function GET(
         capacity: table.capacity,
         status: table.status,
         locationDescription: table.locationDescription,
-        restaurant: table.restaurant,
+        restaurant: {
+          ...table.restaurant,
+          taxRate: parseFloat(table.restaurant.taxRate.toString()),
+          serviceChargeRate: parseFloat(
+            table.restaurant.serviceChargeRate.toString()
+          ),
+        },
       },
       // Include status info for frontend to handle ordering restrictions
       canOrder: table.status === 'available',
-      statusMessage: table.status === 'available' 
-        ? null 
-        : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`
+      statusMessage:
+        table.status === 'available'
+          ? null
+          : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`,
     });
   } catch (error) {
     console.error('QR code validation error:', error);
