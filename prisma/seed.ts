@@ -915,6 +915,18 @@ async function main() {
     { key: 'users:read', description: 'View all users', category: 'users' },
     { key: 'users:write', description: 'Manage users', category: 'users' },
     { key: 'users:delete', description: 'Delete users', category: 'users' },
+
+    // Payment Management (for POS system)
+    {
+      key: 'payments:read',
+      description: 'View payment information',
+      category: 'payments',
+    },
+    {
+      key: 'payments:write',
+      description: 'Process payments',
+      category: 'payments',
+    },
   ];
 
   const permissions = await Promise.all(
@@ -1011,6 +1023,15 @@ async function main() {
         'orders:kitchen',
         'orders:update', // Can view and update order progress
         'menu:read', // Can view menu items for order details
+      ],
+    },
+    {
+      template: 'cashier',
+      permissions: [
+        'orders:read',
+        'orders:write',
+        'payments:read',
+        'payments:write',
       ],
     },
   ];
