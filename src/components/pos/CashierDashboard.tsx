@@ -13,7 +13,7 @@
 
 import { useState } from 'react';
 import type { OrderWithDetails } from '@/types/pos';
-import { usePendingOrders } from '@/lib/hooks/use-pending-orders';
+import { usePendingOrders } from '@/lib/hooks/queries/useOrders';
 import { CashierHeader } from './CashierHeader';
 import { PendingOrdersGrid } from './PendingOrdersGrid';
 import { PaymentInterface } from './PaymentInterface';
@@ -29,12 +29,12 @@ export function CashierDashboard() {
     isLoading,
     isRefreshing,
     error,
-    refresh,
+    refetch: refresh,
     totalOrders,
     totalRevenue,
   } = usePendingOrders({
-    autoRefresh: true,
-    refreshInterval: 30000,
+    enabled: true,
+    refetchInterval: 30000,
   });
 
   const handlePaymentComplete = () => {
