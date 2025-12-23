@@ -46,3 +46,17 @@ next-env.d.ts
 cookies.txt
 test_cookies.txt
 server.log
+
+# database investigation and temporary files
+compare-data.sql
+export-role-permissions.sql
+fix-admin-role.sql
+inspect-database.sql
+investigate-cashier.sql
+show-database-data.sql
+local-data.txt
+local-role-perms.txt
+railway-data.txt
+railway-role-perms.txt
+test-db-connection.js
+prisma/migrations/*_add_cashier_role_data.sql
