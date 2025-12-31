@@ -12,6 +12,7 @@ interface CartSummaryProps {
   ) => void;
   onRemoveItem: (index: number) => void;
   onCheckout: () => void;
+  onBack?: () => void;
   isCheckoutLoading?: boolean;
 }
 
@@ -20,6 +21,7 @@ export function CartSummary({
   onUpdateItem,
   onRemoveItem,
   onCheckout,
+  onBack,
   isCheckoutLoading = false,
 }: CartSummaryProps) {
   if (cart.items.length === 0) {
@@ -41,10 +43,33 @@ export function CartSummary({
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
-        <h2 className="text-xl font-bold text-gray-900 flex items-center">
-          <ShoppingBag className="h-6 w-6 mr-2 text-orange-600" />
-          Your Order
-        </h2>
+        <div className="flex items-center justify-between">
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="p-2 hover:bg-orange-100 rounded-full transition-colors"
+              aria-label="Back to menu"
+            >
+              <svg
+                className="h-6 w-6 text-gray-700"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15 19l-7-7 7-7"
+                />
+              </svg>
+            </button>
+          )}
+          <h2 className="text-xl font-bold text-gray-900 flex items-center flex-1">
+            <ShoppingBag className="h-6 w-6 mr-2 text-orange-600" />
+            Your Order
+          </h2>
+        </div>
       </div>
 
       <div className="max-h-96 overflow-y-auto">

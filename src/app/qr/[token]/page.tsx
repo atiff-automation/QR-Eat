@@ -184,6 +184,7 @@ export default function QRMenuPage() {
             onUpdateItem={updateCartItem}
             onRemoveItem={removeFromCart}
             onCheckout={handleCheckout}
+            onBack={() => setShowCart(false)}
           />
         ) : (
           <div>
