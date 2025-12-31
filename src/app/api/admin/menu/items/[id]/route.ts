@@ -1,6 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
+
+// Utility function to delete image file
+async function deleteImageFile(imageUrl: string | null): Promise<void> {
+  if (!imageUrl) return;
+
+  try {
+    // Extract filename from URL (handles both /uploads/menu-images/file.jpg and /api/uploads/file.jpg)
+    const filename = imageUrl.split('/').pop();
+    if (!filename) return;
+
+    // Determine the upload directory using base directory approach
+    const UPLOAD_BASE_DIR = process.env.UPLOAD_BASE_DIR
+      ? process.env.UPLOAD_BASE_DIR
+      : join(process.cwd(), 'public', 'uploads');
+
+    const UPLOAD_DIR = join(UPLOAD_BASE_DIR, 'menu-images');
+    const filepath = join(UPLOAD_DIR, filename);
+
+    await unlink(filepath);
+    console.log('🗑️ [IMAGE CLEANUP] Deleted old image:', filename);
+  } catch (error) {
+    // File might not exist or already deleted - log but don't throw
+    console.warn('⚠️ [IMAGE CLEANUP] Failed to delete image file:', error);
+  }
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -100,6 +127,11 @@ export async function PATCH(
       isFeatured,
       displayOrder,
     } = updateData;
+
+    // 🗑️ Delete old image if imageUrl is being changed or removed
+    if (imageUrl !== undefined && existingItem.imageUrl !== imageUrl) {
+      await deleteImageFile(existingItem.imageUrl);
+    }
 
     // Build update data object
     const updatePayload = {
@@ -225,6 +257,9 @@ export async function DELETE(
         { status: 404 }
       );
     }
+
+    // 🗑️ Delete associated image file
+    await deleteImageFile(existingItem.imageUrl);
 
     // Delete variations first, then the item
     await prisma.menuItemVariation.deleteMany({

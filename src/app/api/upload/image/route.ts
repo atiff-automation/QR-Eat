@@ -5,13 +5,21 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-const UPLOAD_DIR = join(process.cwd(), 'public', 'uploads', 'menu-images');
+
+// Use base directory approach for scalability
+const UPLOAD_BASE_DIR = process.env.UPLOAD_BASE_DIR
+  ? process.env.UPLOAD_BASE_DIR
+  : join(process.cwd(), 'public', 'uploads');
+
+// Subdirectory for menu images (easy to add more types later)
+const UPLOAD_DIR = join(UPLOAD_BASE_DIR, 'menu-images');
 
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -52,7 +60,9 @@ export async function POST(request: NextRequest) {
     // Validate file type
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Please upload JPEG, PNG, or WebP images.' },
+        {
+          error: 'Invalid file type. Please upload JPEG, PNG, or WebP images.',
+        },
         { status: 400 }
       );
     }
@@ -82,11 +92,14 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
-    
+
     await writeFile(filepath, buffer);
 
     // Return the public URL
-    const imageUrl = `/uploads/menu-images/${filename}`;
+    // Use API route for Railway (volume outside public dir), direct path for local dev
+    const imageUrl = process.env.UPLOAD_BASE_DIR
+      ? `/api/uploads/${filename}`
+      : `/uploads/menu-images/${filename}`;
 
     return NextResponse.json({
       success: true,
@@ -94,9 +107,8 @@ export async function POST(request: NextRequest) {
       filename,
       originalName: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
     });
-
   } catch (error) {
     console.error('Image upload error:', error);
     return NextResponse.json(
@@ -107,7 +119,10 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper function to get image dimensions (for future use)
-export async function getImageDimensions(): Promise<{ width: number; height: number }> {
+export async function getImageDimensions(): Promise<{
+  width: number;
+  height: number;
+}> {
   // This would require an image processing library like 'sharp'
   // For now, return default dimensions
   return { width: 800, height: 600 };
