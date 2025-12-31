@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MenuItem, MenuItemVariation } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { Star, X } from 'lucide-react';
+import { X } from 'lucide-react';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -26,6 +26,7 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
     Record<string, MenuItemVariation>
   >({});
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const handleVariationChange = (
     variationType: string,
@@ -108,10 +109,10 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
             </div>
           )}
 
-          {/* Featured Badge */}
+          {/* Best Seller Badge */}
           {item.isFeatured && (
-            <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1 shadow-md">
-              <Star className="h-3 w-3 fill-current" />
+            <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold shadow-md">
+              Best Seller
             </div>
           )}
         </div>
@@ -159,11 +160,10 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
                 <X className="h-5 w-5 text-gray-600" />
               </button>
 
-              {/* Featured Badge */}
+              {/* Best Seller Badge */}
               {item.isFeatured && (
-                <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1 shadow-md">
-                  <Star className="h-3 w-3 fill-current" />
-                  <span>Featured</span>
+                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
+                  Best Seller
                 </div>
               )}
             </div>
@@ -175,13 +175,8 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
                   {item.name}
                 </h2>
-                <div className="flex items-center justify-between">
-                  <span className="text-3xl font-bold text-orange-600">
-                    {formatPrice(item.price)}
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    {item.preparationTime} min
-                  </span>
+                <div className="text-3xl font-bold text-orange-600">
+                  {formatPrice(item.price)}
                 </div>
               </div>
 
@@ -282,52 +277,72 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
                 </div>
               )}
 
-              {/* Special Instructions */}
+              {/* Special Instructions - Collapsible */}
               <div className="mb-4">
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Special Instructions
-                </label>
-                <textarea
-                  value={specialInstructions}
-                  onChange={(e) => setSpecialInstructions(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  rows={2}
-                  placeholder="Any special requests..."
-                />
+                <button
+                  onClick={() => setShowInstructions(!showInstructions)}
+                  className="flex items-center text-sm font-semibold text-gray-900 hover:text-orange-600 transition-colors"
+                >
+                  <span>✏️ Add Special Instructions</span>
+                  <svg
+                    className={`ml-2 h-4 w-4 transition-transform ${showInstructions ? 'rotate-180' : ''}`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </button>
+
+                {showInstructions && (
+                  <textarea
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent mt-2"
+                    rows={2}
+                    placeholder="Any special requests..."
+                    autoFocus
+                  />
+                )}
               </div>
             </div>
 
-            {/* Footer - Quantity and Add to Cart */}
-            <div className="p-4 border-t border-gray-200 bg-white">
-              <div className="flex items-center space-x-3">
-                {/* Quantity Selector */}
-                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+            {/* Footer - Quantity and Add to Cart - Sticky */}
+            <div className="sticky bottom-0 p-4 border-t border-gray-200 bg-white shadow-lg">
+              {/* Quantity Selector - Centered */}
+              <div className="flex items-center justify-center mb-3">
+                <div className="flex items-center space-x-4 bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-lg shadow-sm touch-target"
+                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-xl shadow-sm touch-target"
                   >
                     −
                   </button>
-                  <span className="w-10 text-center font-bold text-gray-900">
+                  <span className="w-12 text-center font-bold text-gray-900 text-lg">
                     {quantity}
                   </span>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-lg shadow-sm touch-target"
+                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-xl shadow-sm touch-target"
                   >
                     +
                   </button>
                 </div>
-
-                {/* Add to Cart Button */}
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!canAddToCart}
-                  className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target"
-                >
-                  Add {formatPrice(calculatePrice())}
-                </button>
               </div>
+
+              {/* Add to Cart Button - Full Width */}
+              <button
+                onClick={handleAddToCart}
+                disabled={!canAddToCart}
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target"
+              >
+                Add {formatPrice(calculatePrice())}
+              </button>
             </div>
           </div>
         </div>
