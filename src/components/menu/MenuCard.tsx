@@ -17,9 +17,14 @@ interface MenuCardProps {
     }>,
     instructions?: string
   ) => void;
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
-export function MenuCard({ item, onAddToCart }: MenuCardProps) {
+export function MenuCard({
+  item,
+  onAddToCart,
+  onModalStateChange,
+}: MenuCardProps) {
   const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<
@@ -78,7 +83,10 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
     <>
       {/* Simple Card - Just Image, Name, Price */}
       <button
-        onClick={() => setShowModal(true)}
+        onClick={() => {
+          setShowModal(true);
+          onModalStateChange?.(true);
+        }}
         className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left w-full"
       >
         {/* Image */}
@@ -135,7 +143,10 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
           <div
             className="absolute inset-0"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
-            onClick={() => setShowModal(false)}
+            onClick={() => {
+              setShowModal(false);
+              onModalStateChange?.(false);
+            }}
           />
 
           {/* Modal Content */}
@@ -154,7 +165,10 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
 
               {/* Close Button */}
               <button
-                onClick={() => setShowModal(false)}
+                onClick={() => {
+                  setShowModal(false);
+                  onModalStateChange?.(false);
+                }}
                 className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5 text-gray-600" />

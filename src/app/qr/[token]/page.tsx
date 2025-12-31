@@ -28,6 +28,7 @@ export default function QRMenuPage() {
   const [showCart, setShowCart] = useState(false);
   const [showCheckout, setShowCheckout] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
+  const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
 
   const {
     cart,
@@ -215,7 +216,12 @@ export default function QRMenuPage() {
             {/* Menu Items - Mobile-First Grid */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
               {activeMenuCategory?.menuItems.map((item) => (
-                <MenuCard key={item.id} item={item} onAddToCart={addToCart} />
+                <MenuCard
+                  key={item.id}
+                  item={item}
+                  onAddToCart={addToCart}
+                  onModalStateChange={setIsAnyModalOpen}
+                />
               ))}
             </div>
 
@@ -230,8 +236,8 @@ export default function QRMenuPage() {
         )}
       </div>
 
-      {/* Floating Cart Bar */}
-      {!showCart && !showCheckout && !currentOrder && (
+      {/* Floating Cart Bar - Hidden when modal is open */}
+      {!showCart && !showCheckout && !currentOrder && !isAnyModalOpen && (
         <FloatingCartBar cart={cart} onReviewCart={() => setShowCart(true)} />
       )}
     </div>
