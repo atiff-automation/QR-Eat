@@ -145,7 +145,7 @@ export function CheckoutForm({
                 disabled={isSubmitting}
                 className="w-full bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:bg-gray-100 disabled:border-gray-300 disabled:text-gray-400 font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target text-lg"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit as Guest'}
+                {isSubmitting ? 'Submitting...' : 'Order as Guest'}
               </button>
               <p className="text-sm text-gray-500 mt-2">
                 Quick checkout without providing details
