@@ -8,8 +8,9 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -37,7 +38,11 @@ export async function PATCH(
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
+    // Check if user has menu write permission
+    // Permissions are stored at user.permissions, not user.currentRole.permissions
+    const permissions = authResult.user.permissions || [];
+    const hasMenuPermission = permissions.includes('menu:write');
+
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -48,13 +53,36 @@ export async function PATCH(
     const itemId = params.id;
     const updateData = await request.json();
 
+    // 🔍 DEBUG: Log incoming update request
+    console.log('📝 [MENU UPDATE] Request received for item:', itemId);
+    console.log(
+      '📦 [MENU UPDATE] Update payload:',
+      JSON.stringify(updateData, null, 2)
+    );
+    console.log('🏢 [MENU UPDATE] Restaurant ID from auth:', restaurantId);
+
     // Verify item belongs to restaurant
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
       include: {
-        category: true
-      }
+        category: true,
+      },
     });
+
+    // 🔍 DEBUG: Log existing item state
+    if (existingItem) {
+      console.log('🔍 [MENU UPDATE] Existing item found:', {
+        id: existingItem.id,
+        name: existingItem.name,
+        restaurantId: existingItem.restaurantId,
+        categoryId: existingItem.categoryId,
+        categoryRestaurantId: existingItem.category.restaurantId,
+        hasRestaurantId: !!existingItem.restaurantId,
+        restaurantIdMatch: existingItem.restaurantId === restaurantId,
+      });
+    } else {
+      console.log('❌ [MENU UPDATE] Item not found in database');
+    }
 
     if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
       return NextResponse.json(
@@ -64,9 +92,12 @@ export async function PATCH(
     }
 
     // If categoryId is being changed, verify new category belongs to restaurant
-    if (updateData.categoryId && updateData.categoryId !== existingItem.categoryId) {
+    if (
+      updateData.categoryId &&
+      updateData.categoryId !== existingItem.categoryId
+    ) {
       const newCategory = await prisma.menuCategory.findUnique({
-        where: { id: updateData.categoryId }
+        where: { id: updateData.categoryId },
       });
 
       if (!newCategory || newCategory.restaurantId !== restaurantId) {
@@ -77,7 +108,7 @@ export async function PATCH(
       }
     }
 
-    // Clean update data
+    // Clean update data - restaurantId is not included in updates
     const {
       categoryId,
       name,
@@ -90,47 +121,83 @@ export async function PATCH(
       dietaryInfo,
       isAvailable,
       isFeatured,
-      displayOrder
+      displayOrder,
     } = updateData;
+
+    // Build update data object
+    const updatePayload = {
+      ...(categoryId && { categoryId }),
+      ...(name && { name }),
+      ...(description !== undefined && { description }),
+      ...(price !== undefined && { price: parseFloat(price) }),
+      ...(imageUrl !== undefined && { imageUrl }),
+      ...(preparationTime !== undefined && { preparationTime }),
+      ...(calories !== undefined && { calories }),
+      ...(allergens !== undefined && { allergens }),
+      ...(dietaryInfo !== undefined && { dietaryInfo }),
+      ...(isAvailable !== undefined && { isAvailable }),
+      ...(isFeatured !== undefined && { isFeatured }),
+      ...(displayOrder !== undefined && { displayOrder }),
+      updatedAt: new Date(),
+    };
+
+    // 🔍 DEBUG: Log the actual update payload being sent to Prisma
+    console.log(
+      '🔄 [MENU UPDATE] Prisma update payload:',
+      JSON.stringify(updatePayload, null, 2)
+    );
 
     const item = await prisma.menuItem.update({
       where: { id: itemId },
-      data: {
-        ...(categoryId && { categoryId }),
-        ...(name && { name }),
-        ...(description !== undefined && { description }),
-        ...(price !== undefined && { price: parseFloat(price) }),
-        ...(imageUrl !== undefined && { imageUrl }),
-        ...(preparationTime !== undefined && { preparationTime }),
-        ...(calories !== undefined && { calories }),
-        ...(allergens !== undefined && { allergens }),
-        ...(dietaryInfo !== undefined && { dietaryInfo }),
-        ...(isAvailable !== undefined && { isAvailable }),
-        ...(isFeatured !== undefined && { isFeatured }),
-        ...(displayOrder !== undefined && { displayOrder }),
-        updatedAt: new Date()
-      },
+      data: updatePayload,
       include: {
         category: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
-        variations: true
-      }
+        variations: true,
+      },
+    });
+
+    // 🔍 DEBUG: Log successful update
+    console.log('✅ [MENU UPDATE] Update successful:', {
+      id: item.id,
+      name: item.name,
+      restaurantId: item.restaurantId,
+      imageUrl: item.imageUrl,
     });
 
     return NextResponse.json({
       success: true,
       item,
-      message: 'Menu item updated successfully'
+      message: 'Menu item updated successfully',
     });
+  } catch (error: unknown) {
+    // 🔍 DEBUG: Enhanced error logging
+    console.error('❌ [MENU UPDATE] Failed to update menu item');
+    console.error('Error name:', error?.name);
+    console.error('Error message:', error?.message);
+    console.error('Error code:', error?.code);
+    console.error('Error meta:', error?.meta);
+    console.error('Full error:', error);
 
-  } catch (error) {
-    console.error('Failed to update menu item:', error);
+    // Check for specific Prisma errors
+    if (error?.code === 'P2002') {
+      console.error('🔴 [MENU UPDATE] Unique constraint violation');
+    } else if (error?.code === 'P2003') {
+      console.error('🔴 [MENU UPDATE] Foreign key constraint violation');
+    } else if (error?.code === 'P2025') {
+      console.error('🔴 [MENU UPDATE] Record not found');
+    }
+
     return NextResponse.json(
-      { error: 'Failed to update menu item' },
+      {
+        error: 'Failed to update menu item',
+        details:
+          process.env.NODE_ENV === 'development' ? error?.message : undefined,
+      },
       { status: 500 }
     );
   }
@@ -142,8 +209,9 @@ export async function DELETE(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -171,7 +239,11 @@ export async function DELETE(
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('delete');
+    // Check if user has menu delete permission
+    // Permissions are stored at user.permissions, not user.currentRole.permissions
+    const permissions = authResult.user.permissions || [];
+    const hasMenuPermission = permissions.includes('menu:delete');
+
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -185,8 +257,8 @@ export async function DELETE(
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
       include: {
-        category: true
-      }
+        category: true,
+      },
     });
 
     if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
@@ -198,18 +270,17 @@ export async function DELETE(
 
     // Delete variations first, then the item
     await prisma.menuItemVariation.deleteMany({
-      where: { menuItemId: itemId }
+      where: { menuItemId: itemId },
     });
 
     await prisma.menuItem.delete({
-      where: { id: itemId }
+      where: { id: itemId },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Menu item deleted successfully'
+      message: 'Menu item deleted successfully',
     });
-
   } catch (error) {
     console.error('Failed to delete menu item:', error);
     return NextResponse.json(
