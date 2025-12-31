@@ -57,6 +57,7 @@ export function MenuCard({
     setSelectedVariations({});
     setSpecialInstructions('');
     setShowModal(false);
+    onModalStateChange?.(false);
   };
 
   const calculatePrice = () => {
