@@ -94,3 +94,86 @@ button, a {
   -webkit-touch-callout: none;
 }
 
+/* ===========================
+   Customer View Design System
+   =========================== */
+
+/* Orange color palette for customer-facing CTAs */
+:root {
+  --color-primary-orange: #FF6B35;
+  --color-primary-orange-hover: #FF5722;
+  --color-primary-orange-light: #FFE5DC;
+  --color-primary-orange-dark: #E64A19;
+}
+
+/* Safe area bottom padding for floating elements */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0);
+}
+
+/* Animations */
+@keyframes slide-up {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.3s ease-out;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Active scale effect for buttons */
+.active\:scale-98:active {
+  transform: scale(0.98);
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Gradient backgrounds */
+.bg-gradient-orange {
+  background: linear-gradient(135deg, var(--color-primary-orange) 0%, var(--color-primary-orange-dark) 100%);
+}
+
+/* Z-index layers for customer view */
+.z-cart-bar {
+  z-index: 50;
+}
+
+.z-modal {
+  z-index: 60;
+}
+
+.z-search {
+  z-index: 70;
+}

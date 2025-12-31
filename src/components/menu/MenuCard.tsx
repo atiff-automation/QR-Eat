@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MenuItem, MenuItemVariation } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { Button } from '@/components/ui/Button';
+import { Star, X } from 'lucide-react';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -20,12 +20,12 @@ interface MenuCardProps {
 }
 
 export function MenuCard({ item, onAddToCart }: MenuCardProps) {
+  const [showModal, setShowModal] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<
     Record<string, MenuItemVariation>
   >({});
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [showDetails, setShowDetails] = useState(false);
 
   const handleVariationChange = (
     variationType: string,
@@ -46,11 +46,11 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
 
     onAddToCart(item, quantity, variations, specialInstructions || undefined);
 
-    // Reset form
+    // Reset and close
     setQuantity(1);
     setSelectedVariations({});
     setSpecialInstructions('');
-    setShowDetails(false);
+    setShowModal(false);
   };
 
   const calculatePrice = () => {
@@ -74,175 +74,264 @@ export function MenuCard({ item, onAddToCart }: MenuCardProps) {
   );
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      {item.imageUrl && (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={item.imageUrl}
-            alt={item.name}
-            className="w-full h-48 object-cover"
-          />
-        </>
-      )}
+    <>
+      {/* Simple Card - Just Image, Name, Price */}
+      <button
+        onClick={() => setShowModal(true)}
+        className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left w-full"
+      >
+        {/* Image */}
+        <div className="relative aspect-square">
+          {item.imageUrl ? (
+            <img
+              src={item.imageUrl}
+              alt={item.name}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+              <div className="text-center text-gray-400">
+                <svg
+                  className="w-12 h-12 mx-auto"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.5}
+                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+            </div>
+          )}
 
-      <div className="p-4">
-        <div className="flex justify-between items-start mb-2">
-          <h3 className="text-lg font-semibold text-gray-900">{item.name}</h3>
+          {/* Featured Badge */}
           {item.isFeatured && (
-            <span className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded-full">
-              Featured
-            </span>
+            <div className="absolute top-2 right-2 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold flex items-center space-x-1 shadow-md">
+              <Star className="h-3 w-3 fill-current" />
+            </div>
           )}
         </div>
 
-        {item.description && (
-          <p className="text-gray-600 text-sm mb-3">{item.description}</p>
-        )}
-
-        <div className="flex justify-between items-center mb-3">
-          <span className="text-xl font-bold text-green-600">
+        {/* Info - Name and Price Only */}
+        <div className="p-3">
+          <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2 min-h-[2.5rem]">
+            {item.name}
+          </h3>
+          <p className="text-orange-600 font-bold text-base">
             {formatPrice(item.price)}
-          </span>
-          <span className="text-sm text-gray-500">
-            {item.preparationTime} min
-          </span>
+          </p>
         </div>
+      </button>
 
-        {item.calories && (
-          <div className="text-sm text-gray-500 mb-2">
-            {item.calories} calories
-          </div>
-        )}
+      {/* Detail Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          {/* Backdrop - Very Light and Transparent */}
+          <div
+            className="absolute inset-0"
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
+            onClick={() => setShowModal(false)}
+          />
 
-        {(item.allergens.length > 0 || item.dietaryInfo.length > 0) && (
-          <div className="mb-3">
-            {item.dietaryInfo.length > 0 && (
-              <div className="flex flex-wrap gap-1 mb-1">
-                {item.dietaryInfo.map((info) => (
-                  <span
-                    key={info}
-                    className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
-                  >
-                    {info}
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden animate-slide-up">
+            {/* Header with Image */}
+            <div className="relative">
+              {item.imageUrl ? (
+                <img
+                  src={item.imageUrl}
+                  alt={item.name}
+                  className="w-full h-64 object-cover"
+                />
+              ) : (
+                <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200" />
+              )}
+
+              {/* Close Button */}
+              <button
+                onClick={() => setShowModal(false)}
+                className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+              >
+                <X className="h-5 w-5 text-gray-600" />
+              </button>
+
+              {/* Featured Badge */}
+              {item.isFeatured && (
+                <div className="absolute top-4 left-4 bg-yellow-400 text-yellow-900 px-3 py-1 rounded-full text-xs font-bold flex items-center space-x-1 shadow-md">
+                  <Star className="h-3 w-3 fill-current" />
+                  <span>Featured</span>
+                </div>
+              )}
+            </div>
+
+            {/* Scrollable Content */}
+            <div className="overflow-y-auto max-h-[calc(90vh-16rem)] p-6">
+              {/* Name and Price */}
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  {item.name}
+                </h2>
+                <div className="flex items-center justify-between">
+                  <span className="text-3xl font-bold text-orange-600">
+                    {formatPrice(item.price)}
                   </span>
-                ))}
-              </div>
-            )}
-            {item.allergens.length > 0 && (
-              <div className="flex flex-wrap gap-1">
-                {item.allergens.map((allergen) => (
-                  <span
-                    key={allergen}
-                    className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full"
-                  >
-                    {allergen}
+                  <span className="text-sm text-gray-500">
+                    {item.preparationTime} min
                   </span>
-                ))}
+                </div>
               </div>
-            )}
-          </div>
-        )}
 
-        {item.variations.length > 0 && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDetails(!showDetails)}
-            className="w-full mb-3"
-          >
-            {showDetails ? 'Hide' : 'Show'} Options
-          </Button>
-        )}
+              {/* Description */}
+              {item.description && (
+                <p className="text-gray-600 mb-4">{item.description}</p>
+              )}
 
-        {showDetails && item.variations.length > 0 && (
-          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-            {[...new Set(item.variations.map((v) => v.variationType))].map(
-              (type) => {
-                const typeVariations = item.variations.filter(
-                  (v) => v.variationType === type
-                );
-                const isRequired = typeVariations.some((v) => v.isRequired);
+              {/* Calories */}
+              {item.calories && (
+                <div className="text-sm text-gray-500 mb-4">
+                  {item.calories} calories
+                </div>
+              )}
 
-                return (
-                  <div key={type} className="mb-3 last:mb-0">
-                    <h4 className="font-medium text-gray-900 mb-2 capitalize">
-                      {type}{' '}
-                      {isRequired && <span className="text-red-500">*</span>}
-                    </h4>
-                    <div className="space-y-1">
-                      {typeVariations.map((variation) => (
-                        <label key={variation.id} className="flex items-center">
-                          <input
-                            type="radio"
-                            name={type}
-                            value={variation.id}
-                            checked={
-                              selectedVariations[type]?.id === variation.id
-                            }
-                            onChange={() =>
-                              handleVariationChange(type, variation)
-                            }
-                            className="mr-2"
-                          />
-                          <span className="text-sm">
-                            {variation.name}
-                            {variation.priceModifier !== 0 && (
-                              <span className="text-gray-600 ml-1">
-                                ({variation.priceModifier > 0 ? '+' : ''}
-                                {formatPrice(variation.priceModifier)})
-                              </span>
-                            )}
-                          </span>
-                        </label>
+              {/* Dietary Info and Allergens */}
+              {(item.allergens.length > 0 || item.dietaryInfo.length > 0) && (
+                <div className="mb-4">
+                  {item.dietaryInfo.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {item.dietaryInfo.map((info) => (
+                        <span
+                          key={info}
+                          className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full"
+                        >
+                          {info}
+                        </span>
                       ))}
                     </div>
-                  </div>
-                );
-              }
-            )}
+                  )}
+                  {item.allergens.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {item.allergens.map((allergen) => (
+                        <span
+                          key={allergen}
+                          className="bg-red-100 text-red-800 text-xs px-2 py-1 rounded-full"
+                        >
+                          {allergen}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
 
-            <div className="mt-3">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Special Instructions
-              </label>
-              <textarea
-                value={specialInstructions}
-                onChange={(e) => setSpecialInstructions(e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-md text-sm"
-                rows={2}
-                placeholder="Any special requests..."
-              />
+              {/* Variations */}
+              {item.variations.length > 0 && (
+                <div className="mb-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  {[
+                    ...new Set(item.variations.map((v) => v.variationType)),
+                  ].map((type) => {
+                    const typeVariations = item.variations.filter(
+                      (v) => v.variationType === type
+                    );
+                    const isRequired = typeVariations.some((v) => v.isRequired);
+
+                    return (
+                      <div key={type} className="mb-4 last:mb-0">
+                        <h4 className="font-semibold text-gray-900 mb-2 capitalize">
+                          {type}{' '}
+                          {isRequired && (
+                            <span className="text-red-500">*</span>
+                          )}
+                        </h4>
+                        <div className="space-y-2">
+                          {typeVariations.map((variation) => (
+                            <label
+                              key={variation.id}
+                              className="flex items-center p-2 hover:bg-white rounded cursor-pointer"
+                            >
+                              <input
+                                type="radio"
+                                name={type}
+                                value={variation.id}
+                                checked={
+                                  selectedVariations[type]?.id === variation.id
+                                }
+                                onChange={() =>
+                                  handleVariationChange(type, variation)
+                                }
+                                className="mr-3 w-4 h-4 text-orange-600 focus:ring-orange-500"
+                              />
+                              <span className="flex-1 text-sm font-medium text-gray-900">
+                                {variation.name}
+                              </span>
+                              {variation.priceModifier !== 0 && (
+                                <span className="text-sm text-gray-600">
+                                  ({variation.priceModifier > 0 ? '+' : ''}
+                                  {formatPrice(variation.priceModifier)})
+                                </span>
+                              )}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Special Instructions */}
+              <div className="mb-4">
+                <label className="block text-sm font-semibold text-gray-900 mb-2">
+                  Special Instructions
+                </label>
+                <textarea
+                  value={specialInstructions}
+                  onChange={(e) => setSpecialInstructions(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  rows={2}
+                  placeholder="Any special requests..."
+                />
+              </div>
+            </div>
+
+            {/* Footer - Quantity and Add to Cart */}
+            <div className="p-4 border-t border-gray-200 bg-white">
+              <div className="flex items-center space-x-3">
+                {/* Quantity Selector */}
+                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-lg shadow-sm touch-target"
+                  >
+                    −
+                  </button>
+                  <span className="w-10 text-center font-bold text-gray-900">
+                    {quantity}
+                  </span>
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-lg shadow-sm touch-target"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Add to Cart Button */}
+                <button
+                  onClick={handleAddToCart}
+                  disabled={!canAddToCart}
+                  className="flex-1 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target"
+                >
+                  Add {formatPrice(calculatePrice())}
+                </button>
+              </div>
             </div>
           </div>
-        )}
-
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={() => setQuantity(Math.max(1, quantity - 1))}
-              className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300"
-            >
-              -
-            </button>
-            <span className="w-8 text-center font-medium">{quantity}</span>
-            <button
-              onClick={() => setQuantity(quantity + 1)}
-              className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300"
-            >
-              +
-            </button>
-          </div>
-
-          <Button
-            onClick={handleAddToCart}
-            disabled={!canAddToCart}
-            className="flex-1 ml-4"
-          >
-            Add {formatPrice(calculatePrice())}
-          </Button>
         </div>
-      </div>
-    </div>
+      )}
+    </>
   );
 }

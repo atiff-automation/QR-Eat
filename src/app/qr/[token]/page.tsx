@@ -9,6 +9,9 @@ import { MenuCard } from '@/components/menu/MenuCard';
 import { CartSummary } from '@/components/cart/CartSummary';
 import { CheckoutForm } from '@/components/checkout/CheckoutForm';
 import { OrderConfirmation } from '@/components/order/OrderConfirmation';
+import { FloatingCartBar } from '@/components/cart/FloatingCartBar';
+import { CategoryDropdown } from '@/components/menu/CategoryDropdown';
+import { SearchBar } from '@/components/menu/SearchBar';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
@@ -31,7 +34,6 @@ export default function QRMenuPage() {
     addToCart,
     updateCartItem,
     removeFromCart,
-    getItemCount,
     clearCart,
     error: cartError,
   } = useServerCart(
@@ -54,7 +56,9 @@ export default function QRMenuPage() {
   const fetchTableAndMenu = async () => {
     try {
       // Fetch table information
-      const tableResponse = await ApiClient.get<{ table: Table }>(`/api/qr/${token}`);
+      const tableResponse = await ApiClient.get<{ table: Table }>(
+        `/api/qr/${token}`
+      );
       setTable(tableResponse.table);
 
       // Fetch menu
@@ -100,7 +104,7 @@ export default function QRMenuPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto mb-4"></div>
           <p className="text-gray-800">Loading menu...</p>
         </div>
       </div>
@@ -132,39 +136,28 @@ export default function QRMenuPage() {
   const activeMenuCategory = menu.find((cat) => cat.id === activeCategory);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 pb-24">
+      {/* Mobile-First Header */}
       <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-xl font-bold text-gray-900">
+        <div className="max-w-7xl mx-auto px-4 py-3">
+          <div className="flex justify-between items-center">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg font-bold text-gray-900 truncate">
                 {table.restaurant.name}
               </h1>
-              <p className="text-sm text-gray-800">
+              <p className="text-sm text-gray-600">
                 Table {table.tableNumber}
                 {table.tableName && ` - ${table.tableName}`}
               </p>
             </div>
-            <Button
-              onClick={() => setShowCart(!showCart)}
-              variant="outline"
-              className="relative"
-            >
-              Cart ({getItemCount()})
-              {getItemCount() > 0 && (
-                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                  {getItemCount()}
-                </span>
-              )}
-            </Button>
+            <SearchBar menu={menu} />
           </div>
         </div>
       </header>
 
       {/* Cart Error Display */}
       {cartError && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+        <div className="max-w-7xl mx-auto px-4 pt-4">
           <div className="bg-red-50 border border-red-200 rounded-md p-3 flex items-start">
             <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
             <div className="flex-1">
@@ -174,106 +167,72 @@ export default function QRMenuPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Menu Categories Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
-              <h2 className="font-semibold text-gray-900 mb-3">Categories</h2>
-              <nav className="space-y-1">
-                {menu.map((category) => (
-                  <button
-                    key={category.id}
-                    onClick={() => {
-                      setActiveCategory(category.id);
-                      setShowCart(false);
-                    }}
-                    className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeCategory === category.id
-                        ? 'bg-blue-100 text-blue-700 font-medium'
-                        : 'text-gray-700 hover:bg-gray-50 hover:text-gray-900'
-                    }`}
-                  >
-                    {category.name}
-                    <span className="text-xs text-gray-600 block">
-                      {category.menuItems.length} items
-                    </span>
-                  </button>
-                ))}
-              </nav>
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        {currentOrder ? (
+          <OrderConfirmation order={currentOrder} onNewOrder={handleNewOrder} />
+        ) : showCheckout ? (
+          <CheckoutForm
+            cart={cart}
+            tableId={table.id}
+            onOrderCreate={handleOrderCreate}
+            onCancel={() => setShowCheckout(false)}
+          />
+        ) : showCart ? (
+          <CartSummary
+            cart={cart}
+            onUpdateItem={updateCartItem}
+            onRemoveItem={removeFromCart}
+            onCheckout={handleCheckout}
+          />
+        ) : (
+          <div>
+            {/* Category Dropdown */}
+            <div className="mb-4">
+              <CategoryDropdown
+                categories={menu}
+                activeCategory={activeCategory}
+                onSelectCategory={(categoryId) => {
+                  setActiveCategory(categoryId);
+                  setShowCart(false);
+                }}
+              />
             </div>
-          </div>
 
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            {currentOrder ? (
-              <OrderConfirmation
-                order={currentOrder}
-                onNewOrder={handleNewOrder}
-              />
-            ) : showCheckout ? (
-              <CheckoutForm
-                cart={cart}
-                tableId={table.id}
-                onOrderCreate={handleOrderCreate}
-                onCancel={() => setShowCheckout(false)}
-              />
-            ) : showCart ? (
-              <CartSummary
-                cart={cart}
-                onUpdateItem={updateCartItem}
-                onRemoveItem={removeFromCart}
-                onCheckout={handleCheckout}
-              />
-            ) : (
-              <div>
-                {activeMenuCategory && (
-                  <div className="mb-6">
-                    <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                      {activeMenuCategory.name}
-                    </h2>
-                    {activeMenuCategory.description && (
-                      <p className="text-gray-700">
-                        {activeMenuCategory.description}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {activeMenuCategory?.menuItems.map((item) => (
-                    <MenuCard
-                      key={item.id}
-                      item={item}
-                      onAddToCart={addToCart}
-                    />
-                  ))}
-                </div>
-
-                {activeMenuCategory?.menuItems.length === 0 && (
-                  <div className="text-center py-12">
-                    <p className="text-gray-700">
-                      No items available in this category
-                    </p>
-                  </div>
+            {/* Category Title */}
+            {activeMenuCategory && (
+              <div className="mb-4">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {activeMenuCategory.name}
+                </h2>
+                {activeMenuCategory.description && (
+                  <p className="text-gray-600 mt-1">
+                    {activeMenuCategory.description}
+                  </p>
                 )}
               </div>
             )}
+
+            {/* Menu Items - Mobile-First Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+              {activeMenuCategory?.menuItems.map((item) => (
+                <MenuCard key={item.id} item={item} onAddToCart={addToCart} />
+              ))}
+            </div>
+
+            {activeMenuCategory?.menuItems.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-700">
+                  No items available in this category
+                </p>
+              </div>
+            )}
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Mobile Cart Button */}
-      {getItemCount() > 0 && !showCart && !showCheckout && !currentOrder && (
-        <div className="fixed bottom-4 right-4 lg:hidden">
-          <Button
-            onClick={() => setShowCart(true)}
-            size="lg"
-            className="rounded-full shadow-lg"
-          >
-            View Cart ({getItemCount()})
-          </Button>
-        </div>
+      {/* Floating Cart Bar */}
+      {!showCart && !showCheckout && !currentOrder && (
+        <FloatingCartBar cart={cart} onReviewCart={() => setShowCart(true)} />
       )}
     </div>
   );

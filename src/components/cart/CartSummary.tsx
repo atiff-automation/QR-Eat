@@ -2,7 +2,7 @@
 
 import { Cart, CartItem } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { Button } from '@/components/ui/Button';
+import { ShoppingBag, Trash2 } from 'lucide-react';
 
 interface CartSummaryProps {
   cart: Cart;
@@ -24,24 +24,14 @@ export function CartSummary({
 }: CartSummaryProps) {
   if (cart.items.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow-md p-6 text-center">
-        <div className="text-gray-500 mb-4">
-          <svg
-            className="w-12 h-12 mx-auto mb-2"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M3 3h2l.4 2M7 13h10l4-8H5.4m0 0L7 13m0 0l-1.5 6M7 13l-1.5-6m0 0h2.8m12.2 0H7"
-            />
-          </svg>
-          <p>Your cart is empty</p>
+      <div className="bg-white rounded-xl shadow-md p-8 text-center">
+        <div className="text-gray-400 mb-4">
+          <ShoppingBag className="w-16 h-16 mx-auto mb-3" strokeWidth={1.5} />
+          <p className="text-lg font-medium text-gray-600">
+            Your cart is empty
+          </p>
         </div>
-        <p className="text-sm text-gray-400">
+        <p className="text-sm text-gray-500">
           Add items from the menu to get started
         </p>
       </div>
@@ -49,24 +39,46 @@ export function CartSummary({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-900">Your Order</h2>
+    <div className="bg-white rounded-xl shadow-md overflow-hidden">
+      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center">
+          <ShoppingBag className="h-6 w-6 mr-2 text-orange-600" />
+          Your Order
+        </h2>
       </div>
 
       <div className="max-h-96 overflow-y-auto">
         {cart.items.map((item, index) => (
           <div
             key={`${item.menuItemId}-${index}`}
-            className="p-4 border-b border-gray-100 last:border-b-0"
+            className="p-4 border-b border-gray-100 last:border-b-0 hover:bg-gray-50 transition-colors"
           >
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1">
-                <h3 className="font-medium text-gray-900">
-                  {item.menuItem.name}
-                </h3>
+            <div className="flex space-x-3 mb-3">
+              {/* Item Thumbnail */}
+              {item.menuItem.imageUrl && (
+                <img
+                  src={item.menuItem.imageUrl}
+                  alt={item.menuItem.name}
+                  className="w-20 h-20 object-cover rounded-lg flex-shrink-0"
+                />
+              )}
+
+              <div className="flex-1 min-w-0">
+                <div className="flex justify-between items-start mb-1">
+                  <h3 className="font-semibold text-gray-900 text-base">
+                    {item.menuItem.name}
+                  </h3>
+                  <button
+                    onClick={() => onRemoveItem(index)}
+                    className="p-1 hover:bg-red-50 rounded-full transition-colors ml-2 touch-target"
+                    aria-label="Remove item"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
+
                 {item.selectedVariations.length > 0 && (
-                  <div className="text-sm text-gray-600 mt-1">
+                  <div className="text-sm text-gray-600 mb-1">
                     {item.selectedVariations.map((variation, i) => (
                       <span key={variation.variationId}>
                         {variation.variation.name}
@@ -75,60 +87,46 @@ export function CartSummary({
                     ))}
                   </div>
                 )}
+
                 {item.specialInstructions && (
-                  <div className="text-sm text-gray-500 mt-1 italic">
+                  <div className="text-sm text-gray-500 italic mb-1">
                     Note: {item.specialInstructions}
                   </div>
                 )}
+
+                <div className="text-sm text-gray-600">
+                  {formatPrice(item.unitPrice)} × {item.quantity}
+                </div>
               </div>
-              <button
-                onClick={() => onRemoveItem(index)}
-                className="text-red-500 hover:text-red-700 ml-2"
-                aria-label="Remove item"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
             </div>
 
             <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+              {/* Quantity Controls */}
+              <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() =>
                     onUpdateItem(index, { quantity: item.quantity - 1 })
                   }
-                  className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-sm"
+                  className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold shadow-sm touch-target"
                 >
-                  -
+                  −
                 </button>
-                <span className="w-6 text-center text-sm font-medium">
+                <span className="w-9 text-center font-bold text-gray-900">
                   {item.quantity}
                 </span>
                 <button
                   onClick={() =>
                     onUpdateItem(index, { quantity: item.quantity + 1 })
                   }
-                  className="w-6 h-6 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 hover:bg-gray-300 text-sm"
+                  className="w-9 h-9 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold shadow-sm touch-target"
                 >
                   +
                 </button>
               </div>
+
+              {/* Item Total */}
               <div className="text-right">
-                <div className="text-sm text-gray-500">
-                  {formatPrice(item.unitPrice)} × {item.quantity}
-                </div>
-                <div className="font-medium text-gray-900">
+                <div className="text-lg font-bold text-gray-900">
                   {formatPrice(item.totalPrice)}
                 </div>
               </div>
@@ -137,40 +135,44 @@ export function CartSummary({
         ))}
       </div>
 
-      <div className="p-4 bg-gray-50">
-        <div className="space-y-2 text-sm">
+      {/* Summary Section */}
+      <div className="p-4 bg-gray-50 border-t-2 border-gray-200">
+        <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal</span>
-            <span className="text-gray-900">{formatPrice(cart.subtotal)}</span>
+            <span className="font-medium text-gray-900">
+              {formatPrice(cart.subtotal)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Tax</span>
-            <span className="text-gray-900">{formatPrice(cart.taxAmount)}</span>
+            <span className="font-medium text-gray-900">
+              {formatPrice(cart.taxAmount)}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className="text-gray-600">Service Charge</span>
-            <span className="text-gray-900">
+            <span className="font-medium text-gray-900">
               {formatPrice(cart.serviceCharge)}
             </span>
           </div>
-          <div className="border-t border-gray-300 pt-2">
-            <div className="flex justify-between font-semibold text-lg">
-              <span className="text-gray-900">Total</span>
-              <span className="text-gray-900">
+          <div className="border-t-2 border-gray-300 pt-2 mt-2">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-bold text-gray-900">Total</span>
+              <span className="text-2xl font-bold text-orange-600">
                 {formatPrice(cart.totalAmount)}
               </span>
             </div>
           </div>
         </div>
 
-        <Button
+        <button
           onClick={onCheckout}
-          loading={isCheckoutLoading}
-          className="w-full mt-4"
-          size="lg"
+          disabled={isCheckoutLoading}
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target text-lg"
         >
-          Proceed to Checkout
-        </Button>
+          {isCheckoutLoading ? 'Processing...' : 'Proceed to Checkout'}
+        </button>
       </div>
     </div>
   );
