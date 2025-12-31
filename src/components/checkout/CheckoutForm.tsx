@@ -74,9 +74,9 @@ export function CheckoutForm({
         {/* Illustration */}
         <div className="flex justify-center mb-8">
           <img
-            src="/login_illustration_1767173833179.png"
+            src="/login-illustration.png"
             alt="Login Illustration"
-            className="w-48 h-auto object-contain" // Adjusted size
+            className="w-48 h-auto object-contain"
           />
         </div>
 
@@ -116,7 +116,7 @@ export function CheckoutForm({
         <button
           onClick={() => handleSubmit(true)}
           disabled={isSubmitting || !phoneNumber}
-          className="w-full bg-slate-500 hover:bg-slate-600 disabled:bg-slate-300 text-white font-bold py-4 rounded-lg uppercase tracking-wide transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed mb-8"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 rounded-lg uppercase tracking-wide transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed mb-8 shadow-md"
         >
           {isSubmitting ? 'Processing...' : 'Continue'}
         </button>

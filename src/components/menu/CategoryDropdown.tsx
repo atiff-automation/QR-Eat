@@ -7,13 +7,13 @@ import { ChevronDown, X } from 'lucide-react';
 interface CategoryDropdownProps {
   categories: MenuCategory[];
   activeCategory: string;
-  onSelectCategory: (categoryId: string) => void;
+  onCategoryChange: (categoryId: string) => void;
 }
 
 export function CategoryDropdown({
   categories,
   activeCategory,
-  onSelectCategory,
+  onCategoryChange,
 }: CategoryDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -22,7 +22,7 @@ export function CategoryDropdown({
   );
 
   const handleSelect = (categoryId: string) => {
-    onSelectCategory(categoryId);
+    onCategoryChange(categoryId);
     setIsOpen(false);
   };
 

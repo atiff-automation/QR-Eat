@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MenuItem, MenuItemVariation } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { X } from 'lucide-react';
+import { X, MessageSquare } from 'lucide-react';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -298,7 +298,8 @@ export function MenuCard({
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="flex items-center text-sm font-semibold text-gray-900 hover:text-orange-600 transition-colors"
                 >
-                  <span>✏️ Add Special Instructions</span>
+                  <MessageSquare className="w-4 h-4 mr-2 text-orange-500" />
+                  <span>Add Special Request</span>
                   <svg
                     className={`ml-2 h-4 w-4 transition-transform ${showInstructions ? 'rotate-180' : ''}`}
                     fill="none"

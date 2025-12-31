@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { MenuCategory, MenuItem } from '@/types/menu';
+import { MenuCategory, MenuItem, MenuItemVariation } from '@/types/menu';
 import { Search, X } from 'lucide-react';
 import { MenuCard } from './MenuCard';
 
@@ -12,7 +12,7 @@ interface SearchBarProps {
     quantity: number,
     variations: Array<{
       variationId: string;
-      variation: Record<string, unknown>;
+      variation: MenuItemVariation;
       quantity: number;
     }>,
     instructions?: string
