@@ -22,8 +22,9 @@ import { z } from 'zod';
 // Zod Validation Schemas
 // ============================================================================
 
-const AddToCartSchema = z.object({
+export const AddToCartSchema = z.object({
   tableId: z.string().uuid(),
+  sessionId: z.string().uuid().optional(), // Added for session persistence
   menuItemId: z.string().uuid(),
   variationId: z.string().uuid().optional(),
   quantity: z
@@ -89,35 +90,22 @@ export interface TableCart {
 // ============================================================================
 
 /**
- * Get or create active session for a table
- * Implements session reuse pattern (one session per table)
+ * Create a new customer session for QR ordering
+ *
+ * Each QR scan creates a new session, allowing multiple people
+ * at the same table to order independently.
+ *
+ * @param tableId - UUID of the table
+ * @returns New customer session
  */
-export async function getOrCreateTableSession(
+export async function createCustomerSession(
   tableId: string
 ): Promise<TableSession> {
   try {
     // Validate tableId
     const validTableId = z.string().uuid().parse(tableId);
 
-    // Try to find existing active session for this table
-    const existingSession = await prisma.customerSession.findFirst({
-      where: {
-        tableId: validTableId,
-        status: SESSION_STATUS.ACTIVE,
-        expiresAt: {
-          gt: new Date(),
-        },
-      },
-      orderBy: {
-        startedAt: 'desc',
-      },
-    });
-
-    if (existingSession) {
-      return existingSession;
-    }
-
-    // No active session found, create new one
+    // Always create new session (no reuse)
     const sessionToken = generateSessionToken();
     const expiresAt = new Date(Date.now() + SESSION_DURATION.DEFAULT);
 
@@ -130,11 +118,28 @@ export async function getOrCreateTableSession(
       },
     });
 
+    console.log(
+      `[Session] Created new session ${newSession.id} for table ${tableId}`
+    );
+
     return newSession;
   } catch (error) {
-    console.error('Error in getOrCreateTableSession:', error);
-    throw new Error('Failed to get or create table session');
+    console.error('Error creating customer session:', error);
+    throw new Error('Failed to create customer session');
   }
+}
+
+/**
+ * Get or create active session for a table
+ *
+ * @deprecated Use createCustomerSession instead for individual orders
+ * This function now creates a new session each time (no reuse)
+ * Kept for backward compatibility only
+ */
+export async function getOrCreateTableSession(
+  tableId: string
+): Promise<TableSession> {
+  return createCustomerSession(tableId);
 }
 
 /**
@@ -162,6 +167,27 @@ export async function getTableSession(
     return session;
   } catch (error) {
     console.error('Error in getTableSession:', error);
+    return null;
+  }
+}
+
+/**
+ * Get customer session by ID
+ */
+export async function getCustomerSessionById(
+  sessionId: string
+): Promise<TableSession | null> {
+  try {
+    const session = await prisma.customerSession.findUnique({
+      where: {
+        id: sessionId,
+        status: SESSION_STATUS.ACTIVE,
+        expiresAt: { gt: new Date() },
+      },
+    });
+    return session;
+  } catch (error) {
+    console.error('Error in getCustomerSessionById:', error);
     return null;
   }
 }
@@ -196,12 +222,30 @@ export async function endTableSession(tableId: string): Promise<void> {
 /**
  * Get cart for a table
  */
-export async function getTableCart(tableId: string): Promise<TableCart> {
+export async function getTableCart(
+  tableId: string,
+  sessionId?: string
+): Promise<TableCart> {
   try {
     const validTableId = z.string().uuid().parse(tableId);
 
-    // Get or create session
-    const session = await getOrCreateTableSession(validTableId);
+    let session: TableSession | null = null;
+
+    // 1. Try to resume session if ID provided
+    if (sessionId) {
+      session = await getCustomerSessionById(sessionId);
+    }
+
+    // 2. If no valid session found, create new one
+    if (!session) {
+      session = await createCustomerSession(validTableId);
+    } else if (session.tableId !== validTableId) {
+      // Security check: ensure session belongs to requested table
+      console.warn(
+        `Session ${sessionId} belongs to different table. Creating new.`
+      );
+      session = await createCustomerSession(validTableId);
+    }
 
     // Get cart items
     const cartItems = await prisma.cartItem.findMany({
@@ -374,7 +418,7 @@ export async function addToTableCart(
     console.error('Error in addToTableCart:', error);
     if (error instanceof z.ZodError) {
       throw new Error(
-        `Validation error: ${error.errors.map((e) => e.message).join(', ')}`
+        `Validation error: ${error.issues.map((e: { message: string }) => e.message).join(', ')}`
       );
     }
     if (error instanceof Error) {
@@ -442,7 +486,7 @@ export async function updateCartItem(
     console.error('Error in updateCartItem:', error);
     if (error instanceof z.ZodError) {
       throw new Error(
-        `Validation error: ${error.errors.map((e) => e.message).join(', ')}`
+        `Validation error: ${error.issues.map((e: { message: string }) => e.message).join(', ')}`
       );
     }
     if (error instanceof Error) {

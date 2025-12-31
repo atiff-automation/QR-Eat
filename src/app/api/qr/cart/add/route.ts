@@ -19,6 +19,7 @@ import { CART_LIMITS } from '@/lib/session-constants';
 
 const AddToCartSchema = z.object({
   tableId: z.string().uuid('Invalid table ID format'),
+  sessionId: z.string().uuid('Invalid session ID format').optional(),
   menuItemId: z.string().uuid('Invalid menu item ID format'),
   variationId: z.string().uuid('Invalid variation ID format').optional(),
   quantity: z

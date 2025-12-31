@@ -22,18 +22,23 @@ export async function GET(
   try {
     const { tableId } = await params;
 
+    // Get sessionId from query params
+    const { searchParams } = new URL(request.url);
+    const sessionId = searchParams.get('sessionId') || undefined;
+
     // Validate tableId
     const validatedTableId = z
       .string()
       .uuid('Invalid table ID format')
       .parse(tableId);
 
-    // Get table cart
-    const cart = await getTableCart(validatedTableId);
+    // Get table cart (resume session if ID provided)
+    const cart = await getTableCart(validatedTableId, sessionId);
 
     return NextResponse.json({
       success: true,
       cart: {
+        sessionId: cart.sessionId, // Persist this to client
         items: cart.items,
         totalItems: cart.totalItems,
         totalAmount: cart.totalAmount,

@@ -250,6 +250,15 @@ export async function POST(request: NextRequest) {
     // Clear cart after successful order creation
     await clearTableCart(tableId);
 
+    // End the customer session
+    await prisma.customerSession.update({
+      where: { id: tableCart.sessionId },
+      data: {
+        status: 'ended',
+        endedAt: new Date(),
+      },
+    });
+
     // Send real-time notification via PostgreSQL NOTIFY
     await PostgresEventManager.publishOrderCreated({
       orderId: order.id,
