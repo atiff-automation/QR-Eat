@@ -5,7 +5,7 @@ import { Cart } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
 import { formatPrice } from '@/lib/qr-utils';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
-import { ChevronDown, ChevronUp, User } from 'lucide-react';
+import { Phone } from 'lucide-react';
 
 interface CheckoutFormProps {
   cart: Cart;
@@ -20,30 +20,28 @@ export function CheckoutForm({
   onOrderCreate,
   onCancel,
 }: CheckoutFormProps) {
-  const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    phone: '',
-    email: '',
-  });
-  const [showCustomerInfo, setShowCustomerInfo] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [showPhoneLogin, setShowPhoneLogin] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
-  const handleSubmit = async (asGuest: boolean = false) => {
+  const handleSubmit = async (withPhone: boolean = false) => {
     setIsSubmitting(true);
     setError('');
 
     try {
       const orderRequest = {
         tableId,
-        customerInfo: asGuest
-          ? undefined
-          : {
-              name: customerInfo.name || undefined,
-              phone: customerInfo.phone || undefined,
-              email: customerInfo.email || undefined,
-            },
+        customerInfo:
+          withPhone && phoneNumber
+            ? {
+                phone: phoneNumber,
+                name: customerName || undefined,
+              }
+            : undefined,
         specialInstructions: specialInstructions || undefined,
       };
 
@@ -107,154 +105,160 @@ export function CheckoutForm({
           </div>
         </div>
 
-        {/* Guest Checkout Button */}
-        <div className="text-center">
-          <button
-            onClick={() => handleSubmit(true)}
-            disabled={isSubmitting}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target text-lg"
-          >
-            {isSubmitting ? 'Submitting...' : 'Continue as Guest'}
-          </button>
-          <p className="text-sm text-gray-500 mt-2">
-            Quick checkout without providing details
-          </p>
-        </div>
-
-        {/* Divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-300"></div>
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+            <p className="text-sm text-red-800">{error}</p>
           </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500">
-              or provide your details
-            </span>
-          </div>
-        </div>
+        )}
 
-        {/* Customer Information (Collapsible) */}
-        <div>
-          <button
-            onClick={() => setShowCustomerInfo(!showCustomerInfo)}
-            className="w-full flex items-center justify-between p-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center space-x-2">
-              <User className="h-5 w-5 text-gray-600" />
-              <span className="font-medium text-gray-900">
-                Customer Information
-              </span>
-              <span className="text-sm text-gray-500">(Optional)</span>
+        {/* Phone Login Section */}
+        {!showPhoneLogin ? (
+          <>
+            {/* Primary CTA - Login with Phone */}
+            <div className="text-center">
+              <button
+                onClick={() => setShowPhoneLogin(true)}
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 touch-target text-lg flex items-center justify-center space-x-2"
+              >
+                <Phone className="h-5 w-5" />
+                <span>Login with Phone Number</span>
+              </button>
+              <p className="text-sm text-gray-600 mt-2">
+                Get exclusive discounts & earn points
+              </p>
             </div>
-            {showCustomerInfo ? (
-              <ChevronUp className="h-5 w-5 text-gray-600" />
-            ) : (
-              <ChevronDown className="h-5 w-5 text-gray-600" />
-            )}
-          </button>
 
-          {showCustomerInfo && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 space-y-4 animate-slide-up">
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Name
-                </label>
-                <input
-                  type="text"
-                  value={customerInfo.name}
-                  onChange={(e) =>
-                    setCustomerInfo((prev) => ({
-                      ...prev,
-                      name: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Your name"
-                />
+            {/* Divider */}
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-300"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-4 bg-white text-gray-500">or</span>
+              </div>
+            </div>
+
+            {/* Secondary CTA - Guest Checkout */}
+            <div className="text-center">
+              <button
+                onClick={() => handleSubmit(false)}
+                disabled={isSubmitting}
+                className="w-full bg-white border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:bg-gray-100 disabled:border-gray-300 disabled:text-gray-400 font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target text-lg"
+              >
+                {isSubmitting ? 'Submitting...' : 'Continue as Guest'}
+              </button>
+              <p className="text-sm text-gray-500 mt-2">
+                Quick checkout without providing details
+              </p>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Phone Login Form */}
+            <div className="space-y-4">
+              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                <p className="text-sm text-gray-700 mb-2">
+                  <strong>Benefits of logging in:</strong>
+                </p>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li>• Earn loyalty points with every order</li>
+                  <li>• Get exclusive discounts & promotions</li>
+                  <li>• Track your order history</li>
+                </ul>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Phone Number
+                  Phone Number *
                 </label>
                 <input
                   type="tel"
-                  value={customerInfo.phone}
-                  onChange={(e) =>
-                    setCustomerInfo((prev) => ({
-                      ...prev,
-                      phone: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Your phone number"
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  placeholder="+60 123-456-7890"
+                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  required
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Email
+                  Name (Optional)
                 </label>
                 <input
-                  type="email"
-                  value={customerInfo.email}
-                  onChange={(e) =>
-                    setCustomerInfo((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  placeholder="Your email address"
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Your name"
+                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 />
               </div>
 
               <button
-                onClick={() => handleSubmit(false)}
-                disabled={isSubmitting}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-3 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target"
+                onClick={() => handleSubmit(true)}
+                disabled={isSubmitting || !phoneNumber}
+                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target text-lg"
               >
-                {isSubmitting ? 'Submitting...' : 'Submit with Details'}
+                {isSubmitting ? 'Submitting...' : 'Submit Order to Kitchen'}
+              </button>
+
+              <button
+                onClick={() => setShowPhoneLogin(false)}
+                className="w-full text-gray-600 hover:text-gray-900 font-medium py-2 text-sm"
+              >
+                ← Back to options
               </button>
             </div>
+          </>
+        )}
+
+        {/* Special Instructions - Collapsible */}
+        <div>
+          <button
+            onClick={() => setShowInstructions(!showInstructions)}
+            className="flex items-center text-sm font-semibold text-gray-900 hover:text-orange-600 transition-colors"
+          >
+            <span>Add Special Instructions</span>
+            <svg
+              className={`ml-2 h-4 w-4 transition-transform ${showInstructions ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 9l-7 7-7-7"
+              />
+            </svg>
+          </button>
+
+          {showInstructions && (
+            <textarea
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              className="w-full p-3 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent mt-2"
+              rows={3}
+              placeholder="Any special requests or dietary requirements..."
+            />
           )}
         </div>
 
-        {/* Special Instructions */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-900 mb-2">
-            Special Instructions for the Kitchen
-          </label>
-          <textarea
-            value={specialInstructions}
-            onChange={(e) => setSpecialInstructions(e.target.value)}
-            rows={3}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-            placeholder="Any special requests or dietary requirements..."
-          />
-        </div>
-
-        {error && (
-          <div className="p-4 bg-red-50 border-2 border-red-200 rounded-lg text-red-700 text-sm font-medium">
-            {error}
-          </div>
-        )}
-
-        {/* Back Button */}
+        {/* Back to Cart */}
         <button
           onClick={onCancel}
-          disabled={isSubmitting}
-          className="w-full px-6 py-3 border-2 border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 px-6 rounded-lg transition-colors touch-target"
         >
           Back to Cart
         </button>
 
-        <div className="text-xs text-gray-500 text-center space-y-1">
-          <p>By placing this order, you agree to our terms of service.</p>
-          <p className="font-semibold text-gray-700">
-            Please pay at the counter when ready.
-          </p>
-        </div>
+        {/* Terms */}
+        <p className="text-xs text-gray-500 text-center">
+          By placing this order, you agree to our terms of service.
+          <br />
+          Please pay at the counter when ready.
+        </p>
       </div>
     </div>
   );
