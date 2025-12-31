@@ -53,14 +53,6 @@ export async function PATCH(
     const itemId = params.id;
     const updateData = await request.json();
 
-    // 🔍 DEBUG: Log incoming update request
-    console.log('📝 [MENU UPDATE] Request received for item:', itemId);
-    console.log(
-      '📦 [MENU UPDATE] Update payload:',
-      JSON.stringify(updateData, null, 2)
-    );
-    console.log('🏢 [MENU UPDATE] Restaurant ID from auth:', restaurantId);
-
     // Verify item belongs to restaurant
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
@@ -68,21 +60,6 @@ export async function PATCH(
         category: true,
       },
     });
-
-    // 🔍 DEBUG: Log existing item state
-    if (existingItem) {
-      console.log('🔍 [MENU UPDATE] Existing item found:', {
-        id: existingItem.id,
-        name: existingItem.name,
-        restaurantId: existingItem.restaurantId,
-        categoryId: existingItem.categoryId,
-        categoryRestaurantId: existingItem.category.restaurantId,
-        hasRestaurantId: !!existingItem.restaurantId,
-        restaurantIdMatch: existingItem.restaurantId === restaurantId,
-      });
-    } else {
-      console.log('❌ [MENU UPDATE] Item not found in database');
-    }
 
     if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
       return NextResponse.json(
@@ -141,12 +118,6 @@ export async function PATCH(
       updatedAt: new Date(),
     };
 
-    // 🔍 DEBUG: Log the actual update payload being sent to Prisma
-    console.log(
-      '🔄 [MENU UPDATE] Prisma update payload:',
-      JSON.stringify(updatePayload, null, 2)
-    );
-
     const item = await prisma.menuItem.update({
       where: { id: itemId },
       data: updatePayload,
@@ -175,28 +146,15 @@ export async function PATCH(
       message: 'Menu item updated successfully',
     });
   } catch (error: unknown) {
-    // 🔍 DEBUG: Enhanced error logging
-    console.error('❌ [MENU UPDATE] Failed to update menu item');
-    console.error('Error name:', error?.name);
-    console.error('Error message:', error?.message);
-    console.error('Error code:', error?.code);
-    console.error('Error meta:', error?.meta);
-    console.error('Full error:', error);
-
-    // Check for specific Prisma errors
-    if (error?.code === 'P2002') {
-      console.error('🔴 [MENU UPDATE] Unique constraint violation');
-    } else if (error?.code === 'P2003') {
-      console.error('🔴 [MENU UPDATE] Foreign key constraint violation');
-    } else if (error?.code === 'P2025') {
-      console.error('🔴 [MENU UPDATE] Record not found');
-    }
+    console.error('Failed to update menu item:', error);
 
     return NextResponse.json(
       {
         error: 'Failed to update menu item',
         details:
-          process.env.NODE_ENV === 'development' ? error?.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? (error as Error)?.message
+            : undefined,
       },
       { status: 500 }
     );

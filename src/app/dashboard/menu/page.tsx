@@ -1294,21 +1294,11 @@ function EditItemModal({
         calories: formData.calories ? parseInt(formData.calories) : null,
       };
 
-      // 🔍 DEBUG: Log the payload being sent
-      console.log('🚀 [FRONTEND] Sending menu item update');
-      console.log('📋 [FRONTEND] Item ID:', item.id);
-      console.log(
-        '📦 [FRONTEND] Update payload:',
-        JSON.stringify(payload, null, 2)
-      );
-      console.log('🔑 [FRONTEND] Payload keys:', Object.keys(payload));
-
       await ApiClient.patch(`/admin/menu/items/${item.id}`, payload);
 
-      console.log('✅ [FRONTEND] Update successful');
       onSuccess();
     } catch (error) {
-      console.error('❌ [FRONTEND] Failed to update item:', error);
+      console.error('Failed to update item:', error);
       if (error instanceof ApiClientError) {
         setError(error.message);
       } else {
