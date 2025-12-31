@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import './login.css';
 import {
   getClientSubdomainAuthContext,
   getLoginFormConfig,
@@ -103,25 +104,25 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden py-6">
       {/* Animated Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-purple-600 via-indigo-600 to-blue-700 animate-gradient-shift"></div>
 
-      {/* Animated Background Shapes */}
+      {/* Animated Background Shapes - Responsive sizes */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
+        <div className="absolute -top-20 sm:-top-40 -right-20 sm:-right-40 w-40 h-40 sm:w-80 sm:h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
+        <div className="absolute -bottom-20 sm:-bottom-40 -left-20 sm:-left-40 w-40 h-40 sm:w-80 sm:h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 sm:w-80 sm:h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
       </div>
 
       {/* Login Card */}
       <div className="relative z-10 w-full max-w-md mx-4">
-        <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl p-8 sm:p-10 border border-white/20">
+        <div className="bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-10 border border-white/20">
           {/* Header */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl mb-4 shadow-lg">
+          <div className="text-center mb-6 sm:mb-8">
+            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg">
               <svg
-                className="w-8 h-8 text-white"
+                className="w-7 h-7 sm:w-8 sm:h-8 text-white"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -134,14 +135,16 @@ function LoginForm() {
                 />
               </svg>
             </div>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               {formConfig.title}
             </h2>
-            <p className="mt-2 text-gray-600 text-sm">{formConfig.subtitle}</p>
+            <p className="mt-2 text-gray-600 text-xs sm:text-sm">
+              {formConfig.subtitle}
+            </p>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
             {/* Email Input */}
             <div className="relative">
               <input
@@ -154,15 +157,15 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 onFocus={() => setEmailFocused(true)}
                 onBlur={() => setEmailFocused(false)}
-                className="peer w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition-all duration-300 placeholder-transparent"
-                placeholder="Email address"
+                className="peer w-full px-4 py-3 text-sm sm:text-base bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition-all duration-300"
+                placeholder=" "
               />
               <label
                 htmlFor="email"
                 className={`absolute left-4 transition-all duration-300 pointer-events-none ${
                   emailFocused || email
                     ? '-top-2.5 text-xs bg-white px-1 text-purple-600 font-medium'
-                    : 'top-3 text-gray-500'
+                    : 'top-3 text-sm sm:text-base text-gray-500'
                 }`}
               >
                 Email address
@@ -181,15 +184,15 @@ function LoginForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
-                className="peer w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition-all duration-300 placeholder-transparent pr-12"
-                placeholder="Password"
+                className="peer w-full px-4 py-3 text-sm sm:text-base bg-gray-50 border-2 border-gray-200 rounded-xl focus:outline-none focus:border-purple-500 focus:bg-white transition-all duration-300 pr-12"
+                placeholder=" "
               />
               <label
                 htmlFor="password"
                 className={`absolute left-4 transition-all duration-300 pointer-events-none ${
                   passwordFocused || password
                     ? '-top-2.5 text-xs bg-white px-1 text-purple-600 font-medium'
-                    : 'top-3 text-gray-500'
+                    : 'top-3 text-sm sm:text-base text-gray-500'
                 }`}
               >
                 Password
@@ -239,10 +242,10 @@ function LoginForm() {
 
             {/* Error Message */}
             {error && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded-lg animate-shake">
+              <div className="bg-red-50 border-l-4 border-red-500 p-3 sm:p-4 rounded-lg animate-shake">
                 <div className="flex items-center">
                   <svg
-                    className="w-5 h-5 text-red-500 mr-2"
+                    className="w-5 h-5 text-red-500 mr-2 flex-shrink-0"
                     fill="currentColor"
                     viewBox="0 0 20 20"
                   >
@@ -252,7 +255,7 @@ function LoginForm() {
                       clipRule="evenodd"
                     />
                   </svg>
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-xs sm:text-sm text-red-700">{error}</p>
                 </div>
               </div>
             )}
@@ -261,7 +264,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center"
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-2.5 sm:py-3 px-4 rounded-xl text-sm sm:text-base font-medium shadow-lg hover:shadow-xl hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center"
             >
               {isLoading ? (
                 <>
@@ -295,7 +298,7 @@ function LoginForm() {
             <div className="text-center">
               <Link
                 href="/forgot-password"
-                className="text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
+                className="text-xs sm:text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
               >
                 Forgot your password?
               </Link>
@@ -303,24 +306,24 @@ function LoginForm() {
 
             {/* Quick Login Section */}
             {formConfig.showQuickLogin && (
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <p className="text-center text-sm text-gray-500 mb-4">
+              <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-gray-200">
+                <p className="text-center text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">
                   Quick Login
                 </p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {formConfig.quickLoginOptions.map((option) => (
                     <button
                       key={option.id}
                       type="button"
                       onClick={() => quickLogin(option.id)}
-                      className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
+                      className="px-3 sm:px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 hover:scale-105 active:scale-95"
                     >
                       {option.label}
                     </button>
                   ))}
                 </div>
 
-                <div className="mt-4 text-xs text-gray-500 bg-gray-50 rounded-lg p-3">
+                <div className="mt-3 sm:mt-4 text-xs text-gray-500 bg-gray-50 rounded-lg p-2.5 sm:p-3">
                   <p className="font-semibold mb-1">Test Credentials:</p>
                   {authContext.isSubdomain ? (
                     <p>• Staff: */staff123</p>
@@ -337,69 +340,6 @@ function LoginForm() {
           </form>
         </div>
       </div>
-
-      {/* Custom Styles */}
-      <style jsx>{`
-        @keyframes gradient-shift {
-          0%,
-          100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-
-        @keyframes blob {
-          0%,
-          100% {
-            transform: translate(0, 0) scale(1);
-          }
-          25% {
-            transform: translate(20px, -50px) scale(1.1);
-          }
-          50% {
-            transform: translate(-20px, 20px) scale(0.9);
-          }
-          75% {
-            transform: translate(50px, 50px) scale(1.05);
-          }
-        }
-
-        @keyframes shake {
-          0%,
-          100% {
-            transform: translateX(0);
-          }
-          25% {
-            transform: translateX(-5px);
-          }
-          75% {
-            transform: translateX(5px);
-          }
-        }
-
-        .animate-gradient-shift {
-          background-size: 200% 200%;
-          animation: gradient-shift 15s ease infinite;
-        }
-
-        .animate-blob {
-          animation: blob 7s infinite;
-        }
-
-        .animation-delay-2000 {
-          animation-delay: 2s;
-        }
-
-        .animation-delay-4000 {
-          animation-delay: 4s;
-        }
-
-        .animate-shake {
-          animation: shake 0.3s ease-in-out;
-        }
-      `}</style>
     </div>
   );
 }
