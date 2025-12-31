@@ -21,7 +21,6 @@ export function CheckoutForm({
   onCancel,
 }: CheckoutFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [customerName, setCustomerName] = useState('');
   const [showPhoneLogin, setShowPhoneLogin] = useState(false);
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [showInstructions, setShowInstructions] = useState(false);
@@ -39,7 +38,6 @@ export function CheckoutForm({
           withPhone && phoneNumber
             ? {
                 phone: phoneNumber,
-                name: customerName || undefined,
               }
             : undefined,
         specialInstructions: specialInstructions || undefined,
@@ -155,42 +153,28 @@ export function CheckoutForm({
         ) : (
           <>
             {/* Phone Login Form */}
-            <div className="space-y-4">
-              <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                <p className="text-sm text-gray-700 mb-2">
-                  <strong>Benefits of logging in:</strong>
+            <div className="space-y-6">
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-bold text-gray-900">
+                  Login to Order
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Enter your phone number to earn points & discounts
                 </p>
-                <ul className="text-sm text-gray-600 space-y-1">
-                  <li>• Earn loyalty points with every order</li>
-                  <li>• Get exclusive discounts & promotions</li>
-                  <li>• Track your order history</li>
-                </ul>
               </div>
 
               <div>
                 <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Phone Number *
+                  Phone Number <span className="text-orange-500">*</span>
                 </label>
                 <input
                   type="tel"
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  placeholder="+60 123-456-7890"
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  placeholder="e.g. +60 123-456-7890"
+                  className="w-full p-4 border border-gray-300 rounded-xl text-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                   required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">
-                  Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="Your name"
-                  className="w-full p-3 border-2 border-gray-300 rounded-lg text-base focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                  autoFocus
                 />
               </div>
 
