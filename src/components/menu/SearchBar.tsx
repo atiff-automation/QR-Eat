@@ -1,78 +1,75 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { MenuCategory, MenuItem } from '@/types/menu';
 import { Search, X } from 'lucide-react';
+import { MenuCard } from './MenuCard';
 
 interface SearchBarProps {
   menu: MenuCategory[];
-  onItemSelect?: (item: MenuItem) => void;
+  onAddToCart: (
+    item: MenuItem,
+    quantity: number,
+    variations: Array<{
+      variationId: string;
+      variation: Record<string, unknown>;
+      quantity: number;
+    }>,
+    instructions?: string
+  ) => void;
+  onModalStateChange: (isOpen: boolean) => void;
 }
 
-interface SearchResult {
-  category: MenuCategory;
-  items: MenuItem[];
-}
-
-export function SearchBar({ menu, onItemSelect }: SearchBarProps) {
+export function SearchBar({
+  menu,
+  onAddToCart,
+  onModalStateChange,
+}: SearchBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
 
-  // Debounced search
-  useEffect(() => {
+  // Get all items in a flat list
+  const allItems = useMemo(() => {
+    const items: MenuItem[] = [];
+    menu.forEach((category) => {
+      items.push(...category.menuItems);
+    });
+    return items;
+  }, [menu]);
+
+  // Filter items based on query
+  const filteredItems = useMemo(() => {
     if (!query.trim()) {
-      setResults([]);
-      return;
+      // Return all items sorted by isFeatured first
+      return [...allItems].sort((a, b) =>
+        a.isFeatured === b.isFeatured ? 0 : a.isFeatured ? -1 : 1
+      );
     }
 
     const searchQuery = query.toLowerCase();
-    const searchResults: SearchResult[] = [];
-
-    menu.forEach((category) => {
-      const matchingItems = category.menuItems.filter(
-        (item) =>
-          item.name.toLowerCase().includes(searchQuery) ||
-          item.description?.toLowerCase().includes(searchQuery)
-      );
-
-      if (matchingItems.length > 0) {
-        searchResults.push({
-          category,
-          items: matchingItems,
-        });
-      }
-    });
-
-    setResults(searchResults);
-  }, [query, menu]);
-
-  const handleClear = useCallback(() => {
-    setQuery('');
-    setResults([]);
-  }, []);
+    return allItems.filter(
+      (item) =>
+        item.name.toLowerCase().includes(searchQuery) ||
+        item.description?.toLowerCase().includes(searchQuery)
+    );
+  }, [query, allItems]);
 
   const handleClose = useCallback(() => {
     setIsOpen(false);
     setQuery('');
-    setResults([]);
-  }, []);
+    onModalStateChange(false);
+  }, [onModalStateChange]);
 
-  const handleItemClick = useCallback(
-    (item: MenuItem) => {
-      if (onItemSelect) {
-        onItemSelect(item);
-      }
-      handleClose();
-    },
-    [onItemSelect, handleClose]
-  );
+  const handleOpen = useCallback(() => {
+    setIsOpen(true);
+    onModalStateChange(true);
+  }, [onModalStateChange]);
 
   return (
     <>
       {/* Search Icon Button */}
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpen}
         className="p-2 hover:bg-gray-100 rounded-full transition-colors"
         aria-label="Search menu"
       >
@@ -83,7 +80,7 @@ export function SearchBar({ menu, onItemSelect }: SearchBarProps) {
       {isOpen && (
         <div className="fixed inset-0 z-50 bg-white flex flex-col">
           {/* Search Header */}
-          <div className="flex items-center space-x-2 p-4 border-b border-gray-200">
+          <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-white">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
               <input
@@ -91,13 +88,13 @@ export function SearchBar({ menu, onItemSelect }: SearchBarProps) {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search menu items..."
-                className="w-full pl-10 pr-10 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                className="w-full pl-10 pr-10 py-2.5 bg-gray-100 border-none rounded-lg text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-orange-500/20"
                 autoFocus
               />
               {query && (
                 <button
-                  onClick={handleClear}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-100 rounded-full"
+                  onClick={() => setQuery('')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 hover:bg-gray-200 rounded-full"
                 >
                   <X className="h-4 w-4 text-gray-500" />
                 </button>
@@ -105,68 +102,40 @@ export function SearchBar({ menu, onItemSelect }: SearchBarProps) {
             </div>
             <button
               onClick={handleClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-900 font-medium"
+              className="text-gray-600 hover:text-gray-900 font-medium whitespace-nowrap"
             >
               Cancel
             </button>
           </div>
 
           {/* Search Results */}
-          <div className="flex-1 overflow-y-auto">
-            {!query ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
+          <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+            {filteredItems.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Search className="h-12 w-12 text-gray-300 mb-3" />
-                <p className="text-gray-500">Search for menu items</p>
+                <p className="text-gray-500 font-medium">No items found</p>
                 <p className="text-sm text-gray-400 mt-1">
-                  Try searching by name or description
-                </p>
-              </div>
-            ) : results.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-full text-center px-4">
-                <p className="text-gray-600 font-medium">No results found</p>
-                <p className="text-sm text-gray-400 mt-1">
-                  Try a different search term
+                  Try searching for something else
                 </p>
               </div>
             ) : (
-              <div className="p-4 space-y-6">
-                {results.map((result) => (
-                  <div key={result.category.id}>
-                    <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                      {result.category.name}
-                    </h3>
-                    <div className="space-y-2">
-                      {result.items.map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => handleItemClick(item)}
-                          className="w-full flex items-start space-x-3 p-3 hover:bg-gray-50 rounded-lg transition-colors text-left"
-                        >
-                          {item.imageUrl && (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-16 h-16 object-cover rounded-md flex-shrink-0"
-                            />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-gray-900 truncate">
-                              {item.name}
-                            </h4>
-                            {item.description && (
-                              <p className="text-sm text-gray-600 line-clamp-2 mt-1">
-                                {item.description}
-                              </p>
-                            )}
-                            <p className="text-sm font-semibold text-orange-600 mt-1">
-                              ${item.price.toFixed(2)}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+              <div className="space-y-6">
+                {/* Title */}
+                <h3 className="font-bold text-lg text-gray-900">
+                  {query ? 'Search Results' : 'Best Sellers & Menu'}
+                </h3>
+
+                {/* Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 pb-20">
+                  {filteredItems.map((item) => (
+                    <MenuCard
+                      key={item.id}
+                      item={item}
+                      onAddToCart={onAddToCart}
+                      onModalStateChange={onModalStateChange}
+                    />
+                  ))}
+                </div>
               </div>
             )}
           </div>

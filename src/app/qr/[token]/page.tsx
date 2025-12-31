@@ -151,7 +151,11 @@ export default function QRMenuPage() {
                 {table.tableName && ` - ${table.tableName}`}
               </p>
             </div>
-            <SearchBar menu={menu} />
+            <SearchBar
+              menu={menu}
+              onAddToCart={addToCart}
+              onModalStateChange={setIsAnyModalOpen}
+            />
           </div>
         </div>
       </header>
