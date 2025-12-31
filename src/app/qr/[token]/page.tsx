@@ -139,26 +139,57 @@ export default function QRMenuPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Mobile-First Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3">
-          <div className="flex justify-between items-center">
-            <div className="flex-1 min-w-0">
-              <h1 className="text-lg font-bold text-gray-900 truncate">
-                {table.restaurant.name}
-              </h1>
-              <p className="text-sm text-gray-600">
-                Table {table.tableNumber}
-                {table.tableName && ` - ${table.tableName}`}
-              </p>
-            </div>
-            <SearchBar
-              menu={menu}
-              onAddToCart={addToCart}
-              onModalStateChange={setIsAnyModalOpen}
-            />
+      {/* Mobile-First Header - Global Top Bar */}
+      <div className="bg-white sticky top-0 z-50 border-b border-gray-50">
+        <div className="flex justify-between items-center px-4 py-3 text-xs font-medium text-gray-500">
+          <div className="flex items-center space-x-1">
+            <span>Powered by</span>
+            <span className="text-orange-500 font-bold">QR-Eat</span>
+          </div>
+          <div className="bg-gray-100 px-3 py-1 rounded-full text-gray-700 font-semibold">
+            Table {table.tableNumber}
           </div>
         </div>
-      </header>
+      </div>
+
+      {/* Conditional Menu Header (Restaurant Info & Search) */}
+      {!showCart && !showCheckout && !currentOrder && (
+        <div className="bg-white pb-2 relative z-40">
+          {/* Center Row: Restaurant Identity */}
+          <div className="text-center px-6 pt-6 pb-10">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
+              {table.restaurant.name}
+            </h1>
+            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+              Authentic Italian Cuisine
+            </p>
+          </div>
+
+          {/* Bottom Row: Integrated Pill-Shaped Search & Category */}
+          <div className="px-4 pb-4">
+            <div className="bg-gray-100 rounded-xl p-1 flex items-center shadow-inner">
+              <div className="flex-1">
+                <CategoryDropdown
+                  categories={menu}
+                  activeCategory={activeCategory}
+                  onCategoryChange={(id) => {
+                    setActiveCategory(id);
+                    document
+                      .getElementById(id)
+                      ?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                />
+              </div>
+              <div className="h-8 w-px bg-gray-300 mx-1"></div>
+              <SearchBar
+                menu={menu}
+                onAddToCart={addToCart}
+                onModalStateChange={setIsAnyModalOpen}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cart Error Display */}
       {cartError && (
@@ -192,18 +223,6 @@ export default function QRMenuPage() {
           />
         ) : (
           <div>
-            {/* Category Dropdown */}
-            <div className="mb-4">
-              <CategoryDropdown
-                categories={menu}
-                activeCategory={activeCategory}
-                onSelectCategory={(categoryId) => {
-                  setActiveCategory(categoryId);
-                  setShowCart(false);
-                }}
-              />
-            </div>
-
             {/* Category Title */}
             {activeMenuCategory && (
               <div className="mb-4">
