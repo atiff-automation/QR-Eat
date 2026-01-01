@@ -31,6 +31,7 @@ import { z } from 'zod';
 
 const CreateQROrderSchema = z.object({
   tableId: z.string().uuid('Invalid table ID format'),
+  sessionId: z.string().uuid('Invalid session ID format').optional(),
   customerInfo: z
     .object({
       name: z.string().min(1).max(100).optional(),
@@ -50,10 +51,12 @@ export async function POST(request: NextRequest) {
     // Parse and validate request body
     const body = await request.json();
     const validatedData = CreateQROrderSchema.parse(body);
-    const { tableId, customerInfo, specialInstructions } = validatedData;
+    const { tableId, sessionId, customerInfo, specialInstructions } =
+      validatedData;
 
     // Get table cart (includes session and cart items)
-    const tableCart = await getTableCart(tableId);
+    // Pass sessionId to get the correct customer's cart
+    const tableCart = await getTableCart(tableId, sessionId);
 
     if (!tableCart || tableCart.items.length === 0) {
       return NextResponse.json(

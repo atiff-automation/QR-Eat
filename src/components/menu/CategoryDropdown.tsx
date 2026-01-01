@@ -48,7 +48,7 @@ export function CategoryDropdown({
 
       {/* Modal Overlay */}
       {isOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center">
           {/* Backdrop - Very Light and Transparent */}
           <div
             className="absolute inset-0 transition-opacity"

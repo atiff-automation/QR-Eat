@@ -10,12 +10,14 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 interface CheckoutFormProps {
   cart: Cart;
   tableId: string;
+  sessionId: string | null;
   onOrderCreate: (order: OrderResponse) => void;
   onCancel: () => void;
 }
 
 export function CheckoutForm({
   tableId,
+  sessionId,
   onOrderCreate,
   onCancel,
 }: CheckoutFormProps) {
@@ -33,6 +35,7 @@ export function CheckoutForm({
     try {
       const orderRequest = {
         tableId,
+        sessionId,
         customerInfo:
           withPhone && phoneNumber
             ? {

@@ -345,5 +345,6 @@ export function useServerCart(
     loading,
     error,
     refreshCart: fetchCart,
+    sessionId, // Add sessionId to return
   };
 }

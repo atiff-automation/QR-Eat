@@ -37,6 +37,7 @@ export default function QRMenuPage() {
     removeFromCart,
     clearCart,
     error: cartError,
+    sessionId,
   } = useServerCart(
     table?.id || null,
     table?.restaurant.taxRate
@@ -210,6 +211,7 @@ export default function QRMenuPage() {
           <CheckoutForm
             cart={cart}
             tableId={table.id}
+            sessionId={sessionId}
             onOrderCreate={handleOrderCreate}
             onCancel={() => setShowCheckout(false)}
           />
