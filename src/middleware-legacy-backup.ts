@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AuthService, SECURITY_HEADERS, UserType, verifyAuthToken, AUTH_CONSTANTS } from './lib/auth';
-import { 
-  getSubdomainInfo, 
-  shouldHandleSubdomain, 
+import { SECURITY_HEADERS, AUTH_CONSTANTS } from './lib/auth';
+import {
+  shouldHandleSubdomain,
   getRestaurantSlugFromSubdomain,
   logSubdomainInfo,
-  isReservedSubdomain
+  isReservedSubdomain,
 } from './lib/subdomain';
 
 // Force middleware to run in Node.js runtime to support crypto module
@@ -20,14 +19,17 @@ export async function middleware(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  
+
   // Log subdomain info in development
   if (process.env.NODE_ENV === 'development') {
     logSubdomainInfo(request);
   }
 
   // Handle subdomain routing first (but skip for restaurant-not-found page)
-  if (shouldHandleSubdomain(request) && !pathname.includes('/restaurant-not-found')) {
+  if (
+    shouldHandleSubdomain(request) &&
+    !pathname.includes('/restaurant-not-found')
+  ) {
     return await handleSubdomainRouting(request, response);
   }
 
@@ -63,7 +65,7 @@ export async function middleware(request: NextRequest) {
 
   // Admin dashboard routes (excluding change-password which needs special handling)
   const isAdminRoute =
-    pathname.startsWith('/admin') || 
+    pathname.startsWith('/admin') ||
     (pathname.startsWith('/dashboard') && pathname !== '/change-password');
 
   if (isPublicRoute && !isProtectedApiRoute && !isAdminRoute) {
@@ -71,7 +73,8 @@ export async function middleware(request: NextRequest) {
   }
 
   // Check for authentication token - prioritize user-type specific cookies over legacy
-  const token = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
+  const token =
+    request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ||
     request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ||
     request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ||
     request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
@@ -84,20 +87,26 @@ export async function middleware(request: NextRequest) {
     // Let the page handle token validation and mustChangePassword logic
     return response;
   }
-  
+
   if (process.env.NODE_ENV === 'development') {
-    const foundCookie = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value ? 'qr_owner_token' :
-      request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value ? 'qr_staff_token' :
-      request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value ? 'qr_admin_token' :
-      request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value ? 'qr_auth_token' : 'none';
-    
+    const foundCookie = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)
+      ?.value
+      ? 'qr_owner_token'
+      : request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value
+        ? 'qr_staff_token'
+        : request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value
+          ? 'qr_admin_token'
+          : request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value
+            ? 'qr_auth_token'
+            : 'none';
+
     console.log('🔍 Middleware Token Debug:', {
       pathname,
       hasToken: !!token,
       tokenLength: token?.length,
       cookieName: foundCookie,
       isAdminRoute,
-      isDashboardRoute: pathname.startsWith('/dashboard')
+      isDashboardRoute: pathname.startsWith('/dashboard'),
     });
   }
 
@@ -135,13 +144,17 @@ export async function middleware(request: NextRequest) {
 /**
  * Handle subdomain-specific routing logic
  */
-async function handleSubdomainRouting(request: NextRequest, response: NextResponse): Promise<NextResponse> {
+async function handleSubdomainRouting(
+  request: NextRequest,
+  response: NextResponse
+): Promise<NextResponse> {
   const subdomain = getRestaurantSlugFromSubdomain(request);
-  
+
   if (!subdomain) {
     // No valid subdomain found, redirect to main domain
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
@@ -149,7 +162,8 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   // Check if subdomain is reserved
   if (isReservedSubdomain(subdomain)) {
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }
@@ -157,31 +171,31 @@ async function handleSubdomainRouting(request: NextRequest, response: NextRespon
   try {
     // For subdomain routing, we need to validate the restaurant exists
     // We'll do a simpler check here and let the pages handle full tenant resolution
-    
+
     // For now, allow all valid subdomains to continue
     // The actual tenant validation will happen in the API routes and page components
 
     const pathname = request.nextUrl.pathname;
-    
+
     // Handle subdomain-specific routing
     if (pathname === '/') {
       // Root path for subdomain should show restaurant's customer menu
       const menuUrl = new URL(`/restaurant/${subdomain}`, request.url);
       return NextResponse.rewrite(menuUrl);
     }
-    
+
     // Add tenant context headers for all subdomain requests
     response.headers.set('x-tenant-slug', subdomain);
     response.headers.set('x-is-subdomain', 'true');
-    
-    return response;
 
+    return response;
   } catch (error) {
     console.error('Error in subdomain routing:', error);
-    
+
     // On critical subdomain error, redirect to main domain for security
     const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
-    const host = request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
+    const host =
+      request.headers.get('host')?.replace(/^[^.]+\./, '') || 'localhost:3000';
     const mainDomainUrl = new URL('/', `${protocol}://${host}`);
     return NextResponse.redirect(mainDomainUrl);
   }

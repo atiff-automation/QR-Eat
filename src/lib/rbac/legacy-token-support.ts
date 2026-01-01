@@ -1,6 +1,6 @@
 /**
  * Legacy Token Support for RBAC Migration
- * 
+ *
  * This module provides backward compatibility for legacy authentication tokens
  * during the migration to the new RBAC system.
  */
@@ -11,7 +11,7 @@ import { PermissionManager } from './permissions';
 import { RoleManager } from './role-manager';
 import { SessionManager } from './session-manager';
 import { AuditLogger } from './audit-logger';
-import { RBACError, UserRole } from './types';
+import { RBACError, UserRole, UserType } from './types';
 
 interface LegacyTokenPayload {
   userId: string;
@@ -40,26 +40,27 @@ export class LegacyTokenSupport {
     try {
       // Try to decode the token
       const decoded = await EnhancedJWTService.verifyToken(token);
-      
+
       // Check if this is a legacy token (missing RBAC fields)
-      const isLegacyToken = !decoded.currentRole || !decoded.permissions || !decoded.sessionId;
-      
+      const isLegacyToken =
+        !decoded.currentRole || !decoded.permissions || !decoded.sessionId;
+
       if (!isLegacyToken) {
         return {
           isValid: false,
           error: 'Token is not a legacy token',
-          shouldUpgrade: false
+          shouldUpgrade: false,
         };
       }
 
       // Validate legacy token structure
-      const payload = decoded as LegacyTokenPayload;
-      
+      const payload = decoded as unknown as LegacyTokenPayload;
+
       if (!payload.userId || !payload.userType) {
         return {
           isValid: false,
           error: 'Invalid legacy token structure',
-          shouldUpgrade: false
+          shouldUpgrade: false,
         };
       }
 
@@ -75,13 +76,14 @@ export class LegacyTokenSupport {
       return {
         isValid: true,
         payload,
-        shouldUpgrade: true
+        shouldUpgrade: true,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         isValid: false,
-        error: error instanceof Error ? error.message : 'Token validation failed',
-        shouldUpgrade: false
+        error:
+          _error instanceof Error ? _error.message : 'Token validation failed',
+        shouldUpgrade: false,
       };
     }
   }
@@ -101,90 +103,90 @@ export class LegacyTokenSupport {
     try {
       // Validate legacy token first
       const validation = await this.validateLegacyToken(legacyToken, request);
-      
+
       if (!validation.isValid || !validation.payload) {
         return {
           success: false,
-          error: validation.error || 'Invalid legacy token'
+          error: validation.error || 'Invalid legacy token',
         };
       }
 
-      const { userId, userType, restaurantId, staffRoleId } = validation.payload;
+      const { userId, userType, restaurantId } = validation.payload;
 
       // Get user's RBAC role
       const userRoles = await RoleManager.getUserRoles(userId);
-      
+
       if (userRoles.length === 0) {
         return {
           success: false,
-          error: 'User has no RBAC roles assigned'
+          error: 'User has no RBAC roles assigned',
         };
       }
 
       // Find the appropriate role based on context
       let selectedRole: UserRole;
-      
+
       if (userType === 'platform_admin') {
-        selectedRole = userRoles.find(r => r.userType === 'platform_admin') || userRoles[0];
+        selectedRole =
+          userRoles.find((r) => r.userType === 'platform_admin') ||
+          userRoles[0];
       } else if (userType === 'restaurant_owner') {
-        selectedRole = userRoles.find(r => 
-          r.userType === 'restaurant_owner' && 
-          r.restaurantId === restaurantId
-        ) || userRoles[0];
+        selectedRole =
+          userRoles.find(
+            (r) =>
+              r.userType === 'restaurant_owner' &&
+              r.restaurantId === restaurantId
+          ) || userRoles[0];
       } else if (userType === 'staff') {
-        selectedRole = userRoles.find(r => 
-          r.userType === 'staff' && 
-          r.restaurantId === restaurantId
-        ) || userRoles[0];
+        selectedRole =
+          userRoles.find(
+            (r) => r.userType === 'staff' && r.restaurantId === restaurantId
+          ) || userRoles[0];
       } else {
         selectedRole = userRoles[0];
       }
+
+      // Get user permissions
+      const permissions =
+        await PermissionManager.computeUserPermissions(userId);
 
       // Create new session for the upgraded token
       const context = AuditLogger.extractContextFromRequest(request);
       const sessionResult = await SessionManager.createSession({
         userId,
-        userRole: selectedRole,
+        currentRoleId: selectedRole.id,
+        permissions: permissions,
         ipAddress: context.ipAddress,
         userAgent: context.userAgent,
-        metadata: {
-          upgradedFromLegacy: true,
-          originalUserType: userType,
-          originalRestaurantId: restaurantId,
-          originalStaffRoleId: staffRoleId
-        }
       });
 
-      // Get user permissions
-      const permissions = await PermissionManager.getUserPermissions(userId);
-      
       // Create enhanced user object for token generation
       const enhancedUser = {
         id: userId,
         email: '', // Will be filled from actual user data
         firstName: '', // Will be filled from actual user data
         lastName: '', // Will be filled from actual user data
-        userType: selectedRole.userType,
+        userType: selectedRole.userType as unknown as UserType,
         currentRole: selectedRole,
         availableRoles: userRoles,
-        restaurantContext: selectedRole.restaurantId ? {
-          id: selectedRole.restaurantId,
-          name: '',
-          slug: '',
-          isActive: true,
-          timezone: 'UTC',
-          currency: 'USD'
-        } : undefined,
+        restaurantContext: selectedRole.restaurantId
+          ? {
+              id: selectedRole.restaurantId,
+              name: '',
+              slug: '',
+              isActive: true,
+              timezone: 'UTC',
+              currency: 'USD',
+            }
+          : undefined,
         permissions,
-        isActive: true
+        isActive: true,
       };
 
       // Generate new RBAC token
       const newToken = await EnhancedJWTService.generateToken(
         enhancedUser,
-        sessionResult.sessionId,
-        context.ipAddress,
-        context.userAgent
+        sessionResult.sessionId
       );
 
       // Log the upgrade
@@ -198,20 +200,21 @@ export class LegacyTokenSupport {
           metadata: {
             fromUserType: userType,
             toRoleTemplate: selectedRole.roleTemplate,
-            sessionId: sessionResult.sessionId
-          }
+            sessionId: sessionResult.sessionId,
+          },
         }
       );
 
       return {
         success: true,
         newToken,
-        userRole: selectedRole
+        userRole: selectedRole,
       };
-    } catch (error) {
+    } catch (_error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Token upgrade failed'
+        error:
+          _error instanceof Error ? _error.message : 'Token upgrade failed',
       };
     }
   }
@@ -223,7 +226,7 @@ export class LegacyTokenSupport {
     try {
       const validation = await this.validateLegacyToken(token);
       return validation.shouldUpgrade || false;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -231,9 +234,7 @@ export class LegacyTokenSupport {
   /**
    * Extract legacy user context for migration
    */
-  static async extractLegacyContext(
-    token: string
-  ): Promise<{
+  static async extractLegacyContext(token: string): Promise<{
     userId: string;
     userType: string;
     restaurantId?: string;
@@ -241,7 +242,7 @@ export class LegacyTokenSupport {
   } | null> {
     try {
       const validation = await this.validateLegacyToken(token);
-      
+
       if (!validation.isValid || !validation.payload) {
         return null;
       }
@@ -250,9 +251,9 @@ export class LegacyTokenSupport {
         userId: validation.payload.userId,
         userType: validation.payload.userType,
         restaurantId: validation.payload.restaurantId,
-        staffRoleId: validation.payload.staffRoleId
+        staffRoleId: validation.payload.staffRoleId,
       };
-    } catch (error) {
+    } catch {
       return null;
     }
   }
@@ -275,30 +276,32 @@ export class LegacyTokenSupport {
 
       // Get legacy token usage from audit logs
       const auditSummary = await AuditLogger.getAuditSummary(last24Hours);
-      
+
       // Count legacy token events
       const legacyTokenUsed = auditSummary.actionCounts['SECURITY_EVENT'] || 0;
-      const legacyTokenUpgraded = auditSummary.actionCounts['SECURITY_EVENT'] || 0;
+      const legacyTokenUpgraded =
+        auditSummary.actionCounts['SECURITY_EVENT'] || 0;
 
       // Get recent activity (simplified for now)
       const recentActivity = auditSummary.recentActivity
-        .filter(entry => 
-          entry.action === 'SECURITY_EVENT' &&
-          entry.metadata?.eventType === 'LEGACY_TOKEN_USED'
+        .filter(
+          (entry) =>
+            entry.action === 'SECURITY_EVENT' &&
+            entry.metadata?.eventType === 'LEGACY_TOKEN_USED'
         )
         .slice(0, 10)
-        .map(entry => ({
+        .map((entry) => ({
           userId: entry.userId,
           timestamp: entry.createdAt,
-          upgraded: entry.metadata?.eventType === 'LEGACY_TOKEN_UPGRADED'
+          upgraded: entry.metadata?.eventType === 'LEGACY_TOKEN_UPGRADED',
         }));
 
       return {
         totalLegacyTokensUsed: legacyTokenUsed,
         totalUpgrades: legacyTokenUpgraded,
-        recentLegacyActivity: recentActivity
+        recentLegacyActivity: recentActivity,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get legacy token statistics',
         'GET_LEGACY_TOKEN_STATS_FAILED',
@@ -321,7 +324,7 @@ export class LegacyTokenSupport {
   }> {
     try {
       const stats = await this.getLegacyTokenStats();
-      
+
       const summary = `Legacy Token Migration Report:
 - Total legacy tokens used in last 24h: ${stats.totalLegacyTokensUsed}
 - Total successful upgrades: ${stats.totalUpgrades}
@@ -331,11 +334,13 @@ export class LegacyTokenSupport {
         'Monitor legacy token usage and plan for deprecation',
         'Encourage users to re-authenticate to get new RBAC tokens',
         'Set up alerts for excessive legacy token usage',
-        'Plan timeline for removing legacy token support'
+        'Plan timeline for removing legacy token support',
       ];
 
       if (stats.totalLegacyTokensUsed > 100) {
-        recommendations.push('High legacy token usage detected - consider communication to users');
+        recommendations.push(
+          'High legacy token usage detected - consider communication to users'
+        );
       }
 
       if (stats.totalUpgrades < stats.totalLegacyTokensUsed * 0.8) {
@@ -348,10 +353,10 @@ export class LegacyTokenSupport {
         stats: {
           totalLegacyTokensUsed: stats.totalLegacyTokensUsed,
           totalUpgrades: stats.totalUpgrades,
-          recentLegacyActivity: stats.recentLegacyActivity.length
-        }
+          recentLegacyActivity: stats.recentLegacyActivity.length,
+        },
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to create migration report',
         'CREATE_MIGRATION_REPORT_FAILED',

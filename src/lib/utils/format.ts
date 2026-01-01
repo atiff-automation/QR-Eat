@@ -9,7 +9,7 @@
  * @see claudedocs/CODING_STANDARDS.md
  */
 
-import type { Decimal } from '@prisma/client';
+import type { Decimal } from '@prisma/client/runtime/library';
 
 /**
  * Format currency amount to Malaysian Ringgit (MYR)

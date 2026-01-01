@@ -1,6 +1,6 @@
 /**
  * RBAC Middleware for API Protection
- * 
+ *
  * This middleware provides comprehensive RBAC protection for API endpoints,
  * replacing the legacy authentication system with secure, role-based access control.
  */
@@ -89,8 +89,8 @@ export class RBACMiddleware {
         metadata: {
           endpoint: request.url,
           method: request.method,
-          timestamp: new Date().toISOString()
-        }
+          timestamp: new Date().toISOString(),
+        },
       };
 
       // Rate limiting if configured
@@ -106,24 +106,25 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Rate limit exceeded' },
               { status: 429 }
             ),
-            error: 'Rate limit exceeded'
+            error: 'Rate limit exceeded',
           };
         }
       }
 
       // Extract authentication token
       let token = request.cookies.get('qr_rbac_token')?.value;
-      
+
       if (!token) {
         const authHeader = request.headers.get('authorization');
-        token = EnhancedJWTService.extractTokenFromHeader(authHeader);
+        token =
+          EnhancedJWTService.extractTokenFromHeader(authHeader) || undefined;
       }
 
       if (!token) {
@@ -136,14 +137,14 @@ export class RBACMiddleware {
             auditContext
           );
         }
-        
+
         return {
           isAuthorized: false,
           response: NextResponse.json(
             { error: 'Authentication token required' },
             { status: 401 }
           ),
-          error: 'No authentication token provided'
+          error: 'No authentication token provided',
         };
       }
 
@@ -157,14 +158,22 @@ export class RBACMiddleware {
       } catch {
         // If RBAC token fails and legacy tokens are allowed, try legacy token
         if (config.allowLegacyTokens) {
-          const legacyValidation = await LegacyTokenSupport.validateLegacyToken(token, request);
-          
+          const legacyValidation = await LegacyTokenSupport.validateLegacyToken(
+            token,
+            request
+          );
+
           if (legacyValidation.isValid && legacyValidation.shouldUpgrade) {
-            const upgradeResult = await LegacyTokenSupport.upgradeLegacyToken(token, request);
-            
+            const upgradeResult = await LegacyTokenSupport.upgradeLegacyToken(
+              token,
+              request
+            );
+
             if (upgradeResult.success && upgradeResult.newToken) {
               // Use upgraded token
-              tokenPayload = await EnhancedJWTService.verifyToken(upgradeResult.newToken);
+              tokenPayload = await EnhancedJWTService.verifyToken(
+                upgradeResult.newToken
+              );
               isLegacyToken = true;
             } else {
               if (config.auditLog) {
@@ -176,14 +185,14 @@ export class RBACMiddleware {
                   auditContext
                 );
               }
-              
+
               return {
                 isAuthorized: false,
                 response: NextResponse.json(
                   { error: 'Token upgrade failed' },
                   { status: 401 }
                 ),
-                error: 'Legacy token upgrade failed'
+                error: 'Legacy token upgrade failed',
               };
             }
           } else {
@@ -196,14 +205,14 @@ export class RBACMiddleware {
                 auditContext
               );
             }
-            
+
             return {
               isAuthorized: false,
               response: NextResponse.json(
                 { error: 'Invalid authentication token' },
                 { status: 401 }
               ),
-              error: 'Invalid authentication token'
+              error: 'Invalid authentication token',
             };
           }
         } else {
@@ -216,14 +225,14 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Invalid authentication token' },
               { status: 401 }
             ),
-            error: 'Invalid authentication token'
+            error: 'Invalid authentication token',
           };
         }
       }
@@ -231,7 +240,7 @@ export class RBACMiddleware {
       // Verify session if required
       if (config.requireActiveSession !== false) {
         const session = await SessionManager.getSession(tokenPayload.sessionId);
-        
+
         if (!session) {
           if (config.auditLog) {
             await AuditLogger.logSecurityEvent(
@@ -242,21 +251,23 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Session not found or expired' },
               { status: 401 }
             ),
-            error: 'Session not found or expired'
+            error: 'Session not found or expired',
           };
         }
       }
 
       // Check user type restrictions
       if (config.allowedUserTypes && config.allowedUserTypes.length > 0) {
-        if (!config.allowedUserTypes.includes(tokenPayload.currentRole.userType)) {
+        if (
+          !config.allowedUserTypes.includes(tokenPayload.currentRole.userType)
+        ) {
           if (config.auditLog) {
             await AuditLogger.logPermissionDenied(
               tokenPayload.userId,
@@ -266,21 +277,23 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Access denied - user type not allowed' },
               { status: 403 }
             ),
-            error: 'User type not allowed'
+            error: 'User type not allowed',
           };
         }
       }
 
       // Check role restrictions
       if (config.allowedRoles && config.allowedRoles.length > 0) {
-        if (!config.allowedRoles.includes(tokenPayload.currentRole.roleTemplate)) {
+        if (
+          !config.allowedRoles.includes(tokenPayload.currentRole.roleTemplate)
+        ) {
           if (config.auditLog) {
             await AuditLogger.logPermissionDenied(
               tokenPayload.userId,
@@ -290,26 +303,28 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Access denied - role not allowed' },
               { status: 403 }
             ),
-            error: 'Role not allowed'
+            error: 'Role not allowed',
           };
         }
       }
 
       // Check permission restrictions
       if (config.requiredPermissions && config.requiredPermissions.length > 0) {
-        const userPermissions = await PermissionManager.computeUserPermissions(tokenPayload.userId);
+        const userPermissions = await PermissionManager.computeUserPermissions(
+          tokenPayload.userId
+        );
         const hasPermission = PermissionManager.hasAllPermissions(
           userPermissions,
           config.requiredPermissions
         );
-        
+
         if (!hasPermission) {
           if (config.auditLog) {
             await AuditLogger.logPermissionDenied(
@@ -320,21 +335,23 @@ export class RBACMiddleware {
               auditContext
             );
           }
-          
+
           return {
             isAuthorized: false,
             response: NextResponse.json(
               { error: 'Access denied - insufficient permissions' },
               { status: 403 }
             ),
-            error: 'Insufficient permissions'
+            error: 'Insufficient permissions',
           };
         }
       }
 
       // Get fresh user roles and permissions
       const userRoles = await RoleManager.getUserRoles(tokenPayload.userId);
-      const permissions = await PermissionManager.computeUserPermissions(tokenPayload.userId);
+      const permissions = await PermissionManager.computeUserPermissions(
+        tokenPayload.userId
+      );
 
       // Build context
       const context: RBACContext = {
@@ -344,7 +361,7 @@ export class RBACMiddleware {
           firstName: tokenPayload.firstName,
           lastName: tokenPayload.lastName,
           userType: tokenPayload.currentRole.userType,
-          isActive: true
+          isActive: true,
         },
         currentRole: tokenPayload.currentRole,
         availableRoles: userRoles,
@@ -354,13 +371,13 @@ export class RBACMiddleware {
           id: tokenPayload.sessionId,
           expiresAt: new Date(tokenPayload.exp * 1000),
           lastActivity: new Date(),
-          ipAddress: clientIP
+          ipAddress: clientIP,
         },
         tokenInfo: {
           issuedAt: new Date(tokenPayload.iat * 1000),
           expiresAt: new Date(tokenPayload.exp * 1000),
-          issuer: tokenPayload.iss
-        }
+          issuer: tokenPayload.iss,
+        },
       };
 
       // Log successful authorization if configured
@@ -380,7 +397,7 @@ export class RBACMiddleware {
         response = NextResponse.next();
         response.cookies.set({
           name: 'qr_rbac_token',
-          value: await EnhancedJWTService.refreshToken(token, clientIP, userAgent),
+          value: await EnhancedJWTService.refreshToken(token),
           httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'lax',
@@ -392,7 +409,7 @@ export class RBACMiddleware {
       return {
         isAuthorized: true,
         context,
-        response
+        response,
       };
     } catch (error) {
       console.error('RBAC Middleware error:', error);
@@ -413,9 +430,10 @@ export class RBACMiddleware {
             metadata: {
               endpoint: request.url,
               method: request.method,
-              errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-              timestamp: new Date().toISOString()
-            }
+              errorType:
+                error instanceof Error ? error.constructor.name : 'Unknown',
+              timestamp: new Date().toISOString(),
+            },
           }
         );
       }
@@ -426,7 +444,7 @@ export class RBACMiddleware {
           { error: 'Internal server error' },
           { status: 500 }
         ),
-        error: 'Internal server error'
+        error: 'Internal server error',
       };
     }
   }
@@ -446,13 +464,13 @@ export class RBACMiddleware {
       // Reset or create new rate limit window
       rateLimitMap.set(key, {
         requests: 1,
-        resetTime: now + config.windowMs
+        resetTime: now + config.windowMs,
       });
-      
+
       return {
         allowed: true,
         remaining: config.maxRequests - 1,
-        resetTime: now + config.windowMs
+        resetTime: now + config.windowMs,
       };
     }
 
@@ -460,7 +478,7 @@ export class RBACMiddleware {
       return {
         allowed: false,
         remaining: 0,
-        resetTime: rateLimit.resetTime
+        resetTime: rateLimit.resetTime,
       };
     }
 
@@ -471,7 +489,7 @@ export class RBACMiddleware {
     return {
       allowed: true,
       remaining: config.maxRequests - rateLimit.requests,
-      resetTime: rateLimit.resetTime
+      resetTime: rateLimit.resetTime,
     };
   }
 
@@ -502,39 +520,38 @@ export const rbacMiddlewareConfigs = {
     allowedUserTypes: ['platform_admin'],
     requireActiveSession: true,
     auditLog: true,
-    rateLimit: { windowMs: 60000, maxRequests: 100 }
+    rateLimit: { windowMs: 60000, maxRequests: 100 },
   },
-  
+
   // Restaurant owner only
   restaurantOwner: {
     allowedUserTypes: ['restaurant_owner'],
     requireActiveSession: true,
     auditLog: true,
-    rateLimit: { windowMs: 60000, maxRequests: 200 }
+    rateLimit: { windowMs: 60000, maxRequests: 200 },
   },
-  
+
   // Manager and above
   managerAndAbove: {
     allowedRoles: ['platform_admin', 'restaurant_owner', 'manager'],
     requireActiveSession: true,
     auditLog: true,
-    rateLimit: { windowMs: 60000, maxRequests: 150 }
+    rateLimit: { windowMs: 60000, maxRequests: 150 },
   },
-  
+
   // Staff access
   staffAccess: {
     allowedUserTypes: ['staff'],
     requireActiveSession: true,
     auditLog: false,
-    rateLimit: { windowMs: 60000, maxRequests: 300 }
+    rateLimit: { windowMs: 60000, maxRequests: 300 },
   },
-  
+
   // Any authenticated user
   authenticated: {
     requireActiveSession: true,
     auditLog: false,
     allowLegacyTokens: true,
-    rateLimit: { windowMs: 60000, maxRequests: 500 }
-  }
+    rateLimit: { windowMs: 60000, maxRequests: 500 },
+  },
 } as const;
-

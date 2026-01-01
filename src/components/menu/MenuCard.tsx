@@ -5,6 +5,7 @@ import { MenuItem, MenuItemVariation } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
 import { X, MessageSquare } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import Image from 'next/image';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -97,11 +98,12 @@ export function MenuCard({
         {/* Image */}
         <div className="relative aspect-square">
           {item.imageUrl ? (
-            <img
+            <Image
               src={item.imageUrl}
               alt={item.name}
-              loading="lazy"
-              className="w-full h-full object-cover"
+              fill
+              sizes="(max-width: 768px) 50vw, 33vw"
+              className="object-cover"
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
@@ -160,12 +162,15 @@ export function MenuCard({
             {/* Header with Image */}
             <div className="relative">
               {item.imageUrl ? (
-                <img
-                  src={item.imageUrl}
-                  alt={item.name}
-                  loading="lazy"
-                  className="w-full h-64 object-cover"
-                />
+                <div className="relative w-full h-64">
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    fill
+                    sizes="(max-width: 768px) 100vw, 512px"
+                    className="object-cover"
+                  />
+                </div>
               ) : (
                 <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200" />
               )}
