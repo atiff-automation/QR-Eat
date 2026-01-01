@@ -18,7 +18,7 @@ export function OrderConfirmation({
   useBodyScrollLock(true);
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden max-w-2xl mx-auto">
+    <div className="overflow-hidden max-w-2xl mx-auto">
       {/* Success Header */}
       <div className="bg-gradient-to-r from-orange-50 to-orange-100 p-8 text-center border-b border-orange-200">
         <div className="flex justify-center mb-4">
@@ -53,39 +53,18 @@ export function OrderConfirmation({
           </p>
         </div>
 
-        {/* Simple Instructions */}
-        <div className="bg-orange-50 border border-orange-200 rounded-xl p-5">
-          <h4 className="font-semibold text-gray-900 mb-3 text-center">
-            What&apos;s Next?
-          </h4>
-          <div className="space-y-2 text-sm text-gray-700">
-            <div className="flex items-start">
-              <span className="text-orange-500 mr-2 font-bold">1.</span>
-              <span>Your order has been sent to the kitchen</span>
-            </div>
-            <div className="flex items-start">
-              <span className="text-orange-500 mr-2 font-bold">2.</span>
-              <span>We&apos;ll prepare your food fresh</span>
-            </div>
-            <div className="flex items-start">
-              <span className="text-orange-500 mr-2 font-bold">3.</span>
-              <span>Staff will bring it to your table</span>
-            </div>
-          </div>
-        </div>
-
         {/* Action Buttons */}
-        <div className="space-y-3 pt-4">
+        <div className="space-y-3">
+          <p className="text-center text-sm text-gray-500">
+            Need help? Ask any staff member
+          </p>
+
           <button
             onClick={onNewOrder}
             className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 touch-target text-lg"
           >
             Order More Items
           </button>
-
-          <p className="text-center text-sm text-gray-500">
-            Need help? Ask any staff member
-          </p>
         </div>
       </div>
     </div>

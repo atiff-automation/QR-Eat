@@ -25,20 +25,20 @@ export function FloatingCartBar({ cart, onReviewCart }: FloatingCartBarProps) {
       >
         {/* Left: Item Count Badge */}
         <div className="flex items-center space-x-3">
-          <div className="bg-white/20 backdrop-blur-sm text-white font-bold h-10 w-10 rounded-full flex items-center justify-center text-lg shadow-sm">
+          <div className="bg-white/20 backdrop-blur-sm text-white font-bold h-8 w-8 rounded-full flex items-center justify-center text-base shadow-sm">
             {itemCount}
           </div>
           <div className="flex flex-col items-start">
-            <span className="text-sm font-medium text-orange-100">Total</span>
-            <span className="text-lg font-bold leading-tight">
+            <span className="text-xs font-medium text-orange-100">Total</span>
+            <span className="text-base font-bold leading-tight">
               {formatPrice(cart.totalAmount)}
             </span>
           </div>
         </div>
 
         {/* Right: Action */}
-        <div className="flex items-center bg-white text-orange-600 px-4 py-2 rounded-xl font-bold text-lg shadow-sm group-hover:bg-orange-50 transition-colors">
-          <ShoppingBag className="w-4 h-4 mr-2" />
+        <div className="flex items-center bg-white text-orange-600 px-3 py-1.5 rounded-lg font-bold text-base shadow-sm group-hover:bg-orange-50 transition-colors">
+          <ShoppingBag className="w-4 h-4 mr-1.5" />
           <span>View Cart</span>
         </div>
       </button>

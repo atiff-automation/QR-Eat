@@ -62,7 +62,7 @@ export function CheckoutForm({
   };
 
   return (
-    <div className="bg-white min-h-[80vh] flex flex-col items-center">
+    <div className="min-h-[80vh] flex flex-col items-center">
       {/* Header with Back Button */}
       <div className="w-full flex items-center p-4">
         <button

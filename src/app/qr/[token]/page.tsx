@@ -205,7 +205,8 @@ export default function QRMenuPage() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-4">
+      {/* Main Content Area */}
+      <div className="max-w-2xl mx-auto px-4 py-4">
         {currentOrder ? (
           <OrderConfirmation order={currentOrder} onNewOrder={handleNewOrder} />
         ) : showCheckout ? (

@@ -45,7 +45,7 @@ export function CartSummary({
   }
 
   return (
-    <div className="bg-white overflow-hidden">
+    <div className="overflow-hidden">
       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
         <div className="flex items-center justify-between">
           {onBack && (
