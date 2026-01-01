@@ -65,6 +65,14 @@ html {
   -moz-text-size-adjust: 100%;
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  /* Smooth scrolling for anchor links */
+}
+
+/* Scroll offset for sticky header navigation */
+.scroll-mt-32 {
+  scroll-margin-top: 6.5rem;
+  /* 112px - offset for sticky category bar */
 }
 
 /* Improve tap highlight */

@@ -117,6 +117,51 @@ export default function QRMenuPage() {
     }
   }, [cart.items.length, showCart]);
 
+  // Auto-update active category based on scroll position
+  useEffect(() => {
+    // Only run on menu view (not cart/checkout/order confirmation)
+    if (showCart || showCheckout || currentOrder) return;
+
+    // Create Intersection Observer to track visible category sections
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // Find the category section that's most visible
+        let maxRatio = 0;
+        let mostVisibleCategory = '';
+
+        entries.forEach((entry) => {
+          if (entry.intersectionRatio > maxRatio) {
+            maxRatio = entry.intersectionRatio;
+            mostVisibleCategory = entry.target.id;
+          }
+        });
+
+        // Update active category if we found a visible one
+        // Only update if at least 30% of section is visible (prevents flickering)
+        if (mostVisibleCategory && maxRatio > 0.3) {
+          setActiveCategory(mostVisibleCategory);
+        }
+      },
+      {
+        // Trigger when 30%, 50%, 70%, or 100% of section is visible
+        threshold: [0, 0.3, 0.5, 0.7, 1],
+        // Offset from top (account for sticky header) and bottom (focus on upper viewport)
+        rootMargin: '-100px 0px -50% 0px',
+      }
+    );
+
+    // Observe all category sections
+    menu.forEach((category) => {
+      const element = document.getElementById(category.id);
+      if (element) {
+        observer.observe(element);
+      }
+    });
+
+    // Cleanup: disconnect observer when component unmounts or dependencies change
+    return () => observer.disconnect();
+  }, [menu, showCart, showCheckout, currentOrder]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -150,39 +195,39 @@ export default function QRMenuPage() {
     );
   }
 
-  const activeMenuCategory = menu.find((cat) => cat.id === activeCategory);
+  // All categories are now displayed - no filtering needed
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
-      {/* Mobile-First Header */}
-      {/* Mobile-First Header - Global Top Bar */}
-      <div className="bg-white sticky top-0 z-50 border-b border-gray-50">
-        <div className="flex justify-between items-center px-4 py-3 text-xs font-medium text-gray-500">
-          <div className="flex items-center space-x-1">
-            <span>Powered by</span>
-            <span className="text-orange-500 font-bold">QR-Eat</span>
-          </div>
-          <div className="bg-gray-100 px-3 py-1 rounded-full text-gray-700 font-semibold">
-            Table {table.tableNumber}
-          </div>
-        </div>
-      </div>
-
       {/* Conditional Menu Header (Restaurant Info & Search) */}
       {!showCart && !showCheckout && !currentOrder && (
-        <div className="bg-white pb-2 relative z-40">
-          {/* Center Row: Restaurant Identity */}
-          <div className="text-center px-6 pt-6 pb-10">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
-              {table.restaurant.name}
-            </h1>
-            <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
-              Authentic Italian Cuisine
-            </p>
+        <>
+          {/* Restaurant Identity - Scrolls Away */}
+          <div className="bg-white pb-2 relative z-30">
+            {/* Powered by QR-Eat & Table Number - Top Bar */}
+            <div className="flex justify-between items-center px-4 pt-3 pb-2 text-xs font-medium text-gray-500 border-b border-gray-50">
+              <div className="flex items-center space-x-1">
+                <span>Powered by</span>
+                <span className="text-orange-500 font-bold">QR-Eat</span>
+              </div>
+              <div className="bg-gray-100 px-3 py-1 rounded-full text-gray-700 font-semibold">
+                Table {table.tableNumber}
+              </div>
+            </div>
+
+            {/* Restaurant Name */}
+            <div className="text-center px-6 pt-6 pb-10">
+              <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
+                {table.restaurant.name}
+              </h1>
+              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                Authentic Italian Cuisine
+              </p>
+            </div>
           </div>
 
-          {/* Bottom Row: Integrated Pill-Shaped Search & Category */}
-          <div className="px-4 pb-4">
+          {/* Category & Search Bar - Sticky */}
+          <div className="sticky top-0 z-40 bg-white px-4 py-3 shadow-sm border-b border-gray-100">
             <div className="bg-gray-100 rounded-xl p-1 flex items-center shadow-inner">
               <div className="flex-1">
                 <CategoryDropdown
@@ -190,9 +235,13 @@ export default function QRMenuPage() {
                   activeCategory={activeCategory}
                   onCategoryChange={(id) => {
                     setActiveCategory(id);
-                    document
-                      .getElementById(id)
-                      ?.scrollIntoView({ behavior: 'smooth' });
+                    const element = document.getElementById(id);
+                    if (element) {
+                      element.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start',
+                      });
+                    }
                   }}
                   onModalStateChange={setIsAnyModalOpen}
                 />
@@ -205,7 +254,7 @@ export default function QRMenuPage() {
               />
             </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* Cart Error Display */}
@@ -242,40 +291,44 @@ export default function QRMenuPage() {
             onClearAll={handleClearAll}
           />
         ) : (
-          <div>
-            {/* Category Title */}
-            {activeMenuCategory && (
-              <div className="mb-4">
-                <h2 className="text-2xl font-bold text-gray-900">
-                  {activeMenuCategory.name}
-                </h2>
-                {activeMenuCategory.description && (
-                  <p className="text-gray-600 mt-1">
-                    {activeMenuCategory.description}
-                  </p>
+          <div className="space-y-8">
+            {/* Render ALL categories */}
+            {menu.map((category) => (
+              <section
+                key={category.id}
+                id={category.id}
+                className="scroll-mt-32"
+              >
+                {/* Category Header */}
+                <div className="mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {category.name}
+                  </h2>
+                  {category.description && (
+                    <p className="text-gray-600 mt-1">{category.description}</p>
+                  )}
+                </div>
+
+                {/* Menu Items Grid */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                  {category.menuItems.map((item) => (
+                    <MenuCard
+                      key={item.id}
+                      item={item}
+                      onAddToCart={addToCart}
+                      onModalStateChange={setIsAnyModalOpen}
+                    />
+                  ))}
+                </div>
+
+                {/* Empty State */}
+                {category.menuItems.length === 0 && (
+                  <div className="text-center py-8 text-gray-500">
+                    No items available in this category
+                  </div>
                 )}
-              </div>
-            )}
-
-            {/* Menu Items - Mobile-First Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-              {activeMenuCategory?.menuItems.map((item) => (
-                <MenuCard
-                  key={item.id}
-                  item={item}
-                  onAddToCart={addToCart}
-                  onModalStateChange={setIsAnyModalOpen}
-                />
-              ))}
-            </div>
-
-            {activeMenuCategory?.menuItems.length === 0 && (
-              <div className="text-center py-12">
-                <p className="text-gray-700">
-                  No items available in this category
-                </p>
-              </div>
-            )}
+              </section>
+            ))}
           </div>
         )}
       </div>

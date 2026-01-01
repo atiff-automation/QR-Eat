@@ -100,6 +100,7 @@ export function MenuCard({
             <img
               src={item.imageUrl}
               alt={item.name}
+              loading="lazy"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -162,6 +163,7 @@ export function MenuCard({
                 <img
                   src={item.imageUrl}
                   alt={item.name}
+                  loading="lazy"
                   className="w-full h-64 object-cover"
                 />
               ) : (
