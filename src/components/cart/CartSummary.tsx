@@ -45,8 +45,9 @@ export function CartSummary({
   }
 
   return (
-    <div className="bg-white rounded-xl shadow-md overflow-hidden">
-      <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
+    <div className="fixed inset-0 bg-white flex flex-col">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 p-4 border-b border-gray-200 bg-gradient-to-r from-orange-50 to-orange-100">
         <div className="flex items-center justify-between">
           {onBack && (
             <button
@@ -76,7 +77,8 @@ export function CartSummary({
         </div>
       </div>
 
-      <div className="modal-scrollable max-h-96 overflow-y-auto">
+      {/* Scrollable Order List */}
+      <div className="flex-1 overflow-y-auto modal-scrollable">
         {cart.items.map((item, index) => (
           <div
             key={`${item.menuItemId}-${index}`}
@@ -164,8 +166,8 @@ export function CartSummary({
         ))}
       </div>
 
-      {/* Summary Section */}
-      <div className="p-4 bg-gray-50 border-t-2 border-gray-200">
+      {/* Sticky Footer - Summary + Checkout Button */}
+      <div className="flex-shrink-0 p-4 bg-gray-50 border-t-2 border-gray-200">
         <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal</span>
