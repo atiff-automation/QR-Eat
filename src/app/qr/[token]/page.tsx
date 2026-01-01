@@ -36,6 +36,7 @@ export default function QRMenuPage() {
     updateCartItem,
     removeFromCart,
     clearCart,
+    resetSession,
     error: cartError,
     sessionId,
   } = useServerCart(
@@ -97,6 +98,7 @@ export default function QRMenuPage() {
   };
 
   const handleNewOrder = () => {
+    resetSession(); // Clear session state and localStorage
     setCurrentOrder(null);
     setShowCheckout(false);
     setShowCart(false);

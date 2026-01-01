@@ -13,6 +13,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Cart, MenuItem, MenuItemVariation } from '@/types/menu';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { STORAGE_KEYS } from '@/lib/session-constants';
 
 interface ServerCartItem {
   id: string;
@@ -40,8 +41,6 @@ interface ServerCart {
   sessionId?: string; // Added for persistence
 }
 
-const SESSION_STORAGE_KEY = 'qr_session_id';
-
 export function useServerCart(
   tableId: string | null,
   taxRate: number = 0.085,
@@ -61,7 +60,7 @@ export function useServerCart(
   // Initialize session from localStorage
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const savedSessionId = localStorage.getItem(SESSION_STORAGE_KEY);
+      const savedSessionId = localStorage.getItem(STORAGE_KEYS.SESSION_ID);
       if (savedSessionId) {
         setSessionId(savedSessionId);
       }
@@ -118,7 +117,7 @@ export function useServerCart(
       if (serverCart.sessionId && serverCart.sessionId !== sessionId) {
         console.log('[fetchCart] Updating sessionId:', serverCart.sessionId);
         setSessionId(serverCart.sessionId);
-        localStorage.setItem(SESSION_STORAGE_KEY, serverCart.sessionId);
+        localStorage.setItem(STORAGE_KEYS.SESSION_ID, serverCart.sessionId);
       }
 
       const totals = calculateTotals(serverCart);
@@ -224,7 +223,7 @@ export function useServerCart(
 
         // Handling session mismatch: if error suggests session issues, clear local storage
         if (err instanceof Error && err.message.includes('Session')) {
-          localStorage.removeItem(SESSION_STORAGE_KEY);
+          localStorage.removeItem(STORAGE_KEYS.SESSION_ID);
           setSessionId(null);
           // Retry fetch to get new session?
         }
@@ -321,6 +320,32 @@ export function useServerCart(
     // Keep session active.
   }, []);
 
+  /**
+   * Reset session (clear both state and localStorage)
+   *
+   * Called when user starts a new order after completing a previous one.
+   * Ensures the hook doesn't try to reuse an ended session.
+   *
+   * @see CLAUDE.md - State Management, Browser API Safety
+   */
+  const resetSession = useCallback(() => {
+    try {
+      // Clear state
+      setSessionId(null);
+
+      // Clear localStorage
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.removeItem(STORAGE_KEYS.SESSION_ID);
+      }
+
+      console.log(
+        '[useServerCart] Session reset - cleared state and localStorage'
+      );
+    } catch (error) {
+      console.warn('[useServerCart] Failed to reset session:', error);
+    }
+  }, []);
+
   // Get total item count
   const getItemCount = useCallback(() => {
     return cart.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -341,6 +366,7 @@ export function useServerCart(
     updateCartItem,
     removeFromCart,
     clearCart,
+    resetSession,
     getItemCount,
     loading,
     error,

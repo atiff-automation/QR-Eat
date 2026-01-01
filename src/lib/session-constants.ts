@@ -41,3 +41,8 @@ export const CART_SYNC = {
   MAX_RETRY_ATTEMPTS: 3,
   RETRY_DELAY_MS: 1000,
 } as const;
+
+// LocalStorage keys
+export const STORAGE_KEYS = {
+  SESSION_ID: 'qr_session_id', // Customer session ID for cart persistence
+} as const;
