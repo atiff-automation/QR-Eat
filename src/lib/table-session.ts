@@ -229,16 +229,29 @@ export async function getTableCart(
   try {
     const validTableId = z.string().uuid().parse(tableId);
 
+    console.log(
+      '[getTableCart] Called with tableId:',
+      validTableId,
+      'sessionId:',
+      sessionId
+    );
+
     let session: TableSession | null = null;
 
     // 1. Try to resume session if ID provided
     if (sessionId) {
       session = await getCustomerSessionById(sessionId);
+      console.log('[getTableCart] Resumed session:', session?.id || 'NULL');
     }
 
     // 2. If no valid session found, create new one
     if (!session) {
+      console.log(
+        '[getTableCart] Creating new session for table:',
+        validTableId
+      );
       session = await createCustomerSession(validTableId);
+      console.log('[getTableCart] Created new session:', session.id);
     } else if (session.tableId !== validTableId) {
       // Security check: ensure session belongs to requested table
       console.warn(
@@ -246,6 +259,8 @@ export async function getTableCart(
       );
       session = await createCustomerSession(validTableId);
     }
+
+    console.log('[getTableCart] Using session:', session.id);
 
     // Get cart items
     const cartItems = await prisma.cartItem.findMany({
@@ -271,6 +286,13 @@ export async function getTableCart(
         createdAt: 'asc',
       },
     });
+
+    console.log(
+      '[getTableCart] Found',
+      cartItems.length,
+      'cart items for session:',
+      session.id
+    );
 
     // Calculate totals
     const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -311,8 +333,39 @@ export async function addToTableCart(
     // Validate input
     const validParams = AddToCartSchema.parse(params);
 
-    // Get or create session
-    const session = await getOrCreateTableSession(validParams.tableId);
+    console.log(
+      '[addToTableCart] Called with tableId:',
+      validParams.tableId,
+      'sessionId:',
+      validParams.sessionId
+    );
+
+    // Get or resume session (same logic as getTableCart)
+    let session: TableSession | null = null;
+
+    // 1. Try to resume session if ID provided
+    if (validParams.sessionId) {
+      session = await getCustomerSessionById(validParams.sessionId);
+      console.log('[addToTableCart] Resumed session:', session?.id || 'NULL');
+    }
+
+    // 2. If no valid session found, create new one
+    if (!session) {
+      console.log(
+        '[addToTableCart] Creating new session for table:',
+        validParams.tableId
+      );
+      session = await createCustomerSession(validParams.tableId);
+      console.log('[addToTableCart] Created new session:', session.id);
+    } else if (session.tableId !== validParams.tableId) {
+      // Security check: ensure session belongs to requested table
+      console.warn(
+        `Session ${validParams.sessionId} belongs to different table. Creating new.`
+      );
+      session = await createCustomerSession(validParams.tableId);
+    }
+
+    console.log('[addToTableCart] Using session:', session.id);
 
     // Check cart item limit
     const existingItemCount = await prisma.cartItem.count({
@@ -371,6 +424,7 @@ export async function addToTableCart(
           },
         },
       });
+      console.log('[addToTableCart] Updated existing cart item:', cartItem.id);
     } else {
       // Create new cart item
       const subtotal = validParams.unitPrice * validParams.quantity;
@@ -401,6 +455,12 @@ export async function addToTableCart(
           },
         },
       });
+      console.log(
+        '[addToTableCart] Created new cart item:',
+        cartItem.id,
+        'in session:',
+        session.id
+      );
     }
 
     return {

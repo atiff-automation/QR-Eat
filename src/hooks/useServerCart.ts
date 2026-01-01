@@ -93,6 +93,13 @@ export function useServerCart(
   const fetchCart = useCallback(async () => {
     if (!tableId) return;
 
+    console.log(
+      '[fetchCart] Starting fetch for tableId:',
+      tableId,
+      'sessionId:',
+      sessionId
+    );
+
     try {
       // Pass sessionId if we have it
       const queryParams = new URLSearchParams();
@@ -105,9 +112,11 @@ export function useServerCart(
       );
 
       const serverCart: ServerCart = data.cart;
+      console.log('[fetchCart] Received server cart:', serverCart);
 
       // Persist session ID if returned
       if (serverCart.sessionId && serverCart.sessionId !== sessionId) {
+        console.log('[fetchCart] Updating sessionId:', serverCart.sessionId);
         setSessionId(serverCart.sessionId);
         localStorage.setItem(SESSION_STORAGE_KEY, serverCart.sessionId);
       }
@@ -142,13 +151,14 @@ export function useServerCart(
         totalPrice: item.subtotal,
       }));
 
+      console.log('[fetchCart] Setting cart with', clientItems.length, 'items');
       setCart({
         items: clientItems,
         ...totals,
       });
       setError(null);
     } catch (err) {
-      console.error('Error fetching cart:', err);
+      console.error('[fetchCart] Error fetching cart:', err);
       setError(
         err instanceof ApiClientError
           ? err.message
@@ -174,6 +184,12 @@ export function useServerCart(
         return;
       }
 
+      console.log(
+        '[addToCart] Adding item:',
+        menuItem.name,
+        'quantity:',
+        quantity
+      );
       setLoading(true);
       setError(null);
 
@@ -183,6 +199,7 @@ export function useServerCart(
             ? selectedVariations[0].variationId
             : undefined;
 
+        console.log('[addToCart] Calling API...');
         await ApiClient.post('/qr/cart/add', {
           tableId,
           sessionId: sessionId || undefined, // Pass session ID for persistence
@@ -193,10 +210,12 @@ export function useServerCart(
           specialInstructions,
         });
 
+        console.log('[addToCart] API success, calling fetchCart...');
         // Refresh cart to get updated state
         await fetchCart();
+        console.log('[addToCart] fetchCart completed');
       } catch (err) {
-        console.error('Error adding to cart:', err);
+        console.error('[addToCart] Error adding to cart:', err);
         setError(
           err instanceof ApiClientError
             ? err.message
