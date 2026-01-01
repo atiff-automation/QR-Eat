@@ -123,7 +123,7 @@ export function CheckoutForm({
         <button
           onClick={() => handleSubmit(true)}
           disabled={isSubmitting || !phoneNumber}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 rounded-lg uppercase tracking-wide transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed mb-8 shadow-md"
+          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed mb-8 shadow-md text-lg"
         >
           {isSubmitting ? 'Processing...' : 'Continue'}
         </button>
@@ -144,7 +144,7 @@ export function CheckoutForm({
         <button
           onClick={() => handleSubmit(false)}
           disabled={isSubmitting}
-          className="w-full bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3 rounded-lg transition-colors mb-12"
+          className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-colors mb-12 text-base"
         >
           Order as Guest
         </button>
