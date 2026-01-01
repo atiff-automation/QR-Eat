@@ -179,6 +179,7 @@ export default function QRMenuPage() {
                       .getElementById(id)
                       ?.scrollIntoView({ behavior: 'smooth' });
                   }}
+                  onModalStateChange={setIsAnyModalOpen}
                 />
               </div>
               <div className="h-8 w-px bg-gray-300 mx-1"></div>

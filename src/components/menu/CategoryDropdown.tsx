@@ -8,12 +8,14 @@ interface CategoryDropdownProps {
   categories: MenuCategory[];
   activeCategory: string;
   onCategoryChange: (categoryId: string) => void;
+  onModalStateChange?: (isOpen: boolean) => void;
 }
 
 export function CategoryDropdown({
   categories,
   activeCategory,
   onCategoryChange,
+  onModalStateChange,
 }: CategoryDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
 
@@ -23,14 +25,25 @@ export function CategoryDropdown({
 
   const handleSelect = (categoryId: string) => {
     onCategoryChange(categoryId);
+    handleClose();
+  };
+
+  const handleOpen = () => {
+    console.log('[CategoryDropdown] Opening modal');
+    setIsOpen(true);
+    onModalStateChange?.(true);
+  };
+
+  const handleClose = () => {
+    console.log('[CategoryDropdown] Closing modal');
     setIsOpen(false);
+    onModalStateChange?.(false);
   };
 
   return (
     <>
-      {/* Dropdown Button */}
       <button
-        onClick={() => setIsOpen(true)}
+        onClick={handleOpen}
         className="w-full flex items-center justify-between bg-white border border-gray-300 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center space-x-2">
@@ -53,7 +66,7 @@ export function CategoryDropdown({
           <div
             className="absolute inset-0 transition-opacity"
             style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
-            onClick={() => setIsOpen(false)}
+            onClick={handleClose}
           />
 
           {/* Modal Content */}
@@ -64,7 +77,7 @@ export function CategoryDropdown({
                 Select Category
               </h3>
               <button
-                onClick={() => setIsOpen(false)}
+                onClick={handleClose}
                 className="p-1 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <X className="h-5 w-5 text-gray-600" />
