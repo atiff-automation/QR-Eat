@@ -4,7 +4,7 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Disable TypeScript checks during build for legacy code compatibility  
+  // Disable TypeScript checks during build for legacy code compatibility
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -18,10 +18,11 @@ const nextConfig = {
     domains: ['localhost'],
     unoptimized: true,
   },
-  // Experimental features to support Node.js runtime in middleware
+  // Output server components external packages
+  serverExternalPackages: ['jsonwebtoken'],
+  // Experimental features
   experimental: {
     middlewareSourceMaps: true,
-    serverComponentsExternalPackages: ['jsonwebtoken'],
   },
   // Webpack configuration
   webpack: (config, { isServer }) => {
