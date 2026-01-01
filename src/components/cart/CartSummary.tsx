@@ -3,6 +3,7 @@
 import { Cart, CartItem } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
 import { ShoppingBag, Trash2 } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CartSummaryProps {
   cart: Cart;
@@ -24,6 +25,9 @@ export function CartSummary({
   onBack,
   isCheckoutLoading = false,
 }: CartSummaryProps) {
+  // Lock body scroll to prevent browser UI auto-hiding
+  useBodyScrollLock(true);
+
   if (cart.items.length === 0) {
     return (
       <div className="bg-white rounded-xl shadow-md p-8 text-center">
@@ -72,7 +76,7 @@ export function CartSummary({
         </div>
       </div>
 
-      <div className="max-h-96 overflow-y-auto">
+      <div className="modal-scrollable max-h-96 overflow-y-auto">
         {cart.items.map((item, index) => (
           <div
             key={`${item.menuItemId}-${index}`}

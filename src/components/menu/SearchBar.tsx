@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo } from 'react';
 import { MenuCategory, MenuItem, MenuItemVariation } from '@/types/menu';
 import { Search, X } from 'lucide-react';
 import { MenuCard } from './MenuCard';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface SearchBarProps {
   menu: MenuCategory[];
@@ -27,6 +28,9 @@ export function SearchBar({
 }: SearchBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
+
+  // Lock body scroll when search modal is open to prevent browser UI auto-hiding
+  useBodyScrollLock(isOpen);
 
   // Get all items in a flat list
   const allItems = useMemo(() => {
@@ -109,7 +113,7 @@ export function SearchBar({
           </div>
 
           {/* Search Results */}
-          <div className="flex-1 overflow-y-auto bg-gray-50 p-4">
+          <div className="modal-scrollable flex-1 overflow-y-auto bg-gray-50 p-4">
             {filteredItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <Search className="h-12 w-12 text-gray-300 mb-3" />

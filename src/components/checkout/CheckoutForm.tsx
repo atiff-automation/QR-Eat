@@ -5,6 +5,7 @@ import { Cart } from '@/types/menu';
 import { OrderResponse } from '@/types/order';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { ArrowLeft } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CheckoutFormProps {
   cart: Cart;
@@ -21,6 +22,9 @@ export function CheckoutForm({
   const [phoneNumber, setPhoneNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+
+  // Lock body scroll to prevent browser UI auto-hiding
+  useBodyScrollLock(true);
 
   const handleSubmit = async (withPhone: boolean = false) => {
     setIsSubmitting(true);

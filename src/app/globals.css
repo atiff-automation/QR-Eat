@@ -26,19 +26,26 @@ body {
 }
 
 /* Force input elements to have dark text on light background */
-input, textarea, select {
-  color: #111827 !important; /* text-gray-900 */
+input,
+textarea,
+select {
+  color: #111827 !important;
+  /* text-gray-900 */
   background-color: #ffffff !important;
 }
 
 /* Ensure placeholder text is visible but lighter */
-input::placeholder, textarea::placeholder {
-  color: #6b7280 !important; /* text-gray-500 */
+input::placeholder,
+textarea::placeholder {
+  color: #6b7280 !important;
+  /* text-gray-500 */
   opacity: 1 !important;
 }
 
 /* Force focus states */
-input:focus, textarea:focus, select:focus {
+input:focus,
+textarea:focus,
+select:focus {
   color: #111827 !important;
   background-color: #ffffff !important;
 }
@@ -90,7 +97,8 @@ body {
 }
 
 /* Better mobile button states */
-button, a {
+button,
+a {
   -webkit-touch-callout: none;
 }
 
@@ -117,6 +125,7 @@ button, a {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -127,6 +136,7 @@ button, a {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -176,4 +186,25 @@ button, a {
 
 .z-search {
   z-index: 70;
+}
+
+/* ===========================
+   Modal Viewport Stabilization
+   =========================== */
+
+/* Modal container standardization */
+.modal-container {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+}
+
+/* Modal scrollable content */
+.modal-scrollable {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }

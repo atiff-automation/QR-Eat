@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { MenuItem, MenuItemVariation } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
 import { X, MessageSquare } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface MenuCardProps {
   item: MenuItem;
@@ -32,6 +33,9 @@ export function MenuCard({
   >({});
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [showInstructions, setShowInstructions] = useState(false);
+
+  // Lock body scroll when modal is open to prevent browser UI auto-hiding
+  useBodyScrollLock(showModal);
 
   const handleVariationChange = (
     variationType: string,
@@ -184,7 +188,7 @@ export function MenuCard({
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-y-auto max-h-[calc(90vh-16rem)] p-6">
+            <div className="modal-scrollable overflow-y-auto max-h-[calc(90vh-16rem)] p-6">
               {/* Name and Price */}
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">

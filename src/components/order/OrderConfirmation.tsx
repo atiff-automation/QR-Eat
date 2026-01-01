@@ -3,6 +3,7 @@
 import { formatPrice } from '@/lib/qr-utils';
 import { OrderResponse } from '@/types/order';
 import { CheckCircle } from 'lucide-react';
+import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface OrderConfirmationProps {
   order: OrderResponse;
@@ -13,6 +14,9 @@ export function OrderConfirmation({
   order,
   onNewOrder,
 }: OrderConfirmationProps) {
+  // Lock body scroll to prevent browser UI auto-hiding
+  useBodyScrollLock(true);
+
   return (
     <div className="bg-white rounded-xl shadow-md overflow-hidden max-w-2xl mx-auto">
       {/* Success Header */}
