@@ -14,6 +14,7 @@ interface CartSummaryProps {
   onRemoveItem: (index: number) => void;
   onCheckout: () => void;
   onBack?: () => void;
+  onClearAll?: () => void;
   isCheckoutLoading?: boolean;
 }
 
@@ -23,26 +24,11 @@ export function CartSummary({
   onRemoveItem,
   onCheckout,
   onBack,
+  onClearAll,
   isCheckoutLoading = false,
 }: CartSummaryProps) {
   // Lock body scroll to prevent browser UI auto-hiding
   useBodyScrollLock(true);
-
-  if (cart.items.length === 0) {
-    return (
-      <div className="bg-white rounded-xl shadow-md p-8 text-center">
-        <div className="text-gray-400 mb-4">
-          <ShoppingBag className="w-16 h-16 mx-auto mb-3" strokeWidth={1.5} />
-          <p className="text-lg font-medium text-gray-600">
-            Your cart is empty
-          </p>
-        </div>
-        <p className="text-sm text-gray-500">
-          Add items from the menu to get started
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="overflow-hidden">
@@ -73,6 +59,16 @@ export function CartSummary({
             <ShoppingBag className="h-6 w-6 mr-2 text-orange-600" />
             Your Order
           </h2>
+          {onClearAll && cart.items.length > 0 && (
+            <button
+              onClick={onClearAll}
+              className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors touch-target"
+              aria-label="Clear all items"
+            >
+              <Trash2 className="w-4 h-4" />
+              <span>Clear All</span>
+            </button>
+          )}
         </div>
       </div>
 

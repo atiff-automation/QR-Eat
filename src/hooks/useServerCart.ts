@@ -306,19 +306,62 @@ export function useServerCart(
     [tableId, cart.items, fetchCart]
   );
 
-  // Clear cart (already handled by order creation)
-  const clearCart = useCallback(() => {
-    setCart({
-      items: [],
-      subtotal: 0,
-      taxAmount: 0,
-      serviceCharge: 0,
-      totalAmount: 0,
-    });
-    // Optional: Clearning local session on manual clear?
-    // Usually we keep session active until paid, but if cleared manually...
-    // Keep session active.
-  }, []);
+  /**
+   * Clear cart (remove all items)
+   *
+   * Clears all items from the cart on both server and client.
+   * Used when user clicks "Clear All" or when starting a new order.
+   *
+   * @see CLAUDE.md - Async Operations, Error Handling
+   */
+  const clearCart = useCallback(async () => {
+    if (!tableId) {
+      console.warn('[clearCart] No tableId provided');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      console.log(
+        '[clearCart] Clearing cart for tableId:',
+        tableId,
+        'sessionId:',
+        sessionId
+      );
+
+      // Call API to clear cart on server
+      const queryParams = new URLSearchParams();
+      if (sessionId) {
+        queryParams.append('sessionId', sessionId);
+      }
+
+      await ApiClient.delete(
+        `/qr/cart/${tableId}/clear?${queryParams.toString()}`
+      );
+
+      // Clear local state
+      setCart({
+        items: [],
+        subtotal: 0,
+        taxAmount: 0,
+        serviceCharge: 0,
+        totalAmount: 0,
+      });
+
+      console.log('[clearCart] Cart cleared successfully');
+    } catch (err) {
+      console.error('[clearCart] Error clearing cart:', err);
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Failed to clear cart. Please try again.'
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [tableId, sessionId]);
 
   /**
    * Reset session (clear both state and localStorage)

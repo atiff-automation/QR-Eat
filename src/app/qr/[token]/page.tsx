@@ -104,6 +104,19 @@ export default function QRMenuPage() {
     setShowCart(false);
   };
 
+  const handleClearAll = async () => {
+    await clearCart();
+    // Navigation handled automatically by useEffect when cart becomes empty
+  };
+
+  // Auto-navigate to menu when cart becomes empty
+  useEffect(() => {
+    if (showCart && cart.items.length === 0) {
+      console.log('[QRMenuPage] Cart is empty, navigating to menu');
+      setShowCart(false);
+    }
+  }, [cart.items.length, showCart]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -226,6 +239,7 @@ export default function QRMenuPage() {
             onRemoveItem={removeFromCart}
             onCheckout={handleCheckout}
             onBack={() => setShowCart(false)}
+            onClearAll={handleClearAll}
           />
         ) : (
           <div>
