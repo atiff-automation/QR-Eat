@@ -375,6 +375,13 @@ export function useServerCart(
     try {
       // Clear state
       setSessionId(null);
+      setCart({
+        items: [],
+        subtotal: 0,
+        taxAmount: 0,
+        serviceCharge: 0,
+        totalAmount: 0,
+      });
 
       // Clear localStorage
       if (typeof window !== 'undefined' && window.localStorage) {
@@ -382,7 +389,7 @@ export function useServerCart(
       }
 
       console.log(
-        '[useServerCart] Session reset - cleared state and localStorage'
+        '[useServerCart] Session reset - cleared state, cart, and localStorage'
       );
     } catch (error) {
       console.warn('[useServerCart] Failed to reset session:', error);
