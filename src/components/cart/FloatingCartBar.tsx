@@ -18,10 +18,7 @@ export function FloatingCartBar({ cart, onReviewCart }: FloatingCartBarProps) {
   }
 
   return (
-    <div
-      className="fixed left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300"
-      style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
-    >
+    <div className="fixed safe-inset-bottom left-4 right-4 z-50 animate-in slide-in-from-bottom-4 duration-300">
       <button
         onClick={onReviewCart}
         className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl shadow-orange-200 rounded-lg py-4 px-6 flex items-center justify-between group transition-transform active:scale-95"

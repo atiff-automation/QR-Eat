@@ -144,10 +144,7 @@ export function CheckoutForm({
         <button
           onClick={() => handleSubmit(false)}
           disabled={isSubmitting}
-          className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-colors text-base"
-          style={{
-            marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
-          }}
+          className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-colors text-base safe-padding-bottom-lg"
         >
           Order as Guest
         </button>

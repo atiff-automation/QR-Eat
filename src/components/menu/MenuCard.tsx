@@ -181,18 +181,14 @@ export function MenuCard({
                   setShowModal(false);
                   onModalStateChange?.(false);
                 }}
-                className="absolute right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
-                style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+                className="absolute safe-inset-top right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
               >
                 <X className="h-5 w-5 text-gray-600" />
               </button>
 
               {/* Best Seller Badge */}
               {item.isFeatured && (
-                <div
-                  className="absolute left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md"
-                  style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
-                >
+                <div className="absolute safe-inset-top left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
                   Best Seller
                 </div>
               )}
