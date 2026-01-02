@@ -20,12 +20,14 @@ interface MenuCardProps {
     instructions?: string
   ) => void;
   onModalStateChange?: (isOpen: boolean) => void;
+  cartQuantity?: number; // Total quantity of this item in cart
 }
 
 export function MenuCard({
   item,
   onAddToCart,
   onModalStateChange,
+  cartQuantity = 0,
 }: MenuCardProps) {
   const [showModal, setShowModal] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
@@ -47,6 +49,11 @@ export function MenuCard({
       setIsClosing(false);
       onModalStateChange?.(false);
     }, 300); // Match animation duration
+  };
+
+  const handleOpen = () => {
+    setShowModal(true);
+    onModalStateChange?.(true);
   };
 
   const handleVariationChange = (
@@ -99,13 +106,16 @@ export function MenuCard({
   return (
     <>
       {/* Simple Card - Just Image, Name, Price */}
-      <button
-        onClick={() => {
-          setShowModal(true);
-          onModalStateChange?.(true);
-        }}
-        className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left w-full"
+      <div
+        onClick={handleOpen}
+        className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left w-full cursor-pointer relative"
       >
+        {/* Cart Quantity Badge */}
+        {cartQuantity > 0 && (
+          <div className="absolute top-2 right-2 z-10 bg-orange-500 text-white text-xs font-bold rounded-full w-6 h-6 flex items-center justify-center shadow-lg">
+            {cartQuantity}
+          </div>
+        )}
         {/* Image */}
         <div className="relative aspect-square">
           {item.imageUrl ? (
@@ -153,7 +163,7 @@ export function MenuCard({
             {formatPrice(item.price)}
           </p>
         </div>
-      </button>
+      </div>
 
       {/* Detail Modal */}
       {showModal && (

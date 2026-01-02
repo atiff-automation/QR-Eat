@@ -249,6 +249,7 @@ export default function QRMenuPage() {
               </div>
               <SearchBar
                 menu={menu}
+                cart={cart}
                 onAddToCart={addToCart}
                 onModalStateChange={setIsAnyModalOpen}
               />
@@ -313,14 +314,22 @@ export default function QRMenuPage() {
 
                 {/* Menu Items Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
-                  {category.menuItems.map((item) => (
-                    <MenuCard
-                      key={item.id}
-                      item={item}
-                      onAddToCart={addToCart}
-                      onModalStateChange={setIsAnyModalOpen}
-                    />
-                  ))}
+                  {category.menuItems.map((item) => {
+                    // Calculate total quantity of this item in cart
+                    const cartQuantity = cart.items
+                      .filter((cartItem) => cartItem.menuItemId === item.id)
+                      .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+
+                    return (
+                      <MenuCard
+                        key={item.id}
+                        item={item}
+                        onAddToCart={addToCart}
+                        onModalStateChange={setIsAnyModalOpen}
+                        cartQuantity={cartQuantity}
+                      />
+                    );
+                  })}
                 </div>
 
                 {/* Empty State */}

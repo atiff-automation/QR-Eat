@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { MenuCategory, MenuItem, MenuItemVariation } from '@/types/menu';
+import { MenuCategory, MenuItem, MenuItemVariation, Cart } from '@/types/menu';
 import { Search, X } from 'lucide-react';
 import { MenuCard } from './MenuCard';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface SearchBarProps {
   menu: MenuCategory[];
+  cart: Cart;
   onAddToCart: (
     item: MenuItem,
     quantity: number,
@@ -23,6 +24,7 @@ interface SearchBarProps {
 
 export function SearchBar({
   menu,
+  cart,
   onAddToCart,
   onModalStateChange,
 }: SearchBarProps) {
@@ -131,14 +133,22 @@ export function SearchBar({
 
                 {/* Grid */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 pb-20">
-                  {filteredItems.map((item) => (
-                    <MenuCard
-                      key={item.id}
-                      item={item}
-                      onAddToCart={onAddToCart}
-                      onModalStateChange={onModalStateChange}
-                    />
-                  ))}
+                  {filteredItems.map((item) => {
+                    // Calculate total quantity of this item in cart
+                    const cartQuantity = cart.items
+                      .filter((cartItem) => cartItem.menuItemId === item.id)
+                      .reduce((sum, cartItem) => sum + cartItem.quantity, 0);
+
+                    return (
+                      <MenuCard
+                        key={item.id}
+                        item={item}
+                        onAddToCart={onAddToCart}
+                        onModalStateChange={onModalStateChange}
+                        cartQuantity={cartQuantity}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             )}
