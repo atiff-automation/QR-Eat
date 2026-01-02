@@ -94,7 +94,8 @@ export default function QRMenuPage() {
   const handleOrderCreate = (order: OrderResponse) => {
     setCurrentOrder(order);
     setShowCheckout(false);
-    clearCart();
+    // Cart is already cleared by the backend during order creation
+    // No need to call clearCart() here to avoid 404 error
   };
 
   const handleNewOrder = () => {
