@@ -167,7 +167,7 @@ export function MenuCard({
 
           {/* Modal Content - Fullscreen on mobile, centered card on desktop */}
           <div
-            className={`relative bg-white w-full max-h-[90vh] rounded-2xl sm:max-w-lg overflow-hidden ${
+            className={`relative bg-white w-full h-full max-h-[90vh] sm:h-auto rounded-2xl sm:max-w-lg overflow-hidden flex flex-col ${
               isClosing ? 'animate-slide-down' : 'animate-slide-up'
             }`}
           >
@@ -208,7 +208,7 @@ export function MenuCard({
             </div>
 
             {/* Scrollable Content */}
-            <div className="modal-scrollable overflow-y-auto max-h-[calc(90vh-16rem)] p-6">
+            <div className="modal-scrollable flex-1 overflow-y-auto min-h-0 p-6">
               {/* Name and Price */}
               <div className="mb-4">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">
