@@ -217,7 +217,7 @@ export default function QRMenuPage() {
             </div>
 
             {/* Restaurant Name */}
-            <div className="text-center px-6 pt-6 pb-10">
+            <div className="text-center px-6 pt-6 pb-6">
               <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
                 {table.restaurant.name}
               </h1>
@@ -297,7 +297,7 @@ export default function QRMenuPage() {
               <section
                 key={category.id}
                 id={category.id}
-                className="scroll-mt-32"
+                className="scroll-mt-16"
               >
                 {/* Category Header */}
                 <div className="mb-3">
