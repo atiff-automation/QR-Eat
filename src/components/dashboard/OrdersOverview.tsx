@@ -5,6 +5,11 @@ import { formatPrice } from '@/lib/qr-utils';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { OrderCard, OrderSummary } from './shared/OrderCard';
 import { Search } from 'lucide-react';
+import { debug } from '@/lib/debug';
+
+// Constants
+const DEFAULT_ORDER_LIMIT = 20;
+const UNKNOWN_STATUS_PRIORITY = 999;
 
 interface OrderStats {
   totalOrders: number;
@@ -31,12 +36,13 @@ export function OrdersOverview() {
     type: string;
     data: Record<string, unknown>;
   }) => {
-    console.log('Real-time update received:', data);
+    debug.info('SSE', 'Real-time update received:', data);
 
     switch (data.type) {
       case 'order_status_changed':
-        console.log(
-          'Dashboard updating order status:',
+        debug.info(
+          'Order Status',
+          'Updating:',
           data.data.orderId,
           'from',
           data.data.oldStatus,
@@ -47,7 +53,7 @@ export function OrdersOverview() {
         setOrders((prevOrders) => {
           const updated = prevOrders.map((order) => {
             if (order.id === (data.data.orderId as string)) {
-              console.log('Found order to update:', order.orderNumber);
+              debug.log('Found order to update:', order.orderNumber);
               return { ...order, status: data.data.newStatus as string };
             }
             return order;
@@ -57,7 +63,7 @@ export function OrdersOverview() {
             (order) => order.id === (data.data.orderId as string)
           );
           if (!foundOrder) {
-            console.log('Order not found in current list, refreshing...');
+            debug.log('Order not found in current list, refreshing...');
             fetchOrders();
             return prevOrders;
           }
@@ -69,25 +75,25 @@ export function OrdersOverview() {
         break;
 
       case 'order_created':
-        console.log('New order created, refreshing dashboard orders...');
+        debug.info('Order Created', 'Refreshing dashboard orders...');
         fetchOrders();
         fetchStats();
         break;
 
       case 'restaurant_notification':
-        console.log('Restaurant notification:', data.data.message);
+        debug.info('Restaurant', data.data.message);
         break;
 
       case 'kitchen_notification':
-        console.log('Kitchen notification:', data.data.message);
+        debug.info('Kitchen', data.data.message);
         break;
 
       case 'connection':
-        console.log('SSE connection established:', data.data.message);
+        debug.info('SSE', 'Connection established:', data.data.message);
         break;
 
       default:
-        console.log('Unknown event type:', data.type);
+        debug.warn('Unknown SSE event type:', data.type);
     }
   };
 
@@ -102,16 +108,16 @@ export function OrdersOverview() {
         const data = JSON.parse(event.data);
         handleRealTimeUpdate(data);
       } catch (error) {
-        console.error('Error parsing SSE data:', error);
+        debug.error('Error parsing SSE data:', error);
       }
     };
 
     eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
+      debug.error('SSE connection error:', error);
     };
 
     eventSource.onopen = () => {
-      console.log('SSE connection established');
+      debug.log('SSE connection established');
     };
 
     return () => {
@@ -119,13 +125,27 @@ export function OrdersOverview() {
     };
   }, [filter]);
 
+  // Handle escape key to close modal
+  useEffect(() => {
+    if (!showSearchModal) return;
+
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowSearchModal(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [showSearchModal]);
+
   const fetchOrders = async () => {
     try {
       const params: Record<string, string> = {};
       if (filter !== 'all') {
         params.status = filter;
       }
-      params.limit = '20';
+      params.limit = DEFAULT_ORDER_LIMIT.toString();
 
       const data = await ApiClient.get<{
         success: boolean;
@@ -134,7 +154,7 @@ export function OrdersOverview() {
 
       setOrders(data.orders);
     } catch (error) {
-      console.error('Failed to fetch orders:', error);
+      debug.error('Failed to fetch orders:', error);
       setError(
         error instanceof ApiClientError
           ? error.message
@@ -151,7 +171,7 @@ export function OrdersOverview() {
 
       setStats(data.stats);
     } catch (error) {
-      console.error('Failed to fetch stats:', error);
+      debug.error('Failed to fetch stats:', error);
     } finally {
       setLoading(false);
     }
@@ -163,7 +183,7 @@ export function OrdersOverview() {
       await Promise.all([fetchOrders(), fetchStats()]);
       setError('');
     } catch (error) {
-      console.error('Failed to update order status:', error);
+      debug.error('Failed to update order status:', error);
       setError(
         error instanceof ApiClientError
           ? error.message
@@ -198,7 +218,8 @@ export function OrdersOverview() {
     return [...filteredOrders].sort((a, b) => {
       // First, sort by status priority (pending orders first)
       const priorityDiff =
-        (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+        (statusPriority[a.status] || UNKNOWN_STATUS_PRIORITY) -
+        (statusPriority[b.status] || UNKNOWN_STATUS_PRIORITY);
       if (priorityDiff !== 0) return priorityDiff;
 
       // Within same status, sort by creation time (oldest first - FIFO)
@@ -231,7 +252,7 @@ export function OrdersOverview() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="max-w-2xl md:max-w-7xl mx-auto space-y-3">
       {/* Compact Metrics with Search Button */}
       {stats && (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-2.5">
@@ -270,13 +291,16 @@ export function OrdersOverview() {
               </div>
             </div>
 
-            {/* Search Icon Button */}
+            {/* Search Button - Icon only on mobile, with text on desktop */}
             <button
               onClick={() => setShowSearchModal(true)}
-              className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
               aria-label="Search and filter orders"
             >
               <Search className="h-5 w-5 text-gray-600" />
+              <span className="hidden lg:inline text-sm text-gray-700 font-medium">
+                Search
+              </span>
             </button>
           </div>
         </div>
@@ -402,7 +426,7 @@ export function OrdersOverview() {
       )}
 
       {sortedOrders.length > 0 ? (
-        <div className="grid grid-cols-1 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
           {sortedOrders.map((order) => (
             <OrderCard
               key={order.id}
