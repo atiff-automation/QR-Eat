@@ -165,7 +165,10 @@ export function CartSummary({
       </div>
 
       {/* Fixed Footer - Summary + Checkout Button (matches FloatingCartBar position) */}
-      <div className="fixed bottom-4 left-4 right-4 z-50 bg-white shadow-xl p-4">
+      <div
+        className="fixed left-4 right-4 z-50 bg-white shadow-xl p-4"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)' }}
+      >
         <div className="space-y-2 text-sm mb-4">
           <div className="flex justify-between">
             <span className="text-gray-600">Subtotal</span>

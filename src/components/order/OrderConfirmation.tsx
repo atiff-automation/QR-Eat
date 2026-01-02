@@ -54,7 +54,12 @@ export function OrderConfirmation({
         </div>
 
         {/* Action Buttons */}
-        <div className="space-y-3">
+        <div
+          className="space-y-3"
+          style={{
+            paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+          }}
+        >
           <p className="text-center text-sm text-gray-500">
             Need help? Ask any staff member
           </p>
