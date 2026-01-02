@@ -167,7 +167,7 @@ export function MenuCard({
 
           {/* Modal Content - Fullscreen on mobile, centered card on desktop */}
           <div
-            className={`relative bg-white w-full max-h-[90vh] sm:rounded-2xl sm:max-w-lg overflow-hidden ${
+            className={`relative bg-white w-full max-h-[90vh] rounded-2xl sm:max-w-lg overflow-hidden ${
               isClosing ? 'animate-slide-down' : 'animate-slide-up'
             }`}
           >

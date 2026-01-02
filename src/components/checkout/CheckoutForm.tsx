@@ -114,7 +114,6 @@ export function CheckoutForm({
               }}
               placeholder="123456789"
               className="flex-1 h-12 px-4 text-lg text-gray-900 placeholder-gray-400 focus:outline-none"
-              autoFocus
             />
           </div>
         </div>
