@@ -86,16 +86,51 @@ export default function QRMenuPage() {
     }
   };
 
-  const handleCheckout = () => {
-    setShowCheckout(true);
-    setShowCart(false);
+  const [isOrderSubmitting, setIsOrderSubmitting] = useState(false);
+
+  // Centralized Order Creation
+  const createOrder = async (customerPhone?: string) => {
+    if (!table) return;
+
+    setIsOrderSubmitting(true);
+    setError('');
+
+    try {
+      const orderRequest = {
+        tableId: table.id,
+        sessionId,
+        customerInfo: customerPhone ? { phone: customerPhone } : undefined,
+      };
+
+      const data = await ApiClient.post<{ order: OrderResponse }>(
+        '/qr/orders/create',
+        orderRequest
+      );
+
+      setCurrentOrder(data.order);
+      setShowCheckout(false);
+      setShowCart(false);
+    } catch (error) {
+      console.error('Order creation error:', error);
+      if (error instanceof ApiClientError) {
+        setError(error.message || 'Failed to create order');
+      } else {
+        setError('Network error. Please try again.');
+      }
+    } finally {
+      setIsOrderSubmitting(false);
+    }
   };
 
-  const handleOrderCreate = (order: OrderResponse) => {
-    setCurrentOrder(order);
-    setShowCheckout(false);
-    // Cart is already cleared by the backend during order creation
-    // No need to call clearCart() here to avoid 404 error
+  // Called by "Proceed to Checkout" in CartSummary
+  const handleCheckout = () => {
+    createOrder();
+  };
+
+  // Called by Cashback/Voucher buttons to show Login/Phone screen
+  const handleShowLogin = () => {
+    setShowCheckout(true);
+    setShowCart(false);
   };
 
   const handleNewOrder = () => {
@@ -271,16 +306,17 @@ export default function QRMenuPage() {
       )}
 
       {/* Main Content Area */}
-      <div className="max-w-2xl mx-auto px-4 py-4">
+      <div className="w-full px-4 py-4">
         {currentOrder ? (
           <OrderConfirmation order={currentOrder} onNewOrder={handleNewOrder} />
         ) : showCheckout ? (
           <CheckoutForm
-            cart={cart}
-            tableId={table.id}
-            sessionId={sessionId}
-            onOrderCreate={handleOrderCreate}
-            onCancel={() => setShowCheckout(false)}
+            onSubmit={createOrder}
+            isSubmitting={isOrderSubmitting}
+            onCancel={() => {
+              setShowCheckout(false);
+              setShowCart(true);
+            }}
           />
         ) : showCart ? (
           <CartSummary
@@ -290,6 +326,8 @@ export default function QRMenuPage() {
             onCheckout={handleCheckout}
             onBack={() => setShowCart(false)}
             onClearAll={handleClearAll}
+            onLogin={handleShowLogin}
+            isCheckoutLoading={isOrderSubmitting}
           />
         ) : (
           <div className="space-y-8">
@@ -312,8 +350,8 @@ export default function QRMenuPage() {
                   )}
                 </div>
 
-                {/* Menu Items Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                {/* Menu Items Grid - Always 2 columns for mobile view */}
+                <div className="grid grid-cols-2 gap-3">
                   {category.menuItems.map((item) => {
                     // Calculate total quantity of this item in cart
                     const cartQuantity = cart.items

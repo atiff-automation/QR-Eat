@@ -84,7 +84,7 @@ export function SearchBar({
 
       {/* Search Modal */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 bg-white flex flex-col">
+        <div className="qr-modal-overlay z-50 bg-white flex flex-col">
           {/* Search Header */}
           <div className="flex items-center space-x-3 p-4 border-b border-gray-200 bg-white">
             <div className="flex-1 relative">
@@ -131,8 +131,8 @@ export function SearchBar({
                   {query ? 'Search Results' : 'Best Sellers & Menu'}
                 </h3>
 
-                {/* Grid */}
-                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 pb-20">
+                {/* Grid - Always 2 columns for mobile view */}
+                <div className="grid grid-cols-2 gap-3 pb-20">
                   {filteredItems.map((item) => {
                     // Calculate total quantity of this item in cart
                     const cartQuantity = cart.items

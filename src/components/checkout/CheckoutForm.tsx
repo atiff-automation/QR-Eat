@@ -1,64 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { Cart } from '@/types/menu';
-import { OrderResponse } from '@/types/order';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useState, useEffect } from 'react';
+
 import { ArrowLeft } from 'lucide-react';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CheckoutFormProps {
-  cart: Cart;
-  tableId: string;
-  sessionId: string | null;
-  onOrderCreate: (order: OrderResponse) => void;
+  onSubmit: (phone?: string) => void;
+  isSubmitting: boolean;
   onCancel: () => void;
 }
 
 export function CheckoutForm({
-  tableId,
-  sessionId,
-  onOrderCreate,
+  onSubmit,
+  isSubmitting,
   onCancel,
 }: CheckoutFormProps) {
   const [phoneNumber, setPhoneNumber] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
 
   // Lock body scroll to prevent browser UI auto-hiding
   useBodyScrollLock(true);
 
-  const handleSubmit = async (withPhone: boolean = false) => {
-    setIsSubmitting(true);
-    setError('');
+  // Scroll to top on mount to ensure header is visible
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
-    try {
-      const orderRequest = {
-        tableId,
-        sessionId,
-        customerInfo:
-          withPhone && phoneNumber
-            ? {
-                phone: phoneNumber,
-              }
-            : undefined,
-      };
-
-      const data = await ApiClient.post<{ order: OrderResponse }>(
-        '/qr/orders/create',
-        orderRequest
-      );
-      onOrderCreate(data.order);
-    } catch (error) {
-      console.error('Order creation error:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSubmit = (withPhone: boolean = false) => {
+    onSubmit(withPhone ? phoneNumber : undefined);
   };
 
   return (
@@ -86,13 +55,6 @@ export function CheckoutForm({
             className="w-40 h-auto object-contain"
           />
         </div>
-
-        {/* Error Display */}
-        {error && (
-          <div className="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
-            <p className="text-sm text-red-800 text-center">{error}</p>
-          </div>
-        )}
 
         {/* Phone Input */}
         {/* Description */}
@@ -137,7 +99,7 @@ export function CheckoutForm({
 
         {/* Guest Button */}
         <button
-          onClick={() => handleSubmit(false)}
+          onClick={onCancel}
           disabled={isSubmitting}
           className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors text-base mb-4"
         >

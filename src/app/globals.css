@@ -246,3 +246,94 @@ a {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
+
+/* ===========================
+   Mobile Frame Layout (Customer Ordering Pages)
+   =========================== */
+
+/* Desktop: Constrain HTML viewport to 414px centered */
+/* Desktop: Constrain HTML viewport to 414px centered */
+@media (min-width: 768px) {
+
+  /* Apply gray background to CONTAINER */
+  #mobile-frame-container {
+    background: #f5f5f5;
+    display: flex;
+    justify-content: center;
+    /* min-height matches child */
+  }
+
+  /* The actual mobile frame content */
+  #mobile-frame-content {
+    width: 414px;
+    background: white;
+    min-height: 100vh;
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.05);
+    position: relative;
+  }
+}
+
+/* ===========================
+   Specific Component Classes (Clean Positioning)
+   =========================== */
+
+/* Cart Bar Positioning */
+.qr-floating-cart {
+  position: fixed;
+  z-index: 50;
+  left: 1rem;
+  right: 1rem;
+  /* Bottom is set inline by component for safe area */
+}
+
+/* Desktop override for Cart Bar */
+@media (min-width: 768px) {
+  #mobile-frame-content .qr-floating-cart {
+    left: 50%;
+    right: auto;
+    width: 382px;
+    /* 414px - 32px padding */
+    margin-left: -191px;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Modal Overlay Positioning */
+.qr-modal-overlay {
+  position: fixed;
+  inset: 0;
+  /* z-index set by component */
+}
+
+/* Desktop override for Modal Overlay */
+@media (min-width: 768px) {
+  #mobile-frame-content .qr-modal-overlay {
+    left: 50%;
+    right: auto;
+    width: 414px;
+    margin-left: -207px;
+    bottom: 0;
+    top: 0;
+    transform: none;
+    transition: none;
+  }
+}
+
+/* Remove the old generic overrides since we will use specific classes */
+/* Keep the container styles */
+
+/* Mobile: Full width, no frame effect */
+@media (max-width: 767px) {
+  #mobile-frame-container {
+    background: white;
+    display: block;
+  }
+
+  #mobile-frame-content {
+    background: white;
+    width: 100%;
+  }
+}

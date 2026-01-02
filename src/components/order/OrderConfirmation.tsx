@@ -62,7 +62,7 @@ export function OrderConfirmation({
         >
           <button
             onClick={onNewOrder}
-            className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-bold py-3.5 px-6 rounded-lg transition-all duration-200 transform active:scale-98 touch-target text-base"
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-6 rounded-lg transition-all duration-200 transform active:scale-98 touch-target text-base"
           >
             Order More Items
           </button>

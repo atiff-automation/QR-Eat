@@ -171,7 +171,7 @@ export function MenuCard({
 
       {/* Detail Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="qr-modal-overlay z-50 flex items-center justify-center">
           {/* Backdrop - Darker to focus on modal */}
           <div
             className={`absolute inset-0 ${isClosing ? 'animate-fade-out' : ''}`}

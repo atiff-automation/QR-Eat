@@ -1,13 +1,14 @@
 /**
  * Admin Layout with RBAC Integration
- * 
+ *
  * This layout wraps all admin routes with the RoleProvider to ensure
  * RBAC context is available throughout the admin application.
- * 
+ *
  * Features:
  * - RBAC context provision for admin pages
  * - Platform admin permission enforcement
  * - Consistent admin styling and structure
+ * - Responsive viewport (uses browser default)
  */
 
 'use client';
@@ -19,9 +20,5 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  return (
-    <RoleProvider>
-      {children}
-    </RoleProvider>
-  );
+  return <RoleProvider>{children}</RoleProvider>;
 }
