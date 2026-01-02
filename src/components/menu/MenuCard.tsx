@@ -198,11 +198,11 @@ export function MenuCard({
             </div>
 
             {/* Scrollable Content */}
-            <div className="modal-scrollable flex-1 overflow-y-auto min-h-0 p-5 space-y-5">
+            <div className="modal-scrollable flex-1 overflow-y-auto min-h-0 p-4 space-y-3">
               {/* Name and Features */}
-              <div>
+              <div className="space-y-0.5">
                 {item.isFeatured && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-bold bg-orange-100 text-orange-600 mb-2 uppercase tracking-wide">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-orange-100 text-orange-600 uppercase tracking-wide mb-1">
                     Best Seller
                   </span>
                 )}
@@ -210,7 +210,7 @@ export function MenuCard({
                   <h2 className="text-xl font-bold text-gray-900 leading-tight">
                     {item.name}
                   </h2>
-                  <div className="text-xl font-bold text-orange-600">
+                  <div className="text-xl font-bold text-orange-600 whitespace-nowrap pt-0.5">
                     {formatPrice(item.price)}
                   </div>
                 </div>
@@ -225,7 +225,7 @@ export function MenuCard({
 
               {/* Variations */}
               {item.variations.length > 0 && (
-                <div className="space-y-6 pt-2">
+                <div className="space-y-4 pt-1">
                   {[
                     ...new Set(item.variations.map((v) => v.variationType)),
                   ].map((type) => {
@@ -235,7 +235,7 @@ export function MenuCard({
                     const isRequired = typeVariations.some((v) => v.isRequired);
 
                     return (
-                      <div key={type} className="space-y-3">
+                      <div key={type} className="space-y-2">
                         <div className="flex items-center justify-between">
                           <h4 className="text-sm font-bold text-gray-900 capitalize tracking-tight">
                             {type}
@@ -256,7 +256,7 @@ export function MenuCard({
                                 onClick={() =>
                                   handleVariationChange(type, variation)
                                 }
-                                className={`flex items-center px-4 py-2.5 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
+                                className={`flex items-center px-4 py-2 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
                                   isSelected
                                     ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm'
                                     : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-gray-100'
@@ -282,7 +282,7 @@ export function MenuCard({
               )}
 
               {/* Special Instructions - Collapsible */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   onClick={() => setShowInstructions(!showInstructions)}
                   className="flex items-center text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-wider"
@@ -310,39 +310,40 @@ export function MenuCard({
 
             {/* Footer - Quantity and Add to Cart - Sticky */}
             <div
-              className="sticky bottom-0 p-4 border-t border-gray-200 bg-white shadow-lg"
+              className="sticky bottom-0 p-3 pt-4 border-t border-gray-100 bg-white shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.03)]"
               style={{
-                paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 1rem)',
+                paddingBottom:
+                  'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
               }}
             >
-              {/* Quantity Selector - Centered */}
-              <div className="flex items-center justify-center mb-3">
-                <div className="flex items-center space-x-4 bg-gray-100 rounded-lg p-1">
+              {/* Quantity Selector - Compact Modern Design */}
+              <div className="flex items-center justify-center mb-4">
+                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden h-9">
                   <button
                     onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-xl shadow-sm touch-target"
+                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-r border-gray-200"
                   >
-                    −
+                    <span className="text-xl">−</span>
                   </button>
-                  <span className="w-12 text-center font-bold text-gray-900 text-lg">
+                  <span className="w-10 text-center font-bold text-gray-900 text-base">
                     {quantity}
                   </span>
                   <button
                     onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-gray-700 hover:bg-gray-50 font-bold text-xl shadow-sm touch-target"
+                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200"
                   >
-                    +
+                    <span className="text-xl">+</span>
                   </button>
                 </div>
               </div>
 
-              {/* Add to Cart Button - Full Width */}
+              {/* Add to Cart Button - Clean Action */}
               <button
                 onClick={handleAddToCart}
                 disabled={!canAddToCart}
-                className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-3 px-4 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed touch-target"
+                className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center"
               >
-                Add {formatPrice(calculatePrice())}
+                <span>Add {formatPrice(calculatePrice() * quantity)}</span>
               </button>
             </div>
           </div>
