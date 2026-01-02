@@ -266,11 +266,12 @@ model MenuItem {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  restaurant Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  category   MenuCategory        @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[]
-  variations MenuItemVariation[]
-  cartItems  CartItem[]
+  restaurant        Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category          MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  orderItems        OrderItem[]
+  variations        MenuItemVariation[]
+  cartItems         CartItem[]
+  modificationItems OrderModificationItem[] // New relation
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -456,6 +457,7 @@ model Staff {
   sessions   StaffSession[]
   auditLogs  AuditLog[]     @relation("StaffAuditLogs")
   refreshTokens RefreshToken[]
+  orderModifications OrderModification[] // New relation
 
   @@index([restaurantId])
   @@index([roleId])
@@ -542,26 +544,36 @@ model Order {
   servedBy            String?
   specialInstructions String?
   estimatedReadyTime  DateTime?
+  
+  // Modification tracking
+  hasModifications    Boolean   @default(false)
+  lastModifiedAt      DateTime?
+  modificationCount   Int       @default(0)
+  version             Int       @default(1) // Optimistic locking
+  
   createdAt           DateTime  @default(now())
   confirmedAt         DateTime?
   readyAt             DateTime?
   servedAt            DateTime?
   updatedAt           DateTime  @updatedAt
 
-  restaurant      Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table           Table           @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  customerSession CustomerSession @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
-  takenByStaff    Staff?          @relation(fields: [takenBy], references: [id])
+  restaurant      Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table           Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  customerSession CustomerSession    @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  takenByStaff    Staff?             @relation(fields: [takenBy], references: [id])
   items           OrderItem[]
   payments        Payment[]
   paymentIntents  PaymentIntent[]
   transactionFee  TransactionFee?
+  modifications   OrderModification[] // New relation
 
   @@index([restaurantId])
   @@index([tableId])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
+  @@index([hasModifications])
+  @@index([version])
   @@map("orders")
 }
 
@@ -577,9 +589,10 @@ model OrderItem {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  order      Order                @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem   MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  variations OrderItemVariation[]
+  order              Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem           MenuItem                @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variations         OrderItemVariation[]
+  modificationItems  OrderModificationItem[] // New relation
 
   @@index([orderId])
   @@index([menuItemId])
@@ -1003,3 +1016,70 @@ model PendingEvent {
   @@index([createdAt], name: "idx_cleanup")
   @@map("pending_events")
 }
+
+// ============================
+// ORDER MODIFICATIONS
+// ============================
+
+// Tracks all modifications made to orders including cancellations
+model OrderModification {
+  id              String    @id @default(uuid())
+  orderId         String
+  modifiedBy      String
+  modifiedAt      DateTime  @default(now())
+  
+  // Modification details
+  reason          String    // 'out_of_stock', 'customer_request', 'kitchen_error', 'other'
+  reasonNotes     String?   @db.Text
+  
+  // Financial tracking
+  oldTotal        Decimal   @db.Decimal(10, 2)
+  newTotal        Decimal   @db.Decimal(10, 2)
+  
+  // Customer notification
+  customerNotified Boolean  @default(false)
+  notifiedAt      DateTime?
+  
+  // Idempotency (prevent duplicate modifications)
+  idempotencyKey  String    @unique
+  
+  // Audit
+  createdAt       DateTime  @default(now())
+  
+  // Relations
+  order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  modifiedByUser  Staff                   @relation(fields: [modifiedBy], references: [id])
+  items           OrderModificationItem[]
+  
+  @@index([orderId])
+  @@index([modifiedAt])
+  @@index([idempotencyKey])
+  @@map("order_modifications")
+}
+
+// Tracks specific item changes in modifications
+model OrderModificationItem {
+  id             String    @id @default(uuid())
+  modificationId String
+  orderItemId    String?
+  menuItemId     String
+  
+  // Change tracking
+  action         String    // 'added', 'removed', 'quantity_changed'
+  oldQuantity    Int?
+  newQuantity    Int?
+  oldPrice       Decimal?  @db.Decimal(10, 2)
+  newPrice       Decimal?  @db.Decimal(10, 2)
+  
+  createdAt      DateTime  @default(now())
+  
+  // Relations
+  modification   OrderModification @relation(fields: [modificationId], references: [id], onDelete: Cascade)
+  orderItem      OrderItem?        @relation(fields: [orderItemId], references: [id])
+  menuItem       MenuItem          @relation(fields: [menuItemId], references: [id])
+  
+  @@index([modificationId])
+  @@index([orderItemId])
+  @@map("order_modification_items")
+}
+
