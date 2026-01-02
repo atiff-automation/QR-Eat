@@ -127,43 +127,6 @@ a {
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* ===========================
-   Safe Area Positioning Classes
-   =========================== */
-
-/* For absolute/fixed positioned elements at top (close buttons, badges) */
-.safe-inset-top {
-  top: env(safe-area-inset-top, 0);
-  margin-top: 1rem;
-}
-
-/* For absolute/fixed positioned elements at bottom (floating bars, footers) */
-.safe-inset-bottom {
-  bottom: env(safe-area-inset-bottom, 0);
-  margin-bottom: 1rem;
-}
-
-/* For padding-based safe area handling */
-.safe-padding-top {
-  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
-}
-
-.safe-padding-bottom {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem));
-}
-
-/* For larger bottom spacing (e.g., checkout buttons) */
-.safe-padding-bottom-lg {
-  padding-bottom: max(3rem, env(safe-area-inset-bottom, 3rem));
-}
-
-/* Safe area top padding for modal containers */
-.pt-safe-top {
-  padding-top: max(1rem, env(safe-area-inset-top, 1rem));
-}
-
-
-
 /* Animations */
 @keyframes slide-up {
   from {

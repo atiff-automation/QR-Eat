@@ -157,8 +157,8 @@ export function MenuCard({
             }}
           />
 
-          {/* Modal Content - Safe area padding pushes all content into visible area */}
-          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden animate-slide-up pt-safe-top">
+          {/* Modal Content */}
+          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden animate-slide-up">
             {/* Header with Image */}
             <div className="relative">
               {item.imageUrl ? (
@@ -175,20 +175,24 @@ export function MenuCard({
                 <div className="w-full h-64 bg-gradient-to-br from-gray-100 to-gray-200" />
               )}
 
-              {/* Close Button - positioned relative to padded container */}
+              {/* Close Button */}
               <button
                 onClick={() => {
                   setShowModal(false);
                   onModalStateChange?.(false);
                 }}
-                className="absolute top-4 right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                className="absolute right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
+                style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
               >
                 <X className="h-5 w-5 text-gray-600" />
               </button>
 
               {/* Best Seller Badge */}
               {item.isFeatured && (
-                <div className="absolute top-4 left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md">
+                <div
+                  className="absolute left-4 bg-orange-500 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-md"
+                  style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
+                >
                   Best Seller
                 </div>
               )}
