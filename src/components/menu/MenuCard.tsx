@@ -343,7 +343,9 @@ export function MenuCard({
                 disabled={!canAddToCart}
                 className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center"
               >
-                <span>Add {formatPrice(calculatePrice() * quantity)}</span>
+                <span className="uppercase">
+                  Add to Cart - {formatPrice(calculatePrice() * quantity)}
+                </span>
               </button>
             </div>
           </div>

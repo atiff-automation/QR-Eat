@@ -44,19 +44,19 @@ export function CategoryDropdown({
     <>
       <button
         onClick={handleOpen}
-        className="w-full flex items-center justify-between bg-white border border-gray-300 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between bg-white border border-gray-300 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors"
       >
         <div className="flex items-center space-x-2">
-          <span className="font-medium text-gray-900">
+          <span className="font-medium text-gray-900 text-sm">
             {activeCategoryData?.name || 'All Categories'}
           </span>
           {activeCategoryData && (
-            <span className="text-sm text-gray-500">
+            <span className="text-xs text-gray-500">
               ({activeCategoryData.menuItems.length} items)
             </span>
           )}
         </div>
-        <ChevronDown className="h-5 w-5 text-gray-600" />
+        <ChevronDown className="h-4 w-4 text-gray-600" />
       </button>
 
       {/* Modal Overlay */}
@@ -72,8 +72,8 @@ export function CategoryDropdown({
           {/* Modal Content */}
           <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-md max-h-[80vh] overflow-hidden animate-slide-up">
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <h3 className="text-base font-semibold text-gray-900">
                 Select Category
               </h3>
               <button
@@ -85,32 +85,32 @@ export function CategoryDropdown({
             </div>
 
             {/* Category List */}
-            <div className="overflow-y-auto max-h-[calc(80vh-4rem)]">
+            <div className="overflow-y-auto max-h-[calc(80vh-3.5rem)]">
               {categories.map((category) => {
                 const isActive = category.id === activeCategory;
                 return (
                   <button
                     key={category.id}
                     onClick={() => handleSelect(category.id)}
-                    className={`w-full flex items-center justify-between px-4 py-4 border-b border-gray-100 last:border-b-0 transition-colors ${
+                    className={`w-full flex items-center justify-between px-4 py-3 border-b border-gray-100 last:border-b-0 transition-colors ${
                       isActive
                         ? 'bg-orange-50 border-l-4 border-l-orange-500'
                         : 'hover:bg-gray-50'
                     }`}
                   >
-                    <div className="flex items-center space-x-3">
+                    <div className="flex items-center space-x-2.5">
                       {isActive && (
-                        <div className="w-2 h-2 bg-orange-500 rounded-full" />
+                        <div className="w-1.5 h-1.5 bg-orange-500 rounded-full" />
                       )}
                       <span
-                        className={`font-medium ${
+                        className={`font-medium text-sm ${
                           isActive ? 'text-orange-700' : 'text-gray-900'
                         }`}
                       >
                         {category.name}
                       </span>
                     </div>
-                    <span className="text-sm text-gray-500">
+                    <span className="text-xs text-gray-500">
                       {category.menuItems.length} items
                     </span>
                   </button>

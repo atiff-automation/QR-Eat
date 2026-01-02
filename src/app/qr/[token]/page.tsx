@@ -228,8 +228,8 @@ export default function QRMenuPage() {
           </div>
 
           {/* Category & Search Bar - Sticky */}
-          <div className="sticky top-0 z-40 bg-white px-4 py-3 shadow-sm border-b border-gray-100">
-            <div className="bg-gray-100 rounded-xl p-1 flex items-center shadow-inner">
+          <div className="sticky top-0 z-40 bg-white px-4 py-2 shadow-sm border-b border-gray-100">
+            <div className="bg-gray-100 rounded-xl p-0.5 flex items-center shadow-inner">
               <div className="flex-1">
                 <CategoryDropdown
                   categories={menu}
