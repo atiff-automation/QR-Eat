@@ -28,6 +28,7 @@ export function MenuCard({
   onModalStateChange,
 }: MenuCardProps) {
   const [showModal, setShowModal] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariations, setSelectedVariations] = useState<
     Record<string, MenuItemVariation>
@@ -37,6 +38,16 @@ export function MenuCard({
 
   // Lock body scroll when modal is open to prevent browser UI auto-hiding
   useBodyScrollLock(showModal);
+
+  // Handle modal close with animation
+  const handleClose = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setShowModal(false);
+      setIsClosing(false);
+      onModalStateChange?.(false);
+    }, 300); // Match animation duration
+  };
 
   const handleVariationChange = (
     variationType: string,
@@ -146,19 +157,20 @@ export function MenuCard({
 
       {/* Detail Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          {/* Backdrop - Very Light and Transparent */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop - Darker to focus on modal */}
           <div
-            className="absolute inset-0"
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.1)' }}
-            onClick={() => {
-              setShowModal(false);
-              onModalStateChange?.(false);
-            }}
+            className={`absolute inset-0 ${isClosing ? 'animate-fade-out' : ''}`}
+            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+            onClick={handleClose}
           />
 
-          {/* Modal Content */}
-          <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full sm:max-w-lg max-h-[90vh] overflow-hidden animate-slide-up">
+          {/* Modal Content - Fullscreen on mobile, centered card on desktop */}
+          <div
+            className={`relative bg-white w-full max-h-[90vh] sm:rounded-2xl sm:max-w-lg overflow-hidden ${
+              isClosing ? 'animate-slide-down' : 'animate-slide-up'
+            }`}
+          >
             {/* Header with Image */}
             <div className="relative">
               {item.imageUrl ? (
@@ -177,10 +189,7 @@ export function MenuCard({
 
               {/* Close Button */}
               <button
-                onClick={() => {
-                  setShowModal(false);
-                  onModalStateChange?.(false);
-                }}
+                onClick={handleClose}
                 className="absolute right-4 p-2 bg-white rounded-full shadow-lg hover:bg-gray-100 transition-colors"
                 style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
               >

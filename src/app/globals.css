@@ -140,6 +140,18 @@ a {
   }
 }
 
+@keyframes slide-down {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  to {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+}
+
 @keyframes fade-in {
   from {
     opacity: 0;
@@ -150,12 +162,30 @@ a {
   }
 }
 
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 .animate-slide-up {
   animation: slide-up 0.3s ease-out;
 }
 
+.animate-slide-down {
+  animation: slide-down 0.3s ease-in;
+}
+
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
+}
+
+.animate-fade-out {
+  animation: fade-out 0.3s ease-out;
 }
 
 /* Active scale effect for buttons */
