@@ -86,3 +86,88 @@ export function getOrderStatusDisplay(status: string): {
       return { label: status, color: 'text-gray-600 bg-gray-100' };
   }
 }
+
+/**
+ * Get the next action button configuration for an order based on its current status
+ *
+ * @param status - Current order status
+ * @returns Action button config or null if no action available
+ *
+ * @example
+ * ```ts
+ * const action = getNextOrderAction('pending');
+ * // { label: 'Confirm', nextStatus: 'confirmed', color: 'orange' }
+ * ```
+ */
+export function getNextOrderAction(status: string): {
+  label: string;
+  nextStatus: string;
+  color: string;
+} | null {
+  switch (status) {
+    case ORDER_STATUS.PENDING:
+      return {
+        label: 'Confirm',
+        nextStatus: ORDER_STATUS.CONFIRMED,
+        color: 'orange', // Urgent - matches orange border
+      };
+    case ORDER_STATUS.CONFIRMED:
+      return {
+        label: 'Start',
+        nextStatus: ORDER_STATUS.PREPARING,
+        color: 'blue', // Acknowledged - matches blue border
+      };
+    case ORDER_STATUS.PREPARING:
+      return {
+        label: 'Ready',
+        nextStatus: ORDER_STATUS.READY,
+        color: 'green', // Complete - matches green when ready
+      };
+    case ORDER_STATUS.READY:
+      return {
+        label: 'Serve',
+        nextStatus: ORDER_STATUS.SERVED,
+        color: 'gray', // Final step
+      };
+    default:
+      return null;
+  }
+}
+
+/**
+ * Get a formatted summary of order items
+ *
+ * @param items - Array of order items
+ * @returns Formatted string like "3 items" or "1 item"
+ *
+ * @example
+ * ```ts
+ * getOrderSummary(order.items) // "3 items"
+ * ```
+ */
+export function getOrderSummary(items: Array<{ quantity: number }>): string {
+  const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
+  return `${totalItems} ${totalItems === 1 ? 'item' : 'items'}`;
+}
+
+/**
+ * Get elapsed time since order creation
+ *
+ * @param createdAt - Order creation timestamp
+ * @returns Formatted elapsed time string
+ *
+ * @example
+ * ```ts
+ * getElapsedTime('2024-01-01T12:00:00Z') // "3 mins"
+ * ```
+ */
+export function getElapsedTime(createdAt: string): string {
+  const now = new Date().getTime();
+  const created = new Date(createdAt).getTime();
+  const diffMs = now - created;
+  const minutes = Math.floor(diffMs / 60000);
+
+  if (minutes < 1) return 'Just now';
+  if (minutes === 1) return '1 min';
+  return `${minutes} mins`;
+}

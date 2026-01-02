@@ -1,41 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { getOrderStatusDisplay } from '@/lib/order-utils';
+import { useState, useEffect, useMemo } from 'react';
 import { formatPrice } from '@/lib/qr-utils';
-import { ClipboardList, Clock, ChefHat, DollarSign } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
-
-interface OrderSummary {
-  id: string;
-  orderNumber: string;
-  status: string;
-  paymentStatus: string;
-  totalAmount: number;
-  createdAt: string;
-  estimatedReadyTime?: string;
-  table: {
-    tableNumber: string;
-    tableName?: string;
-  };
-  customerSession?: {
-    customerName?: string;
-    customerPhone?: string;
-  };
-  items: {
-    id: string;
-    quantity: number;
-    menuItem: {
-      name: string;
-    };
-  }[];
-}
+import { OrderCard, OrderSummary } from './shared/OrderCard';
+import { Search } from 'lucide-react';
 
 interface OrderStats {
   totalOrders: number;
   pendingOrders: number;
+  confirmedOrders: number;
   preparingOrders: number;
   readyOrders: number;
+  servedOrders: number;
+  cancelledOrders: number;
   totalRevenue: number;
   averageOrderValue: number;
 }
@@ -46,6 +24,8 @@ export function OrdersOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSearchModal, setShowSearchModal] = useState(false);
 
   const handleRealTimeUpdate = (data: {
     type: string;
@@ -64,7 +44,6 @@ export function OrdersOverview() {
           data.data.newStatus
         );
 
-        // Update specific order status
         setOrders((prevOrders) => {
           const updated = prevOrders.map((order) => {
             if (order.id === (data.data.orderId as string)) {
@@ -74,7 +53,6 @@ export function OrdersOverview() {
             return order;
           });
 
-          // If order not found in current list, refresh orders
           const foundOrder = prevOrders.find(
             (order) => order.id === (data.data.orderId as string)
           );
@@ -87,12 +65,10 @@ export function OrdersOverview() {
           return updated;
         });
 
-        // Refresh stats to get updated counts
         fetchStats();
         break;
 
       case 'order_created':
-        // Add new order to the list and refresh stats
         console.log('New order created, refreshing dashboard orders...');
         fetchOrders();
         fetchStats();
@@ -100,12 +76,10 @@ export function OrdersOverview() {
 
       case 'restaurant_notification':
         console.log('Restaurant notification:', data.data.message);
-        // Could show toast notification here
         break;
 
       case 'kitchen_notification':
         console.log('Kitchen notification:', data.data.message);
-        // These are meant for kitchen display
         break;
 
       case 'connection':
@@ -121,7 +95,6 @@ export function OrdersOverview() {
     fetchOrders();
     fetchStats();
 
-    // Set up Server-Sent Events for real-time updates
     const eventSource = new EventSource('/api/events/orders');
 
     eventSource.onmessage = (event) => {
@@ -187,10 +160,8 @@ export function OrdersOverview() {
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
       await ApiClient.patch(`/orders/${orderId}/status`, { status: newStatus });
-
-      // Immediately refresh orders and stats for responsive updates
       await Promise.all([fetchOrders(), fetchStats()]);
-      setError(''); // Clear any previous errors
+      setError('');
     } catch (error) {
       console.error('Failed to update order status:', error);
       setError(
@@ -200,6 +171,40 @@ export function OrdersOverview() {
       );
     }
   };
+
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+
+    const query = searchQuery.toLowerCase();
+    return orders.filter(
+      (order) =>
+        order.orderNumber.toLowerCase().includes(query) ||
+        order.table.tableNumber.toLowerCase().includes(query) ||
+        order.table.tableName?.toLowerCase().includes(query) ||
+        order.customerSession?.customerName?.toLowerCase().includes(query)
+    );
+  }, [orders, searchQuery]);
+
+  // Sort orders by priority (pending first) and creation time
+  const sortedOrders = useMemo(() => {
+    const statusPriority: Record<string, number> = {
+      pending: 1,
+      confirmed: 2,
+      preparing: 3,
+      ready: 4,
+      served: 5,
+    };
+
+    return [...filteredOrders].sort((a, b) => {
+      // First, sort by status priority (pending orders first)
+      const priorityDiff =
+        (statusPriority[a.status] || 99) - (statusPriority[b.status] || 99);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      // Within same status, sort by creation time (oldest first - FIFO)
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+  }, [filteredOrders]);
 
   const filterOptions = [
     { value: 'all', label: 'All Orders' },
@@ -211,260 +216,231 @@ export function OrdersOverview() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-3">
         <div className="animate-pulse">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="bg-gray-200 h-24 rounded-lg"></div>
+          <div className="bg-gray-200 h-10 rounded-lg mb-3"></div>
+          <div className="bg-gray-200 h-12 rounded-lg mb-3"></div>
+          <div className="space-y-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-200 h-32 rounded-lg"></div>
             ))}
           </div>
-          <div className="bg-gray-200 h-96 rounded-lg"></div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats Overview */}
+    <div className="space-y-3">
+      {/* Compact Metrics with Search Button */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-100 rounded-md flex items-center justify-center">
-                  <ClipboardList className="h-4 w-4 text-blue-600" />
-                </div>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-2.5">
+          <div className="flex items-center justify-between gap-2">
+            {/* Metrics */}
+            <div className="flex items-center gap-x-2 text-sm">
+              {/* Active Orders - Blue */}
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="font-bold text-blue-600 text-base">
+                  {stats.pendingOrders +
+                    stats.confirmedOrders +
+                    stats.preparingOrders +
+                    stats.readyOrders}
+                </span>
+                <span className="text-gray-600">Active</span>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-700">
-                  Total Orders
-                </p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {stats.totalOrders}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-yellow-100 rounded-md flex items-center justify-center">
-                  <Clock className="h-4 w-4 text-yellow-600" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Pending</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              <span className="text-gray-300">•</span>
+
+              {/* Pending Orders - Orange */}
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="font-bold text-orange-600 text-base">
                   {stats.pendingOrders}
-                </p>
+                </span>
+                <span className="text-gray-600">Pending</span>
               </div>
-            </div>
-          </div>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-orange-100 rounded-md flex items-center justify-center">
-                  <ChefHat className="h-4 w-4 text-orange-600" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Preparing</p>
-                <p className="text-2xl font-semibold text-gray-900">
-                  {stats.preparingOrders}
-                </p>
-              </div>
-            </div>
-          </div>
+              <span className="text-gray-300">•</span>
 
-          <div className="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-green-100 rounded-md flex items-center justify-center">
-                  <DollarSign className="h-4 w-4 text-green-600" />
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500">Revenue</p>
-                <p className="text-2xl font-semibold text-gray-900">
+              {/* Revenue - Green */}
+              <div className="flex items-center gap-1 whitespace-nowrap">
+                <span className="font-bold text-green-600 text-base">
                   {formatPrice(stats.totalRevenue)}
-                </p>
+                </span>
+                <span className="text-gray-600">Today</span>
               </div>
+            </div>
+
+            {/* Search Icon Button */}
+            <button
+              onClick={() => setShowSearchModal(true)}
+              className="flex-shrink-0 p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Search and filter orders"
+            >
+              <Search className="h-5 w-5 text-gray-600" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search & Filter Modal */}
+      {showSearchModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">
+                Search & Filter
+              </h2>
+              <button
+                onClick={() => setShowSearchModal(false)}
+                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close"
+              >
+                <svg
+                  className="h-5 w-5 text-gray-500"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 space-y-4">
+              {/* Search Input */}
+              <div>
+                <label
+                  htmlFor="modal-search"
+                  className="block text-sm font-medium text-gray-700 mb-2"
+                >
+                  Search Orders
+                </label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    id="modal-search"
+                    type="text"
+                    placeholder="Order #, table, or customer..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* Filter by Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Filter by Status
+                </label>
+                <div className="space-y-2">
+                  {filterOptions.map((option) => (
+                    <label
+                      key={option.value}
+                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
+                    >
+                      <input
+                        type="radio"
+                        name="status-filter"
+                        value={option.value}
+                        checked={filter === option.value}
+                        onChange={(e) => setFilter(e.target.value)}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-sm text-gray-900">
+                        {option.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Results Count */}
+              {(searchQuery || filter !== 'all') && (
+                <div className="pt-2 border-t border-gray-200">
+                  <p className="text-sm text-gray-600">
+                    {sortedOrders.length}{' '}
+                    {sortedOrders.length === 1 ? 'order' : 'orders'} found
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-3 p-4 border-t border-gray-200 bg-gray-50">
+              <button
+                onClick={() => {
+                  setSearchQuery('');
+                  setFilter('all');
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+              >
+                Clear All
+              </button>
+              <button
+                onClick={() => setShowSearchModal(false)}
+                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+              >
+                Apply
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Orders Table */}
-      <div className="bg-white shadow-sm rounded-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-            <h3 className="text-lg font-medium text-gray-900">Recent Orders</h3>
-            <div className="mt-3 sm:mt-0">
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="block w-full sm:w-auto pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-blue-500 focus:border-blue-500 rounded-md"
-              >
-                {filterOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-red-600 text-sm">{error}</p>
+        </div>
+      )}
+
+      {sortedOrders.length > 0 ? (
+        <div className="grid grid-cols-1 gap-3">
+          {sortedOrders.map((order) => (
+            <OrderCard
+              key={order.id}
+              order={order}
+              onStatusUpdate={updateOrderStatus}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+          <div className="text-center">
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            <h3 className="mt-2 text-sm font-medium text-gray-900">
+              No orders found
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              {searchQuery
+                ? `No orders match "${searchQuery}"`
+                : filter !== 'all'
+                  ? `No ${filter} orders at the moment.`
+                  : 'No orders have been placed yet.'}
+            </p>
           </div>
         </div>
-
-        {error && (
-          <div className="px-6 py-4 bg-red-50 border-b border-red-200">
-            <p className="text-red-600 text-sm">{error}</p>
-          </div>
-        )}
-
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Table
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Items
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {orders.map((order) => {
-                const statusDisplay = getOrderStatusDisplay(order.status);
-                return (
-                  <tr key={order.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {order.orderNumber}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          {new Date(order.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        Table {order.table.tableNumber}
-                        {order.table.tableName && (
-                          <div className="text-sm text-gray-500">
-                            {order.table.tableName}
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {order.customerSession?.customerName || 'Walk-in'}
-                      </div>
-                      {order.customerSession?.customerPhone && (
-                        <div className="text-sm text-gray-500">
-                          {order.customerSession.customerPhone}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-900">
-                        {order.items.slice(0, 2).map((item) => (
-                          <div key={item.id}>
-                            {item.quantity}× {item.menuItem.name}
-                          </div>
-                        ))}
-                        {order.items.length > 2 && (
-                          <div className="text-sm text-gray-500">
-                            +{order.items.length - 2} more items
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusDisplay.color}`}
-                      >
-                        {statusDisplay.label}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatPrice(order.totalAmount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm">
-                      <div className="flex space-x-2">
-                        {order.status === 'pending' && (
-                          <button
-                            onClick={() =>
-                              updateOrderStatus(order.id, 'confirmed')
-                            }
-                            className="text-blue-600 hover:text-blue-900"
-                          >
-                            Confirm
-                          </button>
-                        )}
-                        {order.status === 'confirmed' && (
-                          <button
-                            onClick={() =>
-                              updateOrderStatus(order.id, 'preparing')
-                            }
-                            className="text-orange-600 hover:text-orange-900"
-                          >
-                            Start
-                          </button>
-                        )}
-                        {order.status === 'preparing' && (
-                          <button
-                            onClick={() => updateOrderStatus(order.id, 'ready')}
-                            className="text-green-600 hover:text-green-900"
-                          >
-                            Ready
-                          </button>
-                        )}
-                        {order.status === 'ready' && (
-                          <button
-                            onClick={() =>
-                              updateOrderStatus(order.id, 'served')
-                            }
-                            className="text-gray-600 hover:text-gray-900"
-                          >
-                            Served
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {orders.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No orders found</p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
