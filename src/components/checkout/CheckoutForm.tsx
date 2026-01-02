@@ -79,11 +79,11 @@ export function CheckoutForm({
       {/* Main Content */}
       <div className="w-full max-w-md px-6 flex-1 flex flex-col justify-center">
         {/* Illustration */}
-        <div className="flex justify-center mb-8">
+        <div className="flex justify-center mb-6">
           <img
             src="/login-illustration.png"
             alt="Login Illustration"
-            className="w-48 h-auto object-contain"
+            className="w-40 h-auto object-contain"
           />
         </div>
 
@@ -95,10 +95,11 @@ export function CheckoutForm({
         )}
 
         {/* Phone Input */}
-        <div className="mb-6">
-          <label className="block text-sm font-semibold text-gray-700 mb-2">
-            Enter your mobile number to proceed
-          </label>
+        {/* Description */}
+        <p className="text-center text-gray-700 font-medium mb-4">
+          Enter your mobile number to proceed
+        </p>
+        <div className="mb-5">
           <div className="flex items-center border border-gray-300 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-orange-500 focus-within:border-transparent transition-all">
             <div className="flex items-center px-3 border-r border-gray-200 bg-gray-50 h-12">
               <span className="text-xl mr-2">🇲🇾</span>
@@ -121,32 +122,24 @@ export function CheckoutForm({
         {/* Continue Button */}
         <button
           onClick={() => handleSubmit(true)}
-          disabled={isSubmitting || !phoneNumber}
-          className="w-full bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 disabled:from-gray-300 disabled:to-gray-400 text-white font-bold py-4 px-6 rounded-lg transition-all duration-200 transform active:scale-98 disabled:cursor-not-allowed mb-8 shadow-md text-lg"
+          disabled={isSubmitting || phoneNumber.length < 8}
+          className="w-full bg-gray-400 hover:bg-gray-500 disabled:bg-gray-300 text-white font-semibold py-3 px-6 rounded-lg transition-colors mb-3"
         >
           {isSubmitting ? 'Processing...' : 'Continue'}
         </button>
 
         {/* Divider */}
-        <div className="relative mb-8">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-400 uppercase tracking-widest text-xs">
-              OR
-            </span>
-          </div>
+        <div className="flex items-center my-3">
+          <div className="flex-1 border-t border-gray-300" />
+          <span className="px-4 text-gray-400 text-sm">OR</span>
+          <div className="flex-1 border-t border-gray-300" />
         </div>
 
         {/* Guest Button */}
         <button
           onClick={() => handleSubmit(false)}
           disabled={isSubmitting}
-          className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-4 px-6 rounded-lg transition-colors text-base"
-          style={{
-            marginBottom: 'calc(env(safe-area-inset-bottom, 0px) + 3rem)',
-          }}
+          className="w-full bg-white border-2 border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-colors text-base mb-4"
         >
           Order as Guest
         </button>
