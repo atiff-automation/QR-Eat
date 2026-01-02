@@ -44,7 +44,7 @@ export function CategoryDropdown({
     <>
       <button
         onClick={handleOpen}
-        className="w-full flex items-center justify-between bg-white border border-gray-300 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors"
+        className="w-full flex items-center justify-between bg-white border border-gray-200 rounded-lg px-3 py-2.5 hover:border-gray-300 hover:bg-gray-50 transition-all"
       >
         <div className="flex items-center space-x-2">
           <span className="font-medium text-gray-900 text-sm">
@@ -52,11 +52,11 @@ export function CategoryDropdown({
           </span>
           {activeCategoryData && (
             <span className="text-xs text-gray-500">
-              ({activeCategoryData.menuItems.length} items)
+              ({activeCategoryData.menuItems.length})
             </span>
           )}
         </div>
-        <ChevronDown className="h-4 w-4 text-gray-600" />
+        <ChevronDown className="h-4 w-4 text-gray-500" />
       </button>
 
       {/* Modal Overlay */}

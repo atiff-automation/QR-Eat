@@ -228,8 +228,8 @@ export default function QRMenuPage() {
           </div>
 
           {/* Category & Search Bar - Sticky */}
-          <div className="sticky top-0 z-40 bg-white px-4 py-2 shadow-sm border-b border-gray-100">
-            <div className="bg-gray-100 rounded-xl p-0.5 flex items-center shadow-inner">
+          <div className="sticky top-0 z-40 bg-white px-4 py-2.5">
+            <div className="flex items-center gap-2">
               <div className="flex-1">
                 <CategoryDropdown
                   categories={menu}
@@ -247,7 +247,6 @@ export default function QRMenuPage() {
                   onModalStateChange={setIsAnyModalOpen}
                 />
               </div>
-              <div className="h-8 w-px bg-gray-300 mx-1"></div>
               <SearchBar
                 menu={menu}
                 onAddToCart={addToCart}
@@ -301,12 +300,14 @@ export default function QRMenuPage() {
                 className="scroll-mt-32"
               >
                 {/* Category Header */}
-                <div className="mb-4">
-                  <h2 className="text-2xl font-bold text-gray-900">
+                <div className="mb-3">
+                  <h2 className="text-xl font-bold text-gray-900">
                     {category.name}
                   </h2>
                   {category.description && (
-                    <p className="text-gray-600 mt-1">{category.description}</p>
+                    <p className="text-gray-600 text-sm mt-0.5">
+                      {category.description}
+                    </p>
                   )}
                 </div>
 
