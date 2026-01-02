@@ -24,7 +24,7 @@ export function FloatingCartBar({ cart, onReviewCart }: FloatingCartBarProps) {
     >
       <button
         onClick={onReviewCart}
-        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-xl shadow-orange-200 rounded-lg py-4 px-6 flex items-center justify-between group transition-transform active:scale-95"
+        className="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white shadow-lg rounded-lg py-4 px-6 flex items-center justify-between group transition-transform active:scale-95"
       >
         {/* Left: Item Count Badge */}
         <div className="flex items-center space-x-3">
