@@ -1,5 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { X, Printer, ExternalLink, Users, Utensils, Clock } from 'lucide-react';
+import {
+  X,
+  Printer,
+  ExternalLink,
+  Users,
+  Utensils,
+  Clock,
+  CreditCard,
+  Lock,
+  Unlock,
+} from 'lucide-react';
+import { useTableOrders } from '@/lib/hooks/queries/useTableOrders';
+import { formatPrice } from '@/lib/qr-utils';
+import type { OrderWithDetails } from '@/types/pos';
 
 interface TableDetailModalProps {
   table: {
@@ -17,6 +30,7 @@ interface TableDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (tableId: string, status: string) => Promise<void>;
   onShowQR: (table: NonNullable<TableDetailModalProps['table']>) => void;
+  onProcessPayment?: (tableId: string, orders: OrderWithDetails[]) => void;
 }
 
 export function TableDetailModal({
@@ -25,8 +39,12 @@ export function TableDetailModal({
   onClose,
   onUpdateStatus,
   onShowQR,
+  onProcessPayment,
 }: TableDetailModalProps) {
   const [isVisible, setIsVisible] = useState(false);
+
+  // Fetch orders for this table (only when modal is open)
+  const { orders, tableTotal } = useTableOrders(table?.id ?? null, isOpen);
 
   useEffect(() => {
     if (isOpen) {
@@ -40,13 +58,6 @@ export function TableDetailModal({
 
   if (!isVisible && !isOpen) return null;
   if (!table) return null;
-
-  const statusOptions = [
-    { value: 'available', label: 'Available' },
-    { value: 'occupied', label: 'Occupied' },
-    { value: 'reserved', label: 'Reserved' },
-    { value: 'cleaning', label: 'Cleaning' },
-  ];
 
   const generateQRCode = (token: string) => {
     const baseUrl = window.location.origin;
@@ -102,7 +113,7 @@ export function TableDetailModal({
                     );
                   case 'reserved':
                     return (
-                      <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                      <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                         Reserved
                       </span>
                     );
@@ -112,19 +123,19 @@ export function TableDetailModal({
               })()}
             </div>
             {table.tableName && (
-              <p className="text-gray-500 font-medium">{table.tableName}</p>
+              <p className="text-sm text-gray-500">{table.tableName}</p>
             )}
           </div>
 
           <button
             onClick={onClose}
-            className="p-2 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
           >
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        {/* Stats Row - Modern & Compact - Changed px-8 to px-6 */}
+        {/* Stats Row - Compact */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50/50">
           <div className="flex flex-col items-center">
             <div className="flex items-center text-gray-900 font-bold text-lg leading-none mb-1">
@@ -157,49 +168,62 @@ export function TableDetailModal({
           </div>
         </div>
 
-        {/* Changed p-5 to p-6 */}
-        <div className="p-6 space-y-5">
-          {/* Status Chips - Modern Design (No more gray segmented background) */}
-          <div className="grid grid-cols-3 gap-2">
-            {statusOptions.slice(0, 3).map((option) => (
+        {/* Simplified content with increased side padding */}
+        <div className="px-5 py-3 space-y-2">
+          {/* Payment Summary - Minimal Design */}
+          {isOpen && table && orders.length > 0 && (
+            <div className="space-y-2 pb-2 border-b border-gray-100">
+              <p className="text-sm text-gray-600 font-medium">
+                {orders.length} {orders.length === 1 ? 'Order' : 'Orders'} •{' '}
+                {formatPrice(tableTotal)}
+              </p>
               <button
-                key={option.value}
-                onClick={() => onUpdateStatus(table.id, option.value)}
-                className={`
-                     flex items-center justify-center py-2.5 rounded-xl text-sm font-bold transition-all border-2
-                     ${
-                       table.status === option.value
-                         ? option.value === 'available'
-                           ? 'border-green-500 bg-green-50 text-green-700'
-                           : option.value === 'occupied'
-                             ? 'border-amber-500 bg-amber-50 text-amber-700'
-                             : 'border-blue-500 bg-blue-50 text-blue-700'
-                         : 'border-gray-100 bg-white text-gray-500 hover:border-gray-200 hover:bg-gray-50'
-                     }
-                   `}
+                onClick={() => onProcessPayment?.(table.id, orders)}
+                className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
               >
-                {option.label}
+                <CreditCard className="w-4 h-4" />
+                <span>Process Payment - {formatPrice(tableTotal)}</span>
               </button>
-            ))}
-          </div>
+            </div>
+          )}
 
-          {/* Actions */}
-          <div className="space-y-3">
+          {/* Action Buttons - Compact */}
+          <div className="space-y-1.5">
             <button
               onClick={openMenuPreview}
-              className="w-full h-12 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-xl font-bold flex items-center justify-center transition-all shadow-lg shadow-blue-200"
+              className="w-full h-10 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
             >
-              <span className="mr-2">Make Order</span>
-              <ExternalLink className="w-4 h-4 ml-1 opacity-80" />
+              <span>Make Order</span>
+              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
             </button>
 
             <button
               onClick={() => onShowQR(table)}
-              className="w-full h-12 bg-white border-2 border-gray-100 hover:border-gray-200 active:scale-[0.98] text-gray-700 rounded-xl font-bold flex items-center justify-center transition-all"
+              className="w-full h-10 bg-white border-2 border-gray-200 hover:border-gray-300 active:scale-[0.98] text-gray-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
             >
-              <span className="mr-2">Show QR Code</span>
-              <Printer className="w-4 h-4 opacity-60" />
+              <span>Show QR Code</span>
+              <Printer className="w-3.5 h-3.5 opacity-60" />
             </button>
+
+            {/* Reserve Toggle - Show for all statuses except reserved */}
+            {table.status !== 'reserved' && (
+              <button
+                onClick={() => onUpdateStatus(table.id, 'reserved')}
+                className="w-full h-10 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Reserve Table</span>
+              </button>
+            )}
+            {table.status === 'reserved' && (
+              <button
+                onClick={() => onUpdateStatus(table.id, 'available')}
+                className="w-full h-10 bg-orange-100 hover:bg-orange-200 active:scale-[0.98] text-orange-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+              >
+                <Unlock className="w-3.5 h-3.5" />
+                <span>Unreserve</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

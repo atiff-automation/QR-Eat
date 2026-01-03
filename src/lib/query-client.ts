@@ -119,6 +119,7 @@ export const queryKeys = {
     all: ['tables'] as const,
     byId: (id: string) => ['tables', id] as const,
     available: ['tables', 'available'] as const,
+    orders: (tableId: string) => ['tables', tableId, 'orders'] as const, // NEW
   },
 
   // Reports & Analytics

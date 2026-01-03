@@ -97,6 +97,16 @@ export interface PaymentResponse {
   message: string;
 }
 
+// NEW: Table Orders Response
+export interface TableOrdersResponse {
+  success: boolean;
+  orders: OrderWithDetails[];
+  tableTotal: number;
+  paidTotal: number;
+  tableId: string;
+  tableNumber: string;
+}
+
 // ============================================================================
 // Component Props Types
 // ============================================================================
@@ -131,4 +141,12 @@ export interface ReceiptProps {
 
 export interface OrderDetailsProps {
   order: OrderWithDetails;
+}
+
+// NEW: Table Orders List Props
+export interface TableOrdersListProps {
+  orders: OrderWithDetails[];
+  tableTotal: number;
+  onProcessPayment: () => void;
+  isLoading: boolean;
 }
