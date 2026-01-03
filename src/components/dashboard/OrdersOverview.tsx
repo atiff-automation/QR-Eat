@@ -383,7 +383,10 @@ export function OrdersOverview() {
             </p>
           </div>
           <button
-            onClick={() => setTimeFilter('all_time')}
+            onClick={() => {
+              setTimeFilter('all_time');
+              setStatusFilter('active');
+            }}
             className="text-xs font-bold text-amber-700 hover:text-amber-900 underline decoration-amber-300 underline-offset-2"
           >
             View
