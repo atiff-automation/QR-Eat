@@ -14,8 +14,7 @@
 'use client';
 
 import { QueryClientProvider } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { queryClient } from '@/lib/query-client';
 
 interface QueryProviderProps {
@@ -39,12 +38,25 @@ interface QueryProviderProps {
  * ```
  */
 export function QueryProvider({ children }: QueryProviderProps) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [DevTools, setDevTools] = useState<React.ComponentType<any> | null>(
+    null
+  );
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      import('@tanstack/react-query-devtools').then((mod) => {
+        setDevTools(() => mod.ReactQueryDevtools);
+      });
+    }
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       {children}
       {/* DevTools only in development */}
-      {process.env.NODE_ENV === 'development' && (
-        <ReactQueryDevtools
+      {DevTools && (
+        <DevTools
           initialIsOpen={false}
           buttonPosition="bottom-left"
           position="bottom"
