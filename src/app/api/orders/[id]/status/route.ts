@@ -3,6 +3,7 @@ import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { ORDER_STATUS } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 
 export async function PATCH(
   request: NextRequest,
@@ -209,6 +210,12 @@ export async function PATCH(
         timestamp: Date.now(),
       });
     }
+
+    // Auto-update table status based on order states
+    // This is non-blocking and will not affect the response
+    autoUpdateTableStatus(currentOrder.tableId).catch((error) => {
+      console.error('[OrderStatus] Failed to auto-update table status:', error);
+    });
 
     return NextResponse.json({
       success: true,
