@@ -99,14 +99,14 @@ export function TableDetailDrawer({
 
   const generateQRCode = (token: string) => {
     const baseUrl = window.location.origin;
-    return `${baseUrl}/qr/${token}`;
+    return `${baseUrl} /qr/${token} `;
   };
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex justify-end transition-opacity duration-300 ${
+      className={`fixed inset - 0 z - 50 flex justify - end transition - opacity duration - 300 ${
         isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      }`}
+      } `}
     >
       {/* Backdrop */}
       <div
@@ -117,9 +117,9 @@ export function TableDetailDrawer({
       {/* Drawer Content */}
       <div
         className={`
-          relative w-full max-w-md bg-white shadow-2xl flex flex-col h-full transform transition-transform duration-300 ease-out
+          relative w - full max - w - md bg - white shadow - 2xl flex flex - col h - full transform transition - transform duration - 300 ease - out
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        `}
+`}
       >
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
@@ -132,7 +132,7 @@ export function TableDetailDrawer({
             )}
             <div className="flex items-center mt-2 space-x-2">
               <span
-                className={`w-2.5 h-2.5 rounded-full ${getStatusColor(table.status)}`}
+                className={`w - 2.5 h - 2.5 rounded - full ${getStatusColor(table.status)} `}
               />
               <span className="text-sm font-medium text-gray-600 capitalize">
                 {table.status}
@@ -187,14 +187,14 @@ export function TableDetailDrawer({
                   key={option.value}
                   onClick={() => onUpdateStatus(table.id, option.value)}
                   className={`
-                    px-4 py-3 rounded-lg text-sm font-medium transition-all
+px - 4 py - 3 rounded - lg text - sm font - medium transition - all
                     ${
                       table.status === option.value
                         ? 'ring-2 ring-offset-2 ring-blue-500 ' +
                           option.color.replace('bg-', 'bg-opacity-100 bg-')
                         : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                     }
-                  `}
+`}
                 >
                   {option.label}
                 </button>

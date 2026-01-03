@@ -7,11 +7,11 @@ import { OrderCard, OrderSummary } from './shared/OrderCard';
 import { ViewOrderDetailsModal } from './modals/ViewOrderDetailsModal';
 import { ModifyOrderModal } from './modals/ModifyOrderModal';
 import { CancelOrderModal } from './modals/CancelOrderModal';
-import { Search } from 'lucide-react';
+import { Search, AlertTriangle, Filter, Utensils, Clock } from 'lucide-react';
 import { debug } from '@/lib/debug';
 
 // Constants
-const DEFAULT_ORDER_LIMIT = 20;
+const DEFAULT_ORDER_LIMIT = 50;
 const UNKNOWN_STATUS_PRIORITY = 999;
 
 interface OrderStats {
@@ -26,12 +26,20 @@ interface OrderStats {
   averageOrderValue: number;
 }
 
+type TimeFilter = 'today' | 'all_time';
+type StatusFilter = 'active' | 'served' | 'cancelled' | 'all';
+
 export function OrdersOverview() {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [filter, setFilter] = useState<string>('all');
+
+  // Filter States
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [lapsedCount, setLapsedCount] = useState(0);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
 
@@ -46,20 +54,39 @@ export function OrdersOverview() {
     try {
       const params: Record<string, string> = {};
 
-      // Always exclude served orders from the order list
-      params.excludeServed = 'true';
-
-      if (filter !== 'all') {
-        params.status = filter;
+      // Time Filter Logic
+      if (timeFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        params.startDate = today.toISOString();
       }
+
+      // Status Filter Logic
+      if (statusFilter === 'active') {
+        params.status = 'all'; // Get all relevant, but exclude served/cancelled
+        params.excludeServed = 'true';
+      } else if (statusFilter === 'all') {
+        params.status = 'all';
+        params.excludeServed = 'false'; // Show everything
+      } else {
+        params.status = statusFilter; // Specific status (served, cancelled)
+        if (statusFilter === 'served' || statusFilter === 'cancelled') {
+          params.excludeServed = 'false'; // Ensure they are returned
+        }
+      }
+
       params.limit = DEFAULT_ORDER_LIMIT.toString();
 
       const data = await ApiClient.get<{
         success: boolean;
         orders: OrderSummary[];
+        lapsedCount?: number;
       }>('/orders', { params });
 
       setOrders(data.orders);
+      if (data.lapsedCount !== undefined) {
+        setLapsedCount(data.lapsedCount);
+      }
     } catch (error) {
       debug.error('Failed to fetch orders:', error);
       setError(
@@ -68,7 +95,33 @@ export function OrdersOverview() {
           : 'Network error. Please try again.'
       );
     }
-  }, [filter]);
+  }, [timeFilter, statusFilter]);
+
+  const fetchStats = useCallback(async () => {
+    try {
+      const params: Record<string, string> = {};
+
+      // Pass time filter to metrics
+      if (timeFilter === 'today') {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        params.startDate = today.toISOString();
+      } else if (timeFilter === 'all_time') {
+        params.period = 'all';
+      }
+
+      const data = await ApiClient.get<{ success: boolean; stats: OrderStats }>(
+        '/orders/stats',
+        { params }
+      );
+
+      setStats(data.stats);
+    } catch (error) {
+      debug.error('Failed to fetch stats:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [timeFilter]);
 
   const handleRealTimeUpdate = useCallback(
     (data: { type: string; data: Record<string, unknown> }) => {
@@ -76,37 +129,17 @@ export function OrdersOverview() {
 
       switch (data.type) {
         case 'order_status_changed':
-          debug.info(
-            'Order Status',
-            'Updating:',
-            data.data.orderId,
-            'from',
-            data.data.oldStatus,
-            'to',
-            data.data.newStatus
-          );
-
           setOrders((prevOrders) => {
             const updated = prevOrders.map((order) => {
               if (order.id === (data.data.orderId as string)) {
-                debug.log('Found order to update:', order.orderNumber);
                 return { ...order, status: data.data.newStatus as string };
               }
               return order;
             });
-
-            const foundOrder = prevOrders.find(
-              (order) => order.id === (data.data.orderId as string)
-            );
-            if (!foundOrder) {
-              debug.log('Order not found in current list, refreshing...');
-              fetchOrders();
-              return prevOrders;
-            }
-
             return updated;
           });
-
+          // Refresh to ensure list consistency (e.g. order moving out of view)
+          fetchOrders();
           fetchStats();
           break;
 
@@ -116,23 +149,11 @@ export function OrdersOverview() {
           fetchStats();
           break;
 
-        case 'restaurant_notification':
-          debug.info('Restaurant', data.data.message);
-          break;
-
-        case 'kitchen_notification':
-          debug.info('Kitchen', data.data.message);
-          break;
-
-        case 'connection':
-          debug.info('SSE', 'Connection established:', data.data.message);
-          break;
-
         default:
-          debug.warn('Unknown SSE event type:', data.type);
+          break;
       }
     },
-    [fetchOrders]
+    [fetchOrders, fetchStats]
   );
 
   useEffect(() => {
@@ -150,46 +171,10 @@ export function OrdersOverview() {
       }
     };
 
-    eventSource.onerror = (error) => {
-      debug.error('SSE connection error:', error);
-    };
-
-    eventSource.onopen = () => {
-      debug.log('SSE connection established');
-    };
-
     return () => {
       eventSource.close();
     };
-  }, [fetchOrders, handleRealTimeUpdate]); // Removed filter from dependencies as it's now in fetchOrders's useCallback
-
-  // Handle escape key to close modal
-  useEffect(() => {
-    if (!showSearchModal) return;
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowSearchModal(false);
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [showSearchModal]);
-
-  const fetchStats = async () => {
-    try {
-      const data = await ApiClient.get<{ success: boolean; stats: OrderStats }>(
-        '/orders/stats'
-      );
-
-      setStats(data.stats);
-    } catch (error) {
-      debug.error('Failed to fetch stats:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [fetchOrders, fetchStats, handleRealTimeUpdate]);
 
   const updateOrderStatus = async (orderId: string, newStatus: string) => {
     try {
@@ -222,7 +207,6 @@ export function OrdersOverview() {
   };
 
   const handleModalSuccess = async () => {
-    // Refresh orders after modification/cancellation
     await Promise.all([fetchOrders(), fetchStats()]);
     setError('');
   };
@@ -240,7 +224,7 @@ export function OrdersOverview() {
     );
   }, [orders, searchQuery]);
 
-  // Sort orders by priority (pending first) and creation time
+  // Sort orders
   const sortedOrders = useMemo(() => {
     const statusPriority: Record<string, number> = {
       pending: 1,
@@ -250,25 +234,13 @@ export function OrdersOverview() {
     };
 
     return [...filteredOrders].sort((a, b) => {
-      // First, sort by status priority (pending orders first)
       const priorityDiff =
         (statusPriority[a.status] || UNKNOWN_STATUS_PRIORITY) -
         (statusPriority[b.status] || UNKNOWN_STATUS_PRIORITY);
       if (priorityDiff !== 0) return priorityDiff;
-
-      // Within same status, sort by creation time (oldest first - FIFO)
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
   }, [filteredOrders]);
-
-  const filterOptions = [
-    { value: 'all', label: 'All Orders' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'confirmed', label: 'Confirmed' },
-    { value: 'preparing', label: 'Preparing' },
-    { value: 'ready', label: 'Ready' },
-    { value: 'cancelled', label: 'Cancelled' },
-  ];
 
   if (loading) {
     return (
@@ -287,170 +259,135 @@ export function OrdersOverview() {
   }
 
   return (
-    <div className="max-w-2xl md:max-w-7xl mx-auto space-y-3">
-      {/* Compact Metrics with Search Button */}
-      {stats && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 px-4 py-2.5">
-          <div className="flex items-center justify-between gap-2">
-            {/* Metrics */}
-            <div className="flex items-center gap-x-2 text-sm">
-              {/* Active Orders - Blue */}
-              <div className="flex items-center gap-1 whitespace-nowrap">
-                <span className="font-bold text-blue-600 text-base">
+    <div className="max-w-2xl md:max-w-7xl mx-auto space-y-2">
+      {/* 1. Mobile-First Header: Metrics + Toggle */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Icon-Based Metrics */}
+          {stats ? (
+            <div className="flex-1 grid grid-cols-3 gap-2 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
+              {/* Active */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-blue-50/50 text-blue-700">
+                <Utensils className="h-3.5 w-3.5" />
+                <span className="text-sm font-bold">
                   {stats.pendingOrders +
                     stats.confirmedOrders +
                     stats.preparingOrders +
                     stats.readyOrders}
                 </span>
-                <span className="text-gray-600">Active</span>
               </div>
 
-              <span className="text-gray-300">•</span>
-
-              {/* Pending Orders - Orange */}
-              <div className="flex items-center gap-1 whitespace-nowrap">
-                <span className="font-bold text-orange-600 text-base">
-                  {stats.pendingOrders}
-                </span>
-                <span className="text-gray-600">Pending</span>
+              {/* Pending */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-orange-50/50 text-orange-700">
+                <Clock className="h-3.5 w-3.5" />
+                <span className="text-sm font-bold">{stats.pendingOrders}</span>
               </div>
 
-              <span className="text-gray-300">•</span>
-
-              {/* Revenue - Green */}
-              <div className="flex items-center gap-1 whitespace-nowrap">
-                <span className="font-bold text-green-600 text-base">
+              {/* Revenue */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-50/50 text-green-700">
+                <span className="text-sm font-bold">
                   {formatPrice(stats.totalRevenue)}
                 </span>
-                <span className="text-gray-600">Today</span>
               </div>
             </div>
+          ) : (
+            <div className="flex-1 h-10 bg-gray-100 rounded-xl animate-pulse" />
+          )}
 
-            {/* Search Button - Icon only on mobile, with text on desktop */}
-            <button
-              onClick={() => setShowSearchModal(true)}
-              className="flex-shrink-0 flex items-center gap-2 px-3 py-2 hover:bg-gray-100 rounded-lg transition-colors"
-              aria-label="Search and filter orders"
-            >
-              <Search className="h-5 w-5 text-gray-600" />
-              <span className="hidden lg:inline text-sm text-gray-700 font-medium">
-                Search
-              </span>
-            </button>
-          </div>
+          {/* Right: Filter Toggle */}
+          <button
+            onClick={() => setShowSearchModal(!showSearchModal)}
+            className={`p-2 rounded-xl border transition-all shadow-sm flex-shrink-0 ${
+              showSearchModal
+                ? 'bg-gray-900 border-gray-900 text-white'
+                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            <Filter className="h-5 w-5" />
+          </button>
         </div>
-      )}
 
-      {/* Search & Filter Modal */}
-      {showSearchModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold text-gray-900">
-                Search & Filter
-              </h2>
+        {/* 2. Collapsible: Search & Filters */}
+        {showSearchModal && (
+          <div className="bg-gray-50 p-2 rounded-xl space-y-2 animate-in fade-in slide-in-from-top-2 border border-gray-100">
+            {/* Search Bar */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search orders..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                autoFocus
+              />
+            </div>
+
+            {/* Time Segment */}
+            <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
               <button
-                onClick={() => setShowSearchModal(false)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
-                aria-label="Close"
+                onClick={() => setTimeFilter('today')}
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
+                  timeFilter === 'today'
+                    ? 'bg-gray-100 text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
               >
-                <svg
-                  className="h-5 w-5 text-gray-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
+                Today
+              </button>
+              <button
+                onClick={() => setTimeFilter('all_time')}
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
+                  timeFilter === 'all_time'
+                    ? 'bg-gray-100 text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                All Time
               </button>
             </div>
 
-            {/* Modal Content */}
-            <div className="p-4 space-y-4">
-              {/* Search Input */}
-              <div>
-                <label
-                  htmlFor="modal-search"
-                  className="block text-sm font-medium text-gray-700 mb-2"
+            {/* Status Pills */}
+            <div className="flex flex-wrap gap-1.5">
+              {[
+                { id: 'active', label: 'Active' },
+                { id: 'served', label: 'Served' },
+                { id: 'cancelled', label: 'Cancelled' },
+                { id: 'all', label: 'History' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setStatusFilter(tab.id as StatusFilter)}
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                    statusFilter === tab.id
+                      ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                      : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
+                  }`}
                 >
-                  Search Orders
-                </label>
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    id="modal-search"
-                    type="text"
-                    placeholder="Order #, table, or customer..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </div>
-
-              {/* Filter by Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Filter by Status
-                </label>
-                <div className="space-y-2">
-                  {filterOptions.map((option) => (
-                    <label
-                      key={option.value}
-                      className="flex items-center gap-3 p-3 hover:bg-gray-50 rounded-lg cursor-pointer transition-colors"
-                    >
-                      <input
-                        type="radio"
-                        name="status-filter"
-                        value={option.value}
-                        checked={filter === option.value}
-                        onChange={(e) => setFilter(e.target.value)}
-                        className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-                      />
-                      <span className="text-sm text-gray-900">
-                        {option.label}
-                      </span>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              {/* Results Count */}
-              {(searchQuery || filter !== 'all') && (
-                <div className="pt-2 border-t border-gray-200">
-                  <p className="text-sm text-gray-600">
-                    {sortedOrders.length}{' '}
-                    {sortedOrders.length === 1 ? 'order' : 'orders'} found
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div className="flex items-center justify-between gap-3 p-4 border-t border-gray-200 bg-gray-50">
-              <button
-                onClick={() => {
-                  setSearchQuery('');
-                  setFilter('all');
-                }}
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-              >
-                Clear All
-              </button>
-              <button
-                onClick={() => setShowSearchModal(false)}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
-              >
-                Apply
-              </button>
+                  {tab.label}
+                </button>
+              ))}
             </div>
           </div>
+        )}
+      </div>
+
+      {/* 2. Slim Lapsed Order Warning */}
+      {timeFilter === 'today' && lapsedCount > 0 && (
+        <div className="bg-amber-50 border-l-4 border-amber-400 p-3 rounded-r-lg flex items-center justify-between shadow-sm animate-in fade-in slide-in-from-top-1 mx-1">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
+            <p className="text-xs font-medium text-amber-800">
+              <span className="font-bold">{lapsedCount} active</span> from
+              yesterday
+            </p>
+          </div>
+          <button
+            onClick={() => setTimeFilter('all_time')}
+            className="text-xs font-bold text-amber-700 hover:text-amber-900 underline decoration-amber-300 underline-offset-2"
+          >
+            View
+          </button>
         </div>
       )}
 
@@ -476,34 +413,20 @@ export function OrdersOverview() {
       ) : (
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
           <div className="text-center">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              aria-hidden="true"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
+            <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+              <Filter className="h-6 w-6 text-gray-400" />
+            </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900">
               No orders found
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              {searchQuery
-                ? `No orders match "${searchQuery}"`
-                : filter !== 'all'
-                  ? `No ${filter} orders at the moment.`
-                  : 'No orders have been placed yet.'}
+              {timeFilter === 'today'
+                ? 'No orders for today match your filter.'
+                : 'No orders found in history.'}
             </p>
           </div>
         </div>
       )}
-
       {/* Modals */}
       {viewDetailsOrderId && (
         <ViewOrderDetailsModal
