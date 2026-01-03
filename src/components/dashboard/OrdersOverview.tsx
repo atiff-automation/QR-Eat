@@ -299,7 +299,7 @@ export function OrdersOverview() {
             onClick={() => setShowSearchModal(!showSearchModal)}
             className={`p-2 rounded-xl border transition-all shadow-sm flex-shrink-0 ${
               showSearchModal
-                ? 'bg-gray-900 border-gray-900 text-white'
+                ? 'bg-blue-600 border-blue-600 text-white'
                 : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
             }`}
           >
@@ -329,7 +329,7 @@ export function OrdersOverview() {
                 onClick={() => setTimeFilter('today')}
                 className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
                   timeFilter === 'today'
-                    ? 'bg-gray-100 text-gray-900 shadow-sm'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
@@ -339,7 +339,7 @@ export function OrdersOverview() {
                 onClick={() => setTimeFilter('all_time')}
                 className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
                   timeFilter === 'all_time'
-                    ? 'bg-gray-100 text-gray-900 shadow-sm'
+                    ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
                 }`}
               >
@@ -360,7 +360,7 @@ export function OrdersOverview() {
                   onClick={() => setStatusFilter(tab.id as StatusFilter)}
                   className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
                     statusFilter === tab.id
-                      ? 'bg-gray-900 text-white border-gray-900 shadow-sm'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
                   }`}
                 >
