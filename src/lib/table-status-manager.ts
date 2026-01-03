@@ -31,9 +31,17 @@ export async function shouldTableBeAvailable(
     const activeOrderCount = await prisma.order.count({
       where: {
         tableId,
-        status: {
-          in: ACTIVE_ORDER_STATUSES,
-        },
+        OR: [
+          // Case 1: Active order status (still finding/cooking/serving)
+          {
+            status: { in: ACTIVE_ORDER_STATUSES },
+          },
+          // Case 2: Served but NOT paid yet
+          {
+            status: 'served',
+            paymentStatus: { not: 'completed' },
+          },
+        ],
       },
     });
 
