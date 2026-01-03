@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission, 
-  createRestaurantFilter 
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+  createRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -14,34 +14,48 @@ export async function GET(request: NextRequest) {
     requirePermission(context!, 'orders', 'read');
 
     const url = new URL(request.url);
-    const period = url.searchParams.get('period') || 'today'; // today, week, month
+    const period = url.searchParams.get('period') || 'today';
+    const startDateParam = url.searchParams.get('startDate');
+    const endDateParam = url.searchParams.get('endDate');
 
-    // Calculate date range based on period
+    // Calculate date range based on period OR use custom range
     let startDate: Date;
-    const endDate = new Date();
-    
-    switch (period) {
-      case 'week':
-        startDate = new Date();
-        startDate.setDate(startDate.getDate() - 7);
-        break;
-      case 'month':
-        startDate = new Date();
-        startDate.setDate(startDate.getDate() - 30);
-        break;
-      case 'today':
-      default:
-        startDate = new Date();
-        startDate.setHours(0, 0, 0, 0);
-        break;
+    let endDate: Date = new Date();
+
+    if (startDateParam) {
+      // Use custom range if provided (Time Filter: All Time / Today)
+      startDate = new Date(startDateParam);
+      if (endDateParam) {
+        endDate = new Date(endDateParam);
+      }
+    } else {
+      // Fallback to period logic (Legacy support)
+      switch (period) {
+        case 'week':
+          startDate = new Date();
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date();
+          startDate.setDate(startDate.getDate() - 30);
+          break;
+        case 'all':
+          startDate = new Date(0); // Start from beginning of time
+          break;
+        case 'today':
+        default:
+          startDate = new Date();
+          startDate.setHours(0, 0, 0, 0);
+          break;
+      }
     }
 
     // Apply restaurant filter based on user type
-    let where: any = {
+    let where: Prisma.OrderWhereInput = {
       createdAt: {
         gte: startDate,
-        lte: endDate
-      }
+        lte: endDate,
+      },
     };
 
     const restaurantFilter = createRestaurantFilter(context!);
@@ -56,11 +70,11 @@ export async function GET(request: NextRequest) {
       readyOrders,
       servedOrders,
       cancelledOrders,
-      orderTotals
+      orderTotals,
     ] = await Promise.all([
       // Total orders
       prisma.order.count({ where }),
-      
+
       // Orders by status
       prisma.order.count({ where: { ...where, status: 'pending' } }),
       prisma.order.count({ where: { ...where, status: 'confirmed' } }),
@@ -68,20 +82,20 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where: { ...where, status: 'ready' } }),
       prisma.order.count({ where: { ...where, status: 'served' } }),
       prisma.order.count({ where: { ...where, status: 'cancelled' } }),
-      
+
       // Revenue calculations
       prisma.order.aggregate({
         where: {
           ...where,
-          status: { not: 'cancelled' }
+          status: { not: 'cancelled' },
         },
         _sum: {
-          totalAmount: true
+          totalAmount: true,
         },
         _avg: {
-          totalAmount: true
-        }
-      })
+          totalAmount: true,
+        },
+      }),
     ]);
 
     // Calculate additional metrics
@@ -99,23 +113,23 @@ export async function GET(request: NextRequest) {
         ...restaurantFilter,
         createdAt: {
           gte: today,
-          lt: tomorrow
-        }
+          lt: tomorrow,
+        },
       },
       select: {
         createdAt: true,
-        totalAmount: true
-      }
+        totalAmount: true,
+      },
     });
 
     // Process hourly stats in JavaScript
     const hourlyStats = Array.from({ length: 24 }, (_, hour) => ({
       hour,
       order_count: 0,
-      revenue: 0
+      revenue: 0,
     }));
 
-    todayOrders.forEach(order => {
+    todayOrders.forEach((order) => {
       const hour = order.createdAt.getHours();
       hourlyStats[hour].order_count += 1;
       hourlyStats[hour].revenue += Number(order.totalAmount);
@@ -125,21 +139,21 @@ export async function GET(request: NextRequest) {
     const topMenuItems = await prisma.orderItem.groupBy({
       by: ['menuItemId'],
       where: {
-        order: where
+        order: where,
       },
       _sum: {
         quantity: true,
-        totalAmount: true
+        totalAmount: true,
       },
       _count: {
-        id: true
+        id: true,
       },
       orderBy: {
         _sum: {
-          quantity: 'desc'
-        }
+          quantity: 'desc',
+        },
       },
-      take: 5
+      take: 5,
     });
 
     // Get menu item details for top items
@@ -147,11 +161,11 @@ export async function GET(request: NextRequest) {
       topMenuItems.map(async (item) => {
         const menuItem = await prisma.menuItem.findUnique({
           where: { id: item.menuItemId },
-          select: { name: true, price: true }
+          select: { name: true, price: true },
         });
         return {
           ...item,
-          menuItem
+          menuItem,
         };
       })
     );
@@ -171,18 +185,17 @@ export async function GET(request: NextRequest) {
       period,
       dateRange: {
         start: startDate.toISOString(),
-        end: endDate.toISOString()
-      }
+        end: endDate.toISOString(),
+      },
     };
 
     return NextResponse.json({
       success: true,
-      stats
+      stats,
     });
-
   } catch (error) {
     console.error('Failed to fetch order statistics:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -191,10 +204,7 @@ export async function GET(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
