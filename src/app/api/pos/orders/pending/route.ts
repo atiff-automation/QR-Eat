@@ -32,14 +32,14 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build tenant-aware where clause
-    // Show ALL orders with pending payment, regardless of status
-    // This ensures forgotten orders remain visible after midnight
-    // BUT exclude cancelled orders (no payment needed)
+    // Show only orders that are READY or SERVED with pending payment
+    // This ensures payment is only collected when food is ready
+    // Prevents premature payment and modification conflicts
     const where = {
       ...createRestaurantFilter(context!),
       paymentStatus: PAYMENT_STATUS.PENDING,
       status: {
-        not: ORDER_STATUS.CANCELLED, // Exclude cancelled orders
+        in: [ORDER_STATUS.READY, ORDER_STATUS.SERVED], // Only ready/served orders
       },
     };
 
