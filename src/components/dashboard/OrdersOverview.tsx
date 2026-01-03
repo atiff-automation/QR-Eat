@@ -7,7 +7,7 @@ import { OrderCard, OrderSummary } from './shared/OrderCard';
 import { ViewOrderDetailsModal } from './modals/ViewOrderDetailsModal';
 import { ModifyOrderModal } from './modals/ModifyOrderModal';
 import { CancelOrderModal } from './modals/CancelOrderModal';
-import { Search, AlertTriangle, Filter, Utensils, Clock } from 'lucide-react';
+import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { debug } from '@/lib/debug';
 
 // Constants
@@ -263,45 +263,46 @@ export function OrdersOverview() {
       {/* 1. Mobile-First Header: Metrics + Toggle */}
       <div className="space-y-2">
         <div className="flex items-center justify-between gap-2">
-          {/* Left: Icon-Based Metrics */}
+          {/* Left: Horizontal Metrics Bar */}
           {stats ? (
-            <div className="flex-1 grid grid-cols-3 gap-2 bg-white p-1.5 rounded-xl border border-gray-200 shadow-sm">
-              {/* Active */}
-              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-blue-50/50 text-blue-700">
-                <Utensils className="h-3.5 w-3.5" />
-                <span className="text-sm font-bold">
+            <div className="flex-1 flex items-center gap-4 bg-white px-4 py-3 rounded-xl border border-gray-200 shadow-sm">
+              {/* Active Orders */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-blue-600">
                   {stats.pendingOrders +
                     stats.confirmedOrders +
                     stats.preparingOrders +
                     stats.readyOrders}
                 </span>
+                <span className="text-xs text-gray-500">Active</span>
               </div>
 
-              {/* Pending */}
-              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-orange-50/50 text-orange-700">
-                <Clock className="h-3.5 w-3.5" />
-                <span className="text-sm font-bold">{stats.pendingOrders}</span>
+              {/* Pending Orders */}
+              <div className="flex items-center gap-1.5">
+                <span className="text-base font-bold text-orange-600">
+                  {stats.pendingOrders}
+                </span>
+                <span className="text-xs text-gray-500">Pending</span>
               </div>
 
-              {/* Revenue */}
-              <div className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg bg-green-50/50 text-green-700">
-                <span className="text-sm font-bold">
+              {/* Revenue with Time Label */}
+              <div className="flex items-center gap-1.5 ml-auto">
+                <span className="text-base font-bold text-green-600">
                   {formatPrice(stats.totalRevenue)}
+                </span>
+                <span className="text-xs text-gray-500">
+                  {timeFilter === 'today' ? 'Today' : 'All Time'}
                 </span>
               </div>
             </div>
           ) : (
-            <div className="flex-1 h-10 bg-gray-100 rounded-xl animate-pulse" />
+            <div className="flex-1 h-12 bg-gray-100 rounded-xl animate-pulse" />
           )}
 
-          {/* Right: Filter Toggle */}
+          {/* Right: Simple Filter Icon */}
           <button
             onClick={() => setShowSearchModal(!showSearchModal)}
-            className={`p-2 rounded-xl border transition-all shadow-sm flex-shrink-0 ${
-              showSearchModal
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'
-            }`}
+            className="p-3 rounded-xl bg-white border border-gray-200 text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all shadow-sm flex-shrink-0"
           >
             <Filter className="h-5 w-5" />
           </button>
