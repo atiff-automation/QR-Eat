@@ -219,6 +219,33 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               </PermissionGuard>
             ))}
           </nav>
+
+          <div className="flex-shrink-0 border-t border-gray-200 p-4">
+            <div className="flex items-center mb-3">
+              <div className="flex-shrink-0">
+                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {user.firstName[0]}
+                    {user.lastName[0]}
+                  </span>
+                </div>
+              </div>
+              <div className="ml-3 flex-1">
+                <p className="text-sm font-medium text-gray-900">
+                  {user.firstName} {user.lastName}
+                </p>
+                <p className="text-xs text-gray-500">{user.email}</p>
+              </div>
+            </div>
+
+            <button
+              onClick={handleLogout}
+              className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </button>
+          </div>
         </div>
       </div>
 
@@ -291,7 +318,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {/* Top header */}
         <header className="bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-4">
+            <div className="flex justify-between items-center py-2">
               <div className="flex items-center">
                 <button
                   onClick={() => setIsSidebarOpen(true)}
@@ -316,18 +343,6 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
                 {/* Live Clock - Local Browser Timezone */}
                 <DashboardClock />
-
-                {/* Mobile logout */}
-                <div className="lg:hidden">
-                  <button
-                    onClick={handleLogout}
-                    className="touch-target bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm flex items-center gap-1"
-                    aria-label="Logout"
-                  >
-                    <LogOut className="h-4 w-4" />
-                    <span className="hidden xs:inline">Logout</span>
-                  </button>
-                </div>
               </div>
             </div>
           </div>

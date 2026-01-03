@@ -158,7 +158,7 @@ const DashboardClockComponent = () => (
   <LiveClock
     showDate={true}
     showSeconds={false}
-    className="hidden sm:block text-sm text-gray-500"
+    className="text-sm text-gray-500"
   />
 );
 
