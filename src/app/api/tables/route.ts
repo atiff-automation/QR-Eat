@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (authResult.user.currentRole.userType === 'staff') {
+    if (
+      authResult.user.currentRole &&
+      authResult.user.currentRole.userType === 'staff'
+    ) {
       restaurantId = authResult.user.currentRole.restaurantId;
     } else {
       // For admin/owner, require restaurantId parameter
@@ -147,7 +150,10 @@ export async function POST(request: NextRequest) {
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (authResult.user.currentRole.userType === 'staff') {
+    if (
+      authResult.user.currentRole &&
+      authResult.user.currentRole.userType === 'staff'
+    ) {
       restaurantId = authResult.user.currentRole.restaurantId;
     } else {
       // For admin/owner, require restaurantId parameter

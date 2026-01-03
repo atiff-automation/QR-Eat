@@ -255,7 +255,7 @@ export async function GET(
           },
         },
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: 'asc' as const },
     });
 
     // Get current order details

@@ -101,7 +101,9 @@ export async function POST(
     // Determine specific FK field based on user type
     const userType = context!.userType;
     const userId = context!.userId!;
-    const paymentData: Record<string, unknown> = {
+
+    // Build type-safe payment data based on user type
+    const basePaymentData = {
       orderId: order.id,
       paymentMethod: validatedData.paymentMethod,
       amount: order.totalAmount,
@@ -123,14 +125,13 @@ export async function POST(
       completedAt: new Date(),
     };
 
-    // Set the appropriate FK field based on user type
-    if (userType === 'platform_admin') {
-      paymentData.processedByAdminId = userId;
-    } else if (userType === 'restaurant_owner') {
-      paymentData.processedByOwnerId = userId;
-    } else if (userType === 'staff') {
-      paymentData.processedByStaffId = userId;
-    }
+    // Create type-safe payment data with appropriate FK based on user type
+    const paymentData =
+      userType === 'platform_admin'
+        ? { ...basePaymentData, processedByAdminId: userId }
+        : userType === 'restaurant_owner'
+          ? { ...basePaymentData, processedByOwnerId: userId }
+          : { ...basePaymentData, processedByStaffId: userId };
 
     // Process payment in transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -152,7 +153,7 @@ export async function POST(
       });
 
       // Create audit log with proper user type tracking
-      const auditData: Record<string, unknown> = {
+      const baseAuditData = {
         tableName: 'payments',
         recordId: payment.id,
         operation: 'CREATE',
@@ -171,14 +172,13 @@ export async function POST(
         userAgent: request.headers.get('user-agent') || 'unknown',
       };
 
-      // Set the appropriate audit trail FK based on user type
-      if (userType === 'platform_admin') {
-        auditData.adminId = userId;
-      } else if (userType === 'restaurant_owner') {
-        auditData.ownerId = userId;
-      } else if (userType === 'staff') {
-        auditData.staffId = userId;
-      }
+      // Create type-safe audit data with appropriate FK based on user type
+      const auditData =
+        userType === 'platform_admin'
+          ? { ...baseAuditData, adminId: userId }
+          : userType === 'restaurant_owner'
+            ? { ...baseAuditData, ownerId: userId }
+            : { ...baseAuditData, staffId: userId };
 
       await tx.auditLog.create({
         data: auditData,
