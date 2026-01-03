@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { formatPrice } from '@/lib/qr-utils';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { OrderCard, OrderSummary } from './shared/OrderCard';
@@ -42,70 +42,98 @@ export function OrdersOverview() {
   const [modifyOrder, setModifyOrder] = useState<OrderSummary | null>(null);
   const [cancelOrder, setCancelOrder] = useState<OrderSummary | null>(null);
 
-  const handleRealTimeUpdate = (data: {
-    type: string;
-    data: Record<string, unknown>;
-  }) => {
-    debug.info('SSE', 'Real-time update received:', data);
+  const fetchOrders = useCallback(async () => {
+    try {
+      const params: Record<string, string> = {};
 
-    switch (data.type) {
-      case 'order_status_changed':
-        debug.info(
-          'Order Status',
-          'Updating:',
-          data.data.orderId,
-          'from',
-          data.data.oldStatus,
-          'to',
-          data.data.newStatus
-        );
+      // Always exclude served orders from the order list
+      params.excludeServed = 'true';
 
-        setOrders((prevOrders) => {
-          const updated = prevOrders.map((order) => {
-            if (order.id === (data.data.orderId as string)) {
-              debug.log('Found order to update:', order.orderNumber);
-              return { ...order, status: data.data.newStatus as string };
+      if (filter !== 'all') {
+        params.status = filter;
+      }
+      params.limit = DEFAULT_ORDER_LIMIT.toString();
+
+      const data = await ApiClient.get<{
+        success: boolean;
+        orders: OrderSummary[];
+      }>('/orders', { params });
+
+      setOrders(data.orders);
+    } catch (error) {
+      debug.error('Failed to fetch orders:', error);
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
+    }
+  }, [filter]);
+
+  const handleRealTimeUpdate = useCallback(
+    (data: { type: string; data: Record<string, unknown> }) => {
+      debug.info('SSE', 'Real-time update received:', data);
+
+      switch (data.type) {
+        case 'order_status_changed':
+          debug.info(
+            'Order Status',
+            'Updating:',
+            data.data.orderId,
+            'from',
+            data.data.oldStatus,
+            'to',
+            data.data.newStatus
+          );
+
+          setOrders((prevOrders) => {
+            const updated = prevOrders.map((order) => {
+              if (order.id === (data.data.orderId as string)) {
+                debug.log('Found order to update:', order.orderNumber);
+                return { ...order, status: data.data.newStatus as string };
+              }
+              return order;
+            });
+
+            const foundOrder = prevOrders.find(
+              (order) => order.id === (data.data.orderId as string)
+            );
+            if (!foundOrder) {
+              debug.log('Order not found in current list, refreshing...');
+              fetchOrders();
+              return prevOrders;
             }
-            return order;
+
+            return updated;
           });
 
-          const foundOrder = prevOrders.find(
-            (order) => order.id === (data.data.orderId as string)
-          );
-          if (!foundOrder) {
-            debug.log('Order not found in current list, refreshing...');
-            fetchOrders();
-            return prevOrders;
-          }
+          fetchStats();
+          break;
 
-          return updated;
-        });
+        case 'order_created':
+          debug.info('Order Created', 'Refreshing dashboard orders...');
+          fetchOrders();
+          fetchStats();
+          break;
 
-        fetchStats();
-        break;
+        case 'restaurant_notification':
+          debug.info('Restaurant', data.data.message);
+          break;
 
-      case 'order_created':
-        debug.info('Order Created', 'Refreshing dashboard orders...');
-        fetchOrders();
-        fetchStats();
-        break;
+        case 'kitchen_notification':
+          debug.info('Kitchen', data.data.message);
+          break;
 
-      case 'restaurant_notification':
-        debug.info('Restaurant', data.data.message);
-        break;
+        case 'connection':
+          debug.info('SSE', 'Connection established:', data.data.message);
+          break;
 
-      case 'kitchen_notification':
-        debug.info('Kitchen', data.data.message);
-        break;
-
-      case 'connection':
-        debug.info('SSE', 'Connection established:', data.data.message);
-        break;
-
-      default:
-        debug.warn('Unknown SSE event type:', data.type);
-    }
-  };
+        default:
+          debug.warn('Unknown SSE event type:', data.type);
+      }
+    },
+    [fetchOrders]
+  );
 
   useEffect(() => {
     fetchOrders();
@@ -133,7 +161,7 @@ export function OrdersOverview() {
     return () => {
       eventSource.close();
     };
-  }, [filter]);
+  }, [fetchOrders, handleRealTimeUpdate]); // Removed filter from dependencies as it's now in fetchOrders's useCallback
 
   // Handle escape key to close modal
   useEffect(() => {
@@ -148,30 +176,6 @@ export function OrdersOverview() {
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [showSearchModal]);
-
-  const fetchOrders = async () => {
-    try {
-      const params: Record<string, string> = {};
-      if (filter !== 'all') {
-        params.status = filter;
-      }
-      params.limit = DEFAULT_ORDER_LIMIT.toString();
-
-      const data = await ApiClient.get<{
-        success: boolean;
-        orders: OrderSummary[];
-      }>('/orders', { params });
-
-      setOrders(data.orders);
-    } catch (error) {
-      debug.error('Failed to fetch orders:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
-    }
-  };
 
   const fetchStats = async () => {
     try {
@@ -243,7 +247,6 @@ export function OrdersOverview() {
       confirmed: 2,
       preparing: 3,
       ready: 4,
-      served: 5,
     };
 
     return [...filteredOrders].sort((a, b) => {

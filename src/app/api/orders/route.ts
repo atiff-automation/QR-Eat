@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { Prisma } from '@prisma/client';
 import {
   getTenantContext,
   requireAuth,
@@ -19,11 +20,12 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(url.searchParams.get('limit') || '50');
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const restaurantId = url.searchParams.get('restaurantId'); // For platform admins
+    const excludeServed = url.searchParams.get('excludeServed') === 'true';
 
     // Build tenant-aware where clause
     // Show ALL orders regardless of creation date
     // This ensures old unpaid/unserved orders remain visible
-    let where = createRestaurantFilter(context!);
+    let where: Prisma.OrderWhereInput = createRestaurantFilter(context!);
 
     // Platform admins can optionally filter by specific restaurant
     if (context!.isAdmin && restaurantId) {
@@ -33,6 +35,12 @@ export async function GET(request: NextRequest) {
     // Filter by status if provided
     if (status && status !== 'all') {
       where.status = status;
+    }
+
+    // Exclude served orders when requested (for active orders view)
+    // This applies to both filtered and unfiltered views
+    if (excludeServed && (!status || status === 'all')) {
+      where.status = { not: 'served' };
     }
 
     // Fetch orders with related data
