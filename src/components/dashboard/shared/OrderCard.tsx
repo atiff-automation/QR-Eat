@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
+import { OrderActionsMenu } from './OrderActionsMenu';
 import {
   getNextOrderAction,
   getOrderSummary,
@@ -20,6 +22,9 @@ export interface OrderSummary {
   totalAmount: number;
   createdAt: string;
   estimatedReadyTime?: string;
+  version: number; // For optimistic locking
+  hasModifications?: boolean; // Modification indicator
+  modificationCount?: number; // Number of modifications
   table: {
     tableNumber: string;
     tableName?: string;
@@ -31,8 +36,12 @@ export interface OrderSummary {
   items: {
     id: string;
     quantity: number;
+    unitPrice: number;
+    totalAmount: number;
     menuItem: {
+      id: string;
       name: string;
+      price: number;
     };
   }[];
 }
@@ -42,6 +51,12 @@ export interface OrderCardProps {
   order: OrderSummary;
   /** Callback when order status is updated */
   onStatusUpdate: (orderId: string, newStatus: string) => Promise<void>;
+  /** Callback when view details is clicked */
+  onViewDetails?: (orderId: string) => void;
+  /** Callback when modify is clicked */
+  onModify?: (orderId: string) => void;
+  /** Callback when cancel is clicked */
+  onCancel?: (orderId: string) => void;
   /** Whether the order is currently being updated */
   isUpdating?: boolean;
 }
@@ -74,6 +89,9 @@ function getStatusBorderColor(status: string): string {
 export function OrderCard({
   order,
   onStatusUpdate,
+  onViewDetails,
+  onModify,
+  onCancel,
   isUpdating = false,
 }: OrderCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
@@ -119,7 +137,7 @@ export function OrderCard({
       role="article"
       aria-label={`Order ${order.orderNumber} for table ${order.table.tableNumber}`}
     >
-      {/* Header: Table Number + Status */}
+      {/* Header: Table Number + Status + Actions */}
       <div className="flex items-start justify-between mb-2">
         <div>
           <h3 className="text-lg font-bold text-gray-900">
@@ -129,11 +147,30 @@ export function OrderCard({
             <p className="text-xs text-gray-500">{order.table.tableName}</p>
           )}
         </div>
-        <StatusBadge status={order.status} size="sm" />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={order.status} size="sm" />
+          {(onViewDetails || onModify || onCancel) && (
+            <OrderActionsMenu
+              order={order}
+              onViewDetails={onViewDetails || (() => {})}
+              onModify={onModify || (() => {})}
+              onCancel={onCancel || (() => {})}
+            />
+          )}
+        </div>
       </div>
+
+      {/* Modification Indicator */}
+      {order.hasModifications && (
+        <div className="flex items-center gap-1 text-xs text-orange-600 mb-2">
+          <AlertCircle className="h-3 w-3" />
+          <span>Modified {order.modificationCount}x</span>
+        </div>
+      )}
 
       {/* Order Details - Compact */}
       <div className="space-y-1 mb-3">
+        {/* Order Number + Items */}
         {/* Order Number + Items */}
         <div className="flex items-center justify-between text-sm">
           <span className="font-medium text-gray-900">{order.orderNumber}</span>

@@ -4,6 +4,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { formatPrice } from '@/lib/qr-utils';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { OrderCard, OrderSummary } from './shared/OrderCard';
+import { ViewOrderDetailsModal } from './modals/ViewOrderDetailsModal';
+import { ModifyOrderModal } from './modals/ModifyOrderModal';
+import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search } from 'lucide-react';
 import { debug } from '@/lib/debug';
 
@@ -31,6 +34,13 @@ export function OrdersOverview() {
   const [filter, setFilter] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
+
+  // Modal states
+  const [viewDetailsOrderId, setViewDetailsOrderId] = useState<string | null>(
+    null
+  );
+  const [modifyOrder, setModifyOrder] = useState<OrderSummary | null>(null);
+  const [cancelOrder, setCancelOrder] = useState<OrderSummary | null>(null);
 
   const handleRealTimeUpdate = (data: {
     type: string;
@@ -190,6 +200,27 @@ export function OrdersOverview() {
           : 'Network error. Please try again.'
       );
     }
+  };
+
+  // Modal handlers
+  const handleViewDetails = (orderId: string) => {
+    setViewDetailsOrderId(orderId);
+  };
+
+  const handleModify = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) setModifyOrder(order);
+  };
+
+  const handleCancel = (orderId: string) => {
+    const order = orders.find((o) => o.id === orderId);
+    if (order) setCancelOrder(order);
+  };
+
+  const handleModalSuccess = async () => {
+    // Refresh orders after modification/cancellation
+    await Promise.all([fetchOrders(), fetchStats()]);
+    setError('');
   };
 
   const filteredOrders = useMemo(() => {
@@ -432,6 +463,9 @@ export function OrdersOverview() {
               key={order.id}
               order={order}
               onStatusUpdate={updateOrderStatus}
+              onViewDetails={handleViewDetails}
+              onModify={handleModify}
+              onCancel={handleCancel}
             />
           ))}
         </div>
@@ -464,6 +498,33 @@ export function OrdersOverview() {
             </p>
           </div>
         </div>
+      )}
+
+      {/* Modals */}
+      {viewDetailsOrderId && (
+        <ViewOrderDetailsModal
+          orderId={viewDetailsOrderId}
+          isOpen={!!viewDetailsOrderId}
+          onClose={() => setViewDetailsOrderId(null)}
+        />
+      )}
+
+      {modifyOrder && (
+        <ModifyOrderModal
+          order={modifyOrder}
+          isOpen={!!modifyOrder}
+          onClose={() => setModifyOrder(null)}
+          onSuccess={handleModalSuccess}
+        />
+      )}
+
+      {cancelOrder && (
+        <CancelOrderModal
+          order={cancelOrder}
+          isOpen={!!cancelOrder}
+          onClose={() => setCancelOrder(null)}
+          onSuccess={handleModalSuccess}
+        />
       )}
     </div>
   );

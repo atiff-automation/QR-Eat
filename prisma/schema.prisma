@@ -457,7 +457,6 @@ model Staff {
   sessions   StaffSession[]
   auditLogs  AuditLog[]     @relation("StaffAuditLogs")
   refreshTokens RefreshToken[]
-  orderModifications OrderModification[] // New relation
 
   @@index([restaurantId])
   @@index([roleId])
@@ -1025,7 +1024,7 @@ model PendingEvent {
 model OrderModification {
   id              String    @id @default(uuid())
   orderId         String
-  modifiedBy      String
+  modifiedBy      String?   // Can be any user type (platform_admin, restaurant_owner, staff)
   modifiedAt      DateTime  @default(now())
   
   // Modification details
@@ -1048,7 +1047,7 @@ model OrderModification {
   
   // Relations
   order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  modifiedByUser  Staff                   @relation(fields: [modifiedBy], references: [id])
+  // Note: modifiedBy does NOT have a foreign key - it can be any user type
   items           OrderModificationItem[]
   
   @@index([orderId])
