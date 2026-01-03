@@ -168,6 +168,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     },
   ];
 
+  const getPageIcon = (): LucideIcon => {
+    if (pathname === '/dashboard') return Home;
+    if (pathname.includes('/orders')) return ClipboardList;
+    if (pathname.includes('/tables')) return ChefHat;
+    if (pathname.includes('/kitchen')) return UtensilsCrossed;
+    if (pathname.includes('/menu')) return UtensilsCrossed;
+    if (pathname.includes('/cashier')) return CreditCard;
+    if (pathname.includes('/staff')) return Users;
+    if (pathname.includes('/reports')) return BarChart3;
+    if (pathname.includes('/settings')) return Settings;
+    return Home;
+  };
+
   const getPageTitle = () => {
     if (pathname === '/dashboard') return 'Dashboard';
     if (pathname.includes('/orders')) return 'Orders';
@@ -337,9 +350,17 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 >
                   <Menu className="h-6 w-6" />
                 </button>
-                <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-                  {getPageTitle()}
-                </h1>
+                <div className="flex items-center gap-2">
+                  {(() => {
+                    const PageIcon = getPageIcon();
+                    return (
+                      <PageIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                    );
+                  })()}
+                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                    {getPageTitle()}
+                  </h1>
+                </div>
               </div>
 
               <div className="flex items-center space-x-4">
