@@ -15,6 +15,7 @@ import { TableDetailModal } from '@/components/tables/TableDetailModal';
 import { PaymentInterface } from '@/components/pos/PaymentInterface';
 import { Plus, Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { mergeOrdersForPayment } from '@/lib/utils/order-merge';
 import type { OrderWithDetails } from '@/types/pos';
 
 interface Table {
@@ -174,7 +175,7 @@ function TablesContent() {
     }
   };
 
-  // Payment Handler
+  // Payment Handler - Combines multiple orders for payment
   const handleProcessPayment = (
     tableId: string,
     orders: OrderWithDetails[]
@@ -184,8 +185,11 @@ function TablesContent() {
       return;
     }
 
-    // For Phase 1: Process first order only
-    setSelectedOrders(orders);
+    // Merge multiple orders into single payment
+    // This allows staff to pay all table orders at once
+    const mergedOrder = mergeOrdersForPayment(orders);
+
+    setSelectedOrders([mergedOrder]);
     setShowPaymentInterface(true);
     setIsModalOpen(false); // Close table modal
   };

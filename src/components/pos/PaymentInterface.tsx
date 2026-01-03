@@ -18,7 +18,7 @@ import { OrderDetails } from './OrderDetails';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { CashPaymentForm } from './CashPaymentForm';
 import { Receipt } from './Receipt';
-import { X } from 'lucide-react';
+import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
 
 export function PaymentInterface({
@@ -151,18 +151,21 @@ export function PaymentInterface({
             {/* Non-Cash Payment */}
             {selectedMethod && selectedMethod !== 'cash' && (
               <div className="bg-white rounded-lg border border-gray-200 p-4">
-                <h3 className="text-base font-semibold text-gray-900 mb-3">
-                  {selectedMethod === 'card'
-                    ? 'Card Payment'
-                    : 'E-Wallet Payment'}
-                </h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  Please complete the payment using the{' '}
-                  {selectedMethod === 'card'
-                    ? 'card terminal'
-                    : 'e-wallet scanner'}
-                  .
-                </p>
+                {/* Title with Icon */}
+                <div className="flex items-center gap-2 mb-4">
+                  {selectedMethod === 'card' ? (
+                    <CreditCard className="w-5 h-5 text-gray-700" />
+                  ) : (
+                    <Smartphone className="w-5 h-5 text-gray-700" />
+                  )}
+                  <h3 className="text-base font-semibold text-gray-900">
+                    {selectedMethod === 'card'
+                      ? 'Card Payment'
+                      : 'E-Wallet Payment'}
+                  </h3>
+                </div>
+
+                {/* Buttons */}
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelectedMethod(null)}
@@ -176,7 +179,7 @@ export function PaymentInterface({
                     className="flex-1 h-10 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300"
                     disabled={isProcessing}
                   >
-                    {isProcessing ? 'Processing...' : 'Confirm Payment'}
+                    {isProcessing ? 'Processing...' : 'Pay'}
                   </button>
                 </div>
               </div>

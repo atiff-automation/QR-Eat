@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { CashPaymentFormProps } from '@/types/pos';
 import { formatCurrency } from '@/lib/utils/format';
 import { Loader2 } from 'lucide-react';
@@ -25,10 +25,24 @@ export function CashPaymentForm({
 }: CashPaymentFormProps) {
   const [cashReceived, setCashReceived] = useState<string>('');
   const [error, setError] = useState<string>('');
+  const formRef = useRef<HTMLFormElement>(null);
 
   const cashReceivedNum = parseFloat(cashReceived) || 0;
   const change = cashReceivedNum - totalAmount;
   const isValid = cashReceivedNum >= totalAmount;
+
+  // Auto-scroll to bottom when change appears
+  useEffect(() => {
+    if (isValid && change > 0 && formRef.current) {
+      // Small delay to ensure DOM has updated
+      setTimeout(() => {
+        formRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        });
+      }, 100);
+    }
+  }, [isValid, change]);
 
   const handleQuickAmount = (amount: number) => {
     setCashReceived((totalAmount + amount).toFixed(2));
@@ -48,6 +62,7 @@ export function CashPaymentForm({
 
   return (
     <form
+      ref={formRef}
       onSubmit={handleSubmit}
       className="bg-white rounded-lg border border-gray-200 p-6"
     >
@@ -70,6 +85,7 @@ export function CashPaymentForm({
         <input
           id="cashReceived"
           type="number"
+          inputMode="decimal"
           step="0.01"
           min="0"
           value={cashReceived}
@@ -103,35 +119,35 @@ export function CashPaymentForm({
       </div>
 
       {isValid && change > 0 && (
-        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-          <p className="text-sm text-green-700 mb-1">Change to Return</p>
-          <p className="text-2xl font-bold text-green-900">
+        <div className="mb-3 p-2.5 bg-green-50 border border-green-200 rounded-lg">
+          <p className="text-xs text-green-700 mb-0.5">Change to Return</p>
+          <p className="text-xl font-bold text-green-900">
             {formatCurrency(change)}
           </p>
         </div>
       )}
 
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+          className="flex-1 h-10 px-4 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors"
           disabled={isProcessing}
         >
           Cancel
         </button>
         <button
           type="submit"
-          className="flex-1 px-4 py-3 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex-1 h-10 px-4 text-white bg-blue-600 rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           disabled={!isValid || isProcessing}
         >
           {isProcessing ? (
             <>
-              <Loader2 className="w-5 h-5 animate-spin" />
+              <Loader2 className="w-4 h-4 animate-spin" />
               Processing...
             </>
           ) : (
-            'Complete Payment'
+            'Pay'
           )}
         </button>
       </div>
