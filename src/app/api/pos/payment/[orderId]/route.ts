@@ -17,9 +17,10 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
-import { PAYMENT_STATUS } from '@/lib/order-utils';
+import { PAYMENT_STATUS, ORDER_STATUS } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { generateReceiptNumber } from '@/lib/utils/receipt-formatter';
+import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
 import { Decimal } from '@prisma/client/runtime/library';
 
@@ -138,11 +139,15 @@ export async function POST(
         data: paymentData,
       });
 
-      // Update order payment status
+      // Update order payment status AND order status
+      // When payment is completed, the order is considered served
       const updatedOrder = await tx.order.update({
         where: { id: order.id },
         data: {
           paymentStatus: PAYMENT_STATUS.COMPLETED,
+          status: ORDER_STATUS.SERVED, // Mark order as served when paid
+          servedAt: new Date(), // Set served timestamp
+          servedBy: userId, // Track who processed the payment
         },
       });
 
@@ -194,6 +199,12 @@ export async function POST(
       timestamp: Date.now(),
     }).catch((error) => {
       console.error('Failed to publish payment completed event:', error);
+    });
+
+    // Auto-update table status after payment completion
+    // This will clear the table to "available" if all orders are served
+    autoUpdateTableStatus(order.tableId).catch((error) => {
+      console.error('[Payment] Failed to auto-update table status:', error);
     });
 
     return NextResponse.json({
