@@ -17,7 +17,7 @@ import {
   requirePermission,
   createRestaurantFilter,
 } from '@/lib/tenant-context';
-import { PAYMENT_STATUS } from '@/lib/order-utils';
+import { ORDER_STATUS, PAYMENT_STATUS } from '@/lib/order-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -34,9 +34,13 @@ export async function GET(request: NextRequest) {
     // Build tenant-aware where clause
     // Show ALL orders with pending payment, regardless of status
     // This ensures forgotten orders remain visible after midnight
+    // BUT exclude cancelled orders (no payment needed)
     const where = {
       ...createRestaurantFilter(context!),
       paymentStatus: PAYMENT_STATUS.PENDING,
+      status: {
+        not: ORDER_STATUS.CANCELLED, // Exclude cancelled orders
+      },
     };
 
     // Fetch pending orders with full details
