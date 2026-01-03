@@ -1,13 +1,7 @@
 /**
  * Tables Management Page with RBAC Integration
  *
- * This page implements Phase 3.3.2 of the RBAC Implementation Plan,
- * replacing legacy authentication with the new RBAC system.
- *
- * Features:
- * - RBAC-based permission checking
- * - Role-aware table management access
- * - Integration with new role context system
+ * Re-implemented as a mobile-first Tile Grid system.
  */
 
 'use client';
@@ -16,7 +10,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
-import { Smartphone, Copy, RefreshCw, Users, ChefHat } from 'lucide-react';
+import { TableTile } from '@/components/tables/TableTile';
+import { TableDetailModal } from '@/components/tables/TableDetailModal';
+import { ChefHat, Plus, Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
@@ -35,13 +31,16 @@ interface Table {
 function TablesContent() {
   const { restaurantContext } = useRole();
   const [tables, setTables] = useState<Table[]>([]);
+  const [filteredTables, setFilteredTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'layout'>('grid');
+
+  // Interaction State
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
-  const [showQRCode, setShowQRCode] = useState(false);
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showQRCodeModal, setShowQRCodeModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchTables = useCallback(async () => {
     try {
@@ -71,30 +70,45 @@ function TablesContent() {
   useEffect(() => {
     if (restaurantContext?.id) {
       fetchTables();
-      // Set up real-time updates using POLLING_INTERVALS constant
       const interval = setInterval(fetchTables, POLLING_INTERVALS.TABLES);
       return () => clearInterval(interval);
     }
   }, [restaurantContext?.id, fetchTables]);
 
+  // Filter Logic
+  useEffect(() => {
+    if (!searchQuery) {
+      setFilteredTables(tables);
+    } else {
+      const lowerQuery = searchQuery.toLowerCase();
+      setFilteredTables(
+        tables.filter(
+          (t) =>
+            t.tableNumber.toLowerCase().includes(lowerQuery) ||
+            t.tableName?.toLowerCase().includes(lowerQuery)
+        )
+      );
+    }
+  }, [searchQuery, tables]);
+
+  // Actions
+  const handleTileClick = (table: Table) => {
+    setSelectedTable(table);
+    setIsModalOpen(true);
+  };
+
   const updateTableStatus = async (tableId: string, status: string) => {
     try {
       await ApiClient.patch(`/tables/${tableId}/status`, { status });
-
-      fetchTables(); // Refresh tables
+      fetchTables(); // Refresh immediately
+      // Update local state optimistically for snappy feel
+      if (selectedTable && selectedTable.id === tableId) {
+        setSelectedTable({ ...selectedTable, status });
+      }
     } catch (error) {
       console.error('Failed to update table status:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
+      alert('Failed to update status');
     }
-  };
-
-  const generateQRCode = (token: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/qr/${token}`;
   };
 
   const regenerateQRCode = async (tableId: string) => {
@@ -102,420 +116,83 @@ function TablesContent() {
       const data = await ApiClient.post<{ qrUrl: string }>(
         `/tables/${tableId}/regenerate-qr`
       );
-
       alert(`QR code regenerated successfully!\nNew URL: ${data.qrUrl}`);
-      fetchTables(); // Refresh tables
-    } catch (error) {
-      console.error('Failed to regenerate QR code:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
+      fetchTables();
+      setIsModalOpen(false); // Close drawer to force refresh contexts if needed
+    } catch {
+      alert('Failed to regenerate QR');
     }
   };
-
-  const showTableQRCode = (table: Table) => {
-    setSelectedTable(table);
-    setShowQRCode(true);
-  };
-
-  const toggleTableSelection = (tableId: string) => {
-    setSelectedTables((prev) =>
-      prev.includes(tableId)
-        ? prev.filter((id) => id !== tableId)
-        : [...prev, tableId]
-    );
-  };
-
-  const selectAllTables = () => {
-    setSelectedTables(tables.map((table) => table.id));
-  };
-
-  const clearSelection = () => {
-    setSelectedTables([]);
-  };
-
-  const generateBulkQRCodes = async () => {
-    if (selectedTables.length === 0) {
-      alert('Please select tables first');
-      return;
-    }
-
-    try {
-      const data = await ApiClient.post<{ printHTML: string }>(
-        '/tables/bulk-qr',
-        {
-          tableIds: selectedTables,
-        }
-      );
-
-      // Open print window with all QR codes
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(data.printHTML);
-        printWindow.document.close();
-        printWindow.focus();
-        printWindow.print();
-      }
-    } catch (error) {
-      console.error('Failed to generate bulk QR codes:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'available':
-        return 'bg-green-100 text-green-800';
-      case 'occupied':
-        return 'bg-blue-100 text-blue-800';
-      case 'reserved':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'cleaning':
-        return 'bg-orange-100 text-orange-800';
-      case 'maintenance':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const statusOptions = [
-    { value: 'available', label: 'Available' },
-    { value: 'occupied', label: 'Occupied' },
-    { value: 'reserved', label: 'Reserved' },
-    { value: 'cleaning', label: 'Cleaning' },
-    { value: 'maintenance', label: 'Maintenance' },
-  ];
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="bg-gray-200 h-48 rounded-lg"></div>
-            ))}
-          </div>
-        </div>
+      <div className="p-4 grid grid-cols-2 gap-4">
+        {[...Array(6)].map((_, i) => (
+          <div
+            key={i}
+            className="aspect-square bg-gray-100 rounded-2xl animate-pulse"
+          />
+        ))}
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Table Management</h1>
-          <p className="text-gray-800">Monitor and manage restaurant tables</p>
-          {selectedTables.length > 0 && (
-            <p className="text-sm text-blue-600 mt-1">
-              {selectedTables.length} table
-              {selectedTables.length !== 1 ? 's' : ''} selected
-            </p>
-          )}
-        </div>
-        <div className="flex items-center space-x-4">
-          {/* Bulk Actions */}
-          {selectedTables.length > 0 && (
-            <PermissionGuard permission="tables:write">
-              <div className="flex items-center space-x-2 mr-4 p-2 bg-blue-50 rounded-lg">
-                <button
-                  onClick={generateBulkQRCodes}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm font-medium"
-                >
-                  🖨️ Print QR Codes ({selectedTables.length})
-                </button>
-                <button
-                  onClick={clearSelection}
-                  className="text-gray-700 hover:text-gray-900 px-2 py-1 rounded text-sm"
-                >
-                  Clear
-                </button>
-              </div>
-            </PermissionGuard>
-          )}
-
-          {/* Selection Actions */}
-          <div className="flex rounded-lg bg-gray-100 p-1">
-            <button
-              onClick={
-                selectedTables.length === tables.length
-                  ? clearSelection
-                  : selectAllTables
-              }
-              className="px-3 py-1 text-sm font-medium rounded-md transition-colors bg-white text-gray-900 shadow-sm"
-            >
-              {selectedTables.length === tables.length
-                ? 'Deselect All'
-                : 'Select All'}
-            </button>
-          </div>
-          {/* View Mode Toggle */}
-          <div className="flex rounded-lg bg-gray-100 p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                viewMode === 'grid'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              Grid View
-            </button>
-            <button
-              onClick={() => setViewMode('layout')}
-              className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                viewMode === 'layout'
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              Layout View
-            </button>
-          </div>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
+            Tables
+          </h1>
           <PermissionGuard permission="tables:write">
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium"
+              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg transition-transform active:scale-95"
             >
-              Add Table
+              <Plus className="w-6 h-6" />
             </button>
           </PermissionGuard>
         </div>
+
+        {/* Search Bar */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search tables..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 font-medium text-gray-900 transition-all placeholder:text-gray-500"
+          />
+        </div>
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-600">{error}</p>
-        </div>
-      )}
-
-      {/* Tables Display */}
-      {viewMode === 'grid' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {tables.map((table) => (
-            <div
-              key={table.id}
-              className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 relative"
-            >
-              {/* Selection Checkbox */}
-              <div className="absolute top-3 left-3">
-                <input
-                  type="checkbox"
-                  checked={selectedTables.includes(table.id)}
-                  onChange={() => toggleTableSelection(table.id)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                />
-              </div>
-
-              <div className="flex items-center justify-between mb-4 ml-6">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Table {table.tableNumber}
-                </h3>
-                <span
-                  className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(table.status)}`}
-                >
-                  {table.status}
-                </span>
-              </div>
-
-              {table.tableName && (
-                <p className="text-sm text-gray-600 mb-2">{table.tableName}</p>
-              )}
-
-              <div className="space-y-2 mb-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Capacity:</span>
-                  <span className="text-gray-900">{table.capacity} guests</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-500">Active Orders:</span>
-                  <span className="text-gray-900">{table.currentOrders}</span>
-                </div>
-                {table.lastOrderAt && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">Last Order:</span>
-                    <span className="text-gray-900">
-                      {new Date(table.lastOrderAt).toLocaleString()}
-                    </span>
-                  </div>
-                )}
-                {table.locationDescription && (
-                  <div className="text-sm">
-                    <span className="text-gray-500">Location:</span>
-                    <p className="text-gray-900 mt-1">
-                      {table.locationDescription}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              {/* Status Update */}
-              <PermissionGuard permission="tables:write">
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Update Status
-                  </label>
-                  <select
-                    value={table.status}
-                    onChange={(e) =>
-                      updateTableStatus(table.id, e.target.value)
-                    }
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900 font-medium bg-white"
-                  >
-                    {statusOptions.map((option) => (
-                      <option
-                        key={option.value}
-                        value={option.value}
-                        className="text-gray-900 font-medium"
-                      >
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </PermissionGuard>
-
-              {/* QR Code Actions */}
-              <div className="space-y-2">
-                <button
-                  onClick={() => showTableQRCode(table)}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  <Smartphone className="h-4 w-4 mr-2" />
-                  View QR Code
-                </button>
-                <button
-                  onClick={() => {
-                    const qrUrl = generateQRCode(table.qrCodeToken);
-                    navigator.clipboard.writeText(qrUrl);
-                    alert('QR URL copied to clipboard!');
-                  }}
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy QR URL
-                </button>
-                <button
-                  onClick={() => {
-                    const qrUrl = generateQRCode(table.qrCodeToken);
-                    window.open(qrUrl, '_blank');
-                  }}
-                  className="w-full bg-green-100 hover:bg-green-200 text-green-700 px-3 py-2 rounded-md text-sm font-medium"
-                >
-                  👁️ Preview Menu
-                </button>
-                <PermissionGuard permission="tables:write">
-                  <button
-                    onClick={() => regenerateQRCode(table.id)}
-                    className="w-full bg-orange-100 hover:bg-orange-200 text-orange-700 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    <RefreshCw className="h-4 w-4 mr-2" />
-                    Regenerate QR
-                  </button>
-                </PermissionGuard>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        /* Layout View */
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
-          <div className="text-center mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-2">
-              Restaurant Floor Plan
-            </h2>
-            <p className="text-sm text-gray-600">
-              Interactive table layout view
-            </p>
+      {/* Main Grid */}
+      <div className="p-4">
+        {error && (
+          <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
+            {error}
           </div>
+        )}
 
-          <div className="grid grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-4 min-h-96">
-            {tables.map((table) => (
-              <div
+        {filteredTables.length > 0 ? (
+          <div className="grid grid-cols-3 lg:grid-cols-6 xl:grid-cols-8 gap-3">
+            {filteredTables.map((table) => (
+              <TableTile
                 key={table.id}
-                className={`relative flex items-center justify-center rounded-lg border-2 p-4 cursor-pointer transition-all hover:shadow-md ${
-                  table.status === 'available'
-                    ? 'border-green-300 bg-green-50 hover:bg-green-100'
-                    : table.status === 'occupied'
-                      ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
-                      : table.status === 'reserved'
-                        ? 'border-yellow-300 bg-yellow-50 hover:bg-yellow-100'
-                        : table.status === 'cleaning'
-                          ? 'border-orange-300 bg-orange-50 hover:bg-orange-100'
-                          : 'border-red-300 bg-red-50 hover:bg-red-100'
-                }`}
-                style={{
-                  aspectRatio: '1',
-                  gridColumn: `span ${Math.min(table.capacity, 3)}`,
-                }}
-                title={`Table ${table.tableNumber} - ${table.status} (${table.capacity} guests)`}
-              >
-                <div className="text-center">
-                  <div className="text-lg font-bold text-gray-800">
-                    T{table.tableNumber}
-                  </div>
-                  <div className="text-xs text-gray-600">
-                    <Users className="h-3 w-3 mr-1 inline" />
-                    {table.capacity}
-                  </div>
-                  {table.currentOrders > 0 && (
-                    <div className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {table.currentOrders}
-                    </div>
-                  )}
-                </div>
-              </div>
+                table={table}
+                onClick={() => handleTileClick(table)}
+              />
             ))}
           </div>
-
-          {/* Layout Legend */}
-          <div className="mt-6 flex flex-wrap gap-4 justify-center text-sm">
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-green-100 border border-green-300 rounded mr-2"></div>
-              <span>Available</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-blue-100 border border-blue-300 rounded mr-2"></div>
-              <span>Occupied</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-yellow-100 border border-yellow-300 rounded mr-2"></div>
-              <span>Reserved</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-orange-100 border border-orange-300 rounded mr-2"></div>
-              <span>Cleaning</span>
-            </div>
-            <div className="flex items-center">
-              <div className="w-4 h-4 bg-red-100 border border-red-300 rounded mr-2"></div>
-              <span>Maintenance</span>
-            </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <ChefHat className="w-16 h-16 mb-4 opacity-20" />
+            <p className="font-medium">No tables found</p>
           </div>
-        </div>
-      )}
-
-      {tables.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <ChefHat className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No tables found
-          </h3>
-          <p className="text-gray-600 mb-4">
-            Get started by adding your first table
-          </p>
-          <button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">
-            Add Table
-          </button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Add Table Modal */}
       {showAddModal && (
@@ -526,16 +203,32 @@ function TablesContent() {
         />
       )}
 
-      {/* QR Code Display Modal */}
-      {showQRCode && selectedTable && (
+      {/* Detail Modal */}
+      <TableDetailModal
+        table={selectedTable}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onUpdateStatus={updateTableStatus}
+        onShowQR={(table) => {
+          setIsModalOpen(false);
+          setTimeout(() => {
+            setSelectedTable(table);
+            setShowQRCodeModal(true);
+          }, 300);
+        }}
+        onRegenerateQR={regenerateQRCode}
+      />
+
+      {/* QR Code Modal */}
+      {showQRCodeModal && selectedTable && (
         <QRCodeDisplay
           tableId={selectedTable.id}
           tableNumber={selectedTable.tableNumber}
           tableName={selectedTable.tableName}
-          restaurantName="Restaurant" // You can get this from the API or context
+          restaurantName="Restaurant"
           onClose={() => {
-            setShowQRCode(false);
-            setSelectedTable(null);
+            setShowQRCodeModal(false);
+            // Re-open drawer when closing QR? Maybe not.
           }}
         />
       )}
@@ -551,7 +244,7 @@ export default function TablesPage() {
   );
 }
 
-// Add Table Modal Component
+// Add Table Modal Content (Copied & simplified from original)
 function AddTableModal({
   onClose,
   onSuccess,
@@ -585,33 +278,29 @@ function AddTableModal({
       onClose();
     } catch (error) {
       console.error('Failed to create table:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
+      setError('Failed to create table');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Add New Table</h2>
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+          <h3 className="font-bold text-gray-900">New Table</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="p-1 rounded-full hover:bg-gray-200"
           >
-            ✕
+            <div className="w-5 h-5 flex items-center justify-center">✕</div>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Table Number *
+            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+              Number
             </label>
             <input
               type="text"
@@ -619,47 +308,47 @@ function AddTableModal({
               onChange={(e) =>
                 setFormData({ ...formData, tableNumber: e.target.value })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+              className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+              placeholder="e.g. 12"
               required
             />
           </div>
-
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Capacity
+              </label>
+              <input
+                type="number"
+                value={formData.capacity}
+                onChange={(e) =>
+                  setFormData({ ...formData, capacity: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                min="1"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Name (Opt)
+              </label>
+              <input
+                type="text"
+                value={formData.tableName}
+                onChange={(e) =>
+                  setFormData({ ...formData, tableName: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                placeholder="Win..."
+              />
+            </div>
+          </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Table Name
+            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+              Location
             </label>
             <input
-              type="text"
-              value={formData.tableName}
-              onChange={(e) =>
-                setFormData({ ...formData, tableName: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              placeholder="e.g., Window Table"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Capacity *
-            </label>
-            <input
-              type="number"
-              value={formData.capacity}
-              onChange={(e) =>
-                setFormData({ ...formData, capacity: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              min="1"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Location Description
-            </label>
-            <textarea
               value={formData.locationDescription}
               onChange={(e) =>
                 setFormData({
@@ -667,30 +356,20 @@ function AddTableModal({
                   locationDescription: e.target.value,
                 })
               }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              rows={2}
-              placeholder="e.g., Near the window, by the bar"
+              className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+              placeholder="Near window..."
             />
           </div>
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+          {error && <p className="text-red-500 text-xs">{error}</p>}
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
-            >
-              {isSubmitting ? 'Creating...' : 'Create Table'}
-            </button>
-          </div>
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all text-sm"
+          >
+            {isSubmitting ? 'Creating...' : 'Create Table'}
+          </button>
         </form>
       </div>
     </div>
