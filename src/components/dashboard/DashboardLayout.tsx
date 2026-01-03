@@ -316,7 +316,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="bg-white shadow-sm border-b border-gray-200">
+        <header className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
           <div className="px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-2">
               <div className="flex items-center">

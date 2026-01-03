@@ -47,10 +47,11 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Exclude served and cancelled orders when requested (for active orders view)
-    // This applies to both filtered and unfiltered views
+    // Exclude served, cancelled, and completed orders when requested (for active orders view)
+    // Note: 'completed' is not a valid ordering cycle status (it's for payment cycle),
+    // but we exclude it as a safeguard against invalid data
     if (excludeServed && (!status || status === 'all')) {
-      where.status = { notIn: ['served', 'cancelled'] };
+      where.status = { notIn: ['served', 'cancelled', 'completed'] };
     }
 
     // Calculate lapsed active orders (Safety Check)
