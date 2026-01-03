@@ -48,6 +48,7 @@ export const ORDER_STATUS = {
   PREPARING: 'preparing',
   READY: 'ready',
   SERVED: 'served',
+  COMPLETED: 'completed',
   CANCELLED: 'cancelled',
 } as const;
 
@@ -80,6 +81,8 @@ export function getOrderStatusDisplay(status: string): {
       };
     case ORDER_STATUS.SERVED:
       return { label: 'Served', color: 'text-gray-600 bg-gray-100' };
+    case ORDER_STATUS.COMPLETED:
+      return { label: 'Completed', color: 'text-gray-600 bg-gray-100' };
     case ORDER_STATUS.CANCELLED:
       return { label: 'Cancelled', color: 'text-red-600 bg-red-100' };
     default:

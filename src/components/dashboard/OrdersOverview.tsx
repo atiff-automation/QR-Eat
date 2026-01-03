@@ -267,6 +267,7 @@ export function OrdersOverview() {
     { value: 'confirmed', label: 'Confirmed' },
     { value: 'preparing', label: 'Preparing' },
     { value: 'ready', label: 'Ready' },
+    { value: 'completed', label: 'Completed' },
     { value: 'cancelled', label: 'Cancelled' },
   ];
 
