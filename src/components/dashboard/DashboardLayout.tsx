@@ -188,7 +188,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         className={`fixed inset-0 z-40 lg:hidden ${isSidebarOpen ? 'block' : 'hidden'}`}
       >
         <div
-          className="fixed inset-0 bg-gray-600 bg-opacity-75"
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
           onClick={() => setIsSidebarOpen(false)}
         ></div>
         <div className="relative flex flex-col w-64 bg-white h-full">
