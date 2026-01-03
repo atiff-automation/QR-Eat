@@ -134,8 +134,8 @@ export function TableDetailModal({
           </button>
         </div>
 
-        {/* Stats Row - Modern & Compact */}
-        <div className="flex items-center justify-between px-8 py-5 border-b border-gray-100 bg-gray-50/50">
+        {/* Stats Row - Modern & Compact - Changed px-8 to px-6 */}
+        <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 bg-gray-50/50">
           <div className="flex flex-col items-center">
             <div className="flex items-center text-gray-900 font-bold text-lg leading-none mb-1">
               <Users className="w-4 h-4 text-gray-400 mr-1.5" />
@@ -167,7 +167,8 @@ export function TableDetailModal({
           </div>
         </div>
 
-        <div className="p-5 space-y-5">
+        {/* Changed p-5 to p-6 */}
+        <div className="p-6 space-y-5">
           {/* Status Chips - Modern Design (No more gray segmented background) */}
           <div className="grid grid-cols-3 gap-2">
             {statusOptions.slice(0, 3).map((option) => (
