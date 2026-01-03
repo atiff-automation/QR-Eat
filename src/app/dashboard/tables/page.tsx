@@ -12,8 +12,10 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { TableTile } from '@/components/tables/TableTile';
 import { TableDetailModal } from '@/components/tables/TableDetailModal';
+import { PaymentInterface } from '@/components/pos/PaymentInterface';
 import { Plus, Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import type { OrderWithDetails } from '@/types/pos';
 
 interface Table {
   id: string;
@@ -40,6 +42,10 @@ function TablesContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Payment State
+  const [selectedOrders, setSelectedOrders] = useState<OrderWithDetails[]>([]);
+  const [showPaymentInterface, setShowPaymentInterface] = useState(false);
 
   const fetchTables = useCallback(async () => {
     try {
@@ -168,6 +174,28 @@ function TablesContent() {
     }
   };
 
+  // Payment Handler
+  const handleProcessPayment = (
+    tableId: string,
+    orders: OrderWithDetails[]
+  ) => {
+    if (orders.length === 0) {
+      alert('No unpaid orders for this table');
+      return;
+    }
+
+    // For Phase 1: Process first order only
+    setSelectedOrders(orders);
+    setShowPaymentInterface(true);
+    setIsModalOpen(false); // Close table modal
+  };
+
+  const handlePaymentComplete = () => {
+    setShowPaymentInterface(false);
+    setSelectedOrders([]);
+    fetchTables(); // Refresh table list
+  };
+
   if (loading) {
     return (
       <div className="p-4 grid grid-cols-2 gap-4">
@@ -260,6 +288,7 @@ function TablesContent() {
           setSelectedTable(table);
           setShowQRCodeModal(true);
         }}
+        onProcessPayment={handleProcessPayment}
       />
 
       {/* QR Code Modal */}
@@ -272,6 +301,15 @@ function TablesContent() {
           restaurantName="Restaurant"
           onClose={() => setShowQRCodeModal(false)}
           onRegenerate={regenerateQRCode}
+        />
+      )}
+
+      {/* Payment Interface */}
+      {showPaymentInterface && selectedOrders[0] && (
+        <PaymentInterface
+          order={selectedOrders[0]}
+          onClose={() => setShowPaymentInterface(false)}
+          onPaymentComplete={handlePaymentComplete}
         />
       )}
     </div>
