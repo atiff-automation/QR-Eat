@@ -37,9 +37,9 @@ export function PaymentMethodSelector({
           <button
             key={method.value}
             onClick={() => onSelect(method.value)}
-            className="flex flex-col items-center justify-center p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95"
+            className="flex flex-col items-center justify-center p-2 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95 gap-1"
           >
-            <method.Icon className="w-6 h-6 text-gray-700 mb-1" />
+            <method.Icon className="w-5 h-5 text-gray-700" />
             <span className="text-xs font-medium text-gray-700">
               {method.label}
             </span>
