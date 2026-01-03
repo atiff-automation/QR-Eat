@@ -32,9 +32,10 @@ export function CashPaymentForm({
   const isValid = cashReceivedNum >= totalAmount;
 
   // Auto-scroll to bottom when change appears
+  // Auto-scroll to bottom when component mounts OR when change appears
   useEffect(() => {
-    if (isValid && change > 0 && formRef.current) {
-      // Small delay to ensure DOM has updated
+    // Check if form is mounted
+    if (formRef.current) {
       setTimeout(() => {
         formRef.current?.scrollIntoView({
           behavior: 'smooth',
@@ -42,7 +43,7 @@ export function CashPaymentForm({
         });
       }, 100);
     }
-  }, [isValid, change]);
+  }, [isValid, change]); // Keep dependencies to ensure it updates with change
 
   const handleQuickAmount = (amount: number) => {
     setCashReceived((totalAmount + amount).toFixed(2));
