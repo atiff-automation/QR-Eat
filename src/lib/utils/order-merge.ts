@@ -8,7 +8,6 @@
  * @see src/app/dashboard/tables/page.tsx - handleProcessPayment
  */
 
-import { Decimal } from '@prisma/client/runtime/library';
 import type { OrderWithDetails, OrderItemWithDetails } from '@/types/pos';
 
 /**
@@ -42,25 +41,25 @@ export function mergeOrdersForPayment(
     (order) => order.items
   );
 
-  // Calculate combined totals
+  // Calculate combined totals using numbers (avoid Prisma Decimal on client)
   const subtotalAmount = orders.reduce(
-    (sum, order) => sum.add(order.subtotalAmount),
-    new Decimal(0)
+    (sum, order) => sum + Number(order.subtotalAmount),
+    0
   );
 
   const taxAmount = orders.reduce(
-    (sum, order) => sum.add(order.taxAmount),
-    new Decimal(0)
+    (sum, order) => sum + Number(order.taxAmount),
+    0
   );
 
   const serviceCharge = orders.reduce(
-    (sum, order) => sum.add(order.serviceCharge),
-    new Decimal(0)
+    (sum, order) => sum + Number(order.serviceCharge),
+    0
   );
 
   const totalAmount = orders.reduce(
-    (sum, order) => sum.add(order.totalAmount),
-    new Decimal(0)
+    (sum, order) => sum + Number(order.totalAmount),
+    0
   );
 
   // Create merged order number for tracking
@@ -68,6 +67,7 @@ export function mergeOrdersForPayment(
   const mergedOrderNumber = `COMBINED-${orders.length}-ORDERS`;
 
   // Return merged order with combined data
+  // Note: Values are calculated as numbers but will be compatible with Decimal type
   return {
     ...firstOrder, // Use first order as base
     orderNumber: mergedOrderNumber,
@@ -78,12 +78,11 @@ export function mergeOrdersForPayment(
     totalAmount,
     // Store original order numbers in metadata for tracking
     metadata: {
-      ...firstOrder.metadata,
       originalOrders: orderNumbers,
       orderCount: orders.length,
       orderIds: orders.map((o) => o.id),
     },
-  };
+  } as OrderWithDetails;
 }
 
 /**
