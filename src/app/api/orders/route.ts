@@ -22,14 +22,24 @@ export async function GET(request: NextRequest) {
     const restaurantId = url.searchParams.get('restaurantId'); // For platform admins
     const excludeServed = url.searchParams.get('excludeServed') === 'true';
 
+    // Date filtering (New)
+    const startDateParam = url.searchParams.get('startDate');
+    const endDateParam = url.searchParams.get('endDate');
+
     // Build tenant-aware where clause
-    // Show ALL orders regardless of creation date
-    // This ensures old unpaid/unserved orders remain visible
     let where: Prisma.OrderWhereInput = createRestaurantFilter(context!);
 
     // Platform admins can optionally filter by specific restaurant
     if (context!.isAdmin && restaurantId) {
       where = { restaurantId };
+    }
+
+    // Apply Timeframe Filter
+    if (startDateParam) {
+      where.createdAt = {
+        gte: new Date(startDateParam),
+        ...(endDateParam ? { lte: new Date(endDateParam) } : {}),
+      };
     }
 
     // Filter by status if provided
@@ -41,6 +51,26 @@ export async function GET(request: NextRequest) {
     // This applies to both filtered and unfiltered views
     if (excludeServed && (!status || status === 'all')) {
       where.status = { notIn: ['served', 'cancelled'] };
+    }
+
+    // Calculate lapsed active orders (Safety Check)
+    // Only relevant if we are filtering by a date range (e.g. Today)
+    let lapsedCount = 0;
+    if (startDateParam) {
+      // Check for active orders created BEFORE the start date
+      const lapsedWhere: Prisma.OrderWhereInput = {
+        ...createRestaurantFilter(context!), // Base tenant filter
+        status: { in: ['pending', 'confirmed', 'preparing', 'ready'] }, // Active statuses
+        createdAt: {
+          lt: new Date(startDateParam),
+        },
+      };
+
+      if (context!.isAdmin && restaurantId) {
+        lapsedWhere.restaurantId = restaurantId;
+      }
+
+      lapsedCount = await prisma.order.count({ where: lapsedWhere });
     }
 
     // Fetch orders with related data
@@ -94,6 +124,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       orders,
+      lapsedCount, // Return the safety metric
       pagination: {
         total: totalCount,
         limit,

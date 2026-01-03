@@ -35,7 +35,7 @@ export async function shouldTableBeAvailable(
         OR: [
           // Case 1: Active order status (still finding/cooking/serving)
           {
-            status: { in: ACTIVE_ORDER_STATUSES },
+            status: { in: [...ACTIVE_ORDER_STATUSES] },
           },
           // Case 2: Served but NOT paid yet
           {
