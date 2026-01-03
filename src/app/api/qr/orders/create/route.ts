@@ -245,10 +245,23 @@ export async function POST(request: NextRequest) {
     );
 
     // Update table status
+    const previousTableStatus = table.status;
     await prisma.table.update({
       where: { id: tableId },
       data: { status: 'occupied' },
     });
+
+    // Real-time table update
+    if (previousTableStatus !== 'occupied') {
+      await PostgresEventManager.publishTableStatusChange({
+        tableId,
+        restaurantId: table.restaurant.id,
+        previousStatus: previousTableStatus,
+        newStatus: 'occupied',
+        updatedBy: 'system', // or customer session ID if we want to track who occupied it
+        timestamp: Date.now(),
+      });
+    }
 
     // Clear cart after successful order creation
     await clearTableCart(tableId);

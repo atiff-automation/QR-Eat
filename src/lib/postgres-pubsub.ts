@@ -24,6 +24,7 @@ export const PG_EVENTS = {
   KITCHEN_NOTIFICATION: 'kitchen_notification',
   RESTAURANT_NOTIFICATION: 'restaurant_notification',
   PAYMENT_COMPLETED: 'payment_completed',
+  TABLE_STATUS_CHANGED: 'table_status_changed',
 } as const;
 
 // ============================================================================
@@ -83,6 +84,15 @@ export interface PaymentCompletedEvent {
   amount: number;
   receiptNumber: string;
   processedBy: string;
+  timestamp: number;
+}
+
+export interface TableStatusChangedEvent {
+  tableId: string;
+  restaurantId: string;
+  previousStatus: string;
+  newStatus: string;
+  updatedBy: string; // userId or 'system'
   timestamp: number;
 }
 
@@ -542,6 +552,27 @@ export class PostgresEventManager {
       await pgPubSub.notify(PG_EVENTS.PAYMENT_COMPLETED, event);
     } catch (error) {
       console.error('Failed to publish payment completed:', error);
+    }
+  }
+
+  /**
+   * Publish table status change event with dual-write pattern
+   */
+  static async publishTableStatusChange(
+    event: TableStatusChangedEvent
+  ): Promise<void> {
+    try {
+      // Dual-write: Store in database first for reliability
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.TABLE_STATUS_CHANGED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+
+      // Then emit via PostgreSQL NOTIFY for real-time delivery
+      await pgPubSub.notify(PG_EVENTS.TABLE_STATUS_CHANGED, event);
+    } catch (error) {
+      console.error('Failed to publish table status change:', error);
     }
   }
 }

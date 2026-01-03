@@ -37,10 +37,10 @@ export async function GET(request: NextRequest) {
       where.status = status;
     }
 
-    // Exclude served, completed, and cancelled orders when requested (for active orders view)
+    // Exclude served and cancelled orders when requested (for active orders view)
     // This applies to both filtered and unfiltered views
     if (excludeServed && (!status || status === 'all')) {
-      where.status = { notIn: ['served', 'completed', 'cancelled'] };
+      where.status = { notIn: ['served', 'cancelled'] };
     }
 
     // Fetch orders with related data

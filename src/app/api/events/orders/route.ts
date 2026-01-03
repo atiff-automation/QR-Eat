@@ -204,7 +204,8 @@ async function setupPostgresSubscription(connectionId: string) {
         PG_EVENTS.ORDER_CREATED,
         PG_EVENTS.ORDER_ITEM_STATUS_CHANGED,
         PG_EVENTS.KITCHEN_NOTIFICATION,
-        PG_EVENTS.RESTAURANT_NOTIFICATION
+        PG_EVENTS.RESTAURANT_NOTIFICATION,
+        PG_EVENTS.TABLE_STATUS_CHANGED
       );
     }
 
@@ -322,6 +323,8 @@ function getEventType(channel: string): string {
       return SSE_EVENT_TYPES.KITCHEN_NOTIFICATION;
     case PG_EVENTS.RESTAURANT_NOTIFICATION:
       return SSE_EVENT_TYPES.RESTAURANT_NOTIFICATION;
+    case PG_EVENTS.TABLE_STATUS_CHANGED:
+      return SSE_EVENT_TYPES.TABLE_STATUS_CHANGED;
     default:
       return 'unknown';
   }

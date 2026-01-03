@@ -65,6 +65,7 @@ export const SSE_EVENT_TYPES = {
   ORDER_ITEM_STATUS_CHANGED: 'order_item_status_changed',
   KITCHEN_NOTIFICATION: 'kitchen_notification',
   RESTAURANT_NOTIFICATION: 'restaurant_notification',
+  TABLE_STATUS_CHANGED: 'table_status_changed',
 } as const;
 
 export type SSEEventType =

@@ -14,7 +14,6 @@ import { TableTile } from '@/components/tables/TableTile';
 import { TableDetailModal } from '@/components/tables/TableDetailModal';
 import { Plus, Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
-import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 interface Table {
   id: string;
@@ -67,13 +66,52 @@ function TablesContent() {
     }
   }, [restaurantContext?.id]);
 
+  // SSE Implementation
   useEffect(() => {
-    if (restaurantContext?.id) {
-      fetchTables();
-      const interval = setInterval(fetchTables, POLLING_INTERVALS.TABLES);
-      return () => clearInterval(interval);
-    }
-  }, [restaurantContext?.id, fetchTables]);
+    if (!restaurantContext?.id) return;
+
+    // Initial fetch
+    fetchTables();
+
+    // Setup SSE
+    console.log('[TablesPage] Setting up SSE connection...');
+    const eventSource = new EventSource('/api/events/orders');
+
+    eventSource.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+
+        if (data.type === 'table_status_changed') {
+          const { tableId, newStatus } = data.data;
+          console.log(
+            `[TablesPage] Real-time update: Table ${tableId} -> ${newStatus}`
+          );
+
+          setTables((prev) =>
+            prev.map((t) =>
+              t.id === tableId ? { ...t, status: newStatus } : t
+            )
+          );
+
+          if (selectedTable?.id === tableId) {
+            setSelectedTable((prev) =>
+              prev ? { ...prev, status: newStatus } : null
+            );
+          }
+        }
+      } catch (error) {
+        console.error('[TablesPage] SSE parse error:', error);
+      }
+    };
+
+    // Keep polling as backup (but less frequent) - 1 minute
+    const interval = setInterval(fetchTables, 60000);
+
+    return () => {
+      eventSource.close();
+      clearInterval(interval);
+    };
+  }, [restaurantContext?.id, fetchTables, selectedTable?.id]);
 
   // Filter Logic
   useEffect(() => {

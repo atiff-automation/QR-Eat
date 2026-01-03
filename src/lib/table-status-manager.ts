@@ -6,6 +6,7 @@
  */
 
 import { prisma } from '@/lib/database';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 /**
  * Active order statuses that keep a table occupied
@@ -71,7 +72,7 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
     // Get current table status
     const table = await prisma.table.findUnique({
       where: { id: tableId },
-      select: { status: true, tableNumber: true },
+      select: { status: true, tableNumber: true, restaurantId: true },
     });
 
     if (!table) {
@@ -95,6 +96,16 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
       console.log(
         `[TableStatusManager] Auto-cleared table ${table.tableNumber} (${tableId}) to available`
       );
+
+      // Publish real-time update
+      await PostgresEventManager.publishTableStatusChange({
+        tableId,
+        restaurantId: table.restaurantId,
+        previousStatus: table.status,
+        newStatus: 'available',
+        updatedBy: 'system',
+        timestamp: Date.now(),
+      });
     } else if (!shouldBeAvailable && table.status === 'available') {
       // Edge case: Table is available but has active orders
       // This shouldn't happen in normal flow, but we'll fix it
@@ -109,6 +120,16 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
       console.log(
         `[TableStatusManager] Auto-set table ${table.tableNumber} (${tableId}) to occupied`
       );
+
+      // Publish real-time update
+      await PostgresEventManager.publishTableStatusChange({
+        tableId,
+        restaurantId: table.restaurantId,
+        previousStatus: table.status,
+        newStatus: 'occupied',
+        updatedBy: 'system',
+        timestamp: Date.now(),
+      });
     }
   } catch (error) {
     // Log error but don't throw - this is a non-critical operation
