@@ -10,43 +10,41 @@
 
 'use client';
 
-import type { PaymentMethodSelectorProps } from '@/types/pos';
-import {
-  PAYMENT_METHODS,
-  PAYMENT_METHOD_LABELS,
-} from '@/lib/constants/payment';
+import type { PaymentMethodSelectorProps, PaymentMethod } from '@/types/pos';
 import { Banknote, CreditCard, Smartphone } from 'lucide-react';
-
-const PAYMENT_METHOD_ICONS = {
-  [PAYMENT_METHODS.CASH]: Banknote,
-  [PAYMENT_METHODS.CARD]: CreditCard,
-  [PAYMENT_METHODS.EWALLET]: Smartphone,
-};
 
 export function PaymentMethodSelector({
   onSelect,
 }: PaymentMethodSelectorProps) {
+  const methods: {
+    value: PaymentMethod;
+    label: string;
+    Icon: typeof Banknote;
+  }[] = [
+    { value: 'cash', label: 'Cash', Icon: Banknote },
+    { value: 'card', label: 'Card', Icon: CreditCard },
+    { value: 'ewallet', label: 'E-Wallet', Icon: Smartphone },
+  ];
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 sm:p-6">
-      <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+    <div className="bg-white rounded-lg border border-gray-200 p-3">
+      <h3 className="text-sm font-semibold text-gray-900 mb-2">
         Select Payment Method
       </h3>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-        {Object.values(PAYMENT_METHODS).map((method) => {
-          const Icon = PAYMENT_METHOD_ICONS[method];
-          return (
-            <button
-              key={method}
-              onClick={() => onSelect(method)}
-              className="touch-target flex flex-row sm:flex-col items-center justify-center gap-3 p-4 sm:p-6 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 active:bg-blue-100 transition-all"
-            >
-              <Icon className="w-6 h-6 sm:w-8 sm:h-8 text-gray-700" />
-              <span className="font-medium text-gray-900">
-                {PAYMENT_METHOD_LABELS[method]}
-              </span>
-            </button>
-          );
-        })}
+      {/* Inline horizontal layout for mobile */}
+      <div className="grid grid-cols-3 gap-2">
+        {methods.map((method) => (
+          <button
+            key={method.value}
+            onClick={() => onSelect(method.value)}
+            className="flex flex-col items-center justify-center p-3 border-2 border-gray-200 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all active:scale-95"
+          >
+            <method.Icon className="w-6 h-6 text-gray-700 mb-1" />
+            <span className="text-xs font-medium text-gray-700">
+              {method.label}
+            </span>
+          </button>
+        ))}
       </div>
     </div>
   );

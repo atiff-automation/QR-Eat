@@ -98,88 +98,89 @@ export function PaymentInterface({
 
   return (
     <>
-      {/* Mobile: Full-screen view | Desktop: Modal overlay */}
-      <div className="fixed inset-0 z-40 bg-white md:bg-black md:bg-opacity-50 md:flex md:items-center md:justify-center">
-        {/* Container: Full-screen on mobile, modal on desktop */}
-        <div className="h-full w-full bg-white md:rounded-lg md:shadow-xl md:max-w-4xl md:mx-4 md:max-h-[90vh] flex flex-col overflow-hidden">
-          {/* Header - Sticky on mobile for better UX */}
-          <div className="sticky top-0 z-10 bg-white border-b border-gray-200 p-4 md:p-6 flex items-center justify-between safe-area-padding">
-            <h2 className="text-lg md:text-xl font-semibold text-gray-900">
-              Process Payment
-            </h2>
+      {/* Modal Overlay - Match TableDetailModal style */}
+      <div className="fixed inset-0 z-[60] flex items-center justify-center font-sans">
+        {/* Backdrop */}
+        <div
+          onClick={onClose}
+          className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300"
+        />
+
+        {/* Modal Content - Match TableDetailModal */}
+        <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl mx-4 max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out">
+          {/* Header - Compact */}
+          <div className="flex items-center justify-between p-4 pb-3 border-b border-gray-100">
+            <h2 className="text-lg font-bold text-gray-900">Process Payment</h2>
             <button
               onClick={onClose}
-              className="touch-target p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
               disabled={isProcessing}
               aria-label="Close payment interface"
             >
-              <X className="w-5 h-5 md:w-6 md:h-6 text-gray-500" />
+              <X className="w-5 h-5 text-gray-400" />
             </button>
           </div>
 
-          {/* Content: Scrollable area */}
-          <div className="flex-1 overflow-y-auto">
-            <div className="p-4 md:p-6 space-y-6 md:grid md:grid-cols-2 md:gap-6 md:space-y-0">
-              {/* Order Details - Always visible on desktop, collapsible on mobile could be added */}
-              <div className="order-1">
-                <OrderDetails order={order} />
+          {/* Content: Scrollable area - Single column for mobile */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {/* Order Details */}
+            <OrderDetails order={order} />
+
+            {/* Error Message */}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-800">{error}</p>
               </div>
+            )}
 
-              {/* Payment Methods - Takes priority on mobile */}
-              <div className="order-2 space-y-6">
-                {error && (
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-                    <p className="text-sm text-red-800">{error}</p>
-                  </div>
-                )}
+            {/* Payment Method Selection */}
+            {!selectedMethod && (
+              <PaymentMethodSelector onSelect={handleMethodSelect} />
+            )}
 
-                {!selectedMethod && (
-                  <PaymentMethodSelector onSelect={handleMethodSelect} />
-                )}
+            {/* Cash Payment Form */}
+            {selectedMethod === 'cash' && (
+              <CashPaymentForm
+                totalAmount={Number(order.totalAmount)}
+                onSubmit={handleCashPayment}
+                onCancel={() => setSelectedMethod(null)}
+                isProcessing={isProcessing}
+              />
+            )}
 
-                {selectedMethod === 'cash' && (
-                  <CashPaymentForm
-                    totalAmount={Number(order.totalAmount)}
-                    onSubmit={handleCashPayment}
-                    onCancel={() => setSelectedMethod(null)}
-                    isProcessing={isProcessing}
-                  />
-                )}
-
-                {selectedMethod && selectedMethod !== 'cash' && (
-                  <div className="bg-white rounded-lg border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      {selectedMethod === 'card'
-                        ? 'Card Payment'
-                        : 'E-Wallet Payment'}
-                    </h3>
-                    <p className="text-gray-600 mb-6">
-                      Please complete the payment using the{' '}
-                      {selectedMethod === 'card'
-                        ? 'card terminal'
-                        : 'e-wallet scanner'}
-                      .
-                    </p>
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <button
-                        onClick={() => setSelectedMethod(null)}
-                        className="touch-target flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
-                        disabled={isProcessing}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleNonCashPayment}
-                        className="touch-target flex-1 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300"
-                        disabled={isProcessing}
-                      >
-                        {isProcessing ? 'Processing...' : 'Confirm Payment'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* Non-Cash Payment */}
+            {selectedMethod && selectedMethod !== 'cash' && (
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <h3 className="text-base font-semibold text-gray-900 mb-3">
+                  {selectedMethod === 'card'
+                    ? 'Card Payment'
+                    : 'E-Wallet Payment'}
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Please complete the payment using the{' '}
+                  {selectedMethod === 'card'
+                    ? 'card terminal'
+                    : 'e-wallet scanner'}
+                  .
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedMethod(null)}
+                    className="flex-1 h-10 px-4 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
+                    disabled={isProcessing}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleNonCashPayment}
+                    className="flex-1 h-10 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300"
+                    disabled={isProcessing}
+                  >
+                    {isProcessing ? 'Processing...' : 'Confirm Payment'}
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
