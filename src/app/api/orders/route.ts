@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission, 
-  createRestaurantFilter 
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+  createRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -21,13 +21,16 @@ export async function GET(request: NextRequest) {
     const restaurantId = url.searchParams.get('restaurantId'); // For platform admins
 
     // Build tenant-aware where clause
-    let where: any = createRestaurantFilter(context!);
+    // Show ALL orders regardless of creation date
+    // This ensures old unpaid/unserved orders remain visible
+    let where = createRestaurantFilter(context!);
 
     // Platform admins can optionally filter by specific restaurant
     if (context!.isAdmin && restaurantId) {
       where = { restaurantId };
     }
 
+    // Filter by status if provided
     if (status && status !== 'all') {
       where.status = status;
     }
@@ -39,40 +42,42 @@ export async function GET(request: NextRequest) {
         table: {
           select: {
             tableNumber: true,
-            tableName: true
-          }
+            tableName: true,
+          },
         },
         customerSession: {
           select: {
             customerName: true,
             customerPhone: true,
-            customerEmail: true
-          }
+            customerEmail: true,
+          },
         },
         items: {
           include: {
             menuItem: {
               select: {
                 name: true,
-                price: true
-              }
-            }
-          }
+                price: true,
+              },
+            },
+          },
         },
         // Include restaurant data for platform admins
-        restaurant: context!.isAdmin ? {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        } : false
+        restaurant: context!.isAdmin
+          ? {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            }
+          : false,
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
       take: limit,
-      skip: offset
+      skip: offset,
     });
 
     // Get total count for pagination
@@ -85,18 +90,17 @@ export async function GET(request: NextRequest) {
         total: totalCount,
         limit,
         offset,
-        hasMore: offset + limit < totalCount
+        hasMore: offset + limit < totalCount,
       },
       userContext: {
         userType: context!.userType,
         isAdmin: context!.isAdmin,
-        restaurantId: context!.restaurantId
-      }
+        restaurantId: context!.restaurantId,
+      },
     });
-
   } catch (error) {
     console.error('Failed to fetch orders:', error);
-    
+
     // Handle tenant context errors
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
@@ -106,10 +110,7 @@ export async function GET(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
