@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import {
-  X,
-  Printer,
-  ExternalLink,
-  Users,
-  Utensils,
-  Clock,
-  RotateCcw,
-} from 'lucide-react';
+import { X, Printer, ExternalLink, Users, Utensils, Clock } from 'lucide-react';
 
 interface TableDetailModalProps {
   table: {
@@ -25,7 +17,6 @@ interface TableDetailModalProps {
   onClose: () => void;
   onUpdateStatus: (tableId: string, status: string) => Promise<void>;
   onShowQR: (table: NonNullable<TableDetailModalProps['table']>) => void;
-  onRegenerateQR: (tableId: string) => void;
 }
 
 export function TableDetailModal({
@@ -34,7 +25,6 @@ export function TableDetailModal({
   onClose,
   onUpdateStatus,
   onShowQR,
-  onRegenerateQR,
 }: TableDetailModalProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -209,19 +199,6 @@ export function TableDetailModal({
             >
               <span className="mr-2">Show QR Code</span>
               <Printer className="w-4 h-4 opacity-60" />
-            </button>
-          </div>
-
-          {/* Secondary Links */}
-          <div className="flex justify-center pt-2">
-            <button
-              onClick={() => {
-                if (confirm('Regenerate QR Code?')) onRegenerateQR(table.id);
-              }}
-              className="text-xs font-medium text-gray-400 hover:text-red-500 flex items-center"
-            >
-              <RotateCcw className="w-3 h-3 mr-1" />
-              Reset QR Token
             </button>
           </div>
         </div>

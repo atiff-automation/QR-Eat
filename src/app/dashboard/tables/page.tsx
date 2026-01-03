@@ -12,7 +12,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { TableTile } from '@/components/tables/TableTile';
 import { TableDetailModal } from '@/components/tables/TableDetailModal';
-import { ChefHat, Plus, Search } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
@@ -92,11 +92,6 @@ function TablesContent() {
   }, [searchQuery, tables]);
 
   // Actions
-  const handleTileClick = (table: Table) => {
-    setSelectedTable(table);
-    setIsModalOpen(true);
-  };
-
   const updateTableStatus = async (tableId: string, status: string) => {
     try {
       await ApiClient.patch(`/tables/${tableId}/status`, { status });
@@ -113,12 +108,23 @@ function TablesContent() {
 
   const regenerateQRCode = async (tableId: string) => {
     try {
-      const data = await ApiClient.post<{ qrUrl: string }>(
+      await ApiClient.post<{ qrUrl: string }>(
         `/tables/${tableId}/regenerate-qr`
       );
-      alert(`QR code regenerated successfully!\nNew URL: ${data.qrUrl}`);
-      fetchTables();
-      setIsModalOpen(false); // Close drawer to force refresh contexts if needed
+
+      // Refresh tables to get the new token
+      const data = await ApiClient.get<{ tables: Table[] }>(
+        `/tables?restaurantId=${restaurantContext?.id}`
+      );
+      setTables(data.tables);
+
+      // Update selected table with the new data
+      const updatedTable = data.tables.find((t) => t.id === tableId);
+      if (updatedTable) {
+        setSelectedTable(updatedTable);
+      }
+
+      alert('QR code regenerated successfully! The old code is now invalid.');
     } catch {
       alert('Failed to regenerate QR');
     }
@@ -176,22 +182,24 @@ function TablesContent() {
           </div>
         )}
 
-        {filteredTables.length > 0 ? (
-          <div className="grid grid-cols-3 lg:grid-cols-6 xl:grid-cols-8 gap-3">
-            {filteredTables.map((table) => (
-              <TableTile
-                key={table.id}
-                table={table}
-                onClick={() => handleTileClick(table)}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-            <ChefHat className="w-16 h-16 mb-4 opacity-20" />
-            <p className="font-medium">No tables found</p>
-          </div>
-        )}
+        {/* Tables Grid - Responsive Modern Layout */}
+        <div className="grid grid-cols-2 xs:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-7 gap-4">
+          {filteredTables.map((table) => (
+            <TableTile
+              key={table.id}
+              table={table}
+              onClick={() => {
+                setSelectedTable(table);
+                setIsModalOpen(true);
+              }}
+            />
+          ))}
+          {filteredTables.length === 0 && (
+            <div className="col-span-full py-12 text-center text-gray-400">
+              No tables found
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Add Table Modal */}
@@ -210,13 +218,10 @@ function TablesContent() {
         onClose={() => setIsModalOpen(false)}
         onUpdateStatus={updateTableStatus}
         onShowQR={(table) => {
-          setIsModalOpen(false);
-          setTimeout(() => {
-            setSelectedTable(table);
-            setShowQRCodeModal(true);
-          }, 300);
+          // Stacked Modal Pattern: Keep the detail modal open in the background
+          setSelectedTable(table);
+          setShowQRCodeModal(true);
         }}
-        onRegenerateQR={regenerateQRCode}
       />
 
       {/* QR Code Modal */}
@@ -225,11 +230,10 @@ function TablesContent() {
           tableId={selectedTable.id}
           tableNumber={selectedTable.tableNumber}
           tableName={selectedTable.tableName}
+          qrToken={selectedTable.qrCodeToken}
           restaurantName="Restaurant"
-          onClose={() => {
-            setShowQRCodeModal(false);
-            // Re-open drawer when closing QR? Maybe not.
-          }}
+          onClose={() => setShowQRCodeModal(false)}
+          onRegenerate={regenerateQRCode}
         />
       )}
     </div>

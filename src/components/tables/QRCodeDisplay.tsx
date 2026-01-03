@@ -1,312 +1,187 @@
-'use client';
-
-import { useState, useEffect } from 'react';
-import {
-  Download,
-  Copy,
-  X,
-  AlertTriangle,
-  ExternalLink,
-  FileText
-} from 'lucide-react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
+import { X, Printer, Share2, Copy, RotateCcw, Check } from 'lucide-react';
 
 interface QRCodeDisplayProps {
   tableId: string;
   tableNumber: string;
   tableName?: string;
   restaurantName: string;
+  qrToken?: string;
   onClose: () => void;
+  onRegenerate: (tableId: string) => void;
 }
 
-interface QRCodeData {
-  qrCode: string;
-  qrUrl: string;
-  table: {
-    id: string;
-    tableNumber: string;
-    tableName?: string;
-    restaurant: string;
+export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
+  tableId,
+  tableNumber,
+  tableName,
+  restaurantName,
+  qrToken,
+  onClose,
+  onRegenerate,
+}) => {
+  const [copied, setCopied] = useState(false);
+  // Use token if available, otherwise fallback to ID (though ID is static)
+  const codeToUse = qrToken || tableId;
+  const qrValue = `${window.location.origin}/qr/${codeToUse}`;
+
+  const handlePrint = () => {
+    window.print();
   };
-}
 
-export function QRCodeDisplay({ 
-  tableId, 
-  tableNumber, 
-  tableName, 
-  restaurantName, 
-  onClose 
-}: QRCodeDisplayProps) {
-  const [qrData, setQrData] = useState<QRCodeData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  useEffect(() => {
-    fetchQRCode();
-  }, [tableId]);
-
-  // Handle ESC key to close modal
-  useEffect(() => {
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-    return () => {
-      document.removeEventListener('keydown', handleEscKey);
-    };
-  }, [onClose]);
-
-  const fetchQRCode = async () => {
+  const handleCopyLink = async () => {
     try {
-      const data = await ApiClient.get<QRCodeData>(`/tables/${tableId}/qr-code`);
-      setQrData(data);
-    } catch (error) {
-      console.error('Failed to fetch QR code:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Network error. Please try again.');
-      }
-    } finally {
-      setLoading(false);
+      await navigator.clipboard.writeText(qrValue);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy', err);
     }
   };
 
-  const downloadQRCode = async (format: 'png' | 'svg') => {
-    try {
-      const data = await ApiClient.get<Blob>(`/tables/${tableId}/qr-code`, {
-        params: {
-          format: format === 'svg' ? 'svg' : 'image',
-          download: 'true'
-        }
-      });
-
-      const url = window.URL.createObjectURL(data);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `table-${tableNumber}-qr.${format}`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('Download failed. Please try again.');
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${restaurantName} - Table ${tableNumber}`,
+          text: `Order at Table ${tableNumber}`,
+          url: qrValue,
+        });
+      } catch (err) {
+        console.log('Share canceled', err);
+      }
+    } else {
+      handleCopyLink();
     }
-  };
-
-  const printQRCode = () => {
-    if (!qrData) return;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>QR Code - Table ${tableNumber}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              text-align: center;
-              padding: 20px;
-              margin: 0;
-            }
-            .qr-container {
-              border: 2px solid #000;
-              padding: 20px;
-              margin: 20px auto;
-              max-width: 400px;
-              background: white;
-            }
-            .qr-code {
-              margin: 20px 0;
-            }
-            .table-info {
-              margin: 15px 0;
-            }
-            .restaurant-name {
-              font-size: 24px;
-              font-weight: bold;
-              margin-bottom: 10px;
-            }
-            .table-name {
-              font-size: 18px;
-              margin-bottom: 5px;
-            }
-            .instructions {
-              font-size: 14px;
-              color: #666;
-              margin-top: 15px;
-            }
-            @media print {
-              body { margin: 0; }
-              .no-print { display: none; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="qr-container">
-            <div class="restaurant-name">${restaurantName}</div>
-            <div class="table-name">Table ${tableNumber}${tableName ? ` - ${tableName}` : ''}</div>
-            <div class="qr-code">
-              <img src="${qrData.qrCode}" alt="QR Code" style="width: 200px; height: 200px;" />
-            </div>
-            <div class="instructions">
-              <p><strong>Scan to order:</strong></p>
-              <p>1. Open your phone's camera</p>
-              <p>2. Point at the QR code</p>
-              <p>3. Tap the notification to open menu</p>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto"
-      onClick={(e) => {
-        // Close modal when clicking on backdrop
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div 
-        className="bg-white rounded-lg max-w-md w-full mx-4 my-8 max-h-[90vh] overflow-y-auto"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white rounded-t-lg">
-          <h2 className="text-xl font-semibold text-gray-900">
-            QR Code - Table {tableNumber}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-600 hover:text-gray-800 text-3xl leading-none w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100"
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+    <>
+      <style>
+        {`
+          @media print {
+            body > * { display: none !important; }
+            .print-only-qr { 
+              display: flex !important; 
+              position: fixed; 
+              top: 0; 
+              left: 0; 
+              width: 100%; 
+              height: 100%; 
+              align-items: center; 
+              justify-content: center;
+              background: white; 
+              z-index: 9999;
+            }
+            .print-hide { display: none !important; }
+          }
+        `}
+      </style>
+      <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 print-only-qr">
+        {/* Backdrop: Transparent (relies on underlying modal's backdrop) */}
+        <div
+          className="absolute inset-0 bg-transparent transition-opacity print-hide"
+          onClick={onClose}
+        />
 
-        {/* Content */}
-        <div className="p-6">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-              <p className="text-gray-800">Generating QR code...</p>
+        {/* Modal Card */}
+        <div className="relative bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5">
+          {/* Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 print-hide">
+            <h3 className="text-base font-bold text-gray-900">QR Code</h3>
+            <button
+              onClick={onClose}
+              className="p-1.5 bg-gray-50 rounded-full hover:bg-gray-100 transition-colors"
+            >
+              <X className="w-4 h-4 text-gray-500" />
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="p-4 flex flex-col items-center space-y-3">
+            {/* QR Code */}
+            <div className="p-2 bg-white border-2 border-gray-100 rounded-2xl shadow-sm">
+              <QRCodeSVG
+                value={qrValue}
+                size={200}
+                level="H"
+                includeMargin={true}
+                className="w-full h-auto"
+              />
             </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <AlertTriangle className="h-8 w-8 text-red-600 mx-auto mb-4" />
-              <p className="text-red-600 mb-4">{error}</p>
+
+            {/* Table Info */}
+            <div className="text-center space-y-0.5">
+              <h4 className="text-lg font-bold text-gray-900">
+                Table {tableNumber}
+              </h4>
+              {tableName && (
+                <p className="text-xs font-medium text-gray-500">{tableName}</p>
+              )}
+              <p className="text-[10px] text-gray-400 font-mono mt-0.5">
+                Ref: {codeToUse.substring(0, 8)}...
+              </p>
+            </div>
+
+            {/* Action Grid */}
+            <div className="grid grid-cols-3 gap-2 w-full pt-1 print-hide">
               <button
-                onClick={fetchQRCode}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                onClick={handleShare}
+                className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-all active:scale-95"
               >
-                Try Again
+                <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-[11px] font-bold text-gray-700">
+                  Share
+                </span>
+              </button>
+
+              <button
+                onClick={handlePrint}
+                className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-all active:scale-95"
+              >
+                <Printer className="w-3.5 h-3.5 text-purple-600" />
+                <span className="text-[11px] font-bold text-gray-700">
+                  Print
+                </span>
+              </button>
+
+              <button
+                onClick={handleCopyLink}
+                className="flex items-center justify-center gap-1.5 h-8 rounded-lg bg-gray-50 hover:bg-gray-100 border border-gray-100 transition-all active:scale-95"
+              >
+                {copied ? (
+                  <Check className="w-3.5 h-3.5 text-green-600" />
+                ) : (
+                  <Copy className="w-3.5 h-3.5 text-gray-600" />
+                )}
+                <span className="text-[11px] font-bold text-gray-700">
+                  {copied ? 'Copied' : 'Copy'}
+                </span>
               </button>
             </div>
-          ) : qrData ? (
-            <div className="text-center">
-              {/* QR Code Display */}
-              <div className="mb-6">
-                <img
-                  src={qrData.qrCode}
-                  alt="QR Code"
-                  className="w-64 h-64 mx-auto border border-gray-200 rounded-lg"
-                />
-              </div>
+          </div>
 
-              {/* Table Info */}
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {restaurantName}
-                </h3>
-                <p className="text-gray-800">
-                  Table {tableNumber}
-                  {tableName && ` - ${tableName}`}
-                </p>
-              </div>
-
-              {/* URL Display */}
-              <div className="mb-6 p-3 bg-gray-50 rounded-lg">
-                <p className="text-xs text-gray-700 mb-1">QR Code URL:</p>
-                <p className="text-sm text-gray-800 break-all font-mono">
-                  {qrData.qrUrl}
-                </p>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={printQRCode}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
-                  >
-                    🖨️ Print
-                  </button>
-                  <button
-                    onClick={() => downloadQRCode('png')}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
-                  >
-                    📥 Download PNG
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => downloadQRCode('svg')}
-                    className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Download SVG
-                  </button>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(qrData.qrUrl);
-                      alert('QR URL copied to clipboard!');
-                    }}
-                    className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-lg font-medium text-sm flex items-center justify-center"
-                  >
-                    <Copy className="h-4 w-4 mr-2" />
-                    Copy URL
-                  </button>
-                </div>
-                <button
-                  onClick={onClose}
-                  className="w-full bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-3 rounded-lg font-medium text-sm mt-4"
-                >
-                  Close
-                </button>
-              </div>
-
-              {/* Instructions */}
-              <div className="mt-6 text-left text-sm text-gray-600 bg-blue-50 p-4 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Customer Instructions:</h4>
-                <ol className="list-decimal list-inside space-y-1">
-                  <li>Open phone camera</li>
-                  <li>Point at QR code</li>
-                  <li>Tap notification to open menu</li>
-                  <li>Browse menu and add items to cart</li>
-                  <li>Complete order and payment</li>
-                </ol>
-              </div>
-            </div>
-          ) : null}
+          {/* Footer / Reset Link */}
+          <div className="p-2.5 bg-gray-50 border-t border-gray-100 text-center print-hide">
+            <button
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Are you sure you want to regenerate this QR code? The old code will stop working.'
+                  )
+                ) {
+                  onRegenerate(tableId);
+                }
+              }}
+              className="text-[10px] font-medium text-gray-400 hover:text-red-500 flex items-center justify-center gap-1.5 mx-auto transition-colors"
+            >
+              <RotateCcw className="w-3 h-3" />
+              Reset QR Token
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
-}
+};
