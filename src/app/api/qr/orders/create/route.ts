@@ -1,5 +1,6 @@
 /**
  * QR Order Creation Endpoint
+ * Build: 2026-01-04
  *
  * Public endpoint (no authentication required) for creating orders from QR code scan.
  * Uses table-based sessions and server-side cart.
