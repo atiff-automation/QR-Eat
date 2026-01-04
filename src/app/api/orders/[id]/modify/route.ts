@@ -66,6 +66,7 @@ export async function PATCH(
           const permissionCheck = canModifyOrder(
             order,
             context!.userType,
+            context!.roleTemplate,
             operation
           );
 

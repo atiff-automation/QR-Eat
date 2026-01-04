@@ -11,6 +11,10 @@ import {
   BarChart3,
   Clock,
   Flame,
+  ChevronRight,
+  Edit2,
+  Trash2,
+  MoreHorizontal,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -64,24 +68,45 @@ export default function MenuPage() {
   const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<
     'categories' | 'items' | 'analytics'
-  >('categories');
+  >('items');
   const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(
     null
   );
   const [analytics, setAnalytics] = useState<{
+    summary: {
+      totalMenuItems: number;
+      activeMenuItems: number;
+      itemsOrdered: number;
+      averageOrderValue: number;
+    };
     topSellingItems: Array<{
       menuItemId: string;
-      name: string;
-      totalOrders: number;
-      totalRevenue: number;
+      menuItem: {
+        name: string;
+        category?: {
+          name: string;
+        };
+      };
+      _sum: {
+        quantity: number;
+        totalAmount: number;
+      };
     }>;
     categoryPerformance: Array<{
       categoryId: string;
-      name: string;
-      totalOrders: number;
+      categoryName: string;
+      totalQuantity: number;
       totalRevenue: number;
+      orderCount: number;
     }>;
-    lowPerformingItems: Array<{ id: string; name: string }>;
+    lowPerformingItems: Array<{
+      id: string;
+      name: string;
+      price: number;
+      category?: {
+        name: string;
+      };
+    }>;
     period: string;
   } | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
@@ -251,135 +276,106 @@ export default function MenuPage() {
       requiredPermissions={['menu:read']}
     >
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">
-              Menu Management
-            </h1>
-            <p className="text-sm sm:text-base text-gray-800">
-              Manage your restaurant menu, categories, and items
-            </p>
+        {/* Header & Controls */}
+        <div className="flex items-center gap-2">
+          <div className="flex-1 p-1 bg-gray-100 rounded-xl flex items-center">
+            {(['categories', 'items', 'analytics'] as const).map((mode) => (
+              <button
+                key={mode}
+                onClick={() => setViewMode(mode)}
+                className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === mode
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
+              >
+                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            ))}
           </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
-            {/* View Mode Toggle */}
-            <div className="flex rounded-lg bg-gray-100 p-1">
-              <button
-                onClick={() => setViewMode('categories')}
-                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'categories'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-              >
-                Categories
-              </button>
-              <button
-                onClick={() => setViewMode('items')}
-                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'items'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-              >
-                All Items
-              </button>
-              <button
-                onClick={() => setViewMode('analytics')}
-                className={`flex-1 sm:flex-none px-3 py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${
-                  viewMode === 'analytics'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-700 hover:text-gray-900'
-                }`}
-              >
-                Analytics
-              </button>
-            </div>
-            {viewMode !== 'analytics' && (
-              <button
-                onClick={() =>
-                  setShowAddModal(
-                    viewMode === 'categories' ? 'category' : 'item'
-                  )
-                }
-                className="touch-target bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 sm:py-2 rounded-lg font-medium flex items-center justify-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                <span>
-                  Add {viewMode === 'categories' ? 'Category' : 'Item'}
-                </span>
-              </button>
-            )}
-          </div>
+
+          {viewMode !== 'analytics' && (
+            <button
+              onClick={() =>
+                setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
+              }
+              className="p-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition-colors active:scale-95 flex-shrink-0"
+              title={`Add ${viewMode === 'categories' ? 'Category' : 'Item'}`}
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-            <p className="text-red-600">{error}</p>
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+            <p className="text-red-600 text-sm">{error}</p>
           </div>
         )}
 
         {/* Categories View */}
         {viewMode === 'categories' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-3">
             {categories.map((category) => (
               <div
                 key={category.id}
-                className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm flex items-center justify-between active:scale-[0.99] transition-all"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">
-                    {category.name}
-                  </h3>
-                  <span
-                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                      category.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {category.isActive ? 'Active' : 'Inactive'}
-                  </span>
+                <div
+                  className="flex-1 cursor-pointer"
+                  onClick={() => handleCategorySelect(category.id)}
+                >
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-gray-900">
+                      {category.name}
+                    </h3>
+                    {!category.isActive && (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-full">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+                  {category.description && (
+                    <p className="text-sm text-gray-500 line-clamp-1 mt-0.5">
+                      {category.description}
+                    </p>
+                  )}
                 </div>
 
-                {category.description && (
-                  <p className="text-sm text-gray-700 mb-4">
-                    {category.description}
-                  </p>
-                )}
-
-                <div className="flex items-center justify-between mb-4">
-                  <div className="text-sm text-gray-700">
+                <div className="flex items-center gap-2 sm:gap-4 pl-4">
+                  <span className="bg-gray-50 text-gray-600 px-2.5 py-1 rounded-lg text-xs font-medium whitespace-nowrap">
                     {category._count.menuItems} items
-                  </div>
-                  <div className="text-sm text-gray-700">
-                    Order: {category.displayOrder}
-                  </div>
-                </div>
+                  </span>
 
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => handleCategorySelect(category.id)}
-                    className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    View Items
-                  </button>
-                  <button
-                    onClick={() => setEditingCategory(category)}
-                    className="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-md text-sm font-medium"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => toggleCategoryStatus(category)}
-                    className={`px-3 py-2 rounded-md text-sm font-medium ${
-                      category.isActive
-                        ? 'bg-red-100 hover:bg-red-200 text-red-700'
-                        : 'bg-green-100 hover:bg-green-200 text-green-700'
-                    }`}
-                  >
-                    {category.isActive ? 'Disable' : 'Enable'}
-                  </button>
+                  <div className="flex items-center gap-1 border-l pl-2 border-gray-100">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingCategory(category);
+                      }}
+                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleCategoryStatus(category);
+                      }}
+                      className={`p-2 rounded-lg transition-colors ${category.isActive
+                        ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
+                        : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
+                        }`}
+                    >
+                      <div
+                        className={`w-2.5 h-2.5 rounded-full ${category.isActive ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
+                      />
+                    </button>
+                    <ChevronRight
+                      className="h-4 w-4 text-gray-300"
+                      onClick={() => handleCategorySelect(category.id)}
+                    />
+                  </div>
                 </div>
               </div>
             ))}
@@ -388,14 +384,14 @@ export default function MenuPage() {
 
         {/* Items View */}
         {viewMode === 'items' && (
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Category Filter */}
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
+            <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-100">
+              <div className="flex-1 max-w-xs">
                 <select
                   value={selectedCategory || ''}
                   onChange={(e) => setSelectedCategory(e.target.value || null)}
-                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                  className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 text-gray-900"
                 >
                   <option value="">All Categories</option>
                   {categories.map((category) => (
@@ -404,36 +400,21 @@ export default function MenuPage() {
                     </option>
                   ))}
                 </select>
-                {selectedCategory && (
-                  <button
-                    onClick={() => setSelectedCategory(null)}
-                    className="text-sm text-gray-700 hover:text-gray-900"
-                  >
-                    Clear filter
-                  </button>
-                )}
               </div>
               <button
                 onClick={() => fetchCategories(false)}
                 disabled={refreshing}
-                className="text-sm text-blue-600 hover:text-blue-700 font-medium disabled:opacity-50"
+                className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
+                title="Refresh"
               >
-                {refreshing ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-1 animate-spin" />
-                    Refreshing...
-                  </>
-                ) : (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-1" />
-                    Refresh
-                  </>
-                )}
+                <RefreshCw
+                  className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                />
               </button>
             </div>
 
-            {/* Items Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {/* Items List */}
+            <div className="space-y-3">
               {categories
                 .filter(
                   (cat) => !selectedCategory || cat.id === selectedCategory
@@ -442,124 +423,77 @@ export default function MenuPage() {
                 .map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow"
+                    className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-all"
                   >
                     {/* Item Image */}
-                    <div className="h-48 bg-gray-200 relative">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
                       {item.imageUrl ? (
                         <Image
                           src={item.imageUrl}
                           alt={item.name}
                           fill
-                          className="object-cover"
-                          onLoad={() =>
-                            console.log('Image loaded:', item.imageUrl)
-                          }
-                          onError={(e) => {
-                            console.log('Image failed to load:', item.imageUrl);
-                            console.error('Image error:', e);
-                          }}
+                          className={`object-cover ${!item.isAvailable ? 'grayscale opacity-75' : ''
+                            }`}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-700">
-                          <UtensilsCrossed className="h-10 w-10 text-gray-400" />
+                        <div className="w-full h-full flex items-center justify-center text-gray-400">
+                          <UtensilsCrossed className="h-6 w-6" />
                         </div>
                       )}
-                      {item.isFeatured && (
-                        <div className="absolute top-2 right-2 bg-yellow-500 text-white px-2 py-1 text-xs font-medium rounded">
-                          Featured
-                        </div>
-                      )}
-                      <div
-                        className={`absolute top-2 left-2 px-2 py-1 text-xs font-medium rounded ${
-                          item.isAvailable
-                            ? 'bg-green-500 text-white'
-                            : 'bg-red-500 text-white'
-                        }`}
-                      >
-                        {item.isAvailable ? 'Available' : 'Unavailable'}
-                      </div>
                     </div>
 
-                    {/* Item Details */}
-                    <div className="p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start">
+                        <h3 className="font-semibold text-gray-900 truncate pr-2">
                           {item.name}
                         </h3>
-                        <span className="text-lg font-bold text-green-600">
+                        <span className="font-semibold text-gray-900 whitespace-nowrap">
                           {formatPrice(item.price)}
                         </span>
                       </div>
-
-                      {item.description && (
-                        <p className="text-sm text-gray-700 mb-3 line-clamp-2">
-                          {item.description}
-                        </p>
-                      )}
-
-                      <div className="flex items-center justify-between text-sm text-gray-700 mb-3">
-                        <span className="flex items-center">
-                          <Clock className="h-3 w-3 mr-1" />{' '}
-                          {item.preparationTime}min
+                      <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
+                        {item.description || 'No description'}
+                      </p>
+                      <div className="flex items-center gap-3 mt-1.5">
+                        <span className="flex items-center text-xs text-gray-500">
+                          <Clock className="h-3 w-3 mr-1" />
+                          {item.preparationTime}m
                         </span>
                         {item.calories && (
-                          <span className="flex items-center">
-                            <Flame className="h-3 w-3 mr-1" /> {item.calories}{' '}
-                            cal
+                          <span className="flex items-center text-xs text-gray-500">
+                            <Flame className="h-3 w-3 mr-1" />
+                            {item.calories}
                           </span>
                         )}
                       </div>
+                    </div>
 
-                      {/* Allergens & Dietary Info */}
-                      {(item.allergens.length > 0 ||
-                        item.dietaryInfo.length > 0) && (
-                        <div className="flex flex-wrap gap-1 mb-3">
-                          {item.allergens.map((allergen) => (
-                            <span
-                              key={allergen}
-                              className="px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
-                            >
-                              {allergen}
-                            </span>
-                          ))}
-                          {item.dietaryInfo.map((info) => (
-                            <span
-                              key={info}
-                              className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
-                            >
-                              {info}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Variations */}
-                      {item.variations.length > 0 && (
-                        <div className="text-xs text-gray-700 mb-3">
-                          {item.variations.length} variation
-                          {item.variations.length !== 1 ? 's' : ''}
-                        </div>
-                      )}
-
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => setEditingItem(item)}
-                          className="flex-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-2 rounded-md text-sm font-medium"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => toggleItemAvailability(item)}
-                          className={`px-3 py-2 rounded-md text-sm font-medium ${
-                            item.isAvailable
-                              ? 'bg-red-100 hover:bg-red-200 text-red-700'
-                              : 'bg-green-100 hover:bg-green-200 text-green-700'
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 pl-2 border-l border-gray-100">
+                      <button
+                        onClick={() => toggleItemAvailability(item)}
+                        className={`p-2 rounded-lg transition-colors ${item.isAvailable
+                          ? 'text-green-600 bg-green-50'
+                          : 'text-gray-300 bg-gray-50'
                           }`}
+                      >
+                        <div
+                          className={`w-9 h-5 rounded-full relative transition-colors ${item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
+                            }`}
                         >
-                          {item.isAvailable ? 'Disable' : 'Enable'}
-                        </button>
-                      </div>
+                          <div
+                            className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${item.isAvailable ? 'left-[18px]' : 'left-0.5'
+                              }`}
+                          />
+                        </div>
+                      </button>
+                      <button
+                        onClick={() => setEditingItem(item)}
+                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="h-5 w-5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -571,19 +505,15 @@ export default function MenuPage() {
         {viewMode === 'analytics' && (
           <div className="space-y-6">
             {/* Period Filter */}
-            <div className="flex items-center space-x-4">
-              <label className="text-sm font-medium text-gray-700">
-                Period:
-              </label>
+            <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg w-fit">
               {['today', 'week', 'month'].map((period) => (
                 <button
                   key={period}
                   onClick={() => fetchAnalytics(period)}
-                  className={`px-3 py-1 text-sm rounded-md ${
-                    analytics?.period === period
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${analytics?.period === period
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                    }`}
                 >
                   {period.charAt(0).toUpperCase() + period.slice(1)}
                 </button>
@@ -592,73 +522,74 @@ export default function MenuPage() {
 
             {analyticsLoading ? (
               <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-800">Loading analytics...</p>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-sm text-gray-500">Loading analytics...</p>
               </div>
             ) : analytics ? (
               <>
                 {/* Summary Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-gray-900">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="text-xl font-bold text-gray-900">
                       {analytics.summary.totalMenuItems}
                     </div>
-                    <div className="text-sm text-gray-800">
-                      Total Menu Items
+                    <div className="text-xs text-gray-500 mt-1">
+                      Total Items
                     </div>
                   </div>
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-green-600">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="text-xl font-bold text-green-600">
                       {analytics.summary.activeMenuItems}
                     </div>
-                    <div className="text-sm text-gray-800">Active Items</div>
+                    <div className="text-xs text-gray-500 mt-1">Active</div>
                   </div>
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-blue-600">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="text-xl font-bold text-blue-600">
                       {analytics.summary.itemsOrdered}
                     </div>
-                    <div className="text-sm text-gray-800">Items Ordered</div>
+                    <div className="text-xs text-gray-500 mt-1">Ordered</div>
                   </div>
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <div className="text-2xl font-bold text-orange-600">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+                    <div className="text-xl font-bold text-orange-600">
                       {formatPrice(analytics.summary.averageOrderValue)}
                     </div>
-                    <div className="text-sm text-gray-800">Avg Order Value</div>
+                    <div className="text-xs text-gray-500 mt-1">Avg Value</div>
                   </div>
                 </div>
 
                 {/* Top Selling Items */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Top Selling Items
-                  </h3>
-                  <div className="space-y-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-4 border-b border-gray-50">
+                    <h3 className="font-semibold text-gray-900">
+                      Top Selling Items
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-50">
                     {analytics.topSellingItems
                       .slice(0, 5)
                       .map((item, index: number) => (
                         <div
                           key={item.menuItemId}
-                          className="flex items-center justify-between"
+                          className="flex items-center justify-between p-4"
                         >
-                          <div className="flex items-center space-x-4">
-                            <div className="text-lg font-bold text-gray-600 w-6">
+                          <div className="flex items-center gap-3">
+                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
                               #{index + 1}
                             </div>
                             <div>
-                              <div className="font-medium text-gray-900">
+                              <div className="text-sm font-medium text-gray-900">
                                 {item.menuItem.name}
                               </div>
-                              <div className="text-sm text-gray-700">
-                                {item.menuItem.category?.name ||
-                                  'Unknown Category'}
+                              <div className="text-xs text-gray-500">
+                                {item.menuItem.category?.name || 'Unknown'}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900">
                               {item._sum.quantity} sold
                             </div>
-                            <div className="text-sm text-gray-700">
+                            <div className="text-xs text-gray-500">
                               {formatPrice(item._sum.totalAmount)}
                             </div>
                           </div>
@@ -668,29 +599,31 @@ export default function MenuPage() {
                 </div>
 
                 {/* Category Performance */}
-                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                    Category Performance
-                  </h3>
-                  <div className="space-y-4">
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                  <div className="p-4 border-b border-gray-50">
+                    <h3 className="font-semibold text-gray-900">
+                      Category Performance
+                    </h3>
+                  </div>
+                  <div className="divide-y divide-gray-50">
                     {analytics.categoryPerformance.map((category) => (
                       <div
                         key={category.categoryId}
-                        className="flex items-center justify-between"
+                        className="flex items-center justify-between p-4"
                       >
                         <div>
-                          <div className="font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900">
                             {category.categoryName}
                           </div>
-                          <div className="text-sm text-gray-700">
+                          <div className="text-xs text-gray-500">
                             {category.totalQuantity} items sold
                           </div>
                         </div>
                         <div className="text-right">
-                          <div className="font-medium text-gray-900">
+                          <div className="text-sm font-medium text-gray-900">
                             {formatPrice(category.totalRevenue)}
                           </div>
-                          <div className="text-sm text-gray-700">
+                          <div className="text-xs text-gray-500">
                             {category.orderCount} orders
                           </div>
                         </div>
@@ -701,25 +634,27 @@ export default function MenuPage() {
 
                 {/* Low Performing Items */}
                 {analytics.lowPerformingItems.length > 0 && (
-                  <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                      Items Not Ordered This {analytics.period}
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div className="p-4 border-b border-gray-50 bg-orange-50/50">
+                      <h3 className="font-semibold text-gray-900">
+                        Items Not Ordered This {analytics.period}
+                      </h3>
+                    </div>
+                    <div className="divide-y divide-gray-50">
                       {analytics.lowPerformingItems.map((item) => (
                         <div
                           key={item.id}
-                          className="flex items-center justify-between p-3 bg-orange-50 rounded-lg"
+                          className="flex items-center justify-between p-4"
                         >
                           <div>
-                            <div className="font-medium text-gray-900">
+                            <div className="text-sm font-medium text-gray-900">
                               {item.name}
                             </div>
-                            <div className="text-sm text-gray-700">
-                              {item.category?.name || 'Unknown Category'}
+                            <div className="text-xs text-gray-500">
+                              {item.category?.name || 'Unknown'}
                             </div>
                           </div>
-                          <div className="text-sm font-medium text-orange-600">
+                          <div className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded">
                             {formatPrice(item.price)}
                           </div>
                         </div>
@@ -730,11 +665,11 @@ export default function MenuPage() {
               </>
             ) : (
               <div className="text-center py-12">
-                <BarChart3 className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                <h3 className="text-sm font-medium text-gray-900 mb-1">
                   No analytics data
                 </h3>
-                <p className="text-gray-800">
+                <p className="text-xs text-gray-500">
                   Analytics will appear here once you have orders
                 </p>
               </div>
@@ -893,12 +828,12 @@ function AddModal({
           : '/api/admin/menu/items';
 
       // Fix data types for menu items
-      let requestData = formData;
+      let requestData: any = { ...formData };
       if (type === 'item') {
         requestData = {
           ...formData,
           price: parseFloat(formData.price) || 0,
-          preparationTime: parseInt(formData.preparationTime) || 15,
+          preparationTime: parseInt(formData.preparationTime.toString()) || 15,
           calories: formData.calories ? parseInt(formData.calories) : null,
         };
       }

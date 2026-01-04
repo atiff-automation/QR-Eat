@@ -31,6 +31,7 @@ const PaymentRequestSchema = z.object({
   externalTransactionId: z.string().optional(),
   notes: z.string().optional(),
   payFullTable: z.boolean().optional(),
+  paymentMetadata: z.record(z.any()).optional(), // Allow metadata for early payment tracking
 });
 
 export async function POST(
@@ -96,6 +97,11 @@ export async function POST(
       console.warn(
         `[Payment] Early payment for order ${order.id} with status ${order.status}`
       );
+      console.log('🚨 EARLY PAYMENT DETECTED 🚨', {
+        orderId: order.id,
+        orderStatus: order.status,
+        earlyPayment: true,
+      });
 
       // Track early payments in metadata
       validatedData.paymentMetadata = {
@@ -194,10 +200,10 @@ export async function POST(
             externalTransactionId: validatedData.externalTransactionId,
             paymentMetadata: validatedData.notes
               ? {
-                  notes: validatedData.notes,
-                  groupedPayment: true,
-                  primaryReceipt: receiptNumber,
-                }
+                notes: validatedData.notes,
+                groupedPayment: true,
+                primaryReceipt: receiptNumber,
+              }
               : { groupedPayment: true, primaryReceipt: receiptNumber },
             processedAt: new Date(),
             completedAt: new Date(),
@@ -316,9 +322,7 @@ export async function POST(
         changeGiven: changeGiven ?? new Decimal(0),
         receiptNumber,
         externalTransactionId: validatedData.externalTransactionId,
-        paymentMetadata: validatedData.notes
-          ? { notes: validatedData.notes }
-          : undefined,
+        paymentMetadata: validatedData.paymentMetadata || undefined,
         processedAt: new Date(),
         completedAt: new Date(),
       };

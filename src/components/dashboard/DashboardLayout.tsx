@@ -103,70 +103,70 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     current: boolean;
     permission: string | undefined;
   }> = [
-    {
-      name: 'Dashboard',
-      href: '/dashboard',
-      icon: Home,
-      current: pathname === '/dashboard',
-      permission: undefined, // No permission required for dashboard home
-    },
-    {
-      name: 'Orders',
-      href: '/dashboard/orders',
-      icon: ClipboardList,
-      current: pathname.startsWith('/dashboard/orders'),
-      permission: 'orders:read',
-    },
-    {
-      name: 'Tables',
-      href: '/dashboard/tables',
-      icon: ChefHat,
-      current: pathname.startsWith('/dashboard/tables'),
-      permission: 'tables:read',
-    },
-    {
-      name: 'Kitchen',
-      href: '/kitchen',
-      icon: UtensilsCrossed,
-      current: pathname.startsWith('/kitchen'),
-      permission: 'orders:kitchen',
-    },
-    {
-      name: 'Menu',
-      href: '/dashboard/menu',
-      icon: UtensilsCrossed,
-      current: pathname.startsWith('/dashboard/menu'),
-      permission: 'menu:read',
-    },
-    {
-      name: 'Cashier',
-      href: '/dashboard/cashier',
-      icon: CreditCard,
-      current: pathname.startsWith('/dashboard/cashier'),
-      permission: 'orders:write',
-    },
-    {
-      name: 'Staff',
-      href: '/dashboard/staff',
-      icon: Users,
-      current: pathname.startsWith('/dashboard/staff'),
-      permission: 'staff:read',
-    },
-    {
-      name: 'Reports',
-      href: '/dashboard/reports',
-      icon: BarChart3,
-      current: pathname.startsWith('/dashboard/reports'),
-      permission: 'analytics:read',
-    },
-    {
-      name: 'Settings',
-      href: '/dashboard/settings',
-      icon: Settings,
-      current: pathname.startsWith('/dashboard/settings'),
-      permission: 'settings:read',
-    },
-  ];
+      {
+        name: 'Dashboard',
+        href: '/dashboard',
+        icon: Home,
+        current: pathname === '/dashboard',
+        permission: undefined, // No permission required for dashboard home
+      },
+      {
+        name: 'Orders',
+        href: '/dashboard/orders',
+        icon: ClipboardList,
+        current: pathname.startsWith('/dashboard/orders'),
+        permission: 'orders:read',
+      },
+      {
+        name: 'Tables',
+        href: '/dashboard/tables',
+        icon: ChefHat,
+        current: pathname.startsWith('/dashboard/tables'),
+        permission: 'tables:read',
+      },
+      {
+        name: 'Kitchen',
+        href: '/kitchen',
+        icon: UtensilsCrossed,
+        current: pathname.startsWith('/kitchen'),
+        permission: 'orders:kitchen',
+      },
+      {
+        name: 'Menu',
+        href: '/dashboard/menu',
+        icon: UtensilsCrossed,
+        current: pathname.startsWith('/dashboard/menu'),
+        permission: 'menu:read',
+      },
+      {
+        name: 'Cashier',
+        href: '/dashboard/cashier',
+        icon: CreditCard,
+        current: pathname.startsWith('/dashboard/cashier'),
+        permission: 'orders:write',
+      },
+      {
+        name: 'Staff',
+        href: '/dashboard/staff',
+        icon: Users,
+        current: pathname.startsWith('/dashboard/staff'),
+        permission: 'staff:read',
+      },
+      {
+        name: 'Reports',
+        href: '/dashboard/reports',
+        icon: BarChart3,
+        current: pathname.startsWith('/dashboard/reports'),
+        permission: 'analytics:read',
+      },
+      {
+        name: 'Settings',
+        href: '/dashboard/settings',
+        icon: Settings,
+        current: pathname.startsWith('/dashboard/settings'),
+        permission: 'settings:read',
+      },
+    ];
 
   const getPageIcon = (): LucideIcon => {
     if (pathname === '/dashboard') return Home;
@@ -186,7 +186,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/orders')) return 'Orders';
     if (pathname.includes('/tables')) return 'Tables';
     if (pathname.includes('/kitchen')) return 'Kitchen Display';
-    if (pathname.includes('/menu')) return 'Menu Management';
+    if (pathname.includes('/menu')) return 'Menu';
     if (pathname.includes('/cashier')) return 'Cashier / POS';
     if (pathname.includes('/staff')) return 'Staff Management';
     if (pathname.includes('/reports')) return 'Reports';
@@ -198,22 +198,19 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar */}
       <div
-        className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
-          isSidebarOpen
+        className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${isSidebarOpen
             ? 'opacity-100 pointer-events-auto'
             : 'opacity-0 pointer-events-none'
-        }`}
+          }`}
       >
         <div
-          className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-            isSidebarOpen ? 'opacity-100' : 'opacity-0'
-          }`}
+          className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isSidebarOpen ? 'opacity-100' : 'opacity-0'
+            }`}
           onClick={() => setIsSidebarOpen(false)}
         ></div>
         <div
-          className={`relative flex flex-col w-64 bg-white h-full transform transition-transform duration-300 ease-in-out ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-          }`}
+          className={`relative flex flex-col w-64 bg-white h-full transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <span className="text-lg font-semibold text-gray-900">Menu</span>
@@ -230,11 +227,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 <Link
                   href={item.href}
                   onClick={() => setIsSidebarOpen(false)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                    item.current
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${item.current
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}
@@ -294,11 +290,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <PermissionGuard key={item.name} permission={item.permission}>
                 <Link
                   href={item.href}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                    item.current
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${item.current
                       ? 'bg-blue-100 text-blue-700'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <item.icon className="mr-3 h-5 w-5" />
                   {item.name}

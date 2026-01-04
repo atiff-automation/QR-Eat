@@ -30,6 +30,7 @@ export interface TenantContext {
   permissions: Record<string, string[]>;
   isAdmin: boolean;
   restaurantSlug?: string;
+  roleTemplate?: string; // For staff: manager, waiter, kitchen, cashier
 }
 
 export interface RestaurantContext {
@@ -75,6 +76,7 @@ function extractContextFromHeaders(request: NextRequest): TenantContext | null {
   const restaurantId = request.headers.get('x-restaurant-id');
   const ownerId = request.headers.get('x-owner-id');
   const restaurantSlug = request.headers.get('x-restaurant-slug');
+  const roleTemplate = request.headers.get('x-role-template');
   const permissionsHeader = request.headers.get('x-user-permissions');
 
   // All required headers must be present
@@ -100,6 +102,7 @@ function extractContextFromHeaders(request: NextRequest): TenantContext | null {
     permissions,
     isAdmin,
     restaurantSlug: restaurantSlug || undefined,
+    roleTemplate: roleTemplate || undefined,
   };
 }
 
@@ -199,6 +202,7 @@ function convertUserToTenantContext(
     permissions,
     isAdmin: user.currentRole.userType === 'platform_admin',
     restaurantSlug: user.restaurantContext?.slug,
+    roleTemplate: user.currentRole.roleTemplate,
   };
 }
 

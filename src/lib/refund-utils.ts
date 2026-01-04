@@ -15,10 +15,28 @@ export function calculateRefundAmount(order: Order): number {
 
 /**
  * Check if user has permission to cancel paid order
+ * Only platform admin, restaurant owner, or manager (staff) can cancel paid orders
  */
-export function canCancelPaidOrder(userRole: string): boolean {
-  // Only admin or manager can cancel paid orders
-  return ['restaurant_owner', 'manager'].includes(userRole);
+export function canCancelPaidOrder(
+  userType: string,
+  roleTemplate: string | null | undefined
+): boolean {
+  // Platform admin can cancel
+  if (userType === 'platform_admin') {
+    return true;
+  }
+
+  // Restaurant owner can cancel
+  if (userType === 'restaurant_owner') {
+    return true;
+  }
+
+  // Staff with manager role can cancel
+  if (userType === 'staff' && roleTemplate === 'manager') {
+    return true;
+  }
+
+  return false;
 }
 
 /**
@@ -26,7 +44,8 @@ export function canCancelPaidOrder(userRole: string): boolean {
  */
 export function canCancelOrder(
   order: Order,
-  userRole: string
+  userType: string,
+  roleTemplate: string | null | undefined
 ): { allowed: boolean; reason?: string } {
   // Cannot cancel already cancelled orders
   if (order.status === ORDER_STATUS.CANCELLED) {
@@ -35,7 +54,7 @@ export function canCancelOrder(
 
   // If paid, check permission
   if (order.paymentStatus === 'PAID') {
-    if (!canCancelPaidOrder(userRole)) {
+    if (!canCancelPaidOrder(userType, roleTemplate)) {
       return {
         allowed: false,
         reason: 'Only restaurant admin or manager can cancel paid orders.',

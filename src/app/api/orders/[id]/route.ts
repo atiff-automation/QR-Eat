@@ -318,7 +318,11 @@ export async function DELETE(
           '@/lib/utils/receipt-formatter'
         );
 
-        const cancellationCheck = canCancelOrder(order, context!.userType);
+        const cancellationCheck = canCancelOrder(
+          order,
+          context!.userType,
+          context!.roleTemplate
+        );
         if (!cancellationCheck.allowed) {
           throw new Error(cancellationCheck.reason!);
         }

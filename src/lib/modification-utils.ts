@@ -3,10 +3,16 @@ import { ORDER_STATUS } from './order-utils';
 
 /**
  * Check if user can modify order based on status and role
+ * 
+ * @param order - The order to check
+ * @param userType - High-level user type (platform_admin, restaurant_owner, staff)
+ * @param roleTemplate - Specific role template (manager, waiter, kitchen, cashier) - only for staff
+ * @param operation - The operation being attempted
  */
 export function canModifyOrder(
   order: Order,
-  userRole: string,
+  userType: string,
+  roleTemplate: string | null | undefined,
   operation: 'add' | 'remove' | 'cancel' | 'modify_qty'
 ): { allowed: boolean; reason?: string } {
   // PENDING: Anyone can modify
@@ -14,10 +20,42 @@ export function canModifyOrder(
     return { allowed: true };
   }
 
-  // CONFIRMED onwards: Manager/Admin only
-  const isManagerOrAdmin = ['restaurant_owner', 'manager'].includes(userRole);
+  // Platform admin always has permission
+  if (userType === 'platform_admin') {
+    return { allowed: true };
+  }
 
-  if (!isManagerOrAdmin) {
+  // Restaurant owner always has permission
+  if (userType === 'restaurant_owner') {
+    // Check for add operation restriction - cannot add to in-progress orders
+    const inProgressStatuses = ['CONFIRMED', 'PREPARING', 'READY', 'SERVED'] as const;
+    if (operation === 'add' && inProgressStatuses.includes(order.status as typeof inProgressStatuses[number])) {
+      return {
+        allowed: false,
+        reason:
+          'Cannot add items to order in progress. Please create a new order instead.',
+      };
+    }
+    return { allowed: true };
+  }
+
+  // Staff: Check roleTemplate
+  if (userType === 'staff') {
+    // Only manager can modify confirmed orders
+    if (roleTemplate === 'manager') {
+      // Manager can do everything except add items to in-progress orders
+      const inProgressStatuses = ['CONFIRMED', 'PREPARING', 'READY', 'SERVED'] as const;
+      if (operation === 'add' && inProgressStatuses.includes(order.status as typeof inProgressStatuses[number])) {
+        return {
+          allowed: false,
+          reason:
+            'Cannot add items to order in progress. Please create a new order instead.',
+        };
+      }
+      return { allowed: true };
+    }
+
+    // All other staff roles cannot modify confirmed orders
     return {
       allowed: false,
       reason:
@@ -25,32 +63,32 @@ export function canModifyOrder(
     };
   }
 
-  // Manager/Admin can do everything except add items to in-progress orders
-  if (operation === 'add' && order.status !== ORDER_STATUS.PENDING) {
-    return {
-      allowed: false,
-      reason:
-        'Cannot add items to order in progress. Please create a new order instead.',
-    };
-  }
-
-  // All other operations allowed for manager/admin
-  return { allowed: true };
+  // Default deny
+  return {
+    allowed: false,
+    reason: 'Insufficient permissions to modify order.',
+  };
 }
 
 /**
- * Get modification permission message
+ * Get user-friendly message about modification permissions
  */
-export function getModificationMessage(order: Order, userRole: string): string {
+export function getModificationMessage(
+  order: Order,
+  userType: string,
+  roleTemplate: string | null | undefined
+): string {
   if (order.status === ORDER_STATUS.PENDING) {
-    return 'Order can be modified freely (not yet sent to kitchen).';
+    return 'You can modify this order.';
   }
 
-  const isManagerOrAdmin = ['restaurant_owner', 'manager'].includes(userRole);
-
-  if (!isManagerOrAdmin) {
-    return 'Order has been sent to kitchen. Only manager or admin can make changes.';
+  if (userType === 'platform_admin' || userType === 'restaurant_owner') {
+    return 'You can modify this order, but cannot add new items.';
   }
 
-  return 'Manager approval: Order is in kitchen. Verify with chef before making changes.';
+  if (userType === 'staff' && roleTemplate === 'manager') {
+    return 'As a manager, you can modify this order, but cannot add new items.';
+  }
+
+  return 'Only restaurant admin or manager can modify orders after they are sent to kitchen.';
 }

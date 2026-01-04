@@ -2,9 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { MoreVertical, Eye, Edit, XCircle } from 'lucide-react';
-import { useHasPermission } from '@/lib/hooks/queries/useAuth';
+import { useHasPermission, useAuthUser } from '@/lib/hooks/queries/useAuth';
 import { ORDER_PERMISSIONS } from '@/lib/rbac/permission-constants';
-import { canModifyOrder, canCancelOrder } from '@/lib/order-modification-utils';
 
 interface OrderActionsMenuProps {
   order: {
@@ -41,9 +40,34 @@ export function OrderActionsMenu({
   const canView = useHasPermission(ORDER_PERMISSIONS.READ);
   const canWrite = useHasPermission(ORDER_PERMISSIONS.WRITE);
 
-  // Status-based checks
-  const canModify = canWrite && canModifyOrder(order.status);
-  const canCancelOrder_ = canWrite && canCancelOrder(order.status);
+  // Get user role information
+  const { data: authData } = useAuthUser();
+  const userType = authData?.currentRole.userType;
+  const roleTemplate = authData?.currentRole.roleTemplate;
+
+  // Determine if user can modify based on order status and role
+  const canModifyBasedOnRole = () => {
+    // PENDING orders: anyone with write permission can modify
+    if (order.status === 'PENDING') {
+      return canWrite;
+    }
+
+    // CONFIRMED+ orders: only owner, platform_admin, or manager can modify
+    if (userType === 'platform_admin' || userType === 'restaurant_owner') {
+      return canWrite;
+    }
+
+    if (userType === 'staff' && roleTemplate === 'manager') {
+      return canWrite;
+    }
+
+    return false;
+  };
+
+  const canModify = canModifyBasedOnRole();
+
+  // For cancel, use same logic for now
+  const canCancelOrder_ = canModify;
 
   // Close menu when clicking outside
   useEffect(() => {

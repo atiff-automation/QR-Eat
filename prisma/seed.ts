@@ -1023,6 +1023,15 @@ async function main() {
       ],
     },
     {
+      template: 'waiter',
+      permissions: [
+        'orders:read',
+        'orders:write', // Can create and modify PENDING orders
+        'tables:read',
+        'menu:read',
+      ],
+    },
+    {
       template: 'kitchen_staff',
       permissions: [
         'orders:read',
@@ -1121,13 +1130,13 @@ async function main() {
         isActive: true,
       },
     }),
-    // Staff member (using manager role for now)
+    // Waiter
     prisma.userRole.create({
       data: {
         userId: staff[1].id,
         userType: 'staff',
         restaurantId: staff[1].restaurantId,
-        roleTemplate: 'manager',
+        roleTemplate: 'waiter',
         customPermissions: [],
         isActive: true,
       },

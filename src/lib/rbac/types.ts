@@ -65,6 +65,8 @@ export type RoleTemplate =
   | 'platform_admin'
   | 'restaurant_owner'
   | 'manager'
+  | 'waiter'
+  | 'cashier'
   | 'kitchen_staff';
 
 // User Types
@@ -283,6 +285,8 @@ export const RBAC_CONSTANTS = {
     'platform_admin',
     'restaurant_owner',
     'manager',
+    'waiter',
+    'cashier',
     'kitchen_staff',
   ] as const,
 
