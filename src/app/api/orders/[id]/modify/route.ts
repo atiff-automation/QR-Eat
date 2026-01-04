@@ -57,14 +57,31 @@ export async function PATCH(
           throw new Error('Order not found');
         }
 
-        // 2. Validate order status
-        if (!['PENDING', 'CONFIRMED', 'PREPARING'].includes(order.status)) {
+        // 2. Check if modification is allowed based on status and user role
+        const { canModifyOrder } = await import('@/lib/modification-utils');
+
+        for (const change of data.itemChanges) {
+          const operation =
+            change.action === 'remove' ? 'remove' : 'modify_qty';
+          const permissionCheck = canModifyOrder(
+            order,
+            context!.userType,
+            operation
+          );
+
+          if (!permissionCheck.allowed) {
+            throw new Error(permissionCheck.reason!);
+          }
+        }
+
+        // 3. Block modifications to paid orders
+        if (order.paymentStatus === 'PAID') {
           throw new Error(
-            `Cannot modify order with status: ${order.status}. Only pending, confirmed, or preparing orders can be modified.`
+            'Cannot modify paid orders. Please contact staff to process a refund first.'
           );
         }
 
-        // 3. Check version (optimistic locking)
+        // 4. Check version (optimistic locking)
         if (order.version !== data.version) {
           throw new Error(
             'Order was modified by another user. Please refresh and try again.'

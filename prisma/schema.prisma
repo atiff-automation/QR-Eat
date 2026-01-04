@@ -50,14 +50,6 @@ enum OrderItemStatus {
   CANCELLED
 }
 
-enum PaymentStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
-}
-
-
 // Platform Administration
 model PlatformAdmin {
   id                  String    @id @default(uuid())
@@ -74,8 +66,8 @@ model PlatformAdmin {
   createdAt           DateTime  @default(now())
   updatedAt           DateTime  @updatedAt
 
-  sessions         PlatformAdminSession[]
-  auditLogs        AuditLog[]             @relation("AdminAuditLogs")
+  sessions          PlatformAdminSession[]
+  auditLogs         AuditLog[]             @relation("AdminAuditLogs")
   processedPayments Payment[]
   refreshTokens     RefreshToken[]
 
@@ -257,16 +249,16 @@ model Restaurant {
 }
 
 model Table {
-  id                  String   @id @default(uuid())
+  id                  String      @id @default(uuid())
   restaurantId        String
   tableNumber         String
   tableName           String?
-  qrCodeToken         String   @unique
-  capacity            Int      @default(4)
+  qrCodeToken         String      @unique
+  capacity            Int         @default(4)
   status              TableStatus @default(AVAILABLE)
   locationDescription String?
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
 
   restaurant       Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orders           Order[]
@@ -498,12 +490,12 @@ model Staff {
   createdAt              DateTime  @default(now())
   updatedAt              DateTime  @updatedAt
 
-  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  role       StaffRole      @relation(fields: [roleId], references: [id])
-  orders     Order[]
-  payments   Payment[]      // POS payments processed by this staff member
-  sessions   StaffSession[]
-  auditLogs  AuditLog[]     @relation("StaffAuditLogs")
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  role          StaffRole      @relation(fields: [roleId], references: [id])
+  orders        Order[]
+  payments      Payment[] // POS payments processed by this staff member
+  sessions      StaffSession[]
+  auditLogs     AuditLog[]     @relation("StaffAuditLogs")
   refreshTokens RefreshToken[]
 
   @@index([restaurantId])
@@ -528,15 +520,15 @@ model StaffSession {
 }
 
 model CustomerSession {
-  id            String    @id @default(uuid())
+  id            String                @id @default(uuid())
   tableId       String
-  sessionToken  String    @unique
+  sessionToken  String                @unique
   customerName  String?
   customerPhone String?
   customerEmail String?
   ipAddress     String?
   userAgent     String?
-  startedAt     DateTime  @default(now())
+  startedAt     DateTime              @default(now())
   expiresAt     DateTime
   endedAt       DateTime?
   status        CustomerSessionStatus @default(ACTIVE)
@@ -574,16 +566,16 @@ model CartItem {
 }
 
 model Order {
-  id                  String    @id @default(uuid())
-  orderNumber         String    @unique
+  id                  String             @id @default(uuid())
+  orderNumber         String             @unique
   restaurantId        String
   tableId             String
   customerSessionId   String
-  subtotalAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
-  taxAmount           Decimal   @default(0.00) @db.Decimal(10, 2)
-  serviceCharge       Decimal   @default(0.00) @db.Decimal(10, 2)
-  discountAmount      Decimal   @default(0.00) @db.Decimal(10, 2)
-  totalAmount         Decimal   @default(0.00) @db.Decimal(10, 2)
+  subtotalAmount      Decimal            @default(0.00) @db.Decimal(10, 2)
+  taxAmount           Decimal            @default(0.00) @db.Decimal(10, 2)
+  serviceCharge       Decimal            @default(0.00) @db.Decimal(10, 2)
+  discountAmount      Decimal            @default(0.00) @db.Decimal(10, 2)
+  totalAmount         Decimal            @default(0.00) @db.Decimal(10, 2)
   status              OrderStatus        @default(PENDING)
   paymentStatus       OrderPaymentStatus @default(PENDING)
   takenBy             String?
@@ -591,23 +583,23 @@ model Order {
   servedBy            String?
   specialInstructions String?
   estimatedReadyTime  DateTime?
-  
-  // Modification tracking
-  hasModifications    Boolean   @default(false)
-  lastModifiedAt      DateTime?
-  modificationCount   Int       @default(0)
-  version             Int       @default(1) // Optimistic locking
-  
-  createdAt           DateTime  @default(now())
-  confirmedAt         DateTime?
-  readyAt             DateTime?
-  servedAt            DateTime?
-  updatedAt           DateTime  @updatedAt
 
-  restaurant      Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  table           Table              @relation(fields: [tableId], references: [id], onDelete: Cascade)
-  customerSession CustomerSession    @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
-  takenByStaff    Staff?             @relation(fields: [takenBy], references: [id])
+  // Modification tracking
+  hasModifications  Boolean   @default(false)
+  lastModifiedAt    DateTime?
+  modificationCount Int       @default(0)
+  version           Int       @default(1) // Optimistic locking
+
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+  readyAt     DateTime?
+  servedAt    DateTime?
+  updatedAt   DateTime  @updatedAt
+
+  restaurant      Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table           Table               @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  customerSession CustomerSession     @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  takenByStaff    Staff?              @relation(fields: [takenBy], references: [id])
   items           OrderItem[]
   payments        Payment[]
   paymentIntents  PaymentIntent[]
@@ -625,21 +617,21 @@ model Order {
 }
 
 model OrderItem {
-  id                  String   @id @default(uuid())
+  id                  String          @id @default(uuid())
   orderId             String
   menuItemId          String
   quantity            Int
-  unitPrice           Decimal  @db.Decimal(10, 2)
-  totalAmount         Decimal  @db.Decimal(10, 2)
+  unitPrice           Decimal         @db.Decimal(10, 2)
+  totalAmount         Decimal         @db.Decimal(10, 2)
   specialInstructions String?
   status              OrderItemStatus @default(PENDING)
-  createdAt           DateTime @default(now())
-  updatedAt           DateTime @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  order              Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  menuItem           MenuItem                @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  variations         OrderItemVariation[]
-  modificationItems  OrderModificationItem[] // New relation
+  order             Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem          MenuItem                @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  variations        OrderItemVariation[]
+  modificationItems OrderModificationItem[] // New relation
 
   @@index([orderId])
   @@index([menuItemId])
@@ -686,26 +678,26 @@ model PaymentIntent {
 }
 
 model Payment {
-  id                    String    @id @default(uuid())
-  orderId               String
-  paymentMethod         String
-  paymentProcessor      String?
-  amount                Decimal   @db.Decimal(10, 2)
-  processingFee         Decimal   @default(0.00) @db.Decimal(10, 2)
-  netAmount             Decimal   @db.Decimal(10, 2)
-  status                PaymentStatus @default(PENDING)
+  id               String             @id @default(uuid())
+  orderId          String
+  paymentMethod    String
+  paymentProcessor String?
+  amount           Decimal            @db.Decimal(10, 2)
+  processingFee    Decimal            @default(0.00) @db.Decimal(10, 2)
+  netAmount        Decimal            @db.Decimal(10, 2)
+  status           OrderPaymentStatus @default(PENDING)
 
   // POS System Fields
-  cashReceived          Decimal?  @db.Decimal(10, 2)  // For cash payments
-  changeGiven           Decimal?  @db.Decimal(10, 2)  // For cash payments
-  receiptNumber         String?   @unique             // Unique receipt identifier
+  cashReceived  Decimal? @db.Decimal(10, 2) // For cash payments
+  changeGiven   Decimal? @db.Decimal(10, 2) // For cash payments
+  receiptNumber String?  @unique // Unique receipt identifier
 
   // Multi-user-type pattern (following AuditLog architecture)
-  processedBy           String?   // Generic user ID who processed payment
-  processedByType       String?   // User type: 'platform_admin', 'restaurant_owner', 'staff'
-  processedByAdminId    String?   // FK to platform_admins (if admin processed)
-  processedByOwnerId    String?   // FK to restaurant_owners (if owner processed)
-  processedByStaffId    String?   // FK to staff (if staff processed)
+  processedBy        String? // Generic user ID who processed payment
+  processedByType    String? // User type: 'platform_admin', 'restaurant_owner', 'staff'
+  processedByAdminId String? // FK to platform_admins (if admin processed)
+  processedByOwnerId String? // FK to restaurant_owners (if owner processed)
+  processedByStaffId String? // FK to staff (if staff processed)
 
   externalPaymentId     String?
   externalTransactionId String?
@@ -718,10 +710,10 @@ model Payment {
   failedAt              DateTime?
   updatedAt             DateTime  @updatedAt
 
-  order                 Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  processedByAdmin      PlatformAdmin?    @relation(fields: [processedByAdminId], references: [id])
-  processedByOwner      RestaurantOwner?  @relation(fields: [processedByOwnerId], references: [id])
-  processedByStaff      Staff?            @relation(fields: [processedByStaffId], references: [id])
+  order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  processedByAdmin PlatformAdmin?   @relation(fields: [processedByAdminId], references: [id])
+  processedByOwner RestaurantOwner? @relation(fields: [processedByOwnerId], references: [id])
+  processedByStaff Staff?           @relation(fields: [processedByStaffId], references: [id])
 
   @@index([processedBy])
   @@index([processedByType])
@@ -939,34 +931,34 @@ model UserSession {
 // Refresh Token for Secure Token Rotation
 // Following multi-user-type pattern (platform_admin, restaurant_owner, staff)
 model RefreshToken {
-  id              String   @id @default(uuid())
-  token           String   @unique // Hashed token for security
-  userId          String // Generic userId field
-  userType        String // 'platform_admin', 'restaurant_owner', 'staff'
-  sessionId       String // Links to UserSession
+  id        String @id @default(uuid())
+  token     String @unique // Hashed token for security
+  userId    String // Generic userId field
+  userType  String // 'platform_admin', 'restaurant_owner', 'staff'
+  sessionId String // Links to UserSession
 
   // Multi-user FK fields (following Payment model pattern)
-  adminId         String?
-  ownerId         String?
-  staffId         String?
+  adminId String?
+  ownerId String?
+  staffId String?
 
-  expiresAt       DateTime
-  lastUsed        DateTime  @default(now())
-  ipAddress       String?
-  userAgent       String?
-  deviceInfo      Json      @default("{}")
+  expiresAt  DateTime
+  lastUsed   DateTime @default(now())
+  ipAddress  String?
+  userAgent  String?
+  deviceInfo Json     @default("{}")
 
   // Security fields
-  isRevoked       Boolean   @default(false)
-  revokedAt       DateTime?
-  revokedReason   String?
+  isRevoked     Boolean   @default(false)
+  revokedAt     DateTime?
+  revokedReason String?
 
-  createdAt       DateTime  @default(now())
+  createdAt DateTime @default(now())
 
   // Relations
-  admin           PlatformAdmin?    @relation(fields: [adminId], references: [id], onDelete: Cascade)
-  owner           RestaurantOwner?  @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  staff           Staff?            @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  admin PlatformAdmin?   @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  owner RestaurantOwner? @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  staff Staff?           @relation(fields: [staffId], references: [id], onDelete: Cascade)
 
   @@index([token])
   @@index([userId])
@@ -1070,34 +1062,34 @@ model PendingEvent {
 
 // Tracks all modifications made to orders including cancellations
 model OrderModification {
-  id              String    @id @default(uuid())
-  orderId         String
-  modifiedBy      String?   // Can be any user type (platform_admin, restaurant_owner, staff)
-  modifiedAt      DateTime  @default(now())
-  
+  id         String   @id @default(uuid())
+  orderId    String
+  modifiedBy String? // Can be any user type (platform_admin, restaurant_owner, staff)
+  modifiedAt DateTime @default(now())
+
   // Modification details
-  reason          String    // 'out_of_stock', 'customer_request', 'kitchen_error', 'other'
-  reasonNotes     String?   @db.Text
-  
+  reason      String // 'out_of_stock', 'customer_request', 'kitchen_error', 'other'
+  reasonNotes String? @db.Text
+
   // Financial tracking
-  oldTotal        Decimal   @db.Decimal(10, 2)
-  newTotal        Decimal   @db.Decimal(10, 2)
-  
+  oldTotal Decimal @db.Decimal(10, 2)
+  newTotal Decimal @db.Decimal(10, 2)
+
   // Customer notification
-  customerNotified Boolean  @default(false)
-  notifiedAt      DateTime?
-  
+  customerNotified Boolean   @default(false)
+  notifiedAt       DateTime?
+
   // Idempotency (prevent duplicate modifications)
-  idempotencyKey  String    @unique
-  
+  idempotencyKey String @unique
+
   // Audit
-  createdAt       DateTime  @default(now())
-  
+  createdAt DateTime @default(now())
+
   // Relations
-  order           Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  order Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   // Note: modifiedBy does NOT have a foreign key - it can be any user type
-  items           OrderModificationItem[]
-  
+  items OrderModificationItem[]
+
   @@index([orderId])
   @@index([modifiedAt])
   @@index([idempotencyKey])
@@ -1106,27 +1098,26 @@ model OrderModification {
 
 // Tracks specific item changes in modifications
 model OrderModificationItem {
-  id             String    @id @default(uuid())
+  id             String  @id @default(uuid())
   modificationId String
   orderItemId    String?
   menuItemId     String
-  
+
   // Change tracking
-  action         String    // 'added', 'removed', 'quantity_changed'
-  oldQuantity    Int?
-  newQuantity    Int?
-  oldPrice       Decimal?  @db.Decimal(10, 2)
-  newPrice       Decimal?  @db.Decimal(10, 2)
-  
-  createdAt      DateTime  @default(now())
-  
+  action      String // 'added', 'removed', 'quantity_changed'
+  oldQuantity Int?
+  newQuantity Int?
+  oldPrice    Decimal? @db.Decimal(10, 2)
+  newPrice    Decimal? @db.Decimal(10, 2)
+
+  createdAt DateTime @default(now())
+
   // Relations
-  modification   OrderModification @relation(fields: [modificationId], references: [id], onDelete: Cascade)
-  orderItem      OrderItem?        @relation(fields: [orderItemId], references: [id])
-  menuItem       MenuItem          @relation(fields: [menuItemId], references: [id])
-  
+  modification OrderModification @relation(fields: [modificationId], references: [id], onDelete: Cascade)
+  orderItem    OrderItem?        @relation(fields: [orderItemId], references: [id])
+  menuItem     MenuItem          @relation(fields: [menuItemId], references: [id])
+
   @@index([modificationId])
   @@index([orderItemId])
   @@map("order_modification_items")
 }
-

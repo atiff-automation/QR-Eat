@@ -171,40 +171,21 @@ export function TableDetailModal({
         {/* Simplified content with increased side padding */}
         <div className="px-5 py-3 space-y-2">
           {/* Payment Summary - Minimal Design */}
-          {isOpen &&
-            table &&
-            orders.length > 0 &&
-            (() => {
-              // Logic Check: Can we make a payment?
-              // Condition: All UNPAID orders must be READY or SERVED.
-              // If we have ANY unpaid order that is PENDING/PREPARING, block the button.
-              const unpaidOrders = orders.filter(
-                (o) => o.paymentStatus !== 'PAID'
-              );
-              const canProcessPayment =
-                unpaidOrders.length > 0 &&
-                unpaidOrders.every(
-                  (o) => o.status === 'READY' || o.status === 'SERVED'
-                );
-
-              if (!canProcessPayment) return null;
-
-              return (
-                <div className="space-y-2 pb-2 border-b border-gray-100">
-                  <p className="text-sm text-gray-600 font-medium">
-                    {orders.length} {orders.length === 1 ? 'Order' : 'Orders'} •{' '}
-                    {formatPrice(tableTotal)}
-                  </p>
-                  <button
-                    onClick={() => onProcessPayment?.(table.id, orders)}
-                    className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-                  >
-                    <CreditCard className="w-4 h-4" />
-                    <span>Process Payment - {formatPrice(tableTotal)}</span>
-                  </button>
-                </div>
-              );
-            })()}
+          {isOpen && table && orders.length > 0 && (
+            <div className="space-y-2 pb-2 border-b border-gray-100">
+              <p className="text-sm text-gray-600 font-medium">
+                {orders.length} {orders.length === 1 ? 'Order' : 'Orders'} •{' '}
+                {formatPrice(tableTotal)}
+              </p>
+              <button
+                onClick={() => onProcessPayment?.(table.id, orders)}
+                className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Process Payment - {formatPrice(tableTotal)}</span>
+              </button>
+            </div>
+          )}
 
           {/* Action Buttons - Compact */}
           <div className="space-y-1.5">

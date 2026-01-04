@@ -52,12 +52,19 @@ export function CashPaymentForm({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('[CashPaymentForm] Submit triggered', {
+      isValid,
+      cashReceivedNum,
+      totalAmount,
+    });
 
     if (!isValid) {
+      console.log('[CashPaymentForm] Validation failed');
       setError('Cash received must be greater than or equal to total amount');
       return;
     }
 
+    console.log('[CashPaymentForm] Validation passed, calling onSubmit');
     onSubmit({ cashReceived: cashReceivedNum });
   };
 

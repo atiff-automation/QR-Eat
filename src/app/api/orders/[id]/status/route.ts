@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
-import { ORDER_STATUS } from '@/lib/order-utils';
+import {
+  ORDER_STATUS,
+  validateOrderTransition,
+  getInvalidTransitionMessage,
+} from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 
@@ -91,6 +95,14 @@ export async function PATCH(
         userPermissions: user.permissions,
       });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Validate state transition
+    if (!validateOrderTransition(currentOrder.status, status)) {
+      return NextResponse.json(
+        { error: getInvalidTransitionMessage(currentOrder.status, status) },
+        { status: 400 }
+      );
     }
 
     // Prepare update data

@@ -50,6 +50,7 @@ export interface PaymentProcessRequest {
   cashReceived?: number;
   externalTransactionId?: string;
   notes?: string;
+  payFullTable?: boolean;
 }
 
 export interface PaymentProcessResult {

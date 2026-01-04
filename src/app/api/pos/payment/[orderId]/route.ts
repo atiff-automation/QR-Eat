@@ -83,11 +83,26 @@ export async function POST(
     }
 
     // Check if already paid
-    if (order.paymentStatus === PAYMENT_STATUS.COMPLETED) {
+    if (order.paymentStatus === PAYMENT_STATUS.PAID) {
       return NextResponse.json(
         { success: false, error: 'Order already paid' },
         { status: 400 }
       );
+    }
+
+    // Check if order is ready for payment (hybrid policy)
+    if (!['READY', 'SERVED'].includes(order.status)) {
+      // Allow early payment but log warning
+      console.warn(
+        `[Payment] Early payment for order ${order.id} with status ${order.status}`
+      );
+
+      // Track early payments in metadata
+      validatedData.paymentMetadata = {
+        ...validatedData.paymentMetadata,
+        earlyPayment: true,
+        paidAtStatus: order.status,
+      };
     }
 
     // Check if table payment is requested
@@ -108,6 +123,7 @@ export async function POST(
       console.log(
         `[API] Found ${eligibleOrders.length} eligible orders for table payment`
       );
+
       if (eligibleOrders.length === 0) {
         // Fallback or error? If we are here, at least 'order' should be eligible unless it status mismatch
         // But 'order' was fetched by ID above. Let's include 'order' in the check logic.
@@ -165,7 +181,7 @@ export async function POST(
             amount: orderAmount,
             processingFee: new Decimal(0),
             netAmount: orderAmount,
-            status: 'COMPLETED' as const,
+            status: 'PAID' as const,
             processedBy: context!.userId!,
             processedByType: context!.userType!,
             // Only record specific cash info if needed, but for 'Cash Received',
@@ -200,6 +216,8 @@ export async function POST(
             where: { id: currentOrder.id },
             data: {
               paymentStatus: PAYMENT_STATUS.PAID,
+              // DO NOT change order status - payment is independent of order workflow
+              // Order status should only be changed by kitchen/staff workflow
             },
           });
 
@@ -289,7 +307,7 @@ export async function POST(
         amount: new Decimal(order.totalAmount),
         processingFee: new Decimal(0),
         netAmount: new Decimal(order.totalAmount),
-        status: 'COMPLETED' as const,
+        status: 'PAID' as const,
         processedBy: userId,
         processedByType: userType,
         cashReceived: validatedData.cashReceived
@@ -325,7 +343,9 @@ export async function POST(
         const updatedOrder = await tx.order.update({
           where: { id: order.id },
           data: {
-            paymentStatus: PAYMENT_STATUS.PAID, // OrderPaymentStatus uses PAID
+            paymentStatus: PAYMENT_STATUS.PAID,
+            // DO NOT change order status - payment is independent of order workflow
+            // Order status should only be changed by kitchen/staff workflow
           },
         });
         console.log('[API] Transaction: Order Updated', {

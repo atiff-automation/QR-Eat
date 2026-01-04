@@ -29,6 +29,11 @@ import type {
 export async function processPayment(
   data: PaymentProcessRequest
 ): Promise<PaymentProcessResult> {
+  console.log(
+    '[PaymentService] Sending request to API:',
+    `/api/pos/payment/${data.orderId}`,
+    data
+  );
   return ApiClient.post<PaymentProcessResult>(
     `/api/pos/payment/${data.orderId}`,
     {
@@ -36,6 +41,7 @@ export async function processPayment(
       cashReceived: data.cashReceived,
       externalTransactionId: data.externalTransactionId,
       notes: data.notes,
+      payFullTable: data.payFullTable,
     }
   );
 }

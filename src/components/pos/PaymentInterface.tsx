@@ -12,7 +12,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { PaymentInterfaceProps, PaymentMethod } from '@/types/pos';
+import type { PaymentMethod, OrderWithDetails } from '@/types/pos';
 import { processPayment } from '@/lib/services/payment-service';
 import { OrderDetails } from './OrderDetails';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -20,9 +20,16 @@ import { CashPaymentForm } from './CashPaymentForm';
 import { Receipt } from './Receipt';
 import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
+interface PaymentInterfaceProps {
+  order: OrderWithDetails;
+  relatedOrders?: OrderWithDetails[];
+  onClose: () => void;
+  onPaymentComplete: () => void;
+}
 
 export function PaymentInterface({
   order,
+  relatedOrders = [],
   onClose,
   onPaymentComplete,
 }: PaymentInterfaceProps) {
@@ -40,23 +47,39 @@ export function PaymentInterface({
     setError('');
   };
 
+  const calculateTotalAmount = () => {
+    if (relatedOrders.length > 0) {
+      return relatedOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+    }
+    return Number(order.totalAmount);
+  };
+
+  const totalAmount = calculateTotalAmount();
+  const isTablePayment = relatedOrders.length > 0;
+
   const handleCashPayment = async (data: { cashReceived: number }) => {
+    console.log('[PaymentInterface] handleCashPayment called', data);
     setIsProcessing(true);
     setError('');
 
     try {
+      console.log('[PaymentInterface] Calling processPayment service...');
       const result = await processPayment({
         orderId: order.id,
         paymentMethod: 'cash',
         cashReceived: data.cashReceived,
+        payFullTable: isTablePayment, // Send flag if we have related orders (table payment)
       });
+      console.log('[PaymentInterface] processPayment result:', result);
 
       if (result.success) {
         setCompletedPayment(result.payment);
       } else {
+        console.warn('[PaymentInterface] Payment failed:', result.message);
         setError(result.message || 'Payment processing failed');
       }
     } catch (err) {
+      console.error('[PaymentInterface] Exception:', err);
       setError(
         err instanceof Error ? err.message : 'An unexpected error occurred'
       );
@@ -75,6 +98,7 @@ export function PaymentInterface({
       const result = await processPayment({
         orderId: order.id,
         paymentMethod: selectedMethod,
+        payFullTable: isTablePayment,
       });
 
       if (result.success) {
@@ -138,10 +162,9 @@ export function PaymentInterface({
               <PaymentMethodSelector onSelect={handleMethodSelect} />
             )}
 
-            {/* Cash Payment Form */}
             {selectedMethod === 'cash' && (
               <CashPaymentForm
-                totalAmount={Number(order.totalAmount)}
+                totalAmount={totalAmount}
                 onSubmit={handleCashPayment}
                 onCancel={() => setSelectedMethod(null)}
                 isProcessing={isProcessing}

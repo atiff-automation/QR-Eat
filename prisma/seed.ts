@@ -341,44 +341,50 @@ async function main() {
     now.getDate()
   );
 
-  const subscriptions = await Promise.all([
-    // Mario's Basic subscription
-    prisma.subscription.create({
-      data: {
-        restaurantId: restaurants[0].id,
-        planId: subscriptionPlans[0].id, // Basic
-        status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd: nextMonth,
-        stripeCustomerId: 'cus_mock_mario',
-        stripeSubscriptionId: 'sub_mock_mario',
-      },
-    }),
-    // Tasty Burger Downtown Pro subscription
-    prisma.subscription.create({
-      data: {
-        restaurantId: restaurants[1].id,
-        planId: subscriptionPlans[1].id, // Pro
-        status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd: nextMonth,
-        stripeCustomerId: 'cus_mock_tasty',
-        stripeSubscriptionId: 'sub_mock_tasty_1',
-      },
-    }),
-    // Tasty Burger Westside Pro subscription
-    prisma.subscription.create({
-      data: {
-        restaurantId: restaurants[2].id,
-        planId: subscriptionPlans[1].id, // Pro
-        status: 'active',
-        currentPeriodStart: now,
-        currentPeriodEnd: nextMonth,
-        stripeCustomerId: 'cus_mock_tasty',
-        stripeSubscriptionId: 'sub_mock_tasty_2',
-      },
-    }),
-  ]);
+  const subscriptions = [];
+
+  try {
+    subscriptions.push(
+      // Mario's Basic subscription
+      await prisma.subscription.create({
+        data: {
+          restaurantId: restaurants[0].id,
+          planId: subscriptionPlans[0].id, // Basic
+          status: 'active',
+          currentPeriodStart: now,
+          currentPeriodEnd: nextMonth,
+          stripeCustomerId: 'cus_mock_mario',
+          stripeSubscriptionId: 'sub_mock_mario',
+        },
+      }),
+      // Tasty Burger Downtown Pro subscription
+      await prisma.subscription.create({
+        data: {
+          restaurantId: restaurants[1].id,
+          planId: subscriptionPlans[1].id, // Pro
+          status: 'active',
+          currentPeriodStart: now,
+          currentPeriodEnd: nextMonth,
+          stripeCustomerId: 'cus_mock_tasty',
+          stripeSubscriptionId: 'sub_mock_tasty_1',
+        },
+      }),
+      // Tasty Burger Westside Pro subscription
+      await prisma.subscription.create({
+        data: {
+          restaurantId: restaurants[2].id,
+          planId: subscriptionPlans[1].id, // Pro
+          status: 'active',
+          currentPeriodStart: now,
+          currentPeriodEnd: nextMonth,
+          stripeCustomerId: 'cus_mock_tasty',
+          stripeSubscriptionId: 'sub_mock_tasty_2',
+        },
+      })
+    );
+  } catch {
+    console.log('⚠️  Subscriptions may already exist, skipping...');
+  }
 
   console.log('✅ Created subscriptions:', subscriptions.length);
 
@@ -629,7 +635,7 @@ async function main() {
           })
         ).toString('base64url'),
         capacity: 2,
-        status: 'available',
+        status: 'AVAILABLE',
         locationDescription: 'By the front window',
       },
     }),
@@ -646,7 +652,7 @@ async function main() {
           })
         ).toString('base64url'),
         capacity: 4,
-        status: 'available',
+        status: 'AVAILABLE',
         locationDescription: 'Center dining area',
       },
     }),
@@ -663,7 +669,7 @@ async function main() {
           })
         ).toString('base64url'),
         capacity: 2,
-        status: 'available',
+        status: 'AVAILABLE',
         locationDescription: 'Intimate corner booth',
       },
     }),

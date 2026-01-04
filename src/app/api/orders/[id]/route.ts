@@ -302,23 +302,28 @@ export async function DELETE(
 
     const result = await prisma.$transaction(
       async (tx) => {
-        // 1. Fetch order
+        // 1. Fetch order with payments
         const order = await tx.order.findUnique({
           where: { id: orderId },
+          include: { payments: { where: { status: 'PAID' } } },
         });
 
         if (!order) {
           throw new Error('Order not found');
         }
 
-        // 2. Validate status
-        if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
-          throw new Error(
-            `Cannot cancel order with status: ${order.status}. Only pending or confirmed orders can be cancelled.`
-          );
+        // 2. Check if cancellation is allowed (includes permission check)
+        const { canCancelOrder } = await import('@/lib/refund-utils');
+        const { generateReceiptNumber } = await import(
+          '@/lib/utils/receipt-formatter'
+        );
+
+        const cancellationCheck = canCancelOrder(order, context!.userType);
+        if (!cancellationCheck.allowed) {
+          throw new Error(cancellationCheck.reason!);
         }
 
-        // 3. Check version
+        // 3. Check version (optimistic locking)
         if (order.version !== data.version) {
           throw new Error(
             'Order was modified by another user. Please refresh and try again.'
@@ -331,13 +336,52 @@ export async function DELETE(
         });
 
         if (existing) {
-          return { isDuplicate: true, refundNeeded: null };
+          return { isDuplicate: true, refundAmount: 0 };
         }
 
-        // 5. Create cancellation record
+        // 5. Calculate refund (always full refund if paid)
+        const { calculateRefundAmount } = await import('@/lib/refund-utils');
+        const refundAmount = calculateRefundAmount(order);
+
+        // 6. Process refund if needed
+        if (refundAmount > 0 && order.payments.length > 0) {
+          const originalPayment = order.payments[0];
+
+          // Create refund payment record (negative amount for full refund)
+          await tx.payment.create({
+            data: {
+              orderId: order.id,
+              paymentMethod: originalPayment.paymentMethod,
+              amount: -refundAmount,
+              processingFee: 0,
+              netAmount: -refundAmount,
+              status: 'PAID',
+              processedBy: context!.userId,
+              processedByType: context!.userType,
+              receiptNumber: generateReceiptNumber(),
+              paymentMetadata: {
+                refundReason: data.reason,
+                refundNotes: data.reasonNotes,
+                originalPaymentId: originalPayment.id,
+                refundType: 'full',
+                orderStatusAtCancellation: order.status,
+              },
+              processedAt: new Date(),
+              completedAt: new Date(),
+              // Add FK based on user type
+              ...(context!.userType === 'platform_admin'
+                ? { processedByAdminId: context!.userId }
+                : context!.userType === 'restaurant_owner'
+                  ? { processedByOwnerId: context!.userId }
+                  : { processedByStaffId: context!.userId }),
+            },
+          });
+        }
+
+        // 7. Create cancellation record
         await tx.orderModification.create({
           data: {
-            order: { connect: { id: orderId } }, // Explicit connection
+            order: { connect: { id: orderId } },
             modifiedBy: context!.userId,
             reason: data.reason,
             reasonNotes: data.reasonNotes,
@@ -349,23 +393,21 @@ export async function DELETE(
           },
         });
 
-        // 6. Update order status
+        // 8. Update order status and payment status
         await tx.order.update({
           where: { id: orderId },
           data: {
             status: 'CANCELLED',
+            paymentStatus: refundAmount > 0 ? 'REFUNDED' : order.paymentStatus,
             version: { increment: 1 },
             lastModifiedAt: new Date(),
           },
         });
 
-        // 7. Check refund
-        let refundNeeded = null;
-        if (order.paymentStatus === 'PAID') {
-          refundNeeded = order.totalAmount;
-        }
-
-        return { isDuplicate: false, refundNeeded };
+        return {
+          isDuplicate: false,
+          refundAmount,
+        };
       },
       {
         maxWait: 5000,
@@ -373,10 +415,19 @@ export async function DELETE(
       }
     );
 
+    // Get refund message
+    const { getRefundMessage: getRefundMessageAfterTransaction } = await import(
+      '@/lib/refund-utils'
+    );
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+
     return NextResponse.json({
       success: true,
       message: 'Order cancelled successfully',
-      refundNeeded: result.refundNeeded,
+      refundAmount: result.refundAmount,
+      refundMessage: order
+        ? getRefundMessageAfterTransaction(order)
+        : 'Order cancelled successfully.',
       isDuplicate: result.isDuplicate,
     });
   } catch (error) {

@@ -9,17 +9,7 @@ import { prisma } from '@/lib/database';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 /**
- * Active order statuses that keep a table occupied
- */
-const ACTIVE_ORDER_STATUSES = [
-  'PENDING',
-  'CONFIRMED',
-  'PREPARING',
-  'READY',
-] as const;
-
-/**
- * Check if a table should be marked as available based on its orders
+ * Determines if a table should be marked as available based on its orders
  *
  * @param tableId - The ID of the table to check
  * @returns true if table should be available, false otherwise
@@ -28,20 +18,19 @@ export async function shouldTableBeAvailable(
   tableId: string
 ): Promise<boolean> {
   try {
-    // Count active orders for this table
     const activeOrderCount = await prisma.order.count({
       where: {
         tableId,
         OR: [
-          // Case 1: Active order status (still pending/cooking/serving)
+          // Active workflow orders (food not yet delivered to customer)
+          // These keep table occupied regardless of payment status
           {
-            status: { in: [...ACTIVE_ORDER_STATUSES] },
+            status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] },
           },
-          // Case 2: Served but NOT paid yet
-          // Note: Both 'paid' and 'completed' are considered paid statuses
+          // Served but unpaid (customer still dining, needs to pay)
           {
             status: 'SERVED',
-            paymentStatus: { notIn: ['PAID'] },
+            paymentStatus: 'PENDING',
           },
         ],
       },

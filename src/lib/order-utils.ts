@@ -58,6 +58,26 @@ export const PAYMENT_STATUS = {
   FAILED: 'FAILED',
 } as const;
 
+// State transition validation
+export const VALID_ORDER_TRANSITIONS: Record<string, string[]> = {
+  PENDING: ['CONFIRMED', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  PREPARING: ['READY', 'CANCELLED'],
+  READY: ['SERVED', 'CANCELLED'],
+  SERVED: [], // Terminal state
+  CANCELLED: [], // Terminal state
+};
+
+export function validateOrderTransition(from: string, to: string): boolean {
+  return VALID_ORDER_TRANSITIONS[from]?.includes(to) ?? false;
+}
+
+export function getInvalidTransitionMessage(from: string, to: string): string {
+  const validTransitions =
+    VALID_ORDER_TRANSITIONS[from]?.join(', ') || 'none (terminal state)';
+  return `Invalid status transition: ${from} → ${to}. Valid transitions from ${from}: ${validTransitions}`;
+}
+
 export function getOrderStatusDisplay(status: string): {
   label: string;
   color: string;
