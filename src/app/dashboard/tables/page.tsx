@@ -46,6 +46,7 @@ function TablesContent() {
 
   // Payment State
   const [selectedOrders, setSelectedOrders] = useState<OrderWithDetails[]>([]);
+  const [originalOrders, setOriginalOrders] = useState<OrderWithDetails[]>([]);
   const [showPaymentInterface, setShowPaymentInterface] = useState(false);
 
   const fetchTables = useCallback(async () => {
@@ -190,6 +191,7 @@ function TablesContent() {
     const mergedOrder = mergeOrdersForPayment(orders);
 
     setSelectedOrders([mergedOrder]);
+    setOriginalOrders(orders); // Store original orders for relatedOrders prop
     setShowPaymentInterface(true);
     setIsModalOpen(false); // Close table modal
   };
@@ -197,6 +199,7 @@ function TablesContent() {
   const handlePaymentComplete = () => {
     setShowPaymentInterface(false);
     setSelectedOrders([]);
+    setOriginalOrders([]); // Clear original orders
     fetchTables(); // Refresh table list
   };
 
@@ -312,6 +315,7 @@ function TablesContent() {
       {showPaymentInterface && selectedOrders[0] && (
         <PaymentInterface
           order={selectedOrders[0]}
+          relatedOrders={originalOrders}
           onClose={() => setShowPaymentInterface(false)}
           onPaymentComplete={handlePaymentComplete}
         />

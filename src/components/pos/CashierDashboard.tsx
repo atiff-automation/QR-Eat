@@ -66,22 +66,20 @@ export function CashierDashboard() {
               <div className="flex items-center gap-2 bg-white border border-gray-300 rounded-lg p-1">
                 <button
                   onClick={() => setViewMode('all-orders')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'all-orders'
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${viewMode === 'all-orders'
                       ? 'bg-orange-500 text-white'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <Grid className="w-4 h-4" />
                   All Orders
                 </button>
                 <button
                   onClick={() => setViewMode('by-table')}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                    viewMode === 'by-table'
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${viewMode === 'by-table'
                       ? 'bg-orange-500 text-white'
                       : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <Table className="w-4 h-4" />
                   By Table
@@ -129,20 +127,7 @@ export function CashierDashboard() {
         <PaymentInterface
           order={selectedOrder}
           relatedOrders={orders.filter(
-            (o) =>
-              o.tableId === selectedOrder.tableId &&
-              o.id !== selectedOrder.id && // Exclude the selected order itself from related list (or include it logic depends on PaymentInterface)
-              // Wait, PaymentInterface logic was: relatedOrders.reduce(...) if relatedOrders > 0
-              // So if we pass ALL orders including selected, we need logic inside to handle duplication or just pass "siblings".
-              // Actually the logic I wrote in PaymentInterface was:
-              // if (relatedOrders.length > 0) return relatedOrders.reduce...
-              // This implies relatedOrders SHOULD INCLUDE the primary order effectively if we want the total sum.
-              // Let's pass ALL Table Orders including the selected one as 'relatedOrders'.
-              // Wait, let's look at my previous change to PaymentInterface:
-              // calculateTotalAmount = () => relatedOrders.length > 0 ? relatedOrders.reduce...
-              // So 'relatedOrders' MUST BE the FULL LIST of orders to pay.
-              // So I should pass: orders.filter(o => o.tableId === selectedOrder.tableId)
-              o.tableId === selectedOrder.tableId
+            (o) => o.tableId === selectedOrder.tableId
           )}
           onClose={() => setSelectedOrder(null)}
           onPaymentComplete={handlePaymentComplete}

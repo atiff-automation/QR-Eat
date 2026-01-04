@@ -187,16 +187,7 @@ export function ImageUpload({ value, onChange, className = '', disabled = false 
       )}
 
       {/* Guidelines */}
-      <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded p-2">
-        <p className="font-medium mb-1">📏 Image Guidelines:</p>
-        <ul className="space-y-1">
-          <li>• <strong>Recommended size:</strong> 800x600px (4:3 ratio)</li>
-          <li>• <strong>Minimum size:</strong> 400x300px</li>
-          <li>• <strong>File formats:</strong> JPEG, PNG, WebP</li>
-          <li>• <strong>Max file size:</strong> 5MB</li>
-          <li>• <strong>Tips:</strong> Use good lighting, show the food clearly</li>
-        </ul>
-      </div>
+
     </div>
   );
 }

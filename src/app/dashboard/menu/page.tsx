@@ -8,13 +8,11 @@ import {
   Plus,
   RefreshCw,
   UtensilsCrossed,
-  BarChart3,
-  Clock,
-  Flame,
-  ChevronRight,
   Edit2,
   Trash2,
   MoreHorizontal,
+  Star,
+  ChevronRight,
 } from 'lucide-react';
 import Image from 'next/image';
 
@@ -66,50 +64,10 @@ export default function MenuPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [viewMode, setViewMode] = useState<
-    'categories' | 'items' | 'analytics'
-  >('items');
+  const [viewMode, setViewMode] = useState<'categories' | 'items'>('items');
   const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(
     null
   );
-  const [analytics, setAnalytics] = useState<{
-    summary: {
-      totalMenuItems: number;
-      activeMenuItems: number;
-      itemsOrdered: number;
-      averageOrderValue: number;
-    };
-    topSellingItems: Array<{
-      menuItemId: string;
-      menuItem: {
-        name: string;
-        category?: {
-          name: string;
-        };
-      };
-      _sum: {
-        quantity: number;
-        totalAmount: number;
-      };
-    }>;
-    categoryPerformance: Array<{
-      categoryId: string;
-      categoryName: string;
-      totalQuantity: number;
-      totalRevenue: number;
-      orderCount: number;
-    }>;
-    lowPerformingItems: Array<{
-      id: string;
-      name: string;
-      price: number;
-      category?: {
-        name: string;
-      };
-    }>;
-    period: string;
-  } | null>(null);
-  const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
@@ -120,11 +78,7 @@ export default function MenuPage() {
     fetchCategories(true);
   }, []);
 
-  useEffect(() => {
-    if (viewMode === 'analytics') {
-      fetchAnalytics();
-    }
-  }, [viewMode]);
+
 
   const fetchCategories = async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -182,26 +136,7 @@ export default function MenuPage() {
     }
   };
 
-  const fetchAnalytics = async (period = 'week') => {
-    setAnalyticsLoading(true);
-    try {
-      const data = await ApiClient.get<{ analytics: typeof analytics }>(
-        `/admin/menu/analytics?period=${period}`
-      );
 
-      setAnalytics(data.analytics);
-      setError('');
-    } catch (error) {
-      console.error('Failed to fetch analytics:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Network error. Please try again.');
-      }
-    } finally {
-      setAnalyticsLoading(false);
-    }
-  };
 
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -279,7 +214,7 @@ export default function MenuPage() {
         {/* Header & Controls */}
         <div className="flex items-center gap-2">
           <div className="flex-1 p-1 bg-gray-100 rounded-xl flex items-center">
-            {(['categories', 'items', 'analytics'] as const).map((mode) => (
+            {(['categories', 'items'] as const).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
@@ -293,17 +228,15 @@ export default function MenuPage() {
             ))}
           </div>
 
-          {viewMode !== 'analytics' && (
-            <button
-              onClick={() =>
-                setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
-              }
-              className="p-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition-colors active:scale-95 flex-shrink-0"
-              title={`Add ${viewMode === 'categories' ? 'Category' : 'Item'}`}
-            >
-              <Plus className="h-5 w-5" />
-            </button>
-          )}
+          <button
+            onClick={() =>
+              setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
+            }
+            className="p-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition-colors active:scale-95 flex-shrink-0"
+            title={`Add ${viewMode === 'categories' ? 'Category' : 'Item'}`}
+          >
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
 
         {error && (
@@ -423,10 +356,11 @@ export default function MenuPage() {
                 .map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-center gap-3 active:scale-[0.99] transition-all"
+                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${!item.isAvailable ? 'grayscale opacity-60 bg-gray-50' : ''
+                      }`}
                   >
                     {/* Item Image */}
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                    <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
                       {item.imageUrl ? (
                         <Image
                           src={item.imageUrl}
@@ -443,56 +377,54 @@ export default function MenuPage() {
                     </div>
 
                     {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex justify-between items-start">
-                        <h3 className="font-semibold text-gray-900 truncate pr-2">
-                          {item.name}
-                        </h3>
-                        <span className="font-semibold text-gray-900 whitespace-nowrap">
-                          {formatPrice(item.price)}
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-500 line-clamp-1 mt-0.5">
-                        {item.description || 'No description'}
-                      </p>
-                      <div className="flex items-center gap-3 mt-1.5">
-                        <span className="flex items-center text-xs text-gray-500">
-                          <Clock className="h-3 w-3 mr-1" />
-                          {item.preparationTime}m
-                        </span>
-                        {item.calories && (
-                          <span className="flex items-center text-xs text-gray-500">
-                            <Flame className="h-3 w-3 mr-1" />
-                            {item.calories}
+                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                      <div>
+                        <div className="flex justify-between items-start gap-2">
+                          <h3 className="font-semibold text-gray-900 leading-tight line-clamp-2 text-sm sm:text-base">
+                            {item.name}
+                          </h3>
+                          <span className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">
+                            {formatPrice(item.price)}
                           </span>
-                        )}
+                        </div>
                       </div>
+
+                      {item.isFeatured && (
+                        <div className="flex items-center gap-1 mt-2">
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                            <Star className="w-3 h-3 fill-amber-700" />
+                            Featured
+                          </span>
+                        </div>
+                      )}
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex items-center gap-1 pl-2 border-l border-gray-100">
+                    {/* Actions - Vertical Stack for Mobile */}
+                    <div className="flex flex-col items-center justify-center gap-2 pl-2 border-l border-gray-100 self-stretch">
                       <button
                         onClick={() => toggleItemAvailability(item)}
-                        className={`p-2 rounded-lg transition-colors ${item.isAvailable
+                        className={`p-1.5 rounded-lg transition-colors ${item.isAvailable
                           ? 'text-green-600 bg-green-50'
                           : 'text-gray-300 bg-gray-50'
                           }`}
+                        title={item.isAvailable ? "Mark Unavailable" : "Mark Available"}
                       >
                         <div
-                          className={`w-9 h-5 rounded-full relative transition-colors ${item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
+                          className={`w-7 h-4 rounded-full relative transition-colors ${item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
                             }`}
                         >
                           <div
-                            className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${item.isAvailable ? 'left-[18px]' : 'left-0.5'
+                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${item.isAvailable ? 'left-[14px]' : 'left-0.5'
                               }`}
                           />
                         </div>
                       </button>
                       <button
                         onClick={() => setEditingItem(item)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        title="Edit Item"
                       >
-                        <Edit2 className="h-5 w-5" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -501,181 +433,7 @@ export default function MenuPage() {
           </div>
         )}
 
-        {/* Analytics View */}
-        {viewMode === 'analytics' && (
-          <div className="space-y-6">
-            {/* Period Filter */}
-            <div className="flex items-center space-x-2 bg-gray-100 p-1 rounded-lg w-fit">
-              {['today', 'week', 'month'].map((period) => (
-                <button
-                  key={period}
-                  onClick={() => fetchAnalytics(period)}
-                  className={`px-4 py-1.5 text-xs font-medium rounded-md transition-all ${analytics?.period === period
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-900'
-                    }`}
-                >
-                  {period.charAt(0).toUpperCase() + period.slice(1)}
-                </button>
-              ))}
-            </div>
 
-            {analyticsLoading ? (
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-sm text-gray-500">Loading analytics...</p>
-              </div>
-            ) : analytics ? (
-              <>
-                {/* Summary Cards */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="text-xl font-bold text-gray-900">
-                      {analytics.summary.totalMenuItems}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      Total Items
-                    </div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="text-xl font-bold text-green-600">
-                      {analytics.summary.activeMenuItems}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Active</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="text-xl font-bold text-blue-600">
-                      {analytics.summary.itemsOrdered}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Ordered</div>
-                  </div>
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-                    <div className="text-xl font-bold text-orange-600">
-                      {formatPrice(analytics.summary.averageOrderValue)}
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">Avg Value</div>
-                  </div>
-                </div>
-
-                {/* Top Selling Items */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-4 border-b border-gray-50">
-                    <h3 className="font-semibold text-gray-900">
-                      Top Selling Items
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-gray-50">
-                    {analytics.topSellingItems
-                      .slice(0, 5)
-                      .map((item, index: number) => (
-                        <div
-                          key={item.menuItemId}
-                          className="flex items-center justify-between p-4"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
-                              #{index + 1}
-                            </div>
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {item.menuItem.name}
-                              </div>
-                              <div className="text-xs text-gray-500">
-                                {item.menuItem.category?.name || 'Unknown'}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium text-gray-900">
-                              {item._sum.quantity} sold
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {formatPrice(item._sum.totalAmount)}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                </div>
-
-                {/* Category Performance */}
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                  <div className="p-4 border-b border-gray-50">
-                    <h3 className="font-semibold text-gray-900">
-                      Category Performance
-                    </h3>
-                  </div>
-                  <div className="divide-y divide-gray-50">
-                    {analytics.categoryPerformance.map((category) => (
-                      <div
-                        key={category.categoryId}
-                        className="flex items-center justify-between p-4"
-                      >
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {category.categoryName}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {category.totalQuantity} items sold
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-sm font-medium text-gray-900">
-                            {formatPrice(category.totalRevenue)}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {category.orderCount} orders
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Low Performing Items */}
-                {analytics.lowPerformingItems.length > 0 && (
-                  <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-                    <div className="p-4 border-b border-gray-50 bg-orange-50/50">
-                      <h3 className="font-semibold text-gray-900">
-                        Items Not Ordered This {analytics.period}
-                      </h3>
-                    </div>
-                    <div className="divide-y divide-gray-50">
-                      {analytics.lowPerformingItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex items-center justify-between p-4"
-                        >
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {item.name}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {item.category?.name || 'Unknown'}
-                            </div>
-                          </div>
-                          <div className="text-xs font-medium text-orange-600 bg-orange-50 px-2 py-1 rounded">
-                            {formatPrice(item.price)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-center py-12">
-                <BarChart3 className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-                <h3 className="text-sm font-medium text-gray-900 mb-1">
-                  No analytics data
-                </h3>
-                <p className="text-xs text-gray-500">
-                  Analytics will appear here once you have orders
-                </p>
-              </div>
-            )}
-          </div>
-        )}
 
         {/* Empty State */}
         {categories.length === 0 && !loading && (
@@ -866,324 +624,320 @@ function AddModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-96 overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
-            Add New {type === 'category' ? 'Category' : 'Menu Item'}
-          </h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className={`bg-white rounded-2xl w-full ${type === 'category' ? 'max-w-sm' : 'max-w-md'} shadow-xl overflow-hidden flex flex-col max-h-[90vh]`}>
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+          <h3 className="font-bold text-gray-900">
+            {type === 'category' ? 'New Category' : 'New Menu Item'}
+          </h3>
           <button
             onClick={onClose}
-            className="text-gray-600 hover:text-gray-800"
+            className="p-1 rounded-full hover:bg-gray-200"
           >
-            ✕
+            <div className="w-5 h-5 flex items-center justify-center">✕</div>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              required
-            />
-          </div>
+        <div className="overflow-y-auto p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Name
+              </label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                placeholder={type === 'category' ? "e.g. Pasta" : "e.g. Spaghetti Carbonara"}
+                required
+              />
+            </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              rows={2}
-            />
-          </div>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 min-h-[80px]"
+                placeholder="Brief description..."
+              />
+            </div>
 
-          {type === 'item' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Category *
-                </label>
-                <select
-                  value={formData.categoryId}
-                  onChange={(e) =>
-                    setFormData({ ...formData, categoryId: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  required
-                >
-                  <option value="">Select a category</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Price *
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Preparation Time (minutes)
-                </label>
-                <input
-                  type="number"
-                  value={formData.preparationTime}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      preparationTime: parseInt(e.target.value),
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Calories
-                </label>
-                <input
-                  type="number"
-                  value={formData.calories}
-                  onChange={(e) =>
-                    setFormData({ ...formData, calories: e.target.value })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                  placeholder="Optional"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Menu Item Image
-                </label>
-                <ImageUpload
-                  value={formData.imageUrl}
-                  onChange={(imageUrl) =>
-                    setFormData({ ...formData, imageUrl: imageUrl || '' })
-                  }
-                />
-              </div>
-
-              {/* Allergens */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Allergens
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {formData.allergens.map((allergen: string, index: number) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
+            {type === 'item' && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Category
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={formData.categoryId}
+                      onChange={(e) =>
+                        setFormData({ ...formData, categoryId: e.target.value })
+                      }
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                      required
                     >
-                      {allergen}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newAllergens = formData.allergens.filter(
-                            (_: string, i: number) => i !== index
-                          );
-                          setFormData({ ...formData, allergens: newAllergens });
-                        }}
-                        className="ml-1 text-red-500 hover:text-red-700"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
+                      <option value="">Select Category</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                      Price ($)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={formData.price}
+                      onChange={(e) =>
+                        setFormData({ ...formData, price: e.target.value })
+                      }
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                      placeholder="0.00"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                      Prep Time (m)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.preparationTime}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          preparationTime: parseInt(e.target.value),
+                        })
+                      }
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Calories
+                  </label>
                   <input
-                    type="text"
-                    placeholder="Add allergen (e.g., Nuts, Dairy, Gluten)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const value = (
-                          e.target as HTMLInputElement
-                        ).value.trim();
+                    type="number"
+                    value={formData.calories}
+                    onChange={(e) =>
+                      setFormData({ ...formData, calories: e.target.value })
+                    }
+                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                    placeholder="Optional"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Image
+                  </label>
+                  <ImageUpload
+                    value={formData.imageUrl}
+                    onChange={(imageUrl) =>
+                      setFormData({ ...formData, imageUrl: imageUrl || '' })
+                    }
+                  />
+                </div>
+
+                {/* Allergens */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Allergens
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.allergens.map((allergen: string, index: number) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium"
+                      >
+                        {allergen}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newAllergens = formData.allergens.filter(
+                              (_: string, i: number) => i !== index
+                            );
+                            setFormData({ ...formData, allergens: newAllergens });
+                          }}
+                          className="ml-1 text-red-500 hover:text-red-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add allergen..."
+                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 text-sm"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const value = (
+                            e.target as HTMLInputElement
+                          ).value.trim();
+                          if (value && !formData.allergens.includes(value)) {
+                            setFormData({
+                              ...formData,
+                              allergens: [...formData.allergens, value],
+                            });
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                        const value = input.value.trim();
                         if (value && !formData.allergens.includes(value)) {
                           setFormData({
                             ...formData,
                             allergens: [...formData.allergens, value],
                           });
-                          (e.target as HTMLInputElement).value = '';
+                          input.value = '';
                         }
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const input = (e.target as HTMLElement)
-                        .previousElementSibling as HTMLInputElement;
-                      const value = input.value.trim();
-                      if (value && !formData.allergens.includes(value)) {
-                        setFormData({
-                          ...formData,
-                          allergens: [...formData.allergens, value],
-                        });
-                        input.value = '';
-                      }
-                    }}
-                    className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
-                  >
-                    Add
-                  </button>
-                </div>
-              </div>
-
-              {/* Dietary Info */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dietary Information
-                </label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {formData.dietaryInfo.map((info: string, index: number) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                      }}
+                      className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
                     >
-                      {info}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const newDietaryInfo = formData.dietaryInfo.filter(
-                            (_: string, i: number) => i !== index
-                          );
-                          setFormData({
-                            ...formData,
-                            dietaryInfo: newDietaryInfo,
-                          });
-                        }}
-                        className="ml-1 text-green-500 hover:text-green-700"
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
+                      Add
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    placeholder="Add dietary info (e.g., Vegan, Vegetarian, Halal)"
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const value = (
-                          e.target as HTMLInputElement
-                        ).value.trim();
+
+                {/* Dietary Info */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Dietary Info
+                  </label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {formData.dietaryInfo.map((info: string, index: number) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded-lg font-medium"
+                      >
+                        {info}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newDietaryInfo = formData.dietaryInfo.filter(
+                              (_: string, i: number) => i !== index
+                            );
+                            setFormData({
+                              ...formData,
+                              dietaryInfo: newDietaryInfo,
+                            });
+                          }}
+                          className="ml-1 text-green-500 hover:text-green-700"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Add dietary info..."
+                      className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 text-sm"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const value = (
+                            e.target as HTMLInputElement
+                          ).value.trim();
+                          if (value && !formData.dietaryInfo.includes(value)) {
+                            setFormData({
+                              ...formData,
+                              dietaryInfo: [...formData.dietaryInfo, value],
+                            });
+                            (e.target as HTMLInputElement).value = '';
+                          }
+                        }
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                        const value = input.value.trim();
                         if (value && !formData.dietaryInfo.includes(value)) {
                           setFormData({
                             ...formData,
                             dietaryInfo: [...formData.dietaryInfo, value],
                           });
-                          (e.target as HTMLInputElement).value = '';
+                          input.value = '';
                         }
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      const input = (e.target as HTMLElement)
-                        .previousElementSibling as HTMLInputElement;
-                      const value = input.value.trim();
-                      if (value && !formData.dietaryInfo.includes(value)) {
+                      }}
+                      className="px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-medium"
+                    >
+                      Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Availability & Featured */}
+                <div className="flex space-x-6 p-1">
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isAvailable}
+                      onChange={(e) =>
                         setFormData({
                           ...formData,
-                          dietaryInfo: [...formData.dietaryInfo, value],
-                        });
-                        input.value = '';
+                          isAvailable: e.target.checked,
+                        })
                       }
-                    }}
-                    className="px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
-                  >
-                    Add
-                  </button>
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Available</span>
+                  </label>
+                  <label className="flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isFeatured}
+                      onChange={(e) =>
+                        setFormData({ ...formData, isFeatured: e.target.checked })
+                      }
+                      className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Featured</span>
+                  </label>
                 </div>
-              </div>
+              </>
+            )}
 
-              {/* Availability & Featured */}
-              <div className="flex space-x-4">
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isAvailable}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        isAvailable: e.target.checked,
-                      })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Available</span>
-                </label>
-                <label className="flex items-center">
-                  <input
-                    type="checkbox"
-                    checked={formData.isFeatured}
-                    onChange={(e) =>
-                      setFormData({ ...formData, isFeatured: e.target.checked })
-                    }
-                    className="mr-2"
-                  />
-                  <span className="text-sm text-gray-700">Featured</span>
-                </label>
-              </div>
-            </>
-          )}
+            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
-
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all text-sm"
             >
-              {isSubmitting ? 'Creating...' : `Create ${type}`}
+              {isSubmitting ? 'Creating...' : `Create ${type === 'category' ? 'Category' : 'Item'}`}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1245,309 +999,300 @@ function EditItemModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+          <h3 className="font-bold text-gray-900">
             Edit Menu Item
-          </h2>
+          </h3>
           <button
             onClick={onClose}
-            className="text-gray-600 hover:text-gray-800 text-2xl"
+            className="p-1 rounded-full hover:bg-gray-200"
           >
-            ✕
+            <div className="w-5 h-5 flex items-center justify-center">✕</div>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              rows={2}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category *
-            </label>
-            <select
-              value={formData.categoryId}
-              onChange={(e) =>
-                setFormData({ ...formData, categoryId: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              required
-            >
-              {categories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Price *
-            </label>
-            <input
-              type="number"
-              step="0.01"
-              value={formData.price}
-              onChange={(e) =>
-                setFormData({ ...formData, price: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Preparation Time (minutes)
-            </label>
-            <input
-              type="number"
-              value={formData.preparationTime}
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  preparationTime: parseInt(e.target.value),
-                })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Calories
-            </label>
-            <input
-              type="number"
-              value={formData.calories}
-              onChange={(e) =>
-                setFormData({ ...formData, calories: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Menu Item Image
-            </label>
-            <ImageUpload
-              value={formData.imageUrl}
-              onChange={(imageUrl) =>
-                setFormData({ ...formData, imageUrl: imageUrl || '' })
-              }
-            />
-          </div>
-
-          {/* Allergens */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Allergens
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {formData.allergens.map((allergen, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded"
-                >
-                  {allergen}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newAllergens = formData.allergens.filter(
-                        (_, i) => i !== index
-                      );
-                      setFormData({ ...formData, allergens: newAllergens });
-                    }}
-                    className="ml-1 text-red-500 hover:text-red-700"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-            </div>
-            <div className="flex gap-2">
+        <div className="overflow-y-auto p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Name
+              </label>
               <input
                 type="text"
-                placeholder="Add allergen (e.g., Nuts, Dairy, Gluten)"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const value = (e.target as HTMLInputElement).value.trim();
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 min-h-[80px]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Category
+              </label>
+              <div className="relative">
+                <select
+                  value={formData.categoryId}
+                  onChange={(e) =>
+                    setFormData({ ...formData, categoryId: e.target.value })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                  required
+                >
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                  Price ($)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) =>
+                    setFormData({ ...formData, price: e.target.value })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                  Prep Time (m)
+                </label>
+                <input
+                  type="number"
+                  value={formData.preparationTime}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      preparationTime: parseInt(e.target.value),
+                    })
+                  }
+                  className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Calories
+              </label>
+              <input
+                type="number"
+                value={formData.calories}
+                onChange={(e) =>
+                  setFormData({ ...formData, calories: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Image
+              </label>
+              <ImageUpload
+                value={formData.imageUrl}
+                onChange={(imageUrl) =>
+                  setFormData({ ...formData, imageUrl: imageUrl || '' })
+                }
+              />
+            </div>
+
+            {/* Allergens */}
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Allergens
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.allergens.map((allergen, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium"
+                  >
+                    {allergen}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newAllergens = formData.allergens.filter(
+                          (_, i) => i !== index
+                        );
+                        setFormData({ ...formData, allergens: newAllergens });
+                      }}
+                      className="ml-1 text-red-500 hover:text-red-700"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add allergen..."
+                  className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 text-sm"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const value = (e.target as HTMLInputElement).value.trim();
+                      if (value && !formData.allergens.includes(value)) {
+                        setFormData({
+                          ...formData,
+                          allergens: [...formData.allergens, value],
+                        });
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                    const value = input.value.trim();
                     if (value && !formData.allergens.includes(value)) {
                       setFormData({
                         ...formData,
                         allergens: [...formData.allergens, value],
                       });
-                      (e.target as HTMLInputElement).value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.querySelector(
-                    'input[placeholder*="allergen"]'
-                  ) as HTMLInputElement;
-                  const value = input.value.trim();
-                  if (value && !formData.allergens.includes(value)) {
-                    setFormData({
-                      ...formData,
-                      allergens: [...formData.allergens, value],
-                    });
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 text-sm"
-              >
-                Add
-              </button>
-            </div>
-          </div>
-
-          {/* Dietary Info */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Dietary Information
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {formData.dietaryInfo.map((info, index) => (
-                <span
-                  key={index}
-                  className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded"
+                  }}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 text-sm font-medium"
                 >
-                  {info}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newDietaryInfo = formData.dietaryInfo.filter(
-                        (_, i) => i !== index
-                      );
-                      setFormData({ ...formData, dietaryInfo: newDietaryInfo });
-                    }}
-                    className="ml-1 text-green-500 hover:text-green-700"
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
+                  Add
+                </button>
+              </div>
             </div>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                placeholder="Add dietary info (e.g., Vegan, Vegetarian, Halal)"
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter') {
-                    e.preventDefault();
-                    const value = (e.target as HTMLInputElement).value.trim();
+
+            {/* Dietary Info */}
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Dietary Info
+              </label>
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.dietaryInfo.map((info, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 bg-green-100 text-green-700 text-xs rounded-lg font-medium"
+                  >
+                    {info}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newDietaryInfo = formData.dietaryInfo.filter(
+                          (_, i) => i !== index
+                        );
+                        setFormData({ ...formData, dietaryInfo: newDietaryInfo });
+                      }}
+                      className="ml-1 text-green-500 hover:text-green-700"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Add dietary info..."
+                  className="flex-1 p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 text-sm"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      const value = (e.target as HTMLInputElement).value.trim();
+                      if (value && !formData.dietaryInfo.includes(value)) {
+                        setFormData({
+                          ...formData,
+                          dietaryInfo: [...formData.dietaryInfo, value],
+                        });
+                        (e.target as HTMLInputElement).value = '';
+                      }
+                    }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                    const value = input.value.trim();
                     if (value && !formData.dietaryInfo.includes(value)) {
                       setFormData({
                         ...formData,
                         dietaryInfo: [...formData.dietaryInfo, value],
                       });
-                      (e.target as HTMLInputElement).value = '';
+                      input.value = '';
                     }
-                  }
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const input = document.querySelector(
-                    'input[placeholder*="dietary"]'
-                  ) as HTMLInputElement;
-                  const value = input.value.trim();
-                  if (value && !formData.dietaryInfo.includes(value)) {
-                    setFormData({
-                      ...formData,
-                      dietaryInfo: [...formData.dietaryInfo, value],
-                    });
-                    input.value = '';
-                  }
-                }}
-                className="px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 text-sm"
-              >
-                Add
-              </button>
+                  }}
+                  className="px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 text-sm font-medium"
+                >
+                  Add
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="flex space-x-4">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isAvailable}
-                onChange={(e) =>
-                  setFormData({ ...formData, isAvailable: e.target.checked })
-                }
-                className="mr-2"
-              />
-              <span className="text-sm text-gray-700">Available</span>
-            </label>
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isFeatured}
-                onChange={(e) =>
-                  setFormData({ ...formData, isFeatured: e.target.checked })
-                }
-                className="mr-2"
-              />
-              <span className="text-sm text-gray-700">Featured</span>
-            </label>
-          </div>
+            <div className="flex space-x-6 p-1">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isAvailable}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isAvailable: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">Available</span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isFeatured}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isFeatured: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">Featured</span>
+              </label>
+            </div>
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all text-sm"
             >
               {isSubmitting ? 'Updating...' : 'Update Item'}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );
@@ -1593,81 +1338,73 @@ function EditCategoryModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Category</h2>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
+          <h3 className="font-bold text-gray-900">Edit Category</h3>
           <button
             onClick={onClose}
-            className="text-gray-600 hover:text-gray-800 text-2xl"
+            className="p-1 rounded-full hover:bg-gray-200"
           >
-            ✕
+            <div className="w-5 h-5 flex items-center justify-center">✕</div>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Name *
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData({ ...formData, name: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={formData.description}
-              onChange={(e) =>
-                setFormData({ ...formData, description: e.target.value })
-              }
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-gray-900"
-              rows={2}
-            />
-          </div>
-
-          <div>
-            <label className="flex items-center">
+        <div className="p-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Name
+              </label>
               <input
-                type="checkbox"
-                checked={formData.isActive}
+                type="text"
+                value={formData.name}
                 onChange={(e) =>
-                  setFormData({ ...formData, isActive: e.target.checked })
+                  setFormData({ ...formData, name: e.target.value })
                 }
-                className="mr-2"
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                required
               />
-              <span className="text-sm text-gray-700">Active</span>
-            </label>
-          </div>
+            </div>
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                Description
+              </label>
+              <textarea
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({ ...formData, description: e.target.value })
+                }
+                className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 min-h-[80px]"
+              />
+            </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-gray-700 hover:text-gray-900"
-            >
-              Cancel
-            </button>
+            <div>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isActive}
+                  onChange={(e) =>
+                    setFormData({ ...formData, isActive: e.target.checked })
+                  }
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">Active</span>
+              </label>
+            </div>
+
+            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
+
             <button
               type="submit"
               disabled={isSubmitting}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium disabled:opacity-50"
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all text-sm"
             >
               {isSubmitting ? 'Updating...' : 'Update Category'}
             </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
     </div>
   );

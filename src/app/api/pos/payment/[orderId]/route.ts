@@ -180,6 +180,27 @@ export async function POST(
         for (const currentOrder of eligibleOrders) {
           // Build payment data for this specific order
           const orderAmount = new Decimal(currentOrder.totalAmount);
+          const isFirstOrder = eligibleOrders.indexOf(currentOrder) === 0;
+
+          // For the FIRST order: store the actual cash received and change
+          // For OTHER orders: store just their portion
+          const orderCashReceived = isFirstOrder && validatedData.cashReceived
+            ? new Decimal(validatedData.cashReceived)
+            : orderAmount;
+
+          const orderChangeGiven = isFirstOrder && changeGiven
+            ? changeGiven
+            : new Decimal(0);
+
+          console.log(`[DEBUG] Order ${eligibleOrders.indexOf(currentOrder) + 1}:`, {
+            isFirstOrder,
+            orderAmount: orderAmount.toString(),
+            totalAmount: totalAmount.toString(),
+            cashReceived: validatedData.cashReceived,
+            changeGiven: changeGiven?.toString(),
+            orderCashReceived: orderCashReceived.toString(),
+            orderChangeGiven: orderChangeGiven.toString(),
+          });
 
           const paymentData = {
             orderId: currentOrder.id,
@@ -190,11 +211,8 @@ export async function POST(
             status: 'PAID' as const,
             processedBy: context!.userId!,
             processedByType: context!.userType!,
-            // Only record specific cash info if needed, but for 'Cash Received',
-            // we can store the full amount on the primary order, or just store the 'amount paid'
-            // equal to order total for data consistency.
-            cashReceived: orderAmount, // We treat it as if they paid exact amount for this order part
-            changeGiven: new Decimal(0), // Change is handled in the physical world, data-wise we cleared the debt
+            cashReceived: orderCashReceived, // Actual cash on first order, individual amount on others
+            changeGiven: orderChangeGiven, // Actual change on first order, 0 on others
             // FIX: receiptNumber must be unique per payment record. Append index to make it unique for multi-order table payment.
             receiptNumber: `${receiptNumber}-${eligibleOrders.indexOf(currentOrder) + 1}`,
             externalTransactionId: validatedData.externalTransactionId,
@@ -203,8 +221,9 @@ export async function POST(
                 notes: validatedData.notes,
                 groupedPayment: true,
                 primaryReceipt: receiptNumber,
+                isFirstOrder, // Track which is the primary payment record
               }
-              : { groupedPayment: true, primaryReceipt: receiptNumber },
+              : { groupedPayment: true, primaryReceipt: receiptNumber, isFirstOrder },
             processedAt: new Date(),
             completedAt: new Date(),
           };

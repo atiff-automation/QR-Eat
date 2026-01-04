@@ -57,6 +57,15 @@ export function PaymentInterface({
   const totalAmount = calculateTotalAmount();
   const isTablePayment = relatedOrders.length > 0;
 
+  console.log('[PaymentInterface] Payment setup:', {
+    orderId: order.id,
+    tableId: order.tableId,
+    relatedOrdersCount: relatedOrders.length,
+    relatedOrderIds: relatedOrders.map(o => o.id),
+    isTablePayment,
+    totalAmount,
+  });
+
   const handleCashPayment = async (data: { cashReceived: number }) => {
     console.log('[PaymentInterface] handleCashPayment called', data);
     setIsProcessing(true);
