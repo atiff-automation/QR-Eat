@@ -27,7 +27,7 @@ interface OrderStats {
 }
 
 type TimeFilter = 'today' | 'all_time';
-type StatusFilter = 'active' | 'served' | 'cancelled' | 'all';
+type StatusFilter = 'ACTIVE' | 'SERVED' | 'CANCELLED' | 'ALL';
 
 export function OrdersOverview() {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -37,7 +37,7 @@ export function OrdersOverview() {
 
   // Filter States
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('active');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
   const [lapsedCount, setLapsedCount] = useState(0);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -62,15 +62,15 @@ export function OrdersOverview() {
       }
 
       // Status Filter Logic
-      if (statusFilter === 'active') {
+      if (statusFilter === 'ACTIVE') {
         params.status = 'all'; // Get all relevant, but exclude served/cancelled
         params.excludeServed = 'true';
-      } else if (statusFilter === 'all') {
+      } else if (statusFilter === 'ALL') {
         params.status = 'all';
         params.excludeServed = 'false'; // Show everything
       } else {
         params.status = statusFilter; // Specific status (served, cancelled)
-        if (statusFilter === 'served' || statusFilter === 'cancelled') {
+        if (statusFilter === 'SERVED' || statusFilter === 'CANCELLED') {
           params.excludeServed = 'false'; // Ensure they are returned
         }
       }
@@ -327,21 +327,19 @@ export function OrdersOverview() {
             <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
               <button
                 onClick={() => setTimeFilter('today')}
-                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
-                  timeFilter === 'today'
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${timeFilter === 'today'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 Today
               </button>
               <button
                 onClick={() => setTimeFilter('all_time')}
-                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
-                  timeFilter === 'all_time'
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${timeFilter === 'all_time'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
-                }`}
+                  }`}
               >
                 All Time
               </button>
@@ -350,19 +348,18 @@ export function OrdersOverview() {
             {/* Status Pills */}
             <div className="flex flex-wrap gap-1.5">
               {[
-                { id: 'active', label: 'Active' },
-                { id: 'served', label: 'Served' },
-                { id: 'cancelled', label: 'Cancelled' },
-                { id: 'all', label: 'History' },
+                { id: 'ACTIVE', label: 'Active' },
+                { id: 'SERVED', label: 'Served' },
+                { id: 'CANCELLED', label: 'Cancelled' },
+                { id: 'ALL', label: 'History' },
               ].map((tab) => (
                 <button
                   key={tab.id}
                   onClick={() => setStatusFilter(tab.id as StatusFilter)}
-                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
-                    statusFilter === tab.id
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === tab.id
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -385,7 +382,7 @@ export function OrdersOverview() {
           <button
             onClick={() => {
               setTimeFilter('all_time');
-              setStatusFilter('active');
+              setStatusFilter('ACTIVE');
             }}
             className="text-xs font-bold text-amber-700 hover:text-amber-900 underline decoration-amber-300 underline-offset-2"
           >

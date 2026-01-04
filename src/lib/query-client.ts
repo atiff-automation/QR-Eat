@@ -85,7 +85,7 @@ export const queryKeys = {
   // Orders
   orders: {
     all: ['orders'] as const,
-    pending: ['orders', 'pending'] as const,
+    pending: ['orders', 'PENDING'] as const,
     byId: (id: string) => ['orders', id] as const,
     byTable: (tableId: string) => ['orders', 'table', tableId] as const,
     byStatus: (status: string) => ['orders', 'status', status] as const,
@@ -118,7 +118,7 @@ export const queryKeys = {
   tables: {
     all: ['tables'] as const,
     byId: (id: string) => ['tables', id] as const,
-    available: ['tables', 'available'] as const,
+    available: ['tables', 'AVAILABLE'] as const,
     orders: (tableId: string) => ['tables', tableId, 'orders'] as const, // NEW
   },
 

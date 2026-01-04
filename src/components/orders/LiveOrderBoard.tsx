@@ -267,15 +267,15 @@ export function LiveOrderBoard({
     if (isOverdue) return 'bg-red-100 text-red-800 border-red-200';
 
     switch (status) {
-      case 'pending':
+      case 'PENDING':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'confirmed':
+      case 'CONFIRMED':
         return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'preparing':
+      case 'PREPARING':
         return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'ready':
+      case 'READY':
         return 'bg-green-100 text-green-800 border-green-200';
-      case 'served':
+      case 'SERVED':
         return 'bg-gray-100 text-gray-800 border-gray-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -284,14 +284,16 @@ export function LiveOrderBoard({
 
   const getNextStatus = (currentStatus: string) => {
     switch (currentStatus) {
-      case 'pending':
-        return 'confirmed';
-      case 'confirmed':
-        return 'preparing';
-      case 'preparing':
-        return 'ready';
-      case 'ready':
-        return 'served';
+      case 'PENDING':
+        return 'CONFIRMED';
+      case 'CONFIRMED':
+        return 'PREPARING';
+      case 'PREPARING':
+        return 'READY';
+      case 'READY':
+        return 'SERVED';
+      case 'SERVED':
+        return null;
       default:
         return null;
     }
@@ -374,13 +376,12 @@ export function LiveOrderBoard({
       {/* Live Orders Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
         {orders
-          .filter((order) => !['served', 'cancelled'].includes(order.status))
+          .filter((order) => !['SERVED', 'CANCELLED'].includes(order.status))
           .map((order) => (
             <div
               key={order.id}
-              className={`bg-white rounded-lg shadow-sm border p-6 ${
-                order.isOverdue ? 'ring-2 ring-red-500' : ''
-              }`}
+              className={`bg-white rounded-lg shadow-sm border p-6 ${order.isOverdue ? 'ring-2 ring-red-500' : ''
+                }`}
             >
               {/* Order Header */}
               <div className="flex items-center justify-between mb-4">
@@ -449,9 +450,8 @@ export function LiveOrderBoard({
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className={`h-2 rounded-full transition-all duration-300 ${
-                      order.isOverdue ? 'bg-red-500' : 'bg-blue-500'
-                    }`}
+                    className={`h-2 rounded-full transition-all duration-300 ${order.isOverdue ? 'bg-red-500' : 'bg-blue-500'
+                      }`}
                     style={{ width: `${order.preparationProgress}%` }}
                   ></div>
                 </div>
@@ -475,11 +475,10 @@ export function LiveOrderBoard({
                   onClick={() =>
                     updateOrderStatus(order.id, getNextStatus(order.status)!)
                   }
-                  className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${
-                    order.isOverdue
-                      ? 'bg-red-600 hover:bg-red-700 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  }`}
+                  className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-colors ${order.isOverdue
+                    ? 'bg-red-600 hover:bg-red-700 text-white'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    }`}
                 >
                   Mark as {getNextStatus(order.status)?.toUpperCase()}
                 </button>
@@ -489,18 +488,18 @@ export function LiveOrderBoard({
       </div>
 
       {/* Empty State */}
-      {orders.filter((order) => !['served', 'cancelled'].includes(order.status))
+      {orders.filter((order) => !['SERVED', 'CANCELLED'].includes(order.status))
         .length === 0 && (
-        <div className="text-center py-12">
-          <UtensilsCrossed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
-            No active orders
-          </h3>
-          <p className="text-gray-600">
-            New orders will appear here in real-time
-          </p>
-        </div>
-      )}
+          <div className="text-center py-12">
+            <UtensilsCrossed className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">
+              No active orders
+            </h3>
+            <p className="text-gray-600">
+              New orders will appear here in real-time
+            </p>
+          </div>
+        )}
     </div>
   );
 }

@@ -178,7 +178,7 @@ export function UserRoleManager() {
     
     const matchesUserType = userTypeFilter === 'all' || user.userType === userTypeFilter;
     const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && user.isActive) ||
+                         (statusFilter === 'ACTIVE' && user.isActive) ||
                          (statusFilter === 'inactive' && !user.isActive);
     
     return matchesSearch && matchesUserType && matchesStatus;

@@ -12,10 +12,10 @@ import { PostgresEventManager } from '@/lib/postgres-pubsub';
  * Active order statuses that keep a table occupied
  */
 const ACTIVE_ORDER_STATUSES = [
-  'pending',
-  'confirmed',
-  'preparing',
-  'ready',
+  'PENDING',
+  'CONFIRMED',
+  'PREPARING',
+  'READY',
 ] as const;
 
 /**
@@ -40,8 +40,8 @@ export async function shouldTableBeAvailable(
           // Case 2: Served but NOT paid yet
           // Note: Both 'paid' and 'completed' are considered paid statuses
           {
-            status: 'served',
-            paymentStatus: { notIn: ['paid', 'completed'] },
+            status: 'SERVED',
+            paymentStatus: { notIn: ['PAID', 'COMPLETED'] },
           },
         ],
       },
@@ -85,11 +85,11 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
     const shouldBeAvailable = await shouldTableBeAvailable(tableId);
 
     // Only update if status needs to change
-    if (shouldBeAvailable && table.status === 'occupied') {
+    if (shouldBeAvailable && table.status === 'OCCUPIED') {
       await prisma.table.update({
         where: { id: tableId },
         data: {
-          status: 'available',
+          status: 'AVAILABLE',
           updatedAt: new Date(),
         },
       });
@@ -103,17 +103,17 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
         tableId,
         restaurantId: table.restaurantId,
         previousStatus: table.status,
-        newStatus: 'available',
+        newStatus: 'AVAILABLE',
         updatedBy: 'system',
         timestamp: Date.now(),
       });
-    } else if (!shouldBeAvailable && table.status === 'available') {
+    } else if (!shouldBeAvailable && table.status === 'AVAILABLE') {
       // Edge case: Table is available but has active orders
       // This shouldn't happen in normal flow, but we'll fix it
       await prisma.table.update({
         where: { id: tableId },
         data: {
-          status: 'occupied',
+          status: 'OCCUPIED',
           updatedAt: new Date(),
         },
       });
@@ -127,7 +127,7 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
         tableId,
         restaurantId: table.restaurantId,
         previousStatus: table.status,
-        newStatus: 'occupied',
+        newStatus: 'OCCUPIED',
         updatedBy: 'system',
         timestamp: Date.now(),
       });
@@ -153,7 +153,7 @@ export async function getActiveOrderCount(tableId: string): Promise<number> {
       where: {
         tableId,
         status: {
-          in: ['pending', 'confirmed', 'preparing'],
+          in: ['PENDING', 'CONFIRMED', 'PREPARING'],
         },
       },
     });

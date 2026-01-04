@@ -7,9 +7,9 @@
 
 // Session status values
 export const SESSION_STATUS = {
-  ACTIVE: 'active',
-  EXPIRED: 'expired',
-  ENDED: 'ended',
+  ACTIVE: 'ACTIVE',
+  EXPIRED: 'EXPIRED',
+  ENDED: 'ENDED',
 } as const;
 
 export type SessionStatus =

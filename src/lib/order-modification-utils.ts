@@ -13,7 +13,7 @@
  * already-prepared food.
  */
 export function canModifyOrder(status: string): boolean {
-  return ['pending', 'confirmed', 'preparing'].includes(status.toLowerCase());
+  return ['PENDING', 'CONFIRMED', 'PREPARING'].includes(status.toUpperCase());
 }
 
 /**
@@ -23,7 +23,7 @@ export function canModifyOrder(status: string): boolean {
  * Once preparing, ready, or served, cancellation is not allowed.
  */
 export function canCancelOrder(status: string): boolean {
-  return ['pending', 'confirmed'].includes(status.toLowerCase());
+  return ['PENDING', 'CONFIRMED'].includes(status.toUpperCase());
 }
 
 /**
@@ -54,7 +54,7 @@ export function calculateRefundNeeded(
   order: { paymentStatus: string; totalAmount: number },
   newTotal: number
 ): number | null {
-  if (order.paymentStatus !== 'completed') return null;
+  if (order.paymentStatus !== 'PAID') return null;
   if (newTotal >= order.totalAmount) return null;
 
   const refund = order.totalAmount - newTotal;

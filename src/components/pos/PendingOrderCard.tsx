@@ -76,7 +76,7 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
         <p className="text-xs text-gray-500 font-medium">
           Status:{' '}
           <span className="text-green-600 font-semibold">
-            {order.status === 'ready' ? 'Ready for Payment' : 'Served'}
+            {order.status === 'READY' ? 'Ready for Payment' : 'Served'}
           </span>
         </p>
       </div>

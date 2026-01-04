@@ -132,7 +132,7 @@ export function KitchenDisplayBoard() {
           }
 
           // Check if the new status should still be displayed in kitchen
-          const kitchenStatuses = ['confirmed', 'preparing', 'ready'];
+          const kitchenStatuses = ['CONFIRMED', 'PREPARING', 'READY'];
           if (!kitchenStatuses.includes(data.data.newStatus as string)) {
             console.log(
               'Order status',
@@ -354,9 +354,9 @@ export function KitchenDisplayBoard() {
   };
 
   const groupedOrders = {
-    confirmed: orders.filter((order) => order.status === 'confirmed'),
-    preparing: orders.filter((order) => order.status === 'preparing'),
-    ready: orders.filter((order) => order.status === 'ready'),
+    confirmed: orders.filter((order) => order.status === 'CONFIRMED'),
+    preparing: orders.filter((order) => order.status === 'PREPARING'),
+    ready: orders.filter((order) => order.status === 'READY'),
   };
 
   if (loading) {
@@ -429,13 +429,12 @@ export function KitchenDisplayBoard() {
               return (
                 <div
                   key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent'
+                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${priority === 'urgent'
                       ? 'border-red-500'
                       : priority === 'warning'
                         ? 'border-orange-500'
                         : 'border-blue-500'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -505,7 +504,7 @@ export function KitchenDisplayBoard() {
                   )}
 
                   <button
-                    onClick={() => updateOrderStatus(order.id, 'preparing')}
+                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded font-medium"
                   >
                     Start Cooking
@@ -533,13 +532,12 @@ export function KitchenDisplayBoard() {
               return (
                 <div
                   key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent'
+                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${priority === 'urgent'
                       ? 'border-red-500'
                       : priority === 'warning'
                         ? 'border-orange-500'
                         : 'border-orange-400'
-                  }`}
+                    }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -587,14 +585,13 @@ export function KitchenDisplayBoard() {
                             )}
                           </div>
                           <button
-                            onClick={() => updateItemStatus(item.id, 'ready')}
-                            className={`px-2 py-1 text-xs rounded ${
-                              item.status === 'ready'
+                            onClick={() => updateItemStatus(item.id, 'READY')}
+                            className={`px-2 py-1 text-xs rounded ${item.status === 'READY'
                                 ? 'bg-green-600 text-white'
                                 : 'bg-gray-600 hover:bg-green-600 text-gray-300'
-                            }`}
+                              }`}
                           >
-                            {item.status === 'ready' ? '✓ Done' : 'Mark Done'}
+                            {item.status === 'READY' ? '✓ Done' : 'Mark Done'}
                           </button>
                         </div>
                       </div>
@@ -602,7 +599,7 @@ export function KitchenDisplayBoard() {
                   </div>
 
                   <button
-                    onClick={() => updateOrderStatus(order.id, 'ready')}
+                    onClick={() => updateOrderStatus(order.id, 'READY')}
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded font-medium"
                   >
                     Mark Ready
@@ -659,7 +656,7 @@ export function KitchenDisplayBoard() {
 
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => updateOrderStatus(order.id, 'served')}
+                      onClick={() => updateOrderStatus(order.id, 'SERVED')}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-medium"
                     >
                       Mark Served

@@ -54,11 +54,11 @@ export function TableDetailDrawer({
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'available':
+      case 'AVAILABLE':
         return 'bg-green-500';
-      case 'occupied':
-        return 'bg-blue-500';
-      case 'reserved':
+      case 'OCCUPIED':
+        return 'bg-red-500';
+      case 'RESERVED':
         return 'bg-amber-500';
       case 'cleaning':
         return 'bg-gray-500';
@@ -71,17 +71,17 @@ export function TableDetailDrawer({
 
   const statusOptions = [
     {
-      value: 'available',
+      value: 'AVAILABLE',
       label: 'Available',
       color: 'bg-green-100 text-green-800',
     },
     {
-      value: 'occupied',
+      value: 'OCCUPIED',
       label: 'Occupied',
-      color: 'bg-blue-100 text-blue-800',
+      color: 'bg-red-100 text-red-800', // Changed to red to match getStatusColor
     },
     {
-      value: 'reserved',
+      value: 'RESERVED',
       label: 'Reserved',
       color: 'bg-amber-100 text-amber-800',
     },
@@ -104,9 +104,8 @@ export function TableDetailDrawer({
 
   return (
     <div
-      className={`fixed inset - 0 z - 50 flex justify - end transition - opacity duration - 300 ${
-        isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
-      } `}
+      className={`fixed inset - 0 z - 50 flex justify - end transition - opacity duration - 300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+        } `}
     >
       {/* Backdrop */}
       <div
@@ -188,11 +187,10 @@ export function TableDetailDrawer({
                   onClick={() => onUpdateStatus(table.id, option.value)}
                   className={`
 px - 4 py - 3 rounded - lg text - sm font - medium transition - all
-                    ${
-                      table.status === option.value
-                        ? 'ring-2 ring-offset-2 ring-blue-500 ' +
-                          option.color.replace('bg-', 'bg-opacity-100 bg-')
-                        : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
+                    ${table.status === option.value
+                      ? 'ring-2 ring-offset-2 ring-blue-500 ' +
+                      option.color.replace('bg-', 'bg-opacity-100 bg-')
+                      : 'bg-white border border-gray-200 text-gray-700 hover:bg-gray-50'
                     }
 `}
                 >

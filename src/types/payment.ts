@@ -3,7 +3,7 @@
 
 export type PaymentMethodType = 'cash' | 'card' | 'ewallet';
 
-export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type PaymentStatus = 'PENDING' | 'PAID' | 'FAILED';
 
 export interface Payment {
   id: string;

@@ -43,20 +43,19 @@ export function estimateReadyTime(items: CartItem[]): Date {
 }
 
 export const ORDER_STATUS = {
-  PENDING: 'pending',
-  CONFIRMED: 'confirmed',
-  PREPARING: 'preparing',
-  READY: 'ready',
-  SERVED: 'served',
-  CANCELLED: 'cancelled',
+  PENDING: 'PENDING',
+  CONFIRMED: 'CONFIRMED',
+  PREPARING: 'PREPARING',
+  READY: 'READY',
+  SERVED: 'SERVED',
+  CANCELLED: 'CANCELLED',
 } as const;
 
 export const PAYMENT_STATUS = {
-  PENDING: 'pending',
-  PROCESSING: 'processing',
-  COMPLETED: 'completed',
-  FAILED: 'failed',
-  REFUNDED: 'refunded',
+  PENDING: 'PENDING',
+  PAID: 'PAID',
+  REFUNDED: 'REFUNDED',
+  FAILED: 'FAILED',
 } as const;
 
 export function getOrderStatusDisplay(status: string): {

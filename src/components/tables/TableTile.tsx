@@ -30,8 +30,8 @@ export function TableTile({ table, onClick }: TableTileProps) {
   // "Available" = Clean, no border, no dot
   // "Occupied" = Orange Border, Orange Pulse
   // "Reserved" = Blue Border, Blue Dot
-  const isOccupied = table.status === 'occupied';
-  const isReserved = table.status === 'reserved';
+  const isOccupied = table.status === 'OCCUPIED';
+  const isReserved = table.status === 'RESERVED';
 
   let borderClass = 'border-transparent';
   if (isOccupied) borderClass = 'border-amber-500 border-2';

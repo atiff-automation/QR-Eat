@@ -70,7 +70,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
 
   const getStatusInfo = (status: string) => {
     switch (status) {
-      case 'pending':
+      case 'PENDING':
         return {
           title: 'Order Received',
           description: 'Your order has been received and is being reviewed',
@@ -78,7 +78,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
           color: 'text-yellow-600',
           bgColor: 'bg-yellow-100'
         };
-      case 'confirmed':
+      case 'CONFIRMED':
         return {
           title: 'Order Confirmed',
           description: 'Your order has been confirmed and will be prepared soon',
@@ -86,7 +86,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
           color: 'text-blue-600',
           bgColor: 'bg-blue-100'
         };
-      case 'preparing':
+      case 'PREPARING':
         return {
           title: 'Being Prepared',
           description: 'Your delicious meal is currently being prepared',
@@ -94,7 +94,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
           color: 'text-orange-600',
           bgColor: 'bg-orange-100'
         };
-      case 'ready':
+      case 'READY':
         return {
           title: 'Ready for Pickup',
           description: 'Your order is ready! Please come to the counter or wait at your table',
@@ -102,7 +102,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
           color: 'text-green-600',
           bgColor: 'bg-green-100'
         };
-      case 'served':
+      case 'SERVED':
         return {
           title: 'Order Complete',
           description: 'Enjoy your meal! Thank you for dining with us',
@@ -110,7 +110,7 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
           color: 'text-gray-600',
           bgColor: 'bg-gray-100'
         };
-      case 'cancelled':
+      case 'CANCELLED':
         return {
           title: 'Order Cancelled',
           description: 'Your order has been cancelled',
@@ -142,11 +142,11 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
   };
 
   const getProgressPercentage = (status: string, progress: number) => {
-    const statusOrder = ['pending', 'confirmed', 'preparing', 'ready', 'served'];
+    const statusOrder = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED'];
     const currentIndex = statusOrder.indexOf(status);
     const baseProgress = (currentIndex / (statusOrder.length - 1)) * 100;
     
-    if (status === 'preparing') {
+    if (status === 'PREPARING') {
       // Use actual preparation progress for preparing status
       return Math.min(baseProgress + (progress / statusOrder.length), 100);
     }
@@ -241,8 +241,8 @@ export function OrderTracker({ orderId, customerView = false }: OrderTrackerProp
 
       {/* Status Timeline */}
       <div className="space-y-3 mb-6">
-        {['pending', 'confirmed', 'preparing', 'ready', 'served'].map((status, index) => {
-          const isCompleted = ['pending', 'confirmed', 'preparing', 'ready', 'served'].indexOf(order.status) >= index;
+        {['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED'].map((status, index) => {
+          const isCompleted = ['PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED'].indexOf(order.status) >= index;
           const isCurrent = order.status === status;
           
           return (

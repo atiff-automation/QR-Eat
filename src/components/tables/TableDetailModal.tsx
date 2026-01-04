@@ -83,9 +83,8 @@ export function TableDetailModal({
       {/* Backdrop */}
       <div
         onClick={onClose}
-        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-          isOpen ? 'opacity-100' : 'opacity-0'
-        }`}
+        className={`absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0'
+          }`}
       />
 
       {/* Modal Content */}
@@ -105,13 +104,13 @@ export function TableDetailModal({
               {/* Status Badge */}
               {(() => {
                 switch (table.status) {
-                  case 'occupied':
+                  case 'OCCUPIED':
                     return (
                       <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                         Occupied
                       </span>
                     );
-                  case 'reserved':
+                  case 'RESERVED':
                     return (
                       <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
                         Reserved
@@ -206,18 +205,18 @@ export function TableDetailModal({
             </button>
 
             {/* Reserve Toggle - Show for all statuses except reserved */}
-            {table.status !== 'reserved' && (
+            {table.status !== 'RESERVED' && (
               <button
-                onClick={() => onUpdateStatus(table.id, 'reserved')}
+                onClick={() => onUpdateStatus(table.id, 'RESERVED')}
                 className="w-full h-10 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Reserve Table</span>
               </button>
             )}
-            {table.status === 'reserved' && (
+            {table.status === 'RESERVED' && (
               <button
-                onClick={() => onUpdateStatus(table.id, 'available')}
+                onClick={() => onUpdateStatus(table.id, 'AVAILABLE')}
                 className="w-full h-10 bg-orange-100 hover:bg-orange-200 active:scale-[0.98] text-orange-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
               >
                 <Unlock className="w-3.5 h-3.5" />

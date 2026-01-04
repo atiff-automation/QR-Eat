@@ -34,8 +34,8 @@ export interface CleanupResult {
 /**
  * Clean up table statuses across all restaurants
  *
- * Finds tables marked as 'occupied' but with no active orders,
- * and marks them as 'available'.
+ * Finds tables marked as 'OCCUPIED' but with no active orders,
+ * and marks them as 'AVAILABLE'.
  *
  * @returns Promise resolving to cleanup results
  */
@@ -53,7 +53,7 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
     // Find all tables marked as occupied
     const occupiedTables = await prisma.table.findMany({
       where: {
-        status: 'occupied',
+        status: 'OCCUPIED',
       },
       select: {
         id: true,
@@ -78,7 +78,7 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
           await prisma.table.update({
             where: { id: table.id },
             data: {
-              status: 'available',
+              status: 'AVAILABLE',
               updatedAt: new Date(),
             },
           });
@@ -91,8 +91,8 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
           await PostgresEventManager.publishTableStatusChange({
             tableId: table.id,
             restaurantId: table.restaurantId,
-            previousStatus: 'occupied',
-            newStatus: 'available',
+            previousStatus: 'OCCUPIED',
+            newStatus: 'AVAILABLE',
             updatedBy: 'cleanup-job',
             timestamp: Date.now(),
           });
@@ -101,8 +101,8 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
           result.fixedTables.push({
             tableId: table.id,
             tableNumber: table.tableNumber,
-            previousStatus: 'occupied',
-            newStatus: 'available',
+            previousStatus: 'OCCUPIED',
+            newStatus: 'AVAILABLE',
           });
         }
       } catch (error) {
@@ -147,7 +147,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
     // Find expired active sessions
     const expiredSessions = await prisma.customerSession.findMany({
       where: {
-        status: 'active',
+        status: 'ACTIVE',
         expiresAt: {
           lt: now,
         },
@@ -174,7 +174,7 @@ export async function cleanupExpiredSessions(): Promise<number> {
         },
       },
       data: {
-        status: 'ended',
+        status: 'ENDED',
         endedAt: now,
       },
     });

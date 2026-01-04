@@ -66,15 +66,15 @@ export interface OrderCardProps {
  */
 function getStatusBorderColor(status: string): string {
   switch (status) {
-    case 'pending':
+    case 'PENDING':
       return 'border-l-orange-500'; // Urgent - matches orange button
-    case 'confirmed':
+    case 'CONFIRMED':
       return 'border-l-blue-500'; // Acknowledged - matches blue button
-    case 'preparing':
+    case 'PREPARING':
       return 'border-l-green-500'; // In progress - matches green button
-    case 'ready':
+    case 'READY':
       return 'border-l-green-500'; // Completed - matches green status
-    case 'served':
+    case 'SERVED':
       return 'border-l-gray-400'; // Archived
     default:
       return 'border-l-gray-300';
@@ -126,7 +126,7 @@ export function OrderCard({
   };
 
   // Enhanced styling for pending orders (needs confirmation)
-  const isPending = order.status === 'pending';
+  const isPending = order.status === 'PENDING';
   const cardBackgroundClass = isPending ? 'bg-orange-50' : 'bg-white';
   const borderWidthClass = isPending ? 'border-l-8' : 'border-l-4';
   const shadowClass = isPending ? 'shadow-md' : 'shadow-sm';

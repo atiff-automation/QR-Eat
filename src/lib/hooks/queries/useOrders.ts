@@ -171,7 +171,7 @@ export function useOrderById(orderId: string | null) {
  * const { mutate: updateOrder } = useUpdateOrder();
  *
  * updateOrder(
- *   { orderId: '123', status: 'completed' },
+ *   { orderId: '123', status: 'COMPLETED' },
  *   {
  *     onSuccess: () => toast.success('Order updated!'),
  *   }
