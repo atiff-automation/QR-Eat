@@ -75,7 +75,6 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch orders with related data
-    console.log('DEBUG ORDERS API WHERE:', JSON.stringify(where, null, 2));
     const orders = await prisma.order.findMany({
       where,
       include: {
