@@ -23,6 +23,7 @@ import {
 } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
+import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
 
 // ============================================================================
@@ -244,23 +245,33 @@ export async function POST(request: NextRequest) {
       })
     );
 
-    // Update table status
+    // Update table status to occupied when order is placed
+    // This is the PRIMARY trigger for marking a table as occupied
     const previousTableStatus = table.status;
-    await prisma.table.update({
-      where: { id: tableId },
-      data: { status: 'occupied' },
-    });
 
-    // Real-time table update
     if (previousTableStatus !== 'occupied') {
+      await prisma.table.update({
+        where: { id: tableId },
+        data: { status: 'occupied' },
+      });
+
+      console.log(
+        `[OrderCreate] Table ${table.tableNumber} (${tableId}) marked as occupied (was: ${previousTableStatus})`
+      );
+
+      // Real-time table status update notification
       await PostgresEventManager.publishTableStatusChange({
         tableId,
         restaurantId: table.restaurant.id,
         previousStatus: previousTableStatus,
         newStatus: 'occupied',
-        updatedBy: 'system', // or customer session ID if we want to track who occupied it
+        updatedBy: 'customer',
         timestamp: Date.now(),
       });
+    } else {
+      console.log(
+        `[OrderCreate] Table ${table.tableNumber} (${tableId}) already occupied, no status change needed`
+      );
     }
 
     // Clear cart after successful order creation
@@ -283,6 +294,15 @@ export async function POST(request: NextRequest) {
       orderNumber: order.orderNumber,
       totalAmount: Number(order.totalAmount),
       timestamp: Date.now(),
+    });
+
+    // Ensure table status is consistent (safety check)
+    // This is a non-blocking operation - errors are logged but don't fail the request
+    autoUpdateTableStatus(tableId).catch((error) => {
+      console.error(
+        `[OrderCreate] Failed to auto-update table status for table ${tableId}:`,
+        error
+      );
     });
 
     return NextResponse.json({

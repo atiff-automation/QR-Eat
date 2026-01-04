@@ -33,14 +33,15 @@ export async function shouldTableBeAvailable(
       where: {
         tableId,
         OR: [
-          // Case 1: Active order status (still finding/cooking/serving)
+          // Case 1: Active order status (still pending/cooking/serving)
           {
             status: { in: [...ACTIVE_ORDER_STATUSES] },
           },
           // Case 2: Served but NOT paid yet
+          // Note: Both 'paid' and 'completed' are considered paid statuses
           {
             status: 'served',
-            paymentStatus: { not: 'completed' },
+            paymentStatus: { notIn: ['paid', 'completed'] },
           },
         ],
       },
