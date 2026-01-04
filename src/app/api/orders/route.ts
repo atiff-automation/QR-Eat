@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     // Note: 'COMPLETED' is not a valid ordering cycle status (it's for payment cycle),
     // but we exclude it as a safeguard against invalid data
     if (excludeServed && (!status || status === 'all')) {
-      where.status = { notIn: ['SERVED', 'CANCELLED', 'COMPLETED'] };
+      where.status = { notIn: ['SERVED', 'CANCELLED'] };
     }
 
     // Calculate lapsed active orders (Safety Check)
@@ -75,6 +75,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch orders with related data
+    console.log('DEBUG ORDERS API WHERE:', JSON.stringify(where, null, 2));
     const orders = await prisma.order.findMany({
       where,
       include: {
@@ -104,12 +105,12 @@ export async function GET(request: NextRequest) {
         // Include restaurant data for platform admins
         restaurant: context!.isAdmin
           ? {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-            },
-          }
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            }
           : false,
       },
       orderBy: {

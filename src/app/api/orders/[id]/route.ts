@@ -361,7 +361,7 @@ export async function DELETE(
 
         // 7. Check refund
         let refundNeeded = null;
-        if (order.paymentStatus === 'COMPLETED') {
+        if (order.paymentStatus === 'PAID') {
           refundNeeded = order.totalAmount;
         }
 

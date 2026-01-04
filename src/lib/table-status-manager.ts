@@ -41,7 +41,7 @@ export async function shouldTableBeAvailable(
           // Note: Both 'paid' and 'completed' are considered paid statuses
           {
             status: 'SERVED',
-            paymentStatus: { notIn: ['PAID', 'COMPLETED'] },
+            paymentStatus: { notIn: ['PAID'] },
           },
         ],
       },

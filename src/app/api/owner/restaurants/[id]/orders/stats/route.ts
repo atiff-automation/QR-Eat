@@ -11,8 +11,9 @@ export async function GET(
     const { id: restaurantId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -42,8 +43,8 @@ export async function GET(
     const restaurant = await prisma.restaurant.findFirst({
       where: {
         id: restaurantId,
-        ownerId: authResult.user.id
-      }
+        ownerId: authResult.user.id,
+      },
     });
 
     if (!restaurant) {
@@ -55,75 +56,80 @@ export async function GET(
 
     // Calculate date ranges
     const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayStart = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
 
     // Get order statistics
-    const [totalOrders, pendingOrders, completedOrders, todayRevenue] = await Promise.all([
-      // Total orders today
-      prisma.order.count({
-        where: {
-          restaurantId,
-          createdAt: {
-            gte: todayStart
-          }
-        }
-      }),
-
-      // Pending orders (not yet completed)
-      prisma.order.count({
-        where: {
-          restaurantId,
-          status: {
-            in: ['PENDING', 'PREPARING', 'READY']
-          }
-        }
-      }),
-
-      // Completed orders today
-      prisma.order.count({
-        where: {
-          restaurantId,
-          status: 'COMPLETED',
-          createdAt: {
-            gte: todayStart
-          }
-        }
-      }),
-
-      // Today's revenue - sum from OrderItems
-      prisma.orderItem.aggregate({
-        where: {
-          order: {
+    const [totalOrders, pendingOrders, completedOrders, todayRevenue] =
+      await Promise.all([
+        // Total orders today
+        prisma.order.count({
+          where: {
             restaurantId,
             createdAt: {
-              gte: todayStart
-            }
-          }
-        },
-        _sum: {
-          totalAmount: true
-        }
-      })
-    ]);
+              gte: todayStart,
+            },
+          },
+        }),
+
+        // Pending orders (not yet completed)
+        prisma.order.count({
+          where: {
+            restaurantId,
+            status: {
+              in: ['PENDING', 'PREPARING', 'READY'],
+            },
+          },
+        }),
+
+        // Completed orders today
+        prisma.order.count({
+          where: {
+            restaurantId,
+            status: 'SERVED',
+            createdAt: {
+              gte: todayStart,
+            },
+          },
+        }),
+
+        // Today's revenue - sum from OrderItems
+        prisma.orderItem.aggregate({
+          where: {
+            order: {
+              restaurantId,
+              createdAt: {
+                gte: todayStart,
+              },
+            },
+          },
+          _sum: {
+            totalAmount: true,
+          },
+        }),
+      ]);
 
     const stats = {
       totalOrders,
       pendingOrders,
       completedOrders,
-      todayRevenue: Number(todayRevenue._sum.totalAmount || 0)
+      todayRevenue: Number(todayRevenue._sum.totalAmount || 0),
     };
 
     return NextResponse.json({
       success: true,
-      stats
+      stats,
     });
-
   } catch (error) {
     console.error('Failed to fetch order stats:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch order stats',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

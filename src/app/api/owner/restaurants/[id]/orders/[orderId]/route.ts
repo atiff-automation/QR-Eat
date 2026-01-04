@@ -220,7 +220,7 @@ export async function PATCH(
       'PENDING',
       'PREPARING',
       'READY',
-      'COMPLETED',
+      'SERVED',
       'CANCELLED',
     ];
     if (!validStatuses.includes(status)) {
@@ -263,7 +263,7 @@ export async function PATCH(
         }
         updateData.readyAt = now;
         break;
-      case 'COMPLETED':
+      case 'SERVED':
         if (!existingOrder.confirmedAt) {
           updateData.confirmedAt = now;
           updateData.confirmedBy = authResult.user.id;

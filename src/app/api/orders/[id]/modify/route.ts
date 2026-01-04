@@ -214,7 +214,7 @@ export async function PATCH(
         // 9. Check if refund needed
         let refundNeeded = null;
         if (
-          order.paymentStatus === 'COMPLETED' &&
+          order.paymentStatus === 'PAID' &&
           totals.totalAmount < Number(order.totalAmount)
         ) {
           refundNeeded = Number(order.totalAmount) - totals.totalAmount;

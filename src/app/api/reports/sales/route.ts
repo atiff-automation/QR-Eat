@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission, 
-  createRestaurantFilter 
+import { Prisma, Order } from '@prisma/client';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+  createRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -30,12 +31,12 @@ export async function GET(request: NextRequest) {
     const end = new Date(endDate);
     end.setHours(23, 59, 59, 999);
 
-    let where: any = {
+    let where: Prisma.OrderWhereInput = {
       createdAt: {
         gte: start,
-        lte: end
+        lte: end,
       },
-      status: { in: ['COMPLETED', 'PAID'] }
+      status: 'SERVED',
     };
 
     // Apply restaurant filter based on user type
@@ -47,10 +48,10 @@ export async function GET(request: NextRequest) {
       where = {
         createdAt: {
           gte: start,
-          lte: end
+          lte: end,
         },
-        status: { in: ['COMPLETED', 'PAID'] },
-        restaurantId
+        status: 'SERVED',
+        restaurantId,
       };
     }
 
@@ -66,12 +67,14 @@ export async function GET(request: NextRequest) {
         discountAmount: true,
         createdAt: true,
         restaurantId: true,
-        restaurant: context!.isAdmin ? {
-          select: {
-            name: true,
-            slug: true
-          }
-        } : false,
+        restaurant: context!.isAdmin
+          ? {
+              select: {
+                name: true,
+                slug: true,
+              },
+            }
+          : false,
         items: {
           include: {
             menuItem: {
@@ -80,36 +83,56 @@ export async function GET(request: NextRequest) {
                 categoryId: true,
                 category: {
                   select: {
-                    name: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
     });
 
     // Calculate aggregated metrics
-    const totalRevenue = orders.reduce((sum, order) => sum + Number(order.totalAmount), 0);
+    const totalRevenue = orders.reduce(
+      (sum, order) => sum + Number(order.totalAmount),
+      0
+    );
     const totalOrders = orders.length;
     const averageOrderValue = totalOrders > 0 ? totalRevenue / totalOrders : 0;
-    const totalTax = orders.reduce((sum, order) => sum + Number(order.taxAmount || 0), 0);
-    const totalServiceCharge = orders.reduce((sum, order) => sum + Number(order.serviceCharge || 0), 0);
-    const totalDiscount = orders.reduce((sum, order) => sum + Number(order.discountAmount || 0), 0);
+    const totalTax = orders.reduce(
+      (sum, order) => sum + Number(order.taxAmount || 0),
+      0
+    );
+    const totalServiceCharge = orders.reduce(
+      (sum, order) => sum + Number(order.serviceCharge || 0),
+      0
+    );
+    const totalDiscount = orders.reduce(
+      (sum, order) => sum + Number(order.discountAmount || 0),
+      0
+    );
 
     // Group data by time period
     const salesByPeriod = groupSalesByPeriod(orders, groupBy);
 
     // Top selling items
-    const itemSales = new Map<string, { name: string; quantity: number; revenue: number; category: string }>();
-    
-    orders.forEach(order => {
-      order.items.forEach(item => {
+    const itemSales = new Map<
+      string,
+      { name: string; quantity: number; revenue: number; category: string }
+    >();
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
         const itemName = item.menuItem.name;
         const category = item.menuItem.category?.name || 'Uncategorized';
-        const existing = itemSales.get(itemName) || { name: itemName, quantity: 0, revenue: 0, category };
-        
+        const existing = itemSales.get(itemName) || {
+          name: itemName,
+          quantity: 0,
+          revenue: 0,
+          category,
+        };
+
         existing.quantity += item.quantity;
         existing.revenue += Number(item.unitPrice) * item.quantity;
         itemSales.set(itemName, existing);
@@ -121,13 +144,20 @@ export async function GET(request: NextRequest) {
       .slice(0, 10);
 
     // Sales by category
-    const categorySales = new Map<string, { name: string; revenue: number; orders: number }>();
-    
-    orders.forEach(order => {
-      order.items.forEach(item => {
+    const categorySales = new Map<
+      string,
+      { name: string; revenue: number; orders: number }
+    >();
+
+    orders.forEach((order) => {
+      order.items.forEach((item) => {
         const categoryName = item.menuItem.category?.name || 'Uncategorized';
-        const existing = categorySales.get(categoryName) || { name: categoryName, revenue: 0, orders: 0 };
-        
+        const existing = categorySales.get(categoryName) || {
+          name: categoryName,
+          revenue: 0,
+          orders: 0,
+        };
+
         existing.revenue += Number(item.unitPrice) * item.quantity;
         categorySales.set(categoryName, existing);
       });
@@ -136,8 +166,8 @@ export async function GET(request: NextRequest) {
     // Count unique orders per category
     categorySales.forEach((category, categoryName) => {
       const uniqueOrders = new Set();
-      orders.forEach(order => {
-        order.items.forEach(item => {
+      orders.forEach((order) => {
+        order.items.forEach((item) => {
           if (item.menuItem.category?.name === categoryName) {
             uniqueOrders.add(order.id);
           }
@@ -146,32 +176,42 @@ export async function GET(request: NextRequest) {
       category.orders = uniqueOrders.size;
     });
 
-    const salesByCategory = Array.from(categorySales.values())
-      .sort((a, b) => b.revenue - a.revenue);
+    const salesByCategory = Array.from(categorySales.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
 
     // Sales by restaurant (for platform admins)
-    let salesByRestaurant: any[] = [];
+    let salesByRestaurant: {
+      id: string;
+      name: string;
+      revenue: number;
+      orders: number;
+    }[] = [];
     if (context!.isAdmin) {
-      const restaurantSales = new Map<string, { id: string; name: string; revenue: number; orders: number }>();
-      
-      orders.forEach(order => {
+      const restaurantSales = new Map<
+        string,
+        { id: string; name: string; revenue: number; orders: number }
+      >();
+
+      orders.forEach((order) => {
         const restaurant = order.restaurant;
         if (restaurant) {
           const existing = restaurantSales.get(order.restaurantId) || {
             id: order.restaurantId,
             name: restaurant.name,
             revenue: 0,
-            orders: 0
+            orders: 0,
           };
-          
+
           existing.revenue += Number(order.totalAmount);
           existing.orders += 1;
           restaurantSales.set(order.restaurantId, existing);
         }
       });
 
-      salesByRestaurant = Array.from(restaurantSales.values())
-        .sort((a, b) => b.revenue - a.revenue);
+      salesByRestaurant = Array.from(restaurantSales.values()).sort(
+        (a, b) => b.revenue - a.revenue
+      );
     }
 
     return NextResponse.json({
@@ -187,19 +227,20 @@ export async function GET(request: NextRequest) {
           period: {
             start: start.toISOString(),
             end: end.toISOString(),
-            days: Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-          }
+            days: Math.ceil(
+              (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+            ),
+          },
         },
         salesByPeriod,
         topSellingItems,
         salesByCategory,
-        salesByRestaurant: context!.isAdmin ? salesByRestaurant : undefined
-      }
+        salesByRestaurant: context!.isAdmin ? salesByRestaurant : undefined,
+      },
     });
-
   } catch (error) {
     console.error('Failed to generate sales report:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -208,10 +249,7 @@ export async function GET(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
@@ -222,10 +260,16 @@ export async function GET(request: NextRequest) {
   }
 }
 
-function groupSalesByPeriod(orders: any[], groupBy: string) {
-  const groupedData = new Map<string, { date: string; revenue: number; orders: number }>();
+function groupSalesByPeriod(
+  orders: (Order & { totalAmount: Prisma.Decimal })[],
+  groupBy: string
+) {
+  const groupedData = new Map<
+    string,
+    { date: string; revenue: number; orders: number }
+  >();
 
-  orders.forEach(order => {
+  orders.forEach((order) => {
     let key: string;
     const date = new Date(order.createdAt);
 
@@ -239,7 +283,7 @@ function groupSalesByPeriod(orders: any[], groupBy: string) {
       case 'week':
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        key = `${weekStart.getFullYear()}-W${String(Math.ceil((weekStart.getDate()) / 7)).padStart(2, '0')}`;
+        key = `${weekStart.getFullYear()}-W${String(Math.ceil(weekStart.getDate() / 7)).padStart(2, '0')}`;
         break;
       case 'month':
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
@@ -248,11 +292,17 @@ function groupSalesByPeriod(orders: any[], groupBy: string) {
         key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
     }
 
-    const existing = groupedData.get(key) || { date: key, revenue: 0, orders: 0 };
+    const existing = groupedData.get(key) || {
+      date: key,
+      revenue: 0,
+      orders: 0,
+    };
     existing.revenue += Number(order.totalAmount);
     existing.orders += 1;
     groupedData.set(key, existing);
   });
 
-  return Array.from(groupedData.values()).sort((a, b) => a.date.localeCompare(b.date));
+  return Array.from(groupedData.values()).sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
 }

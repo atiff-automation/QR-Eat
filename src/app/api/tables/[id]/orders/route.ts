@@ -102,7 +102,7 @@ export async function GET(
     const paidOrders = await prisma.order.aggregate({
       where: {
         tableId: tableId,
-        paymentStatus: 'COMPLETED',
+        paymentStatus: 'PAID',
       },
       _sum: {
         totalAmount: true,
