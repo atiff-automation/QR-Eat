@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       where: {
         restaurantId: restaurantId,
         status: {
-          in: ['confirmed', 'preparing', 'ready']
+          in: ['CONFIRMED', 'PREPARING', 'READY']
         }
       },
       include: {

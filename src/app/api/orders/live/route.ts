@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
     const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
       if (order.estimatedReadyTime) {
         estimatedCompletion = order.estimatedReadyTime;
         timeRemaining = Math.max(0, Math.round((estimatedCompletion.getTime() - now.getTime()) / 60000));
-        isOverdue = now > estimatedCompletion && !['served', 'cancelled'].includes(order.status);
+        isOverdue = now > estimatedCompletion && !['SERVED', 'CANCELLED'].includes(order.status);
       }
 
       return {
@@ -130,8 +130,8 @@ export async function GET(request: NextRequest) {
 }
 
 function calculatePreparationProgress(order: any, now: Date): number {
-  if (!order.confirmedAt || ['served', 'cancelled'].includes(order.status)) {
-    return order.status === 'served' ? 100 : 0;
+  if (!order.confirmedAt || ['SERVED', 'CANCELLED'].includes(order.status)) {
+    return order.status === 'SERVED' ? 100 : 0;
   }
 
   const totalEstimatedTime = order.items.reduce((total: number, item: any) => {
@@ -157,7 +157,7 @@ async function getKitchenMetrics(restaurantId: string) {
     where: {
       restaurantId,
       status: {
-        in: ['pending', 'confirmed', 'preparing', 'ready']
+        in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY']
       }
     },
     _count: {
@@ -169,7 +169,7 @@ async function getKitchenMetrics(restaurantId: string) {
   const completedOrdersToday = await prisma.order.findMany({
     where: {
       restaurantId,
-      status: 'served',
+      status: 'SERVED',
       servedAt: {
         gte: startOfDay
       },
@@ -183,13 +183,13 @@ async function getKitchenMetrics(restaurantId: string) {
     }
   });
 
-  const avgPrepTime = completedOrdersToday.length > 0 
+  const avgPrepTime = completedOrdersToday.length > 0
     ? completedOrdersToday.reduce((sum, order) => {
-        if (order.confirmedAt && order.readyAt) {
-          return sum + (order.readyAt.getTime() - order.confirmedAt.getTime());
-        }
-        return sum;
-      }, 0) / completedOrdersToday.length / 60000 // Convert to minutes
+      if (order.confirmedAt && order.readyAt) {
+        return sum + (order.readyAt.getTime() - order.confirmedAt.getTime());
+      }
+      return sum;
+    }, 0) / completedOrdersToday.length / 60000 // Convert to minutes
     : 0;
 
   // Orders completed in last hour
@@ -197,7 +197,7 @@ async function getKitchenMetrics(restaurantId: string) {
   const ordersLastHour = await prisma.order.count({
     where: {
       restaurantId,
-      status: 'served',
+      status: 'SERVED',
       servedAt: {
         gte: lastHour
       }

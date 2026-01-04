@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       });
 
       console.log(
-        `Welcome email ${emailSent ? 'sent' : 'failed'} for ${result.owner.email}`
+        `Welcome email ${emailSent ? 'sent' : 'FAILED'} for ${result.owner.email}`
       );
     } catch (emailError) {
       console.error('Failed to send welcome email:', emailError);

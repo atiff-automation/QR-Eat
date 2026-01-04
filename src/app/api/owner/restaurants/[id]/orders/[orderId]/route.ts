@@ -217,11 +217,11 @@ export async function PATCH(
 
     // Validate status
     const validStatuses = [
-      'pending',
-      'preparing',
-      'ready',
-      'completed',
-      'cancelled',
+      'PENDING',
+      'PREPARING',
+      'READY',
+      'COMPLETED',
+      'CANCELLED',
     ];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
@@ -250,20 +250,20 @@ export async function PATCH(
     const now = new Date();
 
     switch (status) {
-      case 'preparing':
-        if (existingOrder.status === 'pending') {
+      case 'PREPARING':
+        if (existingOrder.status === 'PENDING') {
           updateData.confirmedAt = now;
           updateData.confirmedBy = authResult.user.id;
         }
         break;
-      case 'ready':
+      case 'READY':
         if (!existingOrder.confirmedAt) {
           updateData.confirmedAt = now;
           updateData.confirmedBy = authResult.user.id;
         }
         updateData.readyAt = now;
         break;
-      case 'completed':
+      case 'COMPLETED':
         if (!existingOrder.confirmedAt) {
           updateData.confirmedAt = now;
           updateData.confirmedBy = authResult.user.id;
@@ -274,7 +274,7 @@ export async function PATCH(
         updateData.servedAt = now;
         updateData.servedBy = authResult.user.id;
         break;
-      case 'cancelled':
+      case 'CANCELLED':
         // Orders can be cancelled at any stage
         break;
     }

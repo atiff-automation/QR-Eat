@@ -77,18 +77,18 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where }),
 
       // Orders by status
-      prisma.order.count({ where: { ...where, status: 'pending' } }),
-      prisma.order.count({ where: { ...where, status: 'confirmed' } }),
-      prisma.order.count({ where: { ...where, status: 'preparing' } }),
-      prisma.order.count({ where: { ...where, status: 'ready' } }),
-      prisma.order.count({ where: { ...where, status: 'served' } }),
-      prisma.order.count({ where: { ...where, status: 'cancelled' } }),
+      prisma.order.count({ where: { ...where, status: 'PENDING' } }),
+      prisma.order.count({ where: { ...where, status: 'CONFIRMED' } }),
+      prisma.order.count({ where: { ...where, status: 'PREPARING' } }),
+      prisma.order.count({ where: { ...where, status: 'READY' } }),
+      prisma.order.count({ where: { ...where, status: 'SERVED' } }),
+      prisma.order.count({ where: { ...where, status: 'CANCELLED' } }),
 
       // Revenue calculations
       prisma.order.aggregate({
         where: {
           ...where,
-          status: { not: 'cancelled' },
+          status: { not: 'CANCELLED' },
         },
         _sum: {
           totalAmount: true,

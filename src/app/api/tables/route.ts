@@ -58,8 +58,8 @@ export async function GET(request: NextRequest) {
               where: {
                 status: {
                   // Only count orders actively being prepared
-                  // Excludes 'ready' (ready to serve) and terminal states
-                  in: ['pending', 'confirmed', 'preparing'],
+                  // Excludes 'READY' (ready to serve) and terminal states
+                  in: ['PENDING', 'CONFIRMED', 'PREPARING'],
                 },
               },
             },
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
         orders: {
           where: {
             status: {
-              in: ['pending', 'confirmed', 'preparing', 'ready'],
+              in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'],
             },
           },
           orderBy: {
@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
         capacity: parseInt(capacity),
         locationDescription,
         qrCodeToken,
-        status: 'available',
+        status: 'AVAILABLE',
       },
     });
 

@@ -129,7 +129,7 @@ export async function GET(
           totalOrders: orderAnalytics.reduce((sum, item) => sum + item._count.id, 0),
           totalRevenue: orderAnalytics.reduce((sum, item) => sum + Number(item._sum.totalAmount || 0), 0),
           averageOrderValue: orderAnalytics.reduce((sum, item) => sum + Number(item._avg.totalAmount || 0), 0) / Math.max(orderAnalytics.length, 1),
-          completedOrders: statusDistribution.find(s => s.status === 'served')?._count.id || 0
+          completedOrders: statusDistribution.find(s => s.status === 'SERVED')?._count.id || 0
         },
         statusDistribution: statusDistribution.map(item => ({
           status: item.status,
@@ -210,7 +210,7 @@ async function getOrderTrends(restaurantId: string, startDate: Date, endDate: Da
     const data = groupedData.get(key);
     data.orders += 1;
     data.revenue += Number(order.totalAmount);
-    if (order.status === 'served') {
+    if (order.status === 'SERVED') {
       data.completedOrders += 1;
     }
   });
@@ -254,7 +254,7 @@ async function getAverageOrderValue(restaurantId: string, startDate: Date, endDa
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     select: {
       createdAt: true,
@@ -314,7 +314,7 @@ async function getOrderCompletionTimes(restaurantId: string, startDate: Date, en
         gte: startDate,
         lte: endDate
       },
-      status: 'served',
+      status: 'SERVED',
       confirmedAt: {
         not: null
       },

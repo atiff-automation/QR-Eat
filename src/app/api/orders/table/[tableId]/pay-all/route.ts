@@ -2,7 +2,7 @@
  * Pay All Orders for a Table
  *
  * Processes payment for all pending orders at a table.
- * Updates all orders to 'paid' status and table to 'available'.
+ * Updates all orders to 'PAID' status and table to 'AVAILABLE'.
  *
  * @route POST /api/orders/table/[tableId]/pay-all
  */
@@ -35,7 +35,7 @@ export async function POST(
       const orders = await tx.order.findMany({
         where: {
           tableId: validTableId,
-          status: 'pending',
+          status: 'PENDING',
         },
       });
 
@@ -63,8 +63,8 @@ export async function POST(
           const updatedOrder = await tx.order.update({
             where: { id: order.id },
             data: {
-              status: 'confirmed',
-              paymentStatus: 'paid',
+              status: 'CONFIRMED',
+              paymentStatus: 'PAID',
             },
           });
 
@@ -76,7 +76,7 @@ export async function POST(
               amount: order.totalAmount,
               processingFee: 0,
               netAmount: order.totalAmount,
-              status: 'completed',
+              status: 'COMPLETED',
               processedAt: new Date(),
               completedAt: new Date(),
             },
@@ -89,17 +89,17 @@ export async function POST(
       // Update table status to available
       await tx.table.update({
         where: { id: validTableId },
-        data: { status: 'available' },
+        data: { status: 'AVAILABLE' },
       });
 
       // End all customer sessions for this table
       await tx.customerSession.updateMany({
         where: {
           tableId: validTableId,
-          status: 'active',
+          status: 'ACTIVE',
         },
         data: {
-          status: 'ended',
+          status: 'ENDED',
           endedAt: new Date(),
         },
       });

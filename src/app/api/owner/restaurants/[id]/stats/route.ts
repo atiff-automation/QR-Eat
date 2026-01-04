@@ -103,7 +103,7 @@ export async function GET(
       where: {
         restaurantId,
         status: {
-          in: ['pending', 'preparing', 'ready'],
+          in: ['PENDING', 'PREPARING', 'READY'],
         },
       },
     });

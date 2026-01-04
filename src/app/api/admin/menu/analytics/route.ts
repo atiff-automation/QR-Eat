@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
           lte: endDate
         },
         status: {
-          not: 'cancelled'
+          not: 'CANCELLED'
         }
       }
     };
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
             lte: endDate
           },
           status: {
-            not: 'cancelled'
+            not: 'CANCELLED'
           }
         }
       },
@@ -260,7 +260,7 @@ export async function GET(request: NextRequest) {
               lte: todayEnd
             },
             status: {
-              not: 'cancelled'
+              not: 'CANCELLED'
             }
           }
         },

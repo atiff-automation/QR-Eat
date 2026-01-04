@@ -25,7 +25,7 @@ export async function GET(
     const orders = await prisma.order.findMany({
       where: {
         tableId: validTableId,
-        status: 'pending', // Only pending orders
+        status: 'PENDING', // Only pending orders
       },
       include: {
         items: {

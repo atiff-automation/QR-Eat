@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
         customerPhone: customerInfo?.phone,
         customerEmail: customerInfo?.email,
         expiresAt,
-        status: 'active',
+        status: 'ACTIVE',
       },
     });
 
@@ -99,8 +99,8 @@ export async function POST(request: NextRequest) {
         serviceCharge: totals.serviceCharge,
         discountAmount: 0,
         totalAmount: totals.totalAmount,
-        status: 'pending',
-        paymentStatus: 'pending',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
         specialInstructions,
         estimatedReadyTime,
       },
@@ -117,7 +117,7 @@ export async function POST(request: NextRequest) {
             unitPrice: item.unitPrice,
             totalAmount: item.totalPrice,
             specialInstructions: item.specialInstructions,
-            status: 'pending',
+            status: 'PENDING',
           },
         });
 
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
     // Update table status
     await prisma.table.update({
       where: { id: tableId },
-      data: { status: 'occupied' },
+      data: { status: 'OCCUPIED' },
     });
 
     // Publish PostgreSQL NOTIFY event for new order

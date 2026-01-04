@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
       prisma.order.aggregate({
         where: {
           restaurantId: { in: restaurantIds },
-          status: 'completed',
+          status: 'COMPLETED',
           createdAt: { gte: startDate }
         },
         _sum: { totalAmount: true }
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
       prisma.order.aggregate({
         where: {
           restaurantId: { in: restaurantIds },
-          status: 'completed',
+          status: 'COMPLETED',
           createdAt: { gte: startDate }
         },
         _avg: { totalAmount: true }

@@ -206,11 +206,11 @@ export async function PATCH(
     };
 
     // Set timestamps based on status
-    if (status === 'confirmed' && !updateData.confirmedAt) {
+    if (status === 'CONFIRMED' && !updateData.confirmedAt) {
       updateData.confirmedAt = new Date();
-    } else if (status === 'ready' && !updateData.readyAt) {
+    } else if (status === 'READY' && !updateData.readyAt) {
       updateData.readyAt = new Date();
-    } else if (status === 'served' && !updateData.servedAt) {
+    } else if (status === 'SERVED' && !updateData.servedAt) {
       updateData.servedAt = new Date();
     }
 
@@ -253,10 +253,10 @@ export async function PATCH(
     });
 
     // Update table status if order is completed/cancelled
-    if (status === 'served' || status === 'cancelled') {
+    if (status === 'SERVED' || status === 'CANCELLED') {
       await prisma.table.update({
         where: { id: order.tableId },
-        data: { status: 'available' },
+        data: { status: 'AVAILABLE' },
       });
     }
 
@@ -312,7 +312,7 @@ export async function DELETE(
         }
 
         // 2. Validate status
-        if (!['pending', 'confirmed'].includes(order.status)) {
+        if (!['PENDING', 'CONFIRMED'].includes(order.status)) {
           throw new Error(
             `Cannot cancel order with status: ${order.status}. Only pending or confirmed orders can be cancelled.`
           );
@@ -353,7 +353,7 @@ export async function DELETE(
         await tx.order.update({
           where: { id: orderId },
           data: {
-            status: 'cancelled',
+            status: 'CANCELLED',
             version: { increment: 1 },
             lastModifiedAt: new Date(),
           },
@@ -361,7 +361,7 @@ export async function DELETE(
 
         // 7. Check refund
         let refundNeeded = null;
-        if (order.paymentStatus === 'completed') {
+        if (order.paymentStatus === 'COMPLETED') {
           refundNeeded = order.totalAmount;
         }
 

@@ -174,7 +174,7 @@ export async function POST(request: NextRequest) {
       const conflictingReservation = await prisma.reservation.findFirst({
         where: {
           tableId,
-          status: { in: ['confirmed', 'pending'] },
+          status: { in: ['CONFIRMED', 'PENDING'] },
           reservationDate: {
             gte: timeSlotStart,
             lte: timeSlotEnd
@@ -201,7 +201,7 @@ export async function POST(request: NextRequest) {
         partySize,
         reservationDate: new Date(reservationDate),
         specialRequests,
-        status: 'pending',
+        status: 'PENDING',
         confirmationCode: generateConfirmationCode()
       },
       include: {

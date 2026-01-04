@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
         gte: start,
         lte: end
       },
-      status: { in: ['completed', 'paid'] }
+      status: { in: ['COMPLETED', 'PAID'] }
     };
 
     // Apply restaurant filter based on user type
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           gte: start,
           lte: end
         },
-        status: { in: ['completed', 'paid'] },
+        status: { in: ['COMPLETED', 'PAID'] },
         restaurantId
       };
     }

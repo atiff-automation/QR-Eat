@@ -34,9 +34,9 @@ export async function PATCH(
 
     // Validate status
     const validStatuses = [
-      'available',
-      'occupied',
-      'reserved',
+      'AVAILABLE',
+      'OCCUPIED',
+      'RESERVED',
       'cleaning',
       'maintenance',
     ];

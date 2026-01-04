@@ -207,8 +207,8 @@ export async function POST(request: NextRequest) {
         serviceCharge: totals.serviceCharge,
         discountAmount: 0,
         totalAmount: totals.totalAmount,
-        status: 'pending',
-        paymentStatus: 'pending',
+        status: 'PENDING',
+        paymentStatus: 'PENDING',
         specialInstructions,
         estimatedReadyTime,
       },
@@ -225,7 +225,7 @@ export async function POST(request: NextRequest) {
             unitPrice: cartItem.unitPrice,
             totalAmount: cartItem.subtotal,
             specialInstructions: cartItem.specialInstructions,
-            status: 'pending',
+            status: 'PENDING',
           },
         });
 
@@ -250,10 +250,10 @@ export async function POST(request: NextRequest) {
     // This is the PRIMARY trigger for marking a table as occupied
     const previousTableStatus = table.status;
 
-    if (previousTableStatus !== 'occupied') {
+    if (previousTableStatus !== 'OCCUPIED') {
       await prisma.table.update({
         where: { id: tableId },
-        data: { status: 'occupied' },
+        data: { status: 'OCCUPIED' },
       });
 
       console.log(
@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
         tableId,
         restaurantId: table.restaurant.id,
         previousStatus: previousTableStatus,
-        newStatus: 'occupied',
+        newStatus: 'OCCUPIED',
         updatedBy: 'customer',
         timestamp: Date.now(),
       });
@@ -282,7 +282,7 @@ export async function POST(request: NextRequest) {
     await prisma.customerSession.update({
       where: { id: tableCart.sessionId },
       data: {
-        status: 'ended',
+        status: 'ENDED',
         endedAt: new Date(),
       },
     });

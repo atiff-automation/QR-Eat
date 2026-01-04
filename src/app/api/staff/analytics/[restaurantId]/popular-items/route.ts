@@ -117,7 +117,7 @@ async function getTopSellingItems(restaurantId: string, startDate: Date, endDate
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -185,7 +185,7 @@ async function getTopRevenueItems(restaurantId: string, startDate: Date, endDate
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -253,7 +253,7 @@ async function getMostFrequentItems(restaurantId: string, startDate: Date, endDa
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -324,7 +324,7 @@ async function getTrendingItems(restaurantId: string, startDate: Date, endDate: 
         gte: startDate,
         lt: midDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -335,7 +335,7 @@ async function getTrendingItems(restaurantId: string, startDate: Date, endDate: 
         gte: midDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -472,7 +472,7 @@ async function getUnderperformingItems(restaurantId: string, startDate: Date, en
           gte: startDate,
           lte: endDate
         },
-        status: 'served'
+        status: 'SERVED'
       },
       menuItemId: {
         in: allItems.map(item => item.id)
@@ -539,7 +539,7 @@ async function getItemsByTimeOfDay(restaurantId: string, startDate: Date, endDat
           gte: startDate,
           lte: endDate
         },
-        status: 'served'
+        status: 'SERVED'
       }
     },
     include: {
@@ -618,7 +618,7 @@ async function getCustomerFavorites(restaurantId: string, startDate: Date, endDa
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     }
   };
 
@@ -665,7 +665,7 @@ async function getCustomerFavorites(restaurantId: string, startDate: Date, endDa
               gte: startDate,
               lte: endDate
             },
-            status: 'served'
+            status: 'SERVED'
           }
         },
         select: {

@@ -74,7 +74,7 @@ export async function GET(
         where: {
           restaurantId,
           status: {
-            in: ['pending', 'preparing', 'ready']
+            in: ['PENDING', 'PREPARING', 'READY']
           }
         }
       }),
@@ -83,7 +83,7 @@ export async function GET(
       prisma.order.count({
         where: {
           restaurantId,
-          status: 'completed',
+          status: 'COMPLETED',
           createdAt: {
             gte: todayStart
           }

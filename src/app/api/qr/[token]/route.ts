@@ -92,9 +92,9 @@ export async function GET(
         },
       },
       // Include status info for frontend to handle ordering restrictions
-      canOrder: table.status === 'available',
+      canOrder: table.status === 'AVAILABLE',
       statusMessage:
-        table.status === 'available'
+        table.status === 'AVAILABLE'
           ? null
           : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`,
     });

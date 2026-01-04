@@ -122,7 +122,7 @@ async function getRevenueAnalytics(restaurantId: string, startDate: Date, endDat
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     select: {
       createdAt: true,
@@ -203,7 +203,7 @@ async function getCategoryRevenue(restaurantId: string, startDate: Date, endDate
           gte: startDate,
           lte: endDate
         },
-        status: 'served'
+        status: 'SERVED'
       }
     },
     _sum: {
@@ -270,9 +270,9 @@ async function getPaymentMethodRevenue(restaurantId: string, startDate: Date, en
           gte: startDate,
           lte: endDate
         },
-        status: 'served'
+        status: 'SERVED'
       },
-      status: 'completed'
+      status: 'COMPLETED'
     },
     _sum: {
       amount: true
@@ -303,7 +303,7 @@ async function getRevenueGrowth(restaurantId: string, startDate: Date, endDate: 
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     _sum: {
       totalAmount: true
@@ -321,7 +321,7 @@ async function getRevenueGrowth(restaurantId: string, startDate: Date, endDate: 
         gte: previousStartDate,
         lte: previousEndDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     _sum: {
       totalAmount: true
@@ -366,7 +366,7 @@ async function getRevenueForecast(restaurantId: string, startDate: Date, endDate
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     select: {
       createdAt: true,
@@ -432,7 +432,7 @@ async function getTaxAnalytics(restaurantId: string, startDate: Date, endDate: D
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     _sum: {
       subtotalAmount: true,
@@ -469,7 +469,7 @@ async function getRefundAnalytics(restaurantId: string, startDate: Date, endDate
         }
       },
       status: {
-        in: ['refunded', 'partially_refunded']
+        in: ['REFUNDED', 'partially_refunded']
       }
     },
     _sum: {
@@ -491,7 +491,7 @@ async function getRefundAnalytics(restaurantId: string, startDate: Date, endDate
         gte: startDate,
         lte: endDate
       },
-      status: 'served'
+      status: 'SERVED'
     },
     _sum: {
       totalAmount: true

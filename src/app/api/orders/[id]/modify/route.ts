@@ -58,7 +58,7 @@ export async function PATCH(
         }
 
         // 2. Validate order status
-        if (!['pending', 'confirmed', 'preparing'].includes(order.status)) {
+        if (!['PENDING', 'CONFIRMED', 'PREPARING'].includes(order.status)) {
           throw new Error(
             `Cannot modify order with status: ${order.status}. Only pending, confirmed, or preparing orders can be modified.`
           );
@@ -214,7 +214,7 @@ export async function PATCH(
         // 9. Check if refund needed
         let refundNeeded = null;
         if (
-          order.paymentStatus === 'completed' &&
+          order.paymentStatus === 'COMPLETED' &&
           totals.totalAmount < Number(order.totalAmount)
         ) {
           refundNeeded = Number(order.totalAmount) - totals.totalAmount;

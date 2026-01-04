@@ -48,10 +48,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Exclude served, cancelled, and completed orders when requested (for active orders view)
-    // Note: 'completed' is not a valid ordering cycle status (it's for payment cycle),
+    // Note: 'COMPLETED' is not a valid ordering cycle status (it's for payment cycle),
     // but we exclude it as a safeguard against invalid data
     if (excludeServed && (!status || status === 'all')) {
-      where.status = { notIn: ['served', 'cancelled', 'completed'] };
+      where.status = { notIn: ['SERVED', 'CANCELLED', 'COMPLETED'] };
     }
 
     // Calculate lapsed active orders (Safety Check)
@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       // Check for active orders created BEFORE the start date
       const lapsedWhere: Prisma.OrderWhereInput = {
         ...createRestaurantFilter(context!), // Base tenant filter
-        status: { in: ['pending', 'confirmed', 'preparing', 'ready'] }, // Active statuses
+        status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] }, // Active statuses
         createdAt: {
           lt: new Date(startDateParam),
         },
@@ -104,12 +104,12 @@ export async function GET(request: NextRequest) {
         // Include restaurant data for platform admins
         restaurant: context!.isAdmin
           ? {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-              },
-            }
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          }
           : false,
       },
       orderBy: {

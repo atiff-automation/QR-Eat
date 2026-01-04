@@ -219,7 +219,7 @@ async function generateSalesReport(
           gte: startDate,
           lte: endDate,
         },
-        status: 'served',
+        status: 'SERVED',
       },
       _sum: {
         totalAmount: true,
@@ -291,7 +291,7 @@ async function generateMenuReport(
               gte: startDate,
               lte: endDate,
             },
-            status: 'served',
+            status: 'SERVED',
           },
         },
       },
@@ -367,7 +367,7 @@ async function generateFinancialReport(
         gte: startDate,
         lte: endDate,
       },
-      status: 'served',
+      status: 'SERVED',
     },
     _sum: {
       totalAmount: true,
@@ -387,7 +387,7 @@ async function generateFinancialReport(
           lte: endDate,
         },
       },
-      status: 'completed',
+      status: 'COMPLETED',
     },
     _sum: {
       amount: true,
@@ -408,7 +408,7 @@ async function generateFinancialReport(
         },
       },
       status: {
-        in: ['refunded', 'partially_refunded'],
+        in: ['REFUNDED', 'partially_refunded'],
       },
     },
     _sum: {
@@ -600,7 +600,7 @@ async function getDailySalesBreakdown(
         gte: startDate,
         lte: endDate,
       },
-      status: 'served',
+      status: 'SERVED',
     },
     select: {
       createdAt: true,
@@ -640,7 +640,7 @@ async function getCategorySales(
           gte: startDate,
           lte: endDate,
         },
-        status: 'served',
+        status: 'SERVED',
       },
     },
     _sum: {
@@ -695,7 +695,7 @@ async function getTopSellingItems(
           gte: startDate,
           lte: endDate,
         },
-        status: 'served',
+        status: 'SERVED',
       },
     },
     _sum: {
@@ -748,7 +748,7 @@ async function getOrderProcessingTimes(
         gte: startDate,
         lte: endDate,
       },
-      status: 'served',
+      status: 'SERVED',
       confirmedAt: { not: null },
       servedAt: { not: null },
     },

@@ -59,7 +59,7 @@ export async function GET(
     const orders = await prisma.order.findMany({
       where: {
         tableId: tableId,
-        paymentStatus: 'pending', // Only unpaid orders
+        paymentStatus: 'PENDING', // Only unpaid orders
       },
       include: {
         table: {
@@ -102,7 +102,7 @@ export async function GET(
     const paidOrders = await prisma.order.aggregate({
       where: {
         tableId: tableId,
-        paymentStatus: 'completed',
+        paymentStatus: 'COMPLETED',
       },
       _sum: {
         totalAmount: true,

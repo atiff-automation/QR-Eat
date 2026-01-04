@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
             capacity: parseInt(table.capacity),
             locationDescription: table.locationDescription || '',
             qrCodeToken: uuidv4(),
-            status: 'available',
+            status: 'AVAILABLE',
           },
         })
       )
@@ -149,9 +149,9 @@ export async function PATCH(request: NextRequest) {
     }
 
     const validStatuses = [
-      'available',
-      'occupied',
-      'reserved',
+      'AVAILABLE',
+      'OCCUPIED',
+      'RESERVED',
       'cleaning',
       'out_of_service',
     ];

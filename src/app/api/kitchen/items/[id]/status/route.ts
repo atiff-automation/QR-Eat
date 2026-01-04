@@ -48,7 +48,7 @@ export async function PATCH(
     }
 
     // Validate status
-    const validStatuses = ['pending', 'preparing', 'ready'];
+    const validStatuses = ['PENDING', 'PREPARING', 'READY'];
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
@@ -112,20 +112,20 @@ export async function PATCH(
     });
 
     // Check if all items in the order are ready, then update order status
-    if (status === 'ready') {
+    if (status === 'READY') {
       const allOrderItems = await prisma.orderItem.findMany({
         where: { orderId: orderItem.order.id },
       });
 
       const allItemsReady = allOrderItems.every(
-        (item) => item.status === 'ready'
+        (item) => item.status === 'READY'
       );
 
-      if (allItemsReady && orderItem.order.status === 'preparing') {
+      if (allItemsReady && orderItem.order.status === 'PREPARING') {
         await prisma.order.update({
           where: { id: orderItem.order.id },
           data: {
-            status: 'ready',
+            status: 'READY',
             readyAt: new Date(),
             updatedAt: new Date(),
           },
@@ -134,8 +134,8 @@ export async function PATCH(
         // Publish order status change event
         await PostgresEventManager.publishOrderStatusChange({
           orderId: orderItem.order.id,
-          oldStatus: 'preparing',
-          newStatus: 'ready',
+          oldStatus: 'PREPARING',
+          newStatus: 'READY',
           restaurantId: orderItem.order.restaurantId,
           tableId: '', // Not available in this context
           orderNumber: '', // Not available in this context
