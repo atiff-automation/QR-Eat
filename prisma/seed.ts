@@ -1020,6 +1020,8 @@ async function main() {
         'menu:read',
         'menu:write',
         'settings:read',
+        'payments:read',
+        'payments:write',
       ],
     },
     {
@@ -1037,7 +1039,6 @@ async function main() {
         'orders:read',
         'orders:kitchen',
         'orders:update', // Can view and update order progress
-        'menu:read', // Can view menu items for order details
       ],
     },
     {
@@ -1047,6 +1048,8 @@ async function main() {
         'orders:write',
         'payments:read',
         'payments:write',
+        'tables:read', // Need to see which table customer is from
+        'menu:read', // Need to see item details for payment verification
       ],
     },
   ];
