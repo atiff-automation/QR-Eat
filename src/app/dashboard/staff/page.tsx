@@ -366,16 +366,12 @@ function StaffPageContent() {
         - Title lives in Nav (assumed), but we'll keep a minimal one here just in case.
         - Horizontal Pills for Roles (like Menu Categories).
       */}
+      {/* 
+        Phase 3: Menu-Aligned UI 
+        - Title lives in DashboardLayout.
+        - Horizontal Pills for Roles (like Menu Categories).
+      */}
       <div className="px-5 pt-6 pb-2">
-        <div className="flex items-center justify-between mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Staff{' '}
-            <span className="text-gray-400 font-normal ml-1">
-              ({staff.length})
-            </span>
-          </h1>
-        </div>
-
         {/* Phase 4: Menu-Style Dropdown Filter */}
         <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-4">
           <div className="flex-1 max-w-xs">
@@ -675,7 +671,9 @@ function StaffPageContent() {
                 onClick={closeModals}
                 className="p-1 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
               >
-                <div className="w-5 h-5 flex items-center justify-center">✕</div>
+                <div className="w-5 h-5 flex items-center justify-center">
+                  ✕
+                </div>
               </button>
             </div>
 
@@ -683,55 +681,90 @@ function StaffPageContent() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">First Name</label>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                      First Name
+                    </label>
                     <input
                       type="text"
                       required
                       value={formData.firstName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          firstName: e.target.value,
+                        }))
+                      }
                       className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Last Name</label>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                      Last Name
+                    </label>
                     <input
                       type="text"
                       required
                       value={formData.lastName}
-                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          lastName: e.target.value,
+                        }))
+                      }
                       className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Email</label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Email
+                  </label>
                   <input
                     type="email"
                     required
                     value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Phone</label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Phone
+                  </label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        phone: e.target.value,
+                      }))
+                    }
                     className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Role</label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+                    Role
+                  </label>
                   <div className="relative">
                     <select
                       required
                       value={formData.roleId}
-                      onChange={(e) => setFormData(prev => ({ ...prev, roleId: e.target.value }))}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          roleId: e.target.value,
+                        }))
+                      }
                       className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 appearance-none"
                     >
                       <option value="">Select a role...</option>
@@ -749,10 +782,17 @@ function StaffPageContent() {
 
                 {/* Status Toggle */}
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-                  <span className="text-sm font-medium text-gray-900">Account Status</span>
+                  <span className="text-sm font-medium text-gray-900">
+                    Account Status
+                  </span>
                   <button
                     type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        isActive: !prev.isActive,
+                      }))
+                    }
                     className={`
                       relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
                       ${formData.isActive ? 'bg-green-500' : 'bg-gray-200'}
