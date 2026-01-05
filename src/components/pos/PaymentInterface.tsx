@@ -13,7 +13,6 @@
 
 import { useState } from 'react';
 import type { PaymentMethod, OrderWithDetails } from '@/types/pos';
-import { processPayment } from '@/lib/services/payment-service';
 import { OrderDetails } from './OrderDetails';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
 import { CashPaymentForm } from './CashPaymentForm';
@@ -57,11 +56,33 @@ export function PaymentInterface({
   const totalAmount = calculateTotalAmount();
   const isTablePayment = relatedOrders.length > 0;
 
+  // For table payments, create a combined order for display
+  const displayOrder = isTablePayment
+    ? {
+        ...order,
+        orderNumber: `TABLE-${relatedOrders.length}-ORDERS`,
+        totalAmount,
+        subtotalAmount: relatedOrders.reduce(
+          (sum, o) => sum + Number(o.subtotalAmount),
+          0
+        ),
+        taxAmount: relatedOrders.reduce(
+          (sum, o) => sum + Number(o.taxAmount || 0),
+          0
+        ),
+        serviceCharge: relatedOrders.reduce(
+          (sum, o) => sum + Number(o.serviceCharge || 0),
+          0
+        ),
+        items: relatedOrders.flatMap((o) => o.items || []),
+      }
+    : order;
+
   console.log('[PaymentInterface] Payment setup:', {
     orderId: order.id,
     tableId: order.tableId,
     relatedOrdersCount: relatedOrders.length,
-    relatedOrderIds: relatedOrders.map(o => o.id),
+    relatedOrderIds: relatedOrders.map((o) => o.id),
     isTablePayment,
     totalAmount,
   });
@@ -73,13 +94,31 @@ export function PaymentInterface({
 
     try {
       console.log('[PaymentInterface] Calling processPayment service...');
-      const result = await processPayment({
-        orderId: order.id,
-        paymentMethod: 'cash',
-        cashReceived: data.cashReceived,
-        payFullTable: isTablePayment, // Send flag if we have related orders (table payment)
-      });
+
+      // Use table payment endpoint if this is a table payment
+      const result = isTablePayment
+        ? await import('@/lib/services/payment-service').then((m) =>
+            m.processTablePayment(order.tableId, {
+              paymentMethod: 'cash',
+              cashReceived: data.cashReceived,
+            })
+          )
+        : await import('@/lib/services/payment-service').then((m) =>
+            m.processPayment({
+              orderId: order.id,
+              paymentMethod: 'cash',
+              cashReceived: data.cashReceived,
+            })
+          );
+
       console.log('[PaymentInterface] processPayment result:', result);
+      console.log('[PaymentInterface] Payment object:', {
+        hasPayment: !!result.payment,
+        hasOrder: !!result.payment?.order,
+        itemsCount: result.payment?.order?.items?.length || 0,
+        orderNumber: result.payment?.order?.orderNumber,
+        totalAmount: result.payment?.order?.totalAmount,
+      });
 
       if (result.success) {
         setCompletedPayment(result.payment);
@@ -104,11 +143,19 @@ export function PaymentInterface({
     setError('');
 
     try {
-      const result = await processPayment({
-        orderId: order.id,
-        paymentMethod: selectedMethod,
-        payFullTable: isTablePayment,
-      });
+      // Use table payment endpoint if this is a table payment
+      const result = isTablePayment
+        ? await import('@/lib/services/payment-service').then((m) =>
+            m.processTablePayment(order.tableId, {
+              paymentMethod: selectedMethod,
+            })
+          )
+        : await import('@/lib/services/payment-service').then((m) =>
+            m.processPayment({
+              orderId: order.id,
+              paymentMethod: selectedMethod,
+            })
+          );
 
       if (result.success) {
         setCompletedPayment(result.payment);
@@ -157,7 +204,7 @@ export function PaymentInterface({
           {/* Content: Scrollable area - Single column for mobile */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {/* Order Details */}
-            <OrderDetails order={order} />
+            <OrderDetails order={displayOrder} />
 
             {/* Error Message */}
             {error && (
@@ -222,7 +269,7 @@ export function PaymentInterface({
 
       {completedPayment && (
         <Receipt
-          order={order}
+          order={completedPayment.order}
           payment={completedPayment}
           onClose={handleReceiptClose}
         />

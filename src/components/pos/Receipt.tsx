@@ -15,6 +15,16 @@ import { formatReceiptData } from '@/lib/utils/receipt-formatter';
 import { Printer, X } from 'lucide-react';
 
 export function Receipt({ order, payment, onClose }: ReceiptProps) {
+  console.log('[Receipt] Order data:', {
+    orderNumber: order.orderNumber,
+    itemsCount: order.items?.length || 0,
+    items: order.items?.map((i) => ({
+      name: i.menuItem?.name,
+      quantity: i.quantity,
+      totalAmount: i.totalAmount,
+    })),
+  });
+
   const receiptText = formatReceiptData({
     receiptNumber: payment.receiptNumber || 'N/A',
     order,

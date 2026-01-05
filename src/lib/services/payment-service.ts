@@ -47,6 +47,32 @@ export async function processPayment(
 }
 
 /**
+ * Process payment for all orders on a table
+ *
+ * Uses dedicated table payment endpoint that processes all PENDING orders
+ * for a table in a single transaction.
+ */
+export async function processTablePayment(
+  tableId: string,
+  data: Omit<PaymentProcessRequest, 'orderId' | 'payFullTable'>
+): Promise<PaymentProcessResult> {
+  console.log(
+    '[PaymentService] Sending table payment request:',
+    `/api/pos/payment/table/${tableId}`,
+    data
+  );
+  return ApiClient.post<PaymentProcessResult>(
+    `/api/pos/payment/table/${tableId}`,
+    {
+      paymentMethod: data.paymentMethod,
+      cashReceived: data.cashReceived,
+      externalTransactionId: data.externalTransactionId,
+      notes: data.notes,
+    }
+  );
+}
+
+/**
  * Fetch pending orders for POS dashboard
  *
  * Uses centralized ApiClient for:
