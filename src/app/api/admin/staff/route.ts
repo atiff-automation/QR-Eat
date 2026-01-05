@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { UserType, AuthService } from '@/lib/auth';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission 
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
 } from '@/lib/tenant-context';
 import { generateStaffPassword } from '@/lib/password-generator';
 import { UsernameGenerator } from '@/lib/username-generator';
@@ -20,16 +20,16 @@ export async function GET(request: NextRequest) {
     if (context!.userType === UserType.RESTAURANT_OWNER) {
       const ownerRestaurant = await prisma.restaurant.findFirst({
         where: { ownerId: context!.userId },
-        select: { id: true }
+        select: { id: true },
       });
-      
+
       if (!ownerRestaurant) {
         return NextResponse.json(
           { error: 'No restaurant found for owner' },
           { status: 404 }
         );
       }
-      
+
       restaurantId = ownerRestaurant.id;
     } else {
       restaurantId = context!.restaurantId!;
@@ -38,19 +38,18 @@ export async function GET(request: NextRequest) {
     const staff = await prisma.staff.findMany({
       where: { restaurantId },
       include: {
-        role: true
+        role: true,
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     return NextResponse.json({
       success: true,
-      staff
+      staff,
     });
-
   } catch (error) {
     console.error('Failed to fetch staff:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -59,10 +58,7 @@ export async function GET(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
@@ -79,7 +75,8 @@ export async function POST(request: NextRequest) {
     requireAuth(context);
     requirePermission(context!, 'staff', 'write');
 
-    const { firstName, lastName, email, phone, roleId, isActive } = await request.json();
+    const { firstName, lastName, email, phone, roleId, isActive } =
+      await request.json();
 
     if (!firstName || !lastName || !email || !roleId) {
       return NextResponse.json(
@@ -93,16 +90,16 @@ export async function POST(request: NextRequest) {
     if (context!.userType === UserType.RESTAURANT_OWNER) {
       const ownerRestaurant = await prisma.restaurant.findFirst({
         where: { ownerId: context!.userId },
-        select: { id: true }
+        select: { id: true },
       });
-      
+
       if (!ownerRestaurant) {
         return NextResponse.json(
           { error: 'No restaurant found for owner' },
           { status: 404 }
         );
       }
-      
+
       restaurantId = ownerRestaurant.id;
     } else {
       restaurantId = context!.restaurantId!;
@@ -111,7 +108,7 @@ export async function POST(request: NextRequest) {
     // Generate unique username
     const checkUsernameExists = async (username: string): Promise<boolean> => {
       const existing = await prisma.staff.findFirst({
-        where: { username }
+        where: { username },
       });
       return !!existing;
     };
@@ -127,7 +124,7 @@ export async function POST(request: NextRequest) {
 
     // Check if email already exists
     const existingStaff = await prisma.staff.findUnique({
-      where: { email: email.toLowerCase() }
+      where: { email: email.toLowerCase() },
     });
 
     if (existingStaff) {
@@ -139,7 +136,7 @@ export async function POST(request: NextRequest) {
 
     // Verify role exists and belongs to restaurant
     const role = await prisma.staffRole.findUnique({
-      where: { id: roleId }
+      where: { id: roleId },
     });
 
     if (!role) {
@@ -152,29 +149,49 @@ export async function POST(request: NextRequest) {
     // Hash password (using generated password)
     const passwordHash = await AuthService.hashPassword(generatedPassword);
 
-    // Create staff member
-    const staff = await prisma.staff.create({
-      data: {
-        restaurantId,
-        roleId,
-        email: email.toLowerCase(),
-        username: generatedUsername,
-        passwordHash,
-        firstName,
-        lastName,
-        phone: phone || null,
-        employeeId: `EMP${Date.now()}`,
-        hireDate: new Date(),
-        hourlyRate: 0,
-        isActive: isActive ?? true,
-        emailVerified: false,
-        mustChangePassword: true, // Force password change on first login
-        passwordChangedAt: new Date()
-      },
-      include: {
-        role: true,
-        restaurant: true
-      }
+    // Create staff member and UserRole in a transaction
+    const staff = await prisma.$transaction(async (tx) => {
+      // Create staff member
+      const newStaff = await tx.staff.create({
+        data: {
+          restaurantId,
+          roleId,
+          email: email.toLowerCase(),
+          username: generatedUsername,
+          passwordHash,
+          firstName,
+          lastName,
+          phone: phone || null,
+          employeeId: `EMP${Date.now()}`,
+          hireDate: new Date(),
+          hourlyRate: 0,
+          isActive: isActive ?? true,
+          emailVerified: false,
+          mustChangePassword: true, // Force password change on first login
+          passwordChangedAt: new Date(),
+        },
+        include: {
+          role: true,
+          restaurant: true,
+        },
+      });
+
+      // Create UserRole record for RBAC authentication
+      // Convert role name to roleTemplate format (e.g., "Kitchen Staff" -> "kitchen_staff")
+      const roleTemplate = role.name.toLowerCase().replace(/\s+/g, '_');
+
+      await tx.userRole.create({
+        data: {
+          userId: newStaff.id,
+          userType: 'staff',
+          roleTemplate: roleTemplate,
+          restaurantId: restaurantId,
+          customPermissions: [],
+          isActive: true,
+        },
+      });
+
+      return newStaff;
     });
 
     return NextResponse.json({
@@ -182,14 +199,13 @@ export async function POST(request: NextRequest) {
       staff,
       credentials: {
         username: generatedUsername,
-        password: generatedPassword
+        password: generatedPassword,
       },
-      message: 'Staff member created successfully'
+      message: 'Staff member created successfully',
     });
-
   } catch (error) {
     console.error('Failed to create staff:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -198,10 +214,7 @@ export async function POST(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
       if (error.message.includes('Unique constraint')) {
         return NextResponse.json(
