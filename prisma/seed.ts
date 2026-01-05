@@ -999,23 +999,24 @@ async function main() {
     {
       template: 'platform_admin',
       permissions: [
+        // Platform Management Only (NO business data access)
         'platform:read',
         'platform:write',
         'platform:delete',
         'restaurants:create',
-        'restaurants:read',
-        'restaurants:write',
+        'restaurants:read', // Metadata only
+        'restaurants:write', // Account status only
         'restaurants:delete',
         'subscriptions:read',
         'subscriptions:write',
         'billing:read',
         'billing:write',
-        'analytics:platform',
-        'analytics:export',
-        'users:read',
-        'users:write',
+        'users:read', // Metadata only
+        'users:write', // Access management only
         'users:delete',
         'settings:platform',
+        // ❌ REMOVED: Business data permissions
+        // 'analytics:platform', 'analytics:export' - Can see platform metrics but not restaurant business data
       ],
     },
     {
@@ -1090,8 +1091,9 @@ async function main() {
         'orders:write',
         'payments:read',
         'payments:write',
-        'tables:read', // Need to see which table customer is from
-        'menu:read', // Need to see item details for payment verification
+        'tables:read',
+        'tables:write', // NEW: Can update table status (like waiters)
+        'menu:read',
       ],
     },
   ];

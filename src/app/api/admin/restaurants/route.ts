@@ -4,6 +4,45 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { validateApiInput, Sanitizer } from '@/lib/validation';
 import { EmailService } from '@/lib/email';
 import { buildLoginUrl } from '@/lib/url-config';
+import { getTenantContext } from '@/lib/tenant-context';
+import { listRestaurantsMetadata } from '@/lib/rbac/platform-admin-context';
+
+/**
+ * GET /api/admin/restaurants
+ * List all restaurants (metadata only)
+ * Platform admin access required
+ */
+export async function GET(request: NextRequest) {
+  try {
+    const context = await getTenantContext(request);
+
+    // Get all restaurants (metadata only, no business data)
+    const restaurants = await listRestaurantsMetadata(context!);
+
+    return NextResponse.json({
+      success: true,
+      data: restaurants,
+    });
+  } catch (error) {
+    console.error('[Admin API] List restaurants error:', error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: {
+          message:
+            error instanceof Error
+              ? error.message
+              : 'Failed to list restaurants',
+        },
+      },
+      {
+        status:
+          error instanceof Error && error.message.includes('admin') ? 403 : 500,
+      }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {

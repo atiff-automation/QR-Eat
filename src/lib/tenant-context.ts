@@ -379,15 +379,50 @@ export async function getUserRestaurants(
 }
 
 /**
+ * Require platform admin access
+ * Throws error if user is not a platform admin
+ */
+export function requirePlatformAdmin(
+  context: TenantContext | null
+): asserts context is TenantContext {
+  if (!context) {
+    throw new Error('Authentication required');
+  }
+
+  if (!context.isAdmin) {
+    throw new Error('Platform admin access required');
+  }
+}
+
+/**
+ * Create a filter for platform admin queries (metadata only)
+ * Platform admins can see all restaurants but only metadata, not business data
+ */
+export function createPlatformAdminFilter(
+  context: TenantContext
+): Record<string, unknown> {
+  requirePlatformAdmin(context);
+
+  // Platform admins can query all restaurants (for metadata)
+  return {};
+}
+
+/**
  * Create a Prisma where clause for restaurant-scoped queries
+ *
+ * IMPORTANT: Platform admins are BLOCKED from using this function.
+ * They should use createPlatformAdminFilter() for metadata-only access.
  */
 export function createRestaurantFilter(
   context: TenantContext,
   restaurantIdField = 'restaurantId'
 ) {
-  // Platform admins see all data
+  // Platform admins CANNOT access business data
   if (context.isAdmin) {
-    return {};
+    throw new Error(
+      'Platform admins cannot access restaurant business data. ' +
+        'Use restaurant owner account for business operations.'
+    );
   }
 
   // Staff see only their restaurant's data
