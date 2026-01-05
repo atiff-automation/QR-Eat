@@ -24,7 +24,6 @@ export default function ChangePasswordPage() {
   const router = useRouter();
 
   useEffect(() => {
-    // Check if user is authenticated and needs to change password
     const checkAuth = async () => {
       try {
         const data = await ApiClient.get<{
@@ -37,7 +36,6 @@ export default function ChangePasswordPage() {
           };
         }>('/auth/me');
 
-        // Only staff and restaurant owners with mustChangePassword should be on this page
         if (
           data.user.userType !== 'staff' &&
           data.user.userType !== 'restaurant_owner'
@@ -46,7 +44,6 @@ export default function ChangePasswordPage() {
           return;
         }
 
-        // If user doesn't need to change password, redirect appropriately
         if (!data.user.mustChangePassword) {
           if (data.user.userType === 'restaurant_owner') {
             router.push('/owner/dashboard');
@@ -77,7 +74,6 @@ export default function ChangePasswordPage() {
     setError('');
     setSuccess('');
 
-    // Validation
     if (!currentPassword || !newPassword || !confirmPassword) {
       setError('Please fill in all fields');
       return;
@@ -108,7 +104,6 @@ export default function ChangePasswordPage() {
 
       setSuccess('Password changed! Logging out...');
 
-      // Log out user after 2 seconds
       setTimeout(async () => {
         await ApiClient.post('/auth/logout');
         router.push(AUTH_ROUTES.LOGIN);
@@ -146,52 +141,50 @@ export default function ChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center py-12 px-4">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      {/* Compact PWA-style Container */}
+      <div className="w-full max-w-sm bg-white border border-gray-200 rounded-xl shadow-sm p-6">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="mx-auto h-16 w-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-            <Lock className="h-8 w-8 text-blue-600" />
+        <div className="text-center mb-6">
+          <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+            <Lock className="h-6 w-6 text-gray-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Change Password</h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Welcome, {userInfo.firstName}
-          </p>
+          <h2 className="text-xl font-bold text-gray-900">Change Password</h2>
+          <p className="mt-1 text-sm text-gray-600">Hi, {userInfo.firstName}</p>
         </div>
 
         {/* Simple Notice */}
-        <div className="bg-blue-50 rounded-lg p-3 mb-6">
+        <div className="bg-blue-50 rounded-lg p-2.5 mb-4">
           <p className="text-xs text-blue-800 text-center">
-            Please set a new password to continue
+            Set a new password to continue
           </p>
         </div>
 
-        {/* Error Message */}
+        {/* Error/Success Messages */}
         {error && (
-          <div className="bg-red-50 rounded-lg p-3 mb-4">
-            <p className="text-sm text-red-800 text-center">{error}</p>
+          <div className="bg-red-50 rounded-lg p-2.5 mb-4">
+            <p className="text-xs text-red-800 text-center">{error}</p>
           </div>
         )}
 
-        {/* Success Message */}
         {success && (
-          <div className="bg-green-50 rounded-lg p-3 mb-4">
-            <p className="text-sm text-green-800 text-center">{success}</p>
+          <div className="bg-green-50 rounded-lg p-2.5 mb-4">
+            <p className="text-xs text-green-800 text-center">{success}</p>
           </div>
         )}
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Compact Form */}
+        <form onSubmit={handleSubmit} className="space-y-3">
           {/* Current Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Current Password
             </label>
             <div className="relative">
               <input
                 type={showCurrentPassword ? 'text' : 'password'}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                 placeholder="Enter current password"
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
@@ -203,9 +196,9 @@ export default function ChangePasswordPage() {
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
               >
                 {showCurrentPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
+                  <EyeOff className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
+                  <Eye className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>
@@ -213,14 +206,14 @@ export default function ChangePasswordPage() {
 
           {/* New Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               New Password
             </label>
             <div className="relative">
               <input
                 type={showNewPassword ? 'text' : 'password'}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                 placeholder="Enter new password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
@@ -232,9 +225,9 @@ export default function ChangePasswordPage() {
                 onClick={() => setShowNewPassword(!showNewPassword)}
               >
                 {showNewPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
+                  <EyeOff className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
+                  <Eye className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>
@@ -243,14 +236,14 @@ export default function ChangePasswordPage() {
 
           {/* Confirm Password */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-gray-700 mb-1">
               Confirm Password
             </label>
             <div className="relative">
               <input
                 type={showConfirmPassword ? 'text' : 'password'}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10"
                 placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
@@ -262,20 +255,20 @@ export default function ChangePasswordPage() {
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
               >
                 {showConfirmPassword ? (
-                  <EyeOff className="h-5 w-5 text-gray-400" />
+                  <EyeOff className="h-4 w-4 text-gray-400" />
                 ) : (
-                  <Eye className="h-5 w-5 text-gray-400" />
+                  <Eye className="h-4 w-4 text-gray-400" />
                 )}
               </button>
             </div>
           </div>
 
-          {/* Buttons */}
-          <div className="flex gap-3 pt-2">
+          {/* Compact Buttons */}
+          <div className="flex gap-2 pt-2">
             <button
               type="submit"
               disabled={isLoading}
-              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-all"
+              className="flex-1 py-2.5 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium rounded-lg transition-all"
             >
               {isLoading ? 'Changing...' : 'Change Password'}
             </button>
@@ -283,10 +276,10 @@ export default function ChangePasswordPage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="px-4 py-3 border border-gray-300 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all flex items-center gap-2"
+              className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all"
+              title="Logout"
             >
               <LogOut className="h-4 w-4" />
-              Logout
             </button>
           </div>
         </form>
