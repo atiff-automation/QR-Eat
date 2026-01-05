@@ -29,6 +29,8 @@ export interface OrderWithDetails extends Order {
     customerPhone: string | null;
   } | null;
   items: OrderItemWithDetails[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  metadata?: any;
 }
 
 export interface OrderItemWithDetails {

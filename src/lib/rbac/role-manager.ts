@@ -1,6 +1,6 @@
 /**
  * Role Management System for RBAC
- * 
+ *
  * This file implements role template management and role switching functionality
  * for the enhanced RBAC system.
  */
@@ -16,7 +16,7 @@ import {
   RBACError,
   RoleSwitchError,
   isValidRoleTemplate,
-  isValidUserType
+  isValidUserType,
 } from './types';
 import { PermissionManager } from './permissions';
 
@@ -31,7 +31,9 @@ export class RoleManager {
   /**
    * Get role template permissions
    */
-  static async getRoleTemplatePermissions(template: RoleTemplate): Promise<string[]> {
+  static async getRoleTemplatePermissions(
+    template: RoleTemplate
+  ): Promise<string[]> {
     return await PermissionManager.getTemplatePermissions(template);
   }
 
@@ -41,36 +43,36 @@ export class RoleManager {
   static async getUserRoles(userId: string): Promise<UserRole[]> {
     try {
       const userRoles = await prisma.userRole.findMany({
-        where: { 
+        where: {
           userId,
-          isActive: true 
+          isActive: true,
         },
         include: {
           restaurant: {
             select: {
               id: true,
               name: true,
-              isActive: true
-            }
-          }
+              isActive: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'asc' }
+        orderBy: { createdAt: 'asc' },
       });
 
       // Filter out roles for inactive restaurants
-      const activeRoles = userRoles.filter(role => 
-        !role.restaurantId || role.restaurant?.isActive
+      const activeRoles = userRoles.filter(
+        (role) => !role.restaurantId || role.restaurant?.isActive
       );
 
-      return activeRoles.map(role => ({
+      return activeRoles.map((role) => ({
         id: role.id,
         userType: role.userType as UserType,
         roleTemplate: role.roleTemplate,
         restaurantId: role.restaurantId || undefined,
         customPermissions: role.customPermissions as string[],
-        isActive: role.isActive
+        isActive: role.isActive,
       }));
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get user roles',
         'GET_USER_ROLES_FAILED',
@@ -83,7 +85,7 @@ export class RoleManager {
    * Get user's active role for a specific restaurant
    */
   static async getUserRoleForRestaurant(
-    userId: string, 
+    userId: string,
     restaurantId: string
   ): Promise<UserRole | null> {
     try {
@@ -91,15 +93,15 @@ export class RoleManager {
         where: {
           userId,
           restaurantId,
-          isActive: true
+          isActive: true,
         },
         include: {
           restaurant: {
             select: {
-              isActive: true
-            }
-          }
-        }
+              isActive: true,
+            },
+          },
+        },
       });
 
       if (!userRole || !userRole.restaurant?.isActive) {
@@ -112,9 +114,9 @@ export class RoleManager {
         roleTemplate: userRole.roleTemplate,
         restaurantId: userRole.restaurantId || undefined,
         customPermissions: userRole.customPermissions as string[],
-        isActive: userRole.isActive
+        isActive: userRole.isActive,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get user role for restaurant',
         'GET_RESTAURANT_ROLE_FAILED',
@@ -175,8 +177,8 @@ export class RoleManager {
           where: {
             userId,
             restaurantId,
-            isActive: true
-          }
+            isActive: true,
+          },
         });
 
         if (existingRole) {
@@ -192,7 +194,7 @@ export class RoleManager {
       if (restaurantId) {
         const restaurant = await prisma.restaurant.findUnique({
           where: { id: restaurantId },
-          select: { isActive: true }
+          select: { isActive: true },
         });
 
         if (!restaurant || !restaurant.isActive) {
@@ -212,8 +214,8 @@ export class RoleManager {
           roleTemplate,
           restaurantId,
           customPermissions: customPermissions || [],
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       // Clear permission cache for this user
@@ -225,7 +227,7 @@ export class RoleManager {
         roleTemplate: userRole.roleTemplate,
         restaurantId: userRole.restaurantId || undefined,
         customPermissions: userRole.customPermissions as string[],
-        isActive: userRole.isActive
+        isActive: userRole.isActive,
       };
     } catch (error) {
       if (error instanceof RBACError) {
@@ -252,15 +254,11 @@ export class RoleManager {
   ): Promise<UserRole> {
     try {
       const existingRole = await prisma.userRole.findUnique({
-        where: { id: roleId }
+        where: { id: roleId },
       });
 
       if (!existingRole) {
-        throw new RBACError(
-          `Role not found: ${roleId}`,
-          'ROLE_NOT_FOUND',
-          404
-        );
+        throw new RBACError(`Role not found: ${roleId}`, 'ROLE_NOT_FOUND', 404);
       }
 
       // Validate role template if provided
@@ -276,8 +274,8 @@ export class RoleManager {
         where: { id: roleId },
         data: {
           ...updates,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       // Clear permission cache for this user
@@ -289,7 +287,7 @@ export class RoleManager {
         roleTemplate: updatedRole.roleTemplate,
         restaurantId: updatedRole.restaurantId || undefined,
         customPermissions: updatedRole.customPermissions as string[],
-        isActive: updatedRole.isActive
+        isActive: updatedRole.isActive,
       };
     } catch (error) {
       if (error instanceof RBACError) {
@@ -309,28 +307,24 @@ export class RoleManager {
   static async deleteUserRole(roleId: string): Promise<void> {
     try {
       const existingRole = await prisma.userRole.findUnique({
-        where: { id: roleId }
+        where: { id: roleId },
       });
 
       if (!existingRole) {
-        throw new RBACError(
-          `Role not found: ${roleId}`,
-          'ROLE_NOT_FOUND',
-          404
-        );
+        throw new RBACError(`Role not found: ${roleId}`, 'ROLE_NOT_FOUND', 404);
       }
 
       // Check if this is the user's only role
       const userRoleCount = await prisma.userRole.count({
         where: {
           userId: existingRole.userId,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       if (userRoleCount === 1) {
         throw new RBACError(
-          'Cannot delete user\'s only role',
+          "Cannot delete user's only role",
           'CANNOT_DELETE_ONLY_ROLE',
           400
         );
@@ -341,8 +335,8 @@ export class RoleManager {
         where: { id: roleId },
         data: {
           isActive: false,
-          updatedAt: new Date()
-        }
+          updatedAt: new Date(),
+        },
       });
 
       // Clear permission cache for this user
@@ -350,7 +344,7 @@ export class RoleManager {
 
       // Invalidate any active sessions for this role
       await prisma.userSession.deleteMany({
-        where: { currentRoleId: roleId }
+        where: { currentRoleId: roleId },
       });
     } catch (error) {
       if (error instanceof RBACError) {
@@ -367,16 +361,19 @@ export class RoleManager {
   /**
    * Switch user role (for multi-role users)
    */
-  static async switchUserRole(request: RoleSwitchRequest): Promise<RoleSwitchResult> {
+  static async switchUserRole(
+    request: RoleSwitchRequest
+  ): Promise<RoleSwitchResult> {
     try {
-      const { userId, targetRoleId, currentSessionId, restaurantContextId } = request;
+      const { userId, targetRoleId, currentSessionId, restaurantContextId } =
+        request;
 
       // Validate target role exists and belongs to user
       const targetRole = await prisma.userRole.findFirst({
         where: {
           id: targetRoleId,
           userId,
-          isActive: true
+          isActive: true,
         },
         include: {
           restaurant: {
@@ -386,10 +383,10 @@ export class RoleManager {
               slug: true,
               isActive: true,
               timezone: true,
-              currency: true
-            }
-          }
-        }
+              currency: true,
+            },
+          },
+        },
       });
 
       if (!targetRole) {
@@ -405,7 +402,7 @@ export class RoleManager {
       if (restaurantContextId) {
         const restaurant = await prisma.restaurant.findUnique({
           where: { id: restaurantContextId },
-          select: { isActive: true }
+          select: { isActive: true },
         });
 
         if (!restaurant || !restaurant.isActive) {
@@ -419,8 +416,8 @@ export class RoleManager {
         data: {
           currentRoleId: targetRoleId,
           restaurantContextId: restaurantContextId || targetRole.restaurantId,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
 
       // Clear permission cache for this user
@@ -434,19 +431,19 @@ export class RoleManager {
           roleTemplate: targetRole.roleTemplate,
           restaurantId: targetRole.restaurantId || undefined,
           customPermissions: targetRole.customPermissions as string[],
-          isActive: targetRole.isActive
-        }
+          isActive: targetRole.isActive,
+        },
       };
     } catch (error) {
       if (error instanceof RBACError) {
         return {
           success: false,
-          error: error.message
+          error: error.message,
         };
       }
       return {
         success: false,
-        error: 'Role switch failed'
+        error: 'Role switch failed',
       };
     }
   }
@@ -468,20 +465,27 @@ export class RoleManager {
         );
       }
 
-      const permissions = await PermissionManager.getTemplatePermissions(template);
-      
+      const permissions =
+        await PermissionManager.getTemplatePermissions(template);
+
       // Get description based on template
-      const descriptions = {
+      const descriptions: Record<string, string> = {
         platform_admin: 'Platform administrator with full system access',
-        restaurant_owner: 'Restaurant owner with full restaurant control and staff management',
-        manager: 'Restaurant manager with operational access, no staff management',
-        kitchen_staff: 'Kitchen staff with order management and kitchen display access'
+        restaurant_owner:
+          'Restaurant owner with full restaurant control and staff management',
+        manager:
+          'Restaurant manager with operational access, no staff management',
+        kitchen_staff:
+          'Kitchen staff with order management and kitchen display access',
+        waiter: 'Waiter with order entry access', // Added default for waiter if present in RoleTemplate
+        busser: 'Busser with table clearing access',
+        bartender: 'Bartender with bar order access',
       };
 
       return {
         template,
         permissions,
-        description: descriptions[template]
+        description: descriptions[template],
       };
     } catch (error) {
       if (error instanceof RBACError) {
@@ -509,21 +513,21 @@ export class RoleManager {
     try {
       // Check if user exists
       let userExists = false;
-      
+
       switch (userType) {
         case UserType.PLATFORM_ADMIN:
           userExists = !!(await prisma.platformAdmin.findUnique({
-            where: { id: userId }
+            where: { id: userId },
           }));
           break;
         case UserType.RESTAURANT_OWNER:
           userExists = !!(await prisma.restaurantOwner.findUnique({
-            where: { id: userId }
+            where: { id: userId },
           }));
           break;
         case UserType.STAFF:
           userExists = !!(await prisma.staff.findUnique({
-            where: { id: userId }
+            where: { id: userId },
           }));
           break;
       }
@@ -536,11 +540,13 @@ export class RoleManager {
       const compatibilityMap = {
         [UserType.PLATFORM_ADMIN]: ['platform_admin'],
         [UserType.RESTAURANT_OWNER]: ['restaurant_owner'],
-        [UserType.STAFF]: ['manager', 'kitchen_staff']
+        [UserType.STAFF]: ['manager', 'kitchen_staff'],
       };
 
       if (!compatibilityMap[userType].includes(roleTemplate)) {
-        errors.push(`Role template ${roleTemplate} not compatible with user type ${userType}`);
+        errors.push(
+          `Role template ${roleTemplate} not compatible with user type ${userType}`
+        );
       }
 
       // Validate restaurant context
@@ -555,7 +561,7 @@ export class RoleManager {
       if (restaurantId) {
         const restaurant = await prisma.restaurant.findUnique({
           where: { id: restaurantId },
-          select: { isActive: true }
+          select: { isActive: true },
         });
 
         if (!restaurant) {
@@ -567,13 +573,13 @@ export class RoleManager {
 
       return {
         isValid: errors.length === 0,
-        errors
+        errors,
       };
-    } catch (error) {
+    } catch {
       errors.push('Validation failed');
       return {
         isValid: false,
-        errors
+        errors,
       };
     }
   }
@@ -593,8 +599,8 @@ export class RoleManager {
         select: {
           userType: true,
           roleTemplate: true,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
 
       const rolesByType: Record<string, number> = {};
@@ -602,13 +608,14 @@ export class RoleManager {
       let activeRoles = 0;
       let inactiveRoles = 0;
 
-      roles.forEach(role => {
+      roles.forEach((role) => {
         // Count by user type
         rolesByType[role.userType] = (rolesByType[role.userType] || 0) + 1;
-        
+
         // Count by template
-        rolesByTemplate[role.roleTemplate] = (rolesByTemplate[role.roleTemplate] || 0) + 1;
-        
+        rolesByTemplate[role.roleTemplate] =
+          (rolesByTemplate[role.roleTemplate] || 0) + 1;
+
         // Count by status
         if (role.isActive) {
           activeRoles++;
@@ -622,9 +629,9 @@ export class RoleManager {
         rolesByType,
         rolesByTemplate,
         activeRoles,
-        inactiveRoles
+        inactiveRoles,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get role statistics',
         'GET_ROLE_STATISTICS_FAILED',
