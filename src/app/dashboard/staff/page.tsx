@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
-import { useHasPermission } from '@/lib/hooks/queries/useAuth';
 import CredentialsModal from '@/components/CredentialsModal';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import {
@@ -88,7 +87,8 @@ function StaffPageContent() {
   // Check if user has permission to manage staff based on RBAC
   const canManageStaff = isOwner;
   // For viewing, we check if they have the 'staff:read' permission
-  const canViewStaff = useHasPermission('staff:read') || isOwner;
+  const canViewStaff =
+    isOwner || user?.role?.permissions?.staff?.includes('read');
 
   useEffect(() => {
     fetchStaff();
