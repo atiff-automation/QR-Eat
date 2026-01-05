@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X, Copy, Check, AlertTriangle, User, Lock } from 'lucide-react';
+import { Copy, Check, Lock, Share2 } from 'lucide-react';
 
 interface CredentialsModalProps {
   isOpen: boolean;
@@ -13,124 +13,106 @@ interface CredentialsModalProps {
   staffName: string;
 }
 
-export default function CredentialsModal({ 
-  isOpen, 
-  onClose, 
-  credentials, 
-  staffName 
+export default function CredentialsModal({
+  isOpen,
+  onClose,
+  credentials,
+  staffName,
 }: CredentialsModalProps) {
-  const [copiedUsername, setCopiedUsername] = useState(false);
   const [copiedPassword, setCopiedPassword] = useState(false);
-
-  const handleCopyUsername = async () => {
-    try {
-      await navigator.clipboard.writeText(credentials.username);
-      setCopiedUsername(true);
-      setTimeout(() => setCopiedUsername(false), 2000);
-    } catch (err) {
-      // Silent fail for security - don't log clipboard errors
-    }
-  };
+  const [sharing, setSharing] = useState(false);
 
   const handleCopyPassword = async () => {
     try {
       await navigator.clipboard.writeText(credentials.password);
       setCopiedPassword(true);
       setTimeout(() => setCopiedPassword(false), 2000);
-    } catch (err) {
-      // Silent fail for security - don't log clipboard errors
+    } catch {
+      // Silent fail
     }
   };
 
-  const handleCopyBoth = async () => {
+  const handleShare = async () => {
+    const shareText = `🔐 Your QR-Eat Login Credentials
+
+Hi ${staffName},
+
+Your account has been created! Here are your login credentials:
+
+📧 Email: Use your registered email to login
+🔑 Temporary Password: ${credentials.password}
+
+⚠️ Important:
+• You'll be required to change this password on first login
+• Keep these credentials secure
+• Login at: ${window.location.origin}/login
+
+Welcome to the team! 🎉`;
+
     try {
-      const credentials_text = `Username: ${credentials.username}\nPassword: ${credentials.password}`;
-      await navigator.clipboard.writeText(credentials_text);
-      setCopiedUsername(true);
-      setCopiedPassword(true);
-      setTimeout(() => {
-        setCopiedUsername(false);
-        setCopiedPassword(false);
-      }, 2000);
+      setSharing(true);
+
+      // Check if Web Share API is available
+      if (navigator.share) {
+        await navigator.share({
+          title: 'QR-Eat Login Credentials',
+          text: shareText,
+        });
+      } else {
+        // Fallback: Copy to clipboard
+        await navigator.clipboard.writeText(shareText);
+        alert(
+          'Credentials copied to clipboard! You can now paste and send them.'
+        );
+      }
     } catch (err) {
-      // Silent fail for security - don't log clipboard errors
+      // User cancelled or error occurred
+      if (err instanceof Error && err.name !== 'AbortError') {
+        // Fallback to clipboard
+        try {
+          await navigator.clipboard.writeText(shareText);
+          alert('Credentials copied to clipboard!');
+        } catch {
+          alert('Unable to share. Please copy the password manually.');
+        }
+      }
+    } finally {
+      setSharing(false);
     }
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Staff Credentials Created
-          </h3>
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-xl animate-scale-in overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+          <h3 className="font-bold text-gray-900">Staff Created</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+            className="p-1 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
           >
-            <X className="h-5 w-5" />
+            <div className="w-5 h-5 flex items-center justify-center">✕</div>
           </button>
         </div>
 
-        <div className="mb-4">
-          <p className="text-sm text-gray-600 mb-2">
-            Staff member <span className="font-medium">{staffName}</span> has been created successfully.
-          </p>
+        {/* Content */}
+        <div className="p-5 space-y-4">
+          {/* Staff Name */}
           <p className="text-sm text-gray-600">
-            Please share these credentials securely with the staff member:
+            <span className="font-medium text-gray-900">{staffName}</span> has
+            been created successfully.
           </p>
-        </div>
 
-        {/* Security Warning */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
-          <div className="flex items-start">
-            <AlertTriangle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
-            <div className="text-sm text-yellow-800">
-              <p className="font-medium mb-1">Security Notice:</p>
-              <ul className="text-xs space-y-1">
-                <li>• Share these credentials securely with the staff member</li>
-                <li>• Staff must change password on first login</li>
-                <li>• Do not share credentials via unsecured channels</li>
-                <li>• These credentials will not be shown again</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-
-        {/* Credentials Display */}
-        <div className="space-y-3 mb-6">
-          {/* Username */}
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <User className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Username:</span>
-              </div>
-              <button
-                onClick={handleCopyUsername}
-                className="text-blue-600 hover:text-blue-800 transition-colors"
-                title="Copy username"
-              >
-                {copiedUsername ? (
-                  <Check className="h-4 w-4 text-green-600" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </button>
-            </div>
-            <p className="text-lg font-mono font-bold text-gray-900 mt-1 break-all">
-              {credentials.username}
-            </p>
-          </div>
-
-          {/* Password */}
-          <div className="bg-gray-50 border border-gray-200 rounded-md p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
+          {/* Password Display */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">Password:</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Password
+                </span>
               </div>
               <button
                 onClick={handleCopyPassword}
@@ -144,33 +126,35 @@ export default function CredentialsModal({
                 )}
               </button>
             </div>
-            <p className="text-lg font-mono font-bold text-gray-900 mt-1 break-all">
+            <p className="text-xl font-mono font-bold text-gray-900 break-all">
               {credentials.password}
             </p>
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className="flex space-x-3">
-          <button
-            onClick={handleCopyBoth}
-            className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors font-medium text-sm"
-          >
-            Copy Both Credentials
-          </button>
-          <button
-            onClick={onClose}
-            className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-md hover:bg-gray-700 transition-colors font-medium text-sm"
-          >
-            Done
-          </button>
-        </div>
+          {/* Simple Notice */}
+          <div className="bg-blue-50 rounded-lg p-3">
+            <p className="text-xs text-blue-800">
+              Staff must change this password on first login.
+            </p>
+          </div>
 
-        {/* Additional Info */}
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-          <p className="text-xs text-blue-800">
-            <span className="font-medium">Next Steps:</span> The staff member should login using these credentials and will be prompted to create a new password before accessing the dashboard.
-          </p>
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleShare}
+              disabled={sharing}
+              className="flex-1 py-3 bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2"
+            >
+              <Share2 className="h-4 w-4" />
+              {sharing ? 'Sharing...' : 'Share'}
+            </button>
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-all"
+            >
+              Done
+            </button>
+          </div>
         </div>
       </div>
     </div>
