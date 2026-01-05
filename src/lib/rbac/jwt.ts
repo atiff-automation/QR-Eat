@@ -6,6 +6,7 @@
  */
 
 import * as jwt from 'jsonwebtoken';
+import { createHash } from 'crypto';
 import { prisma } from '@/lib/database';
 import {
   EnhancedJWTPayload,
@@ -37,6 +38,13 @@ console.log('🔧 JWT_CONFIG initialized:', {
 });
 
 export class EnhancedJWTService {
+  /**
+   * Hash session ID to match session-manager's storage format
+   */
+  private static hashSessionId(sessionId: string): string {
+    return createHash('sha256').update(sessionId).digest('hex');
+  }
+
   /**
    * Generate a new JWT token with enhanced RBAC payload
    */
@@ -81,9 +89,10 @@ export class EnhancedJWTService {
 
       // Update existing session with token hash
       const tokenHash = await this.hashToken(token);
+      const hashedSessionId = this.hashSessionId(sessionId);
 
       await prisma.userSession.update({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
         data: {
           jwtTokenHash: tokenHash,
           lastActivity: new Date(),
@@ -155,9 +164,10 @@ export class EnhancedJWTService {
 
       // Verify session exists and is valid
       const tokenHash = await this.hashToken(token);
+      const hashedSessionId = this.hashSessionId(decoded.sessionId);
       const session = await prisma.userSession.findFirst({
         where: {
-          sessionId: decoded.sessionId,
+          sessionId: hashedSessionId,
           jwtTokenHash: tokenHash,
           expiresAt: {
             gt: new Date(),
@@ -241,8 +251,9 @@ export class EnhancedJWTService {
    */
   static async invalidateSession(sessionId: string): Promise<void> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       await prisma.userSession.deleteMany({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
       });
     } catch {
       // Silent fail - session might already be deleted
@@ -597,8 +608,9 @@ export class EnhancedJWTService {
    */
   static async getSessionInfo(sessionId: string): Promise<UserSession | null> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       const session = await prisma.userSession.findFirst({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
       });
 
       if (!session) {
