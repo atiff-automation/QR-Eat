@@ -10,9 +10,7 @@ import {
   Pencil,
   AlertTriangle,
   CheckCircle,
-  X,
   ChevronRight,
-  Shield,
   Search,
   RefreshCw,
 } from 'lucide-react';
@@ -517,25 +515,28 @@ function StaffPageContent() {
         </button>
       )}
 
-      {/* Add Staff Modal - Streamlined */}
+      {/* Add Staff Modal - Matches Edit Modal Style */}
       {showAddModal && canManageStaff && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl animate-slide-up-mobile sm:animate-fade-in">
-            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Add Staff</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-xl animate-scale-in overflow-hidden">
+            {/* Header - Gray background standard */}
+            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="font-bold text-gray-900">Add Staff</h3>
               <button
                 onClick={closeModals}
-                className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                className="p-1 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
               >
-                <X className="h-5 w-5" />
+                <div className="w-5 h-5 flex items-center justify-center">
+                  ✕
+                </div>
               </button>
             </div>
 
             <div className="overflow-y-auto p-5">
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
                       First Name
                     </label>
                     <input
@@ -549,11 +550,11 @@ function StaffPageContent() {
                           firstName: e.target.value,
                         }))
                       }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
                       Last Name
                     </label>
                     <input
@@ -567,13 +568,13 @@ function StaffPageContent() {
                           lastName: e.target.value,
                         }))
                       }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
                     Email
                   </label>
                   <input
@@ -587,12 +588,12 @@ function StaffPageContent() {
                         email: e.target.value,
                       }))
                     }
-                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
                     Phone (Optional)
                   </label>
                   <input
@@ -605,55 +606,45 @@ function StaffPageContent() {
                         phone: e.target.value,
                       }))
                     }
-                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
                     Role
                   </label>
-                  <div className="relative">
-                    <select
-                      required
-                      value={formData.roleId}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          roleId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none"
-                    >
-                      <option value="">Select a role...</option>
-                      {roles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
-                      <ChevronRight className="h-4 w-4 rotate-90" />
-                    </div>
-                  </div>
+                  <select
+                    required
+                    value={formData.roleId}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        roleId: e.target.value,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Select a role...</option>
+                    {roles.map((role) => (
+                      <option key={role.id} value={role.id}>
+                        {role.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
-                <div className="bg-blue-50 rounded-xl p-4 flex gap-3 items-start">
-                  <Shield className="h-5 w-5 text-blue-600 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-semibold text-blue-900">
-                      Auto-generated Credentials
-                    </p>
-                    <p className="text-xs text-blue-700 mt-0.5">
-                      Login details will be shown after creation.
-                    </p>
-                  </div>
+                <div className="bg-blue-50 rounded-lg p-3">
+                  <p className="text-xs text-blue-800">
+                    Login credentials will be auto-generated and shown after
+                    creation.
+                  </p>
                 </div>
 
                 <div className="pt-2">
                   <button
                     type="submit"
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-lg shadow-blue-200 transition-all transform active:scale-[0.98]"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all"
                   >
                     Create Staff Member
                   </button>
