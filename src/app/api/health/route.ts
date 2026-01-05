@@ -1,33 +1,40 @@
-import { NextResponse } from 'next/server';
-import { checkDatabaseConnection } from '@/lib/database';
+import { prisma } from '@/lib/database';
+import { sendSuccess, sendError } from '@/lib/utils/api-response';
 
+/**
+ * Health Check API
+ * Verifies system health including database connectivity.
+ */
 export async function GET() {
   try {
-    const dbHealthy = await checkDatabaseConnection();
+    const startTime = Date.now();
 
-    const healthStatus = {
-      status: dbHealthy ? 'healthy' : 'unhealthy',
+    // 1. Check Database
+    await prisma.$queryRaw`SELECT 1`;
+
+    // 2. System Info
+    const healthData = {
+      status: 'UP',
+      uptime: process.uptime(),
       timestamp: new Date().toISOString(),
-      services: {
-        database: dbHealthy ? 'up' : 'down',
-        api: 'up',
-      },
-      version: process.env.npm_package_version || '0.1.0',
-      environment: process.env.NODE_ENV || 'development',
+      database: 'CONNECTED',
+      latencyMs: Date.now() - startTime,
+      version: process.env.npm_package_version || '1.0.0',
+      env: process.env.NODE_ENV,
     };
 
-    return NextResponse.json(healthStatus, {
-      status: dbHealthy ? 200 : 503,
-    });
+    return await sendSuccess(healthData);
   } catch (error) {
-    console.error('Health check error:', error);
-    return NextResponse.json(
+    console.error('[Health Check] FAILED:', error);
+
+    return await sendError(
+      'System health check failed',
+      'HEALTH_CHECK_FAILED',
+      503,
       {
-        status: 'error',
+        database: 'DISCONNECTED',
         timestamp: new Date().toISOString(),
-        error: 'Internal server error',
-      },
-      { status: 500 }
+      }
     );
   }
 }

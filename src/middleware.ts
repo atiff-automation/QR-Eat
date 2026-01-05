@@ -6,6 +6,7 @@ import {
   isReservedSubdomain,
 } from '@/lib/subdomain';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
+import { requestIdMiddleware } from '@/middleware/request-id';
 
 // Security headers for all responses
 const SECURITY_HEADERS = {
@@ -16,7 +17,10 @@ const SECURITY_HEADERS = {
 } as const;
 
 export async function middleware(request: NextRequest) {
-  const response = NextResponse.next();
+  let response = NextResponse.next();
+
+  // ✅ Phase 1: Request ID Tracking
+  response = requestIdMiddleware(request, response);
 
   // Apply security headers to all responses
   Object.entries(SECURITY_HEADERS).forEach(([key, value]) => {
