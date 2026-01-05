@@ -14,6 +14,7 @@
 
 import { RoleProvider } from '@/components/rbac/RoleProvider';
 import { DashboardLayout } from '@/components/dashboard/DashboardLayout';
+import { InstallPrompt } from '@/components/InstallPrompt';
 
 interface DashboardLayoutWrapperProps {
   children: React.ReactNode;
@@ -24,7 +25,10 @@ export default function DashboardLayoutWrapper({
 }: DashboardLayoutWrapperProps) {
   return (
     <RoleProvider>
-      <DashboardLayout>{children}</DashboardLayout>
+      <DashboardLayout>
+        {children}
+        <InstallPrompt />
+      </DashboardLayout>
     </RoleProvider>
   );
 }

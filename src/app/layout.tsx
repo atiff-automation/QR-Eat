@@ -15,17 +15,27 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'QR Restaurant System',
-  description: 'Mobile-first restaurant management system',
+  title: 'QR-Eat - Restaurant Management System',
+  description: 'Mobile-first restaurant management and QR code ordering',
   viewport: {
     width: 'device-width',
     initialScale: 1,
+    maximumScale: 5,
+    userScalable: true,
   },
-  themeColor: '#2563eb',
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#2563eb' },
+    { media: '(prefers-color-scheme: dark)', color: '#1e40af' },
+  ],
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'QR Restaurant',
+    title: 'QR-Eat',
+  },
+  manifest: '/manifest.json',
+  icons: {
+    icon: '/icons/icon-192x192.png',
+    apple: '/icons/apple-touch-icon.png',
   },
 };
 

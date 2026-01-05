@@ -1,10 +1,15 @@
 import type { NextConfig } from 'next';
+import withSerwistInit from '@serwist/next';
+
+const withSerwist = withSerwistInit({
+  swSrc: 'src/sw.ts',
+  swDest: 'public/sw.js',
+  cacheOnNavigation: true,
+  reloadOnOnline: true,
+  disable: process.env.NODE_ENV === 'development',
+});
 
 const nextConfig: NextConfig = {
-  // Enable experimental instrumentation for server startup hooks
-  experimental: {
-    instrumentationHook: true,
-  },
   serverExternalPackages: [
     'jsonwebtoken',
     'bcryptjs',
@@ -22,4 +27,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSerwist(nextConfig);

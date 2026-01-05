@@ -14,6 +14,7 @@ import {
   ChevronRight,
   Shield,
   Search,
+  RefreshCw,
 } from 'lucide-react';
 
 interface StaffMember {
@@ -375,38 +376,29 @@ function StaffPageContent() {
           </h1>
         </div>
 
-        {/* Roles Filter (Pills) */}
-        <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar -mx-5 px-5 select-none">
-          <button
-            onClick={() => setSelectedRoleFilter('all')}
-            className={`
-              flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all
-              ${
-                selectedRoleFilter === 'all'
-                  ? 'bg-gray-900 text-white shadow-sm'
-                  : 'bg-white text-gray-600 border border-gray-100 shadow-sm'
-              }
-            `}
-          >
-            All
-          </button>
-
-          {roles.map((role) => (
-            <button
-              key={role.id}
-              onClick={() => setSelectedRoleFilter(role.id)}
-              className={`
-                flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap
-                ${
-                  selectedRoleFilter === role.id
-                    ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-white text-gray-600 border border-gray-100 shadow-sm'
-                }
-              `}
+        {/* Phase 4: Menu-Style Dropdown Filter */}
+        <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-4">
+          <div className="flex-1 max-w-xs">
+            <select
+              value={selectedRoleFilter}
+              onChange={(e) => setSelectedRoleFilter(e.target.value)}
+              className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 text-gray-900 cursor-pointer"
             >
-              {role.name}
-            </button>
-          ))}
+              <option value="all">All Roles</option>
+              {roles.map((role) => (
+                <option key={role.id} value={role.id}>
+                  {role.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button
+            onClick={() => fetchStaff()}
+            className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
         </div>
       </div>
 
@@ -672,109 +664,75 @@ function StaffPageContent() {
         </div>
       )}
 
-      {/* Edit Staff Modal - Streamlined */}
+      {/* Edit Staff Modal - Menu Style */}
       {showEditModal && canManageStaff && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 p-0 sm:p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-2xl animate-slide-up-mobile sm:animate-fade-in">
-            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-gray-900">Edit / Manage</h3>
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md max-h-[90vh] flex flex-col shadow-xl animate-scale-in overflow-hidden">
+            {/* Header - Gray background standard */}
+            <div className="flex-shrink-0 px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+              <h3 className="font-bold text-gray-900">Edit / Manage</h3>
               <button
                 onClick={closeModals}
-                className="p-2 -mr-2 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"
+                className="p-1 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
               >
-                <X className="h-5 w-5" />
+                <div className="w-5 h-5 flex items-center justify-center">✕</div>
               </button>
             </div>
 
             <div className="overflow-y-auto p-5">
-              <form onSubmit={handleSubmit} className="space-y-5">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                      First Name
-                    </label>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">First Name</label>
                     <input
                       type="text"
                       required
                       value={formData.firstName}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          firstName: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                      Last Name
-                    </label>
+                    <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Last Name</label>
                     <input
                       type="text"
                       required
                       value={formData.lastName}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          lastName: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                      onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    Email
-                  </label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Email</label>
                   <input
                     type="email"
                     required
                     value={formData.email}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        email: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    Phone
-                  </label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Phone</label>
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        phone: e.target.value,
-                      }))
-                    }
-                    className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"
+                    onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                    className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1.5 uppercase tracking-wide">
-                    Role
-                  </label>
+                  <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">Role</label>
                   <div className="relative">
                     <select
                       required
                       value={formData.roleId}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          roleId: e.target.value,
-                        }))
-                      }
-                      className="w-full px-4 py-3 bg-gray-50 border-0 rounded-xl text-gray-900 focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all appearance-none"
+                      onChange={(e) => setFormData(prev => ({ ...prev, roleId: e.target.value }))}
+                      className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900 appearance-none"
                     >
                       <option value="">Select a role...</option>
                       {roles.map((role) => (
@@ -783,25 +741,18 @@ function StaffPageContent() {
                         </option>
                       ))}
                     </select>
-                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500">
                       <ChevronRight className="h-4 w-4 rotate-90" />
                     </div>
                   </div>
                 </div>
 
-                {/* Status Toggle in Edit Modal (Optional since it is on card, but good for completeness) */}
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
-                  <span className="text-sm font-medium text-gray-900">
-                    Account Status
-                  </span>
+                {/* Status Toggle */}
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
+                  <span className="text-sm font-medium text-gray-900">Account Status</span>
                   <button
                     type="button"
-                    onClick={() =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        isActive: !prev.isActive,
-                      }))
-                    }
+                    onClick={() => setFormData(prev => ({ ...prev, isActive: !prev.isActive }))}
                     className={`
                       relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
                       ${formData.isActive ? 'bg-green-500' : 'bg-gray-200'}
@@ -821,24 +772,24 @@ function StaffPageContent() {
                 <div className="pt-4 flex flex-col gap-3">
                   <button
                     type="submit"
-                    className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold rounded-xl shadow-sm transition-all active:scale-[0.98]"
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-sm transition-all"
                   >
                     Save Changes
                   </button>
 
                   {selectedStaff && (
-                    <div className="flex gap-3 mt-2">
+                    <div className="flex gap-3">
                       <button
                         type="button"
                         onClick={() => handleResetPassword(selectedStaff)}
-                        className="flex-1 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl transition-all"
+                        className="flex-1 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-lg transition-all"
                       >
                         Reset Password
                       </button>
                       <button
                         type="button"
                         onClick={() => handleDelete(selectedStaff)}
-                        className="flex-1 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-semibold rounded-xl transition-all"
+                        className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-lg transition-all"
                       >
                         Delete
                       </button>
