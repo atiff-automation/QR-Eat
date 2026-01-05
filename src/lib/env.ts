@@ -23,14 +23,14 @@ const envSchema = z.object({
   BASE_DOMAIN: z.string().default('localhost'),
   ENABLE_SUBDOMAIN_ROUTING: z
     .string()
-    .transform((v) => v === 'true')
-    .default('false'),
+    .default('false')
+    .transform((v) => v === 'true'),
 
   // Security Preferences
   SESSION_TIMEOUT_MINUTES: z
     .string()
-    .transform((v) => parseInt(v, 10))
-    .default('1440'),
+    .default('1440')
+    .transform((v) => parseInt(v, 10)),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -54,5 +54,28 @@ export function validateEnv(): Env {
   }
 }
 
-// Export a singleton instance for easy access
-export const env = validateEnv();
+// Lazy singleton pattern - only validates when first accessed
+let cachedEnv: Env | null = null;
+
+/**
+ * Get validated environment variables (lazy initialization).
+ * Validation only occurs on first call, then cached.
+ */
+export function getEnv(): Env {
+  if (!cachedEnv) {
+    cachedEnv = validateEnv();
+  }
+  return cachedEnv;
+}
+
+/**
+ * Lazy environment validation using Proxy.
+ * Validates on first property access, not at module load time.
+ * This prevents crashes during Next.js build when env vars may not be available.
+ */
+export const env = new Proxy({} as Env, {
+  get(_target, prop) {
+    const validatedEnv = getEnv();
+    return validatedEnv[prop as keyof Env];
+  },
+});

@@ -108,10 +108,33 @@ class PostgresPubSubManager extends EventEmitter {
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
   private readonly reconnectDelay = 5000; // 5 seconds
+  private signalHandlersRegistered = false;
 
   constructor() {
     super();
     this.setMaxListeners(20); // Allow multiple SSE connections
+  }
+
+  /**
+   * Register signal handlers for graceful shutdown.
+   * Only registers once, when initialize() is called at runtime.
+   */
+  private registerSignalHandlers(): void {
+    if (this.signalHandlersRegistered) return;
+
+    process.on('SIGINT', async () => {
+      console.log('\n⚠️ SIGINT received, cleaning up PostgreSQL pub/sub...');
+      await this.cleanup();
+      process.exit(0);
+    });
+
+    process.on('SIGTERM', async () => {
+      console.log('\n⚠️ SIGTERM received, cleaning up PostgreSQL pub/sub...');
+      await this.cleanup();
+      process.exit(0);
+    });
+
+    this.signalHandlersRegistered = true;
   }
 
   /**
@@ -163,6 +186,9 @@ class PostgresPubSubManager extends EventEmitter {
       });
 
       this.reconnectAttempts = 0;
+
+      // Register signal handlers for graceful shutdown (runtime only)
+      this.registerSignalHandlers();
     } catch (error) {
       console.error('Failed to initialize PostgreSQL pub/sub:', error);
       throw error;
@@ -576,19 +602,3 @@ export class PostgresEventManager {
     }
   }
 }
-
-// ============================================================================
-// Graceful Shutdown
-// ============================================================================
-
-process.on('SIGINT', async () => {
-  console.log('\n⚠️ SIGINT received, cleaning up PostgreSQL pub/sub...');
-  await pgPubSub.cleanup();
-  process.exit(0);
-});
-
-process.on('SIGTERM', async () => {
-  console.log('\n⚠️ SIGTERM received, cleaning up PostgreSQL pub/sub...');
-  await pgPubSub.cleanup();
-  process.exit(0);
-});
