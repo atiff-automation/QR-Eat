@@ -32,6 +32,11 @@ export interface AuthUser {
   lastName: string;
   userType?: string;
   mustChangePassword?: boolean;
+  role?: {
+    permissions?: {
+      staff?: string[];
+    };
+  };
 }
 
 export interface AuthResponse {
@@ -149,8 +154,11 @@ export function useSwitchRole() {
 
     // On error: Rollback to previous state
     onError: (error, _roleId, context) => {
-      if (context?.previousAuth) {
-        queryClient.setQueryData(queryKeys.auth.me, context.previousAuth);
+      if ((context as { previousAuth: AuthResponse }).previousAuth) {
+        queryClient.setQueryData(
+          queryKeys.auth.me,
+          (context as { previousAuth: AuthResponse }).previousAuth
+        );
       }
       console.error('❌ useSwitchRole: Failed to switch role', error);
     },
