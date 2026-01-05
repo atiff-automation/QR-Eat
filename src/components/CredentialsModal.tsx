@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, Lock, Share2 } from 'lucide-react';
+import { Copy, Check, Lock, Share2, Mail } from 'lucide-react';
 
 interface CredentialsModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface CredentialsModalProps {
     password: string;
   };
   staffName: string;
+  staffEmail: string;
 }
 
 export default function CredentialsModal({
@@ -18,8 +19,10 @@ export default function CredentialsModal({
   onClose,
   credentials,
   staffName,
+  staffEmail,
 }: CredentialsModalProps) {
   const [copiedPassword, setCopiedPassword] = useState(false);
+  const [copiedEmail, setCopiedEmail] = useState(false);
   const [sharing, setSharing] = useState(false);
 
   const handleCopyPassword = async () => {
@@ -32,20 +35,30 @@ export default function CredentialsModal({
     }
   };
 
+  const handleCopyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText(staffEmail);
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2000);
+    } catch {
+      // Silent fail
+    }
+  };
+
   const handleShare = async () => {
-    const shareText = `🔐 Your QR-Eat Login Credentials
+    // WhatsApp-optimized format: clean, simple, mobile-friendly
+    const shareText = `Hi ${staffName}! 👋
 
-Hi ${staffName},
+Your QR-Eat account is ready!
 
-Your account has been created! Here are your login credentials:
+*Login Details:*
+📧 Email: ${staffEmail}
+🔑 Password: ${credentials.password}
 
-📧 Email: Use your registered email to login
-🔑 Temporary Password: ${credentials.password}
-
-⚠️ Important:
-• You'll be required to change this password on first login
-• Keep these credentials secure
-• Login at: ${window.location.origin}/login
+*Next Steps:*
+1. Login at: ${window.location.origin}/login
+2. You'll be asked to change your password
+3. Start using the dashboard!
 
 Welcome to the team! 🎉`;
 
@@ -73,7 +86,7 @@ Welcome to the team! 🎉`;
           await navigator.clipboard.writeText(shareText);
           alert('Credentials copied to clipboard!');
         } catch {
-          alert('Unable to share. Please copy the password manually.');
+          alert('Unable to share. Please copy the credentials manually.');
         }
       }
     } finally {
@@ -104,6 +117,30 @@ Welcome to the team! 🎉`;
             <span className="font-medium text-gray-900">{staffName}</span> has
             been created successfully.
           </p>
+
+          {/* Email Display */}
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-gray-500" />
+                <span className="text-sm font-medium text-gray-700">Email</span>
+              </div>
+              <button
+                onClick={handleCopyEmail}
+                className="text-blue-600 hover:text-blue-800 transition-colors"
+                title="Copy email"
+              >
+                {copiedEmail ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+            <p className="text-base font-medium text-gray-900 break-all">
+              {staffEmail}
+            </p>
+          </div>
 
           {/* Password Display */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">

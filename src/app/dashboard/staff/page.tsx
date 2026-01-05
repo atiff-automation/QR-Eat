@@ -84,6 +84,7 @@ function StaffPageContent() {
     password: string;
   } | null>(null);
   const [newStaffName, setNewStaffName] = useState('');
+  const [newStaffEmail, setNewStaffEmail] = useState('');
 
   // Check if user has permission to manage staff based on RBAC
   const canManageStaff = isOwner;
@@ -218,6 +219,7 @@ function StaffPageContent() {
             password: data.credentials.password,
           });
           setNewStaffName(`${formData.firstName} ${formData.lastName}`);
+          setNewStaffEmail(formData.email);
           setShowCredentialsModal(true);
         }
 
@@ -851,6 +853,7 @@ function StaffPageContent() {
           onClose={closeCredentialsModal}
           credentials={newStaffCredentials}
           staffName={newStaffName}
+          staffEmail={newStaffEmail}
         />
       )}
     </div>
