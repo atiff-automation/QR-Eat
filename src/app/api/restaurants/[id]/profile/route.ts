@@ -1,22 +1,16 @@
 /**
  * Restaurant Profile Management API
  * Allows restaurant owners to manage their public restaurant profile
- * 
- * Following CLAUDE.md principles:
- * - Type Safety: Proper TypeScript types throughout
- * - Error Handling: Comprehensive error cases
- * - RBAC Integration: Shared helpers for authentication
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import {
-  validateRBACToken,
-  checkRestaurantAccess,
-  createErrorResponse,
-  logAccessDenied
-} from '@/lib/rbac/route-helpers';
-import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 
 // GET - Fetch restaurant profile for editing
 export async function GET(
@@ -26,23 +20,12 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // RBAC Authentication with proper types
-    const authResult = await validateRBACToken(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(
-        authResult.error!.message,
-        authResult.error!.status
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'read');
 
-    const user: EnhancedAuthenticatedUser = authResult.user;
-
-    // Check restaurant access
-    const hasAccess = await checkRestaurantAccess(user, id);
-    if (!hasAccess) {
-      await logAccessDenied(user, `restaurant:${id}:profile`, 'No access to this restaurant', request);
-      return createErrorResponse('Access denied', 403);
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     // Fetch restaurant profile
     const restaurant = await prisma.restaurant.findUnique({
@@ -73,22 +56,27 @@ export async function GET(
         takeoutAvailable: true,
         isActive: true,
         createdAt: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     return NextResponse.json({
       success: true,
-      restaurant
+      restaurant,
     });
-
   } catch (error) {
     console.error('Error fetching restaurant profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -100,23 +88,12 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    // RBAC Authentication with proper types
-    const authResult = await validateRBACToken(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(
-        authResult.error!.message,
-        authResult.error!.status
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'write');
 
-    const user: EnhancedAuthenticatedUser = authResult.user;
-
-    // Check restaurant access
-    const hasAccess = await checkRestaurantAccess(user, id);
-    if (!hasAccess) {
-      await logAccessDenied(user, `restaurant:${id}:profile`, 'No access to this restaurant', request);
-      return createErrorResponse('Access denied', 403);
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     const updateData = await request.json();
 
@@ -151,25 +128,26 @@ export async function PUT(
         acceptsReservations: true,
         deliveryAvailable: true,
         takeoutAvailable: true,
-        updatedAt: true
-      }
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: 'Restaurant profile updated successfully',
-      restaurant: updatedRestaurant
+      restaurant: updatedRestaurant,
     });
-
   } catch (error) {
     console.error('Error updating restaurant profile:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
-
-
 // Helper function to validate and sanitize profile data
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validateProfileData(data: any) {
   const allowedFields = [
     'name',
@@ -192,10 +170,11 @@ function validateProfileData(data: any) {
     'showOnDirectory',
     'acceptsReservations',
     'deliveryAvailable',
-    'takeoutAvailable'
+    'takeoutAvailable',
   ];
 
-  const validatedData: any = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const validatedData: Record<string, any> = {};
 
   for (const field of allowedFields) {
     if (data[field] !== undefined) {
@@ -212,7 +191,10 @@ function validateProfileData(data: any) {
     delete validatedData.website;
   }
 
-  if (validatedData.priceRange && !['$', '$$', '$$$', '$$$$'].includes(validatedData.priceRange)) {
+  if (
+    validatedData.priceRange &&
+    !['$', '$$', '$$$', '$$$$'].includes(validatedData.priceRange)
+  ) {
     validatedData.priceRange = '$$';
   }
 

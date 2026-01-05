@@ -1,7 +1,7 @@
 /**
  * Restaurant Operating Hours Management API
  * Handles complex operating hours with special days, holidays, etc.
- * 
+ *
  * Following CLAUDE.md principles:
  * - Type Safety: Proper TypeScript types throughout
  * - Error Handling: Comprehensive error cases
@@ -11,17 +11,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import {
-  validateRBACToken,
-  checkRestaurantAccess,
-  createErrorResponse,
-  logAccessDenied,
-  hasRoleType
-} from '@/lib/rbac/route-helpers';
-import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 
 interface DayHours {
   isOpen: boolean;
-  openTime?: string;  // "09:00"
+  openTime?: string; // "09:00"
   closeTime?: string; // "22:00"
   breaks?: Array<{
     startTime: string;
@@ -62,23 +60,12 @@ export async function GET(
   try {
     const { id } = await params;
 
-    // RBAC Authentication with proper types
-    const authResult = await validateRBACToken(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(
-        authResult.error!.message,
-        authResult.error!.status
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'read');
 
-    const user: EnhancedAuthenticatedUser = authResult.user;
-
-    // Check restaurant access
-    const hasAccess = await checkRestaurantAccess(user, id);
-    if (!hasAccess) {
-      await logAccessDenied(user, `restaurant:${id}:hours`, 'No access to this restaurant', request);
-      return createErrorResponse('Access denied', 403);
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     const restaurant = await prisma.restaurant.findUnique({
       where: { id },
@@ -86,26 +73,34 @@ export async function GET(
         id: true,
         name: true,
         operatingHours: true,
-        timezone: true
-      }
+        timezone: true,
+      },
     });
 
     if (!restaurant) {
-      return NextResponse.json({ error: 'Restaurant not found' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
     }
 
     // Parse operating hours or return default structure
-    const operatingHours = parseOperatingHours(restaurant.operatingHours, restaurant.timezone);
+    const operatingHours = parseOperatingHours(
+      restaurant.operatingHours,
+      restaurant.timezone
+    );
 
     return NextResponse.json({
       success: true,
       operatingHours,
-      timezone: restaurant.timezone
+      timezone: restaurant.timezone,
     });
-
   } catch (error) {
     console.error('Error fetching operating hours:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
@@ -117,35 +112,22 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    // RBAC Authentication with proper types
-    const authResult = await validateRBACToken(request);
-    if (!authResult.success || !authResult.user) {
-      return createErrorResponse(
-        authResult.error!.message,
-        authResult.error!.status
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'write');
 
-    const user: EnhancedAuthenticatedUser = authResult.user;
-
-    // Check permission - only owners and admins can modify hours
-    if (!hasRoleType(user, 'restaurant_owner', 'platform_admin')) {
-      await logAccessDenied(user, `restaurant:${id}:hours`, 'Insufficient role permissions', request);
-      return createErrorResponse('Permission denied: Only owners can modify hours', 403);
-    }
-
-    const hasAccess = await checkRestaurantAccess(user, id);
-    if (!hasAccess) {
-      await logAccessDenied(user, `restaurant:${id}:hours`, 'No access to this restaurant', request);
-      return createErrorResponse('Access denied', 403);
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     const { operatingHours } = await request.json();
 
     // Validate operating hours structure
     const validatedHours = validateOperatingHours(operatingHours);
     if (!validatedHours) {
-      return NextResponse.json({ error: 'Invalid operating hours format' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Invalid operating hours format' },
+        { status: 400 }
+      );
     }
 
     // Add timestamp
@@ -155,35 +137,39 @@ export async function PUT(
     const updatedRestaurant = await prisma.restaurant.update({
       where: { id },
       data: {
-        operatingHours: validatedHours
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        operatingHours: validatedHours as any,
       },
       select: {
         id: true,
         name: true,
         operatingHours: true,
-        timezone: true
-      }
+        timezone: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: 'Operating hours updated successfully',
       operatingHours: updatedRestaurant.operatingHours,
-      timezone: updatedRestaurant.timezone
+      timezone: updatedRestaurant.timezone,
     });
-
   } catch (error) {
     console.error('Error updating operating hours:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
 // Helper function to parse operating hours with defaults
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function parseOperatingHours(hoursData: any, timezone: string): OperatingHours {
   const defaultDayHours: DayHours = {
     isOpen: true,
-    openTime: "09:00",
-    closeTime: "22:00"
+    openTime: '09:00',
+    closeTime: '22:00',
   };
 
   const defaultHours: OperatingHours = {
@@ -195,7 +181,7 @@ function parseOperatingHours(hoursData: any, timezone: string): OperatingHours {
     saturday: defaultDayHours,
     sunday: { isOpen: false },
     timezone: timezone,
-    lastUpdated: new Date().toISOString()
+    lastUpdated: new Date().toISOString(),
   };
 
   if (!hoursData || typeof hoursData !== 'object') {
@@ -205,17 +191,26 @@ function parseOperatingHours(hoursData: any, timezone: string): OperatingHours {
   return {
     ...defaultHours,
     ...hoursData,
-    timezone: timezone
+    timezone: timezone,
   };
 }
 
 // Helper function to validate operating hours structure
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function validateOperatingHours(hours: any): OperatingHours | null {
   if (!hours || typeof hours !== 'object') {
     return null;
   }
 
-  const daysOfWeek = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+  const daysOfWeek = [
+    'monday',
+    'tuesday',
+    'wednesday',
+    'thursday',
+    'friday',
+    'saturday',
+    'sunday',
+  ];
 
   for (const day of daysOfWeek) {
     if (!hours[day] || typeof hours[day] !== 'object') {
@@ -234,7 +229,10 @@ function validateOperatingHours(hours: any): OperatingHours | null {
 
       // Validate time format (HH:MM)
       const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-      if (!timeRegex.test(dayHours.openTime) || !timeRegex.test(dayHours.closeTime)) {
+      if (
+        !timeRegex.test(dayHours.openTime) ||
+        !timeRegex.test(dayHours.closeTime)
+      ) {
         return null;
       }
     }

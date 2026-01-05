@@ -1,54 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { v4 as uuidv4 } from 'uuid';
 import { buildQrCodeUrl } from '@/lib/url-config';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
 
 export async function POST(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
+    const { id: tableId } = await params;
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'tables', 'write');
 
-    const authResult = await AuthServiceV2.validateToken(token);
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireTableAccess(tableId, context!);
 
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const tableId = params.id;
-
-    // Get the current table
+    // Get the current table for logging
     const currentTable = await prisma.table.findUnique({
       where: { id: tableId },
-      include: {
-        restaurant: true,
-      },
     });
 
     if (!currentTable) {
       return NextResponse.json({ error: 'Table not found' }, { status: 404 });
-    }
-
-    // Check if user has permission to update this table
-    if (
-      currentTable.restaurantId !== authResult.user.currentRole.restaurantId
-    ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Generate new QR code token
@@ -71,7 +52,7 @@ export async function POST(
         operation: 'UPDATE',
         oldValues: { qrCodeToken: currentTable.qrCodeToken },
         newValues: { qrCodeToken: newQrCodeToken },
-        changedBy: authResult.user.id,
+        changedBy: context!.userId,
         ipAddress:
           request.headers.get('x-forwarded-for') ||
           request.headers.get('x-real-ip') ||

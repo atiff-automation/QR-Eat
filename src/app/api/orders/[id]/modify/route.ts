@@ -11,6 +11,7 @@ import {
   type ModifyOrderInput,
 } from '@/lib/validation/order-modification-schemas';
 import { calculateOrderTotals } from '@/lib/order-utils';
+import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 
 /**
  * PATCH /api/orders/[id]/modify
@@ -30,11 +31,15 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: orderId } = await params;
+
+    // Get tenant context for RBAC checks
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'orders', 'write');
 
-    const { id: orderId } = await params;
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireOrderAccess(orderId, context!);
 
     // Parse and validate input
     const body = await request.json();

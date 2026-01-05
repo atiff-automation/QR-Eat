@@ -543,14 +543,14 @@ export const rbacMiddlewareConfigs = {
   staffAccess: {
     allowedUserTypes: ['staff'],
     requireActiveSession: true,
-    auditLog: false,
+    auditLog: true,
     rateLimit: { windowMs: 60000, maxRequests: 300 },
   },
 
   // Any authenticated user
   authenticated: {
     requireActiveSession: true,
-    auditLog: false,
+    auditLog: true,
     allowLegacyTokens: true,
     rateLimit: { windowMs: 60000, maxRequests: 500 },
   },

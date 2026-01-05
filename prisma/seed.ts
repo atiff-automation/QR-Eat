@@ -396,35 +396,62 @@ async function main() {
   const kitchenRole = staffRoles.find((r) => r.name === 'Kitchen')!;
 
   for (const restaurant of restaurants) {
-    await Promise.all([
-      // Manager (top level)
-      prisma.staffRoleHierarchy.create({
-        data: {
-          restaurantId: restaurant.id,
-          roleId: managerRole.id,
-          parentId: null,
-          maxCount: 1,
-        },
-      }),
-      // Waiter (reports to manager)
-      prisma.staffRoleHierarchy.create({
-        data: {
-          restaurantId: restaurant.id,
-          roleId: waiterRole.id,
-          parentId: null, // Will be updated later
-          maxCount: 5,
-        },
-      }),
-      // Kitchen (reports to manager)
-      prisma.staffRoleHierarchy.create({
-        data: {
-          restaurantId: restaurant.id,
-          roleId: kitchenRole.id,
-          parentId: null, // Will be updated later
-          maxCount: 3,
-        },
-      }),
-    ]);
+    try {
+      await Promise.all([
+        // Manager (top level)
+        prisma.staffRoleHierarchy.upsert({
+          where: {
+            restaurantId_roleId: {
+              restaurantId: restaurant.id,
+              roleId: managerRole.id,
+            },
+          },
+          update: {},
+          create: {
+            restaurantId: restaurant.id,
+            roleId: managerRole.id,
+            parentId: null,
+            maxCount: 1,
+          },
+        }),
+        // Waiter (reports to manager)
+        prisma.staffRoleHierarchy.upsert({
+          where: {
+            restaurantId_roleId: {
+              restaurantId: restaurant.id,
+              roleId: waiterRole.id,
+            },
+          },
+          update: {},
+          create: {
+            restaurantId: restaurant.id,
+            roleId: waiterRole.id,
+            parentId: null, // Will be updated later
+            maxCount: 5,
+          },
+        }),
+        // Kitchen (reports to manager)
+        prisma.staffRoleHierarchy.upsert({
+          where: {
+            restaurantId_roleId: {
+              restaurantId: restaurant.id,
+              roleId: kitchenRole.id,
+            },
+          },
+          update: {},
+          create: {
+            restaurantId: restaurant.id,
+            roleId: kitchenRole.id,
+            parentId: null, // Will be updated later
+            maxCount: 3,
+          },
+        }),
+      ]);
+    } catch {
+      console.log(
+        `⚠️  Role hierarchies for ${restaurant.name} may already exist, skipping...`
+      );
+    }
   }
 
   console.log('✅ Created role hierarchies for all restaurants');
@@ -621,59 +648,74 @@ async function main() {
   console.log("✅ Created menu items for Mario's:", menuItems.length);
 
   // Create tables for Mario's
-  const tables = await Promise.all([
-    prisma.table.create({
-      data: {
-        restaurantId: marioRestaurant.id,
-        tableNumber: '1',
-        tableName: 'Window Table',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'mario-table-1',
-            restaurant: marioRestaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
-        capacity: 2,
-        status: 'AVAILABLE',
-        locationDescription: 'By the front window',
-      },
-    }),
-    prisma.table.create({
-      data: {
-        restaurantId: marioRestaurant.id,
-        tableNumber: '2',
-        tableName: 'Center Table',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'mario-table-2',
-            restaurant: marioRestaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
-        capacity: 4,
-        status: 'AVAILABLE',
-        locationDescription: 'Center dining area',
-      },
-    }),
-    prisma.table.create({
-      data: {
-        restaurantId: marioRestaurant.id,
-        tableNumber: '3',
-        tableName: 'Romantic Booth',
-        qrCodeToken: Buffer.from(
-          JSON.stringify({
-            tableId: 'mario-table-3',
-            restaurant: marioRestaurant.slug,
-            timestamp: Date.now(),
-          })
-        ).toString('base64url'),
-        capacity: 2,
-        status: 'AVAILABLE',
-        locationDescription: 'Intimate corner booth',
-      },
-    }),
-  ]);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let tables: any[] = [];
+  try {
+    const existingTables = await prisma.table.findMany({
+      where: { restaurantId: marioRestaurant.id },
+    });
+
+    if (existingTables.length === 0) {
+      tables = await Promise.all([
+        prisma.table.create({
+          data: {
+            restaurantId: marioRestaurant.id,
+            tableNumber: '1',
+            tableName: 'Window Table',
+            qrCodeToken: Buffer.from(
+              JSON.stringify({
+                tableId: 'mario-table-1',
+                restaurant: marioRestaurant.slug,
+                timestamp: Date.now(),
+              })
+            ).toString('base64url'),
+            capacity: 2,
+            status: 'AVAILABLE',
+            locationDescription: 'By the front window',
+          },
+        }),
+        prisma.table.create({
+          data: {
+            restaurantId: marioRestaurant.id,
+            tableNumber: '2',
+            tableName: 'Center Table',
+            qrCodeToken: Buffer.from(
+              JSON.stringify({
+                tableId: 'mario-table-2',
+                restaurant: marioRestaurant.slug,
+                timestamp: Date.now(),
+              })
+            ).toString('base64url'),
+            capacity: 4,
+            status: 'AVAILABLE',
+            locationDescription: 'Center dining area',
+          },
+        }),
+        prisma.table.create({
+          data: {
+            restaurantId: marioRestaurant.id,
+            tableNumber: '3',
+            tableName: 'Romantic Booth',
+            qrCodeToken: Buffer.from(
+              JSON.stringify({
+                tableId: 'mario-table-3',
+                restaurant: marioRestaurant.slug,
+                timestamp: Date.now(),
+              })
+            ).toString('base64url'),
+            capacity: 2,
+            status: 'AVAILABLE',
+            locationDescription: 'Intimate corner booth',
+          },
+        }),
+      ]);
+    } else {
+      tables = existingTables;
+      console.log("⚠️  Tables for Mario's already exist, skipping...");
+    }
+  } catch (error) {
+    console.log('⚠️  Error creating tables, they may already exist:', error);
+  }
 
   console.log("✅ Created tables for Mario's:", tables.length);
 

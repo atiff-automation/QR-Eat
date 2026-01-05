@@ -5,6 +5,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 
 export async function GET(
   request: NextRequest,
@@ -16,6 +17,9 @@ export async function GET(
     requirePermission(context!, 'orders', 'read');
 
     const { id: orderId } = await params;
+
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireOrderAccess(orderId, context!);
 
     // Single optimized query with all relations including modifications
     const order = await prisma.order.findUnique({
@@ -181,15 +185,13 @@ export async function PATCH(
   try {
     // Require authentication for PATCH operations (staff only)
     const context = await getTenantContext(request);
-
-    if (!context?.userId) {
-      return NextResponse.json(
-        { error: 'Authentication required to update order status' },
-        { status: 401 }
-      );
-    }
+    requireAuth(context);
+    requirePermission(context!, 'orders', 'write');
 
     const { id: orderId } = await params;
+
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireOrderAccess(orderId, context!);
     const { status, estimatedReadyTime } = await request.json();
 
     if (!status) {
@@ -291,6 +293,9 @@ export async function DELETE(
     requirePermission(context!, 'orders', 'write');
 
     const { id: orderId } = await params;
+
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireOrderAccess(orderId, context!);
 
     // Import validation schema dynamically to avoid circular deps
     const { CancelOrderSchema } = await import(

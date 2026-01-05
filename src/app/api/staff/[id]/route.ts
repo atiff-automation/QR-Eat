@@ -6,8 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthService } from '@/lib/auth';
-import { requireAuth } from '@/lib/rbac/middleware';
-import { STAFF_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireStaffAccess } from '@/lib/rbac/resource-auth';
 
 // GET - Fetch specific staff member details
 export async function GET(
@@ -15,21 +19,19 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'staff', 'read');
+
     const { id } = await params;
 
-    // Fetch the staff member first to get restaurantId for authorization
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireStaffAccess(id, context!);
+
     const staff = await prisma.staff.findUnique({
       where: { id },
       include: {
         role: true,
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            ownerId: true,
-          },
-        },
       },
     });
 
@@ -37,16 +39,6 @@ export async function GET(
       return NextResponse.json(
         { error: 'Staff member not found' },
         { status: 404 }
-      );
-    }
-
-    // Authenticate and authorize using RBAC middleware
-    const auth = await requireAuth(request, [STAFF_PERMISSIONS.READ]);
-
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
       );
     }
 
@@ -69,36 +61,26 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'staff', 'write');
+
     const { id } = await params;
+
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireStaffAccess(id, context!);
+
     const data = await request.json();
     const { firstName, lastName, phone, roleId, isActive, password } = data;
 
-    // Fetch the staff member to verify ownership
     const existingStaff = await prisma.staff.findUnique({
       where: { id },
-      include: {
-        restaurant: {
-          select: {
-            ownerId: true,
-          },
-        },
-      },
     });
 
     if (!existingStaff) {
       return NextResponse.json(
         { error: 'Staff member not found' },
         { status: 404 }
-      );
-    }
-
-    // Authenticate and authorize using RBAC middleware
-    const auth = await requireAuth(request, [STAFF_PERMISSIONS.WRITE]);
-
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
       );
     }
 
@@ -112,19 +94,15 @@ export async function PATCH(
 
     // Handle role change
     if (roleId && roleId !== existingStaff.roleId) {
-      // Verify the new role exists and belongs to the restaurant
-      const role = await prisma.staffRole.findFirst({
+      // Verify the new role exists
+      const role = await prisma.staffRole.findUnique({
         where: {
           id: roleId,
-          restaurantId: existingStaff.restaurantId,
         },
       });
 
       if (!role) {
-        return NextResponse.json(
-          { error: 'Invalid role for this restaurant' },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: 'Invalid role' }, { status: 400 });
       }
 
       updateData.roleId = roleId;
@@ -171,34 +149,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'staff', 'write');
+
     const { id } = await params;
 
-    // Fetch the staff member to verify ownership
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireStaffAccess(id, context!);
+
     const existingStaff = await prisma.staff.findUnique({
       where: { id },
-      include: {
-        restaurant: {
-          select: {
-            ownerId: true,
-          },
-        },
-      },
     });
 
     if (!existingStaff) {
       return NextResponse.json(
         { error: 'Staff member not found' },
         { status: 404 }
-      );
-    }
-
-    // Authenticate and authorize using RBAC middleware
-    const auth = await requireAuth(request, [STAFF_PERMISSIONS.DELETE]);
-
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
       );
     }
 

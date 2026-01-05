@@ -444,6 +444,14 @@ export function getTenantPrisma(_context: TenantContext) {
  */
 export function requireAuth(context: TenantContext | null): TenantContext {
   if (!context) {
+    // Audit log for unauthenticated access attempt
+    AuditLogger.logSecurityEvent(
+      'anonymous',
+      'AUTHENTICATION_REQUIRED',
+      'low',
+      'Protected operation attempted without authentication'
+    ).catch(console.error);
+
     throw new Error('Authentication required');
   }
   return context;
@@ -458,6 +466,20 @@ export function requirePermission(
   action: string
 ): void {
   if (!hasPermission(context, resource, action)) {
+    // Log permission denial
+    AuditLogger.logPermissionDenied(
+      context.userId,
+      `api:${resource}`,
+      `${resource}:${action}`,
+      undefined, // sessionId not easily available here without passing it
+      {
+        metadata: {
+          userType: context.userType,
+          restaurantId: context.restaurantId,
+        },
+      }
+    ).catch(console.error);
+
     throw new Error(`Permission denied: ${action} on ${resource}`);
   }
 }
@@ -470,6 +492,21 @@ export async function requireRestaurantAccess(
   restaurantId: string
 ): Promise<void> {
   if (!enforceRestaurantAccess(context, restaurantId)) {
+    // Log access denial
+    AuditLogger.logPermissionDenied(
+      context.userId,
+      `restaurant:${restaurantId}`,
+      'restaurant:access',
+      undefined,
+      {
+        metadata: {
+          userType: context.userType,
+          targetRestaurantId: restaurantId,
+          reason: 'Isolation check failed',
+        },
+      }
+    ).catch(console.error);
+
     throw new Error('Access denied: Restaurant access not allowed');
   }
 
@@ -480,6 +517,20 @@ export async function requireRestaurantAccess(
       restaurantId
     );
     if (!hasAccess) {
+      // Log ownership violation
+      AuditLogger.logSecurityEvent(
+        context.userId,
+        'OWNERSHIP_VIOLATION',
+        'high',
+        `Attempted access to restaurant ${restaurantId} not owned by user`,
+        {
+          metadata: {
+            userType: context.userType,
+            targetRestaurantId: restaurantId,
+          },
+        }
+      ).catch(console.error);
+
       throw new Error('Access denied: Restaurant not owned by user');
     }
   }

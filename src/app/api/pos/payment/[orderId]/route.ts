@@ -17,6 +17,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { PAYMENT_STATUS, ORDER_STATUS } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { generateReceiptNumber } from '@/lib/utils/receipt-formatter';
@@ -31,40 +32,37 @@ const PaymentRequestSchema = z.object({
   externalTransactionId: z.string().optional(),
   notes: z.string().optional(),
   payFullTable: z.boolean().optional(),
-  paymentMetadata: z.record(z.any()).optional(), // Allow metadata for early payment tracking
+  paymentMetadata: z.record(z.string(), z.any()).optional(), // Allow metadata for early payment tracking
 });
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ orderId: string }> }
+  { params }: { params: { orderId: string } }
 ) {
   try {
-    console.log('[API] Payment Request Received for order:', await params);
+    const { orderId } = params; // Destructure orderId directly from params
+
+    console.log('[API] Payment Request Received for order:', orderId);
 
     // Get tenant context and verify authentication
     const context = await getTenantContext(request);
-    console.log('[API] Auth Context:', {
-      userId: context?.userId,
-      role: context?.userType,
-    });
     requireAuth(context);
     requirePermission(context!, 'payments', 'write');
 
-    const userId = context!.userId!;
-    const userType = context!.userType!;
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireOrderAccess(orderId, context!);
 
-    const { orderId } = await params;
+    const { userId, userType } = context!;
 
     // Validate request body
     const body = await request.json();
     console.log('[API] Request Body:', body);
     const validatedData = PaymentRequestSchema.parse(body);
 
-    // Verify order exists and belongs to restaurant
-    const order = await prisma.order.findFirst({
+    // Verify order exists
+    const order = await prisma.order.findUnique({
       where: {
         id: orderId,
-        restaurantId: context!.restaurantId!,
       },
       include: {
         restaurant: {
@@ -184,23 +182,26 @@ export async function POST(
 
           // For the FIRST order: store the actual cash received and change
           // For OTHER orders: store just their portion
-          const orderCashReceived = isFirstOrder && validatedData.cashReceived
-            ? new Decimal(validatedData.cashReceived)
-            : orderAmount;
+          const orderCashReceived =
+            isFirstOrder && validatedData.cashReceived
+              ? new Decimal(validatedData.cashReceived)
+              : orderAmount;
 
-          const orderChangeGiven = isFirstOrder && changeGiven
-            ? changeGiven
-            : new Decimal(0);
+          const orderChangeGiven =
+            isFirstOrder && changeGiven ? changeGiven : new Decimal(0);
 
-          console.log(`[DEBUG] Order ${eligibleOrders.indexOf(currentOrder) + 1}:`, {
-            isFirstOrder,
-            orderAmount: orderAmount.toString(),
-            totalAmount: totalAmount.toString(),
-            cashReceived: validatedData.cashReceived,
-            changeGiven: changeGiven?.toString(),
-            orderCashReceived: orderCashReceived.toString(),
-            orderChangeGiven: orderChangeGiven.toString(),
-          });
+          console.log(
+            `[DEBUG] Order ${eligibleOrders.indexOf(currentOrder) + 1}:`,
+            {
+              isFirstOrder,
+              orderAmount: orderAmount.toString(),
+              totalAmount: totalAmount.toString(),
+              cashReceived: validatedData.cashReceived,
+              changeGiven: changeGiven?.toString(),
+              orderCashReceived: orderCashReceived.toString(),
+              orderChangeGiven: orderChangeGiven.toString(),
+            }
+          );
 
           const paymentData = {
             orderId: currentOrder.id,
@@ -218,12 +219,16 @@ export async function POST(
             externalTransactionId: validatedData.externalTransactionId,
             paymentMetadata: validatedData.notes
               ? {
-                notes: validatedData.notes,
-                groupedPayment: true,
-                primaryReceipt: receiptNumber,
-                isFirstOrder, // Track which is the primary payment record
-              }
-              : { groupedPayment: true, primaryReceipt: receiptNumber, isFirstOrder },
+                  notes: validatedData.notes,
+                  groupedPayment: true,
+                  primaryReceipt: receiptNumber,
+                  isFirstOrder, // Track which is the primary payment record
+                }
+              : {
+                  groupedPayment: true,
+                  primaryReceipt: receiptNumber,
+                  isFirstOrder,
+                },
             processedAt: new Date(),
             completedAt: new Date(),
           };
@@ -341,7 +346,8 @@ export async function POST(
         changeGiven: changeGiven ?? new Decimal(0),
         receiptNumber,
         externalTransactionId: validatedData.externalTransactionId,
-        paymentMetadata: validatedData.paymentMetadata || undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        paymentMetadata: (validatedData.paymentMetadata as any) || undefined,
         processedAt: new Date(),
         completedAt: new Date(),
       };

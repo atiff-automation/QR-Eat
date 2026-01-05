@@ -22,6 +22,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
 
 export async function GET(
   request: NextRequest,
@@ -35,11 +36,13 @@ export async function GET(
 
     const { id: tableId } = await params;
 
-    // Verify table exists and belongs to restaurant
-    const table = await prisma.table.findFirst({
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireTableAccess(tableId, context!);
+
+    // Verify table exists
+    const table = await prisma.table.findUnique({
       where: {
         id: tableId,
-        restaurantId: context!.restaurantId!,
       },
       select: {
         id: true,

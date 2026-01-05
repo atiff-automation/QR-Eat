@@ -5,8 +5,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { requireAuth } from '@/lib/rbac/middleware';
-import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 
 // GET - Fetch individual restaurant details
 export async function GET(
@@ -18,15 +22,12 @@ export async function GET(
     const { searchParams } = new URL(request.url);
     const includeSettings = searchParams.get('includeSettings') === 'true';
 
-    // Authenticate and authorize using RBAC middleware
-    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.READ]);
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'read');
 
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
-      );
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     // Fetch restaurant with detailed information
     const restaurant = await prisma.restaurant.findUnique({
@@ -69,9 +70,9 @@ export async function GET(
           acceptReservations: restaurant.acceptsReservations || false,
           maxReservationDays: restaurant.maxReservationDays || 30,
           reservationTimeSlots: restaurant.reservationTimeSlots || 60,
-          autoConfirmReservations: restaurant.autoConfirmReservations || false,
         },
-      };
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
     }
 
     return NextResponse.json({
@@ -95,15 +96,12 @@ export async function PATCH(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using RBAC middleware - Admin only
-    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'write');
 
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
-      );
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     const updateData = await request.json();
 
@@ -166,15 +164,12 @@ export async function PUT(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using RBAC middleware - Admin only
-    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'write');
 
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
-      );
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     const updateData = await request.json();
 
@@ -207,7 +202,8 @@ export async function PUT(
       }
 
       // Update restaurant
-      const restaurantUpdateData: Record<string, unknown> = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restaurantUpdateData: Record<string, any> = {
         name: updateData.name,
         slug: updateData.slug,
         description: updateData.description,
@@ -282,15 +278,12 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    // Authenticate and authorize using RBAC middleware - Admin only
-    const auth = await requireAuth(request, [RESTAURANT_PERMISSIONS.WRITE]);
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'restaurants', 'write');
 
-    if (!auth.success) {
-      return NextResponse.json(
-        { error: auth.error || 'Authentication required' },
-        { status: auth.statusCode || 401 }
-      );
-    }
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireRestaurantAccess(id, context!);
 
     // Check if restaurant exists
     const restaurant = await prisma.restaurant.findUnique({

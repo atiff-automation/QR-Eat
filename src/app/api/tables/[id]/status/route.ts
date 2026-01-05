@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 export async function PATCH(
@@ -8,62 +13,23 @@ export async function PATCH(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
     const { status } = await request.json();
-    const tableId = params.id;
+    const { id: tableId } = await params;
 
-    // Validate status
-    const validStatuses = [
-      'AVAILABLE',
-      'OCCUPIED',
-      'RESERVED',
-      'cleaning',
-      'maintenance',
-    ];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Invalid table status' },
-        { status: 400 }
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'tables', 'write');
 
-    // Get the current table
+    // ✅ NEW: Validate resource access (IDOR protection)
+    await requireTableAccess(tableId, context!);
+
+    // Get the current table for logging/notifications
     const currentTable = await prisma.table.findUnique({
       where: { id: tableId },
-      include: {
-        restaurant: true,
-      },
     });
 
     if (!currentTable) {
       return NextResponse.json({ error: 'Table not found' }, { status: 404 });
-    }
-
-    // Check if user has permission to update this table
-    if (
-      currentTable.restaurantId !== authResult.user.currentRole.restaurantId
-    ) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
     // Update the table status
@@ -83,17 +49,17 @@ export async function PATCH(
         operation: 'UPDATE',
         oldValues: { status: currentTable.status },
         newValues: { status },
-        changedBy: authResult.user.id,
+        changedBy: context!.userId,
       },
     });
 
     // Real-time notification: Publish table status change
     await PostgresEventManager.publishTableStatusChange({
       tableId,
-      restaurantId: currentTable.restaurantId,
+      restaurantId: updatedTable.restaurantId,
       previousStatus: currentTable.status,
       newStatus: status,
-      updatedBy: authResult.user.id,
+      updatedBy: context!.userId,
       timestamp: Date.now(),
     });
 

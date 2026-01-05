@@ -1,11 +1,11 @@
 /**
  * Session Management System for RBAC
- * 
+ *
  * This file implements comprehensive session management for the enhanced RBAC system,
  * replacing the problematic multi-cookie approach with secure session tracking.
  */
 
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import { prisma } from '@/lib/database';
 import {
   UserSession,
@@ -13,7 +13,6 @@ import {
   RestaurantContext,
   RBAC_CONSTANTS,
   RBACError,
-  SessionExpiredError
 } from './types';
 
 // Session creation parameters
@@ -42,35 +41,45 @@ export interface SessionWithRelations extends UserSession {
 
 export class SessionManager {
   /**
+   * Helper to hash session ID for secure storage
+   */
+  private static hashSessionId(sessionId: string): string {
+    return createHash('sha256').update(sessionId).digest('hex');
+  }
+
+  /**
    * Create a new user session
    */
-  static async createSession(params: CreateSessionParams): Promise<UserSession> {
+  static async createSession(
+    params: CreateSessionParams
+  ): Promise<UserSession> {
     try {
       // First, clean up any existing sessions for this user to prevent conflicts
       await this.cleanupUserSessions(params.userId);
-      
-      // Generate a unique session ID with timestamp to ensure uniqueness
-      const sessionId = `${randomUUID()}-${Date.now()}`;
+
+      // Generate a unique session ID with enough entropy
+      const rawSessionId = `${randomUUID()}-${randomUUID()}`;
+      const hashedSessionId = this.hashSessionId(rawSessionId);
       const expiresAt = new Date(Date.now() + RBAC_CONSTANTS.SESSION_TIMEOUT);
 
       const session = await prisma.userSession.create({
         data: {
           userId: params.userId,
-          sessionId,
+          sessionId: hashedSessionId,
           currentRoleId: params.currentRoleId,
           restaurantContextId: params.restaurantContextId,
           permissions: params.permissions,
           expiresAt,
           lastActivity: new Date(),
           ipAddress: params.ipAddress,
-          userAgent: params.userAgent
-        }
+          userAgent: params.userAgent,
+        },
       });
 
       return {
         id: session.id,
         userId: session.userId,
-        sessionId: session.sessionId,
+        sessionId: rawSessionId, // Return the raw ID for the JWT token
         currentRoleId: session.currentRoleId,
         restaurantContextId: session.restaurantContextId || undefined,
         jwtTokenHash: session.jwtTokenHash || undefined,
@@ -78,9 +87,9 @@ export class SessionManager {
         expiresAt: session.expiresAt,
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
-        userAgent: session.userAgent || undefined
+        userAgent: session.userAgent || undefined,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to create session',
         'SESSION_CREATION_FAILED',
@@ -94,8 +103,9 @@ export class SessionManager {
    */
   static async getSession(sessionId: string): Promise<UserSession | null> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       const session = await prisma.userSession.findUnique({
-        where: { sessionId }
+        where: { sessionId: hashedSessionId },
       });
 
       if (!session) {
@@ -120,24 +130,23 @@ export class SessionManager {
         expiresAt: session.expiresAt,
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
-        userAgent: session.userAgent || undefined
+        userAgent: session.userAgent || undefined,
       };
-    } catch (error) {
-      throw new RBACError(
-        'Failed to get session',
-        'GET_SESSION_FAILED',
-        500
-      );
+    } catch {
+      throw new RBACError('Failed to get session', 'GET_SESSION_FAILED', 500);
     }
   }
 
   /**
    * Get session with included relations
    */
-  static async getSessionWithRelations(sessionId: string): Promise<SessionWithRelations | null> {
+  static async getSessionWithRelations(
+    sessionId: string
+  ): Promise<SessionWithRelations | null> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       const session = await prisma.userSession.findUnique({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
         include: {
           currentRole: {
             include: {
@@ -148,10 +157,10 @@ export class SessionManager {
                   slug: true,
                   isActive: true,
                   timezone: true,
-                  currency: true
-                }
-              }
-            }
+                  currency: true,
+                },
+              },
+            },
           },
           restaurantContext: {
             select: {
@@ -160,10 +169,10 @@ export class SessionManager {
               slug: true,
               isActive: true,
               timezone: true,
-              currency: true
-            }
-          }
-        }
+              currency: true,
+            },
+          },
+        },
       });
 
       if (!session) {
@@ -188,24 +197,30 @@ export class SessionManager {
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
         userAgent: session.userAgent || undefined,
-        currentRole: session.currentRole ? {
-          id: session.currentRole.id,
-          userType: session.currentRole.userType as any,
-          roleTemplate: session.currentRole.roleTemplate,
-          restaurantId: session.currentRole.restaurantId || undefined,
-          customPermissions: session.currentRole.customPermissions as string[],
-          isActive: session.currentRole.isActive
-        } : undefined,
-        restaurantContext: session.restaurantContext ? {
-          id: session.restaurantContext.id,
-          name: session.restaurantContext.name,
-          slug: session.restaurantContext.slug,
-          isActive: session.restaurantContext.isActive,
-          timezone: session.restaurantContext.timezone,
-          currency: session.restaurantContext.currency
-        } : undefined
+        currentRole: session.currentRole
+          ? {
+              id: session.currentRole.id,
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              userType: session.currentRole.userType as any,
+              roleTemplate: session.currentRole.roleTemplate,
+              restaurantId: session.currentRole.restaurantId || undefined,
+              customPermissions: session.currentRole
+                .customPermissions as string[],
+              isActive: session.currentRole.isActive,
+            }
+          : undefined,
+        restaurantContext: session.restaurantContext
+          ? {
+              id: session.restaurantContext.id,
+              name: session.restaurantContext.name,
+              slug: session.restaurantContext.slug,
+              isActive: session.restaurantContext.isActive,
+              timezone: session.restaurantContext.timezone,
+              currency: session.restaurantContext.currency,
+            }
+          : undefined,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get session with relations',
         'GET_SESSION_RELATIONS_FAILED',
@@ -218,18 +233,19 @@ export class SessionManager {
    * Update session data
    */
   static async updateSession(
-    sessionId: string, 
+    sessionId: string,
     updates: UpdateSessionParams
   ): Promise<void> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       await prisma.userSession.update({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
         data: {
           ...updates,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to update session',
         'UPDATE_SESSION_FAILED',
@@ -243,11 +259,12 @@ export class SessionManager {
    */
   static async updateLastActivity(sessionId: string): Promise<void> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       await prisma.userSession.update({
-        where: { sessionId },
-        data: { lastActivity: new Date() }
+        where: { sessionId: hashedSessionId },
+        data: { lastActivity: new Date() },
       });
-    } catch (error) {
+    } catch {
       // Silent fail - not critical
     }
   }
@@ -255,16 +272,20 @@ export class SessionManager {
   /**
    * Update session JWT token hash
    */
-  static async updateTokenHash(sessionId: string, tokenHash: string): Promise<void> {
+  static async updateTokenHash(
+    sessionId: string,
+    tokenHash: string
+  ): Promise<void> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       await prisma.userSession.update({
-        where: { sessionId },
-        data: { 
+        where: { sessionId: hashedSessionId },
+        data: {
           jwtTokenHash: tokenHash,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to update token hash',
         'UPDATE_TOKEN_HASH_FAILED',
@@ -278,10 +299,11 @@ export class SessionManager {
    */
   static async invalidateSession(sessionId: string): Promise<void> {
     try {
+      const hashedSessionId = this.hashSessionId(sessionId);
       await prisma.userSession.delete({
-        where: { sessionId }
+        where: { sessionId: hashedSessionId },
       });
-    } catch (error) {
+    } catch {
       // Silent fail - session might already be deleted
     }
   }
@@ -292,9 +314,9 @@ export class SessionManager {
   static async invalidateAllUserSessions(userId: string): Promise<void> {
     try {
       await prisma.userSession.deleteMany({
-        where: { userId }
+        where: { userId },
       });
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to invalidate user sessions',
         'INVALIDATE_USER_SESSIONS_FAILED',
@@ -306,15 +328,19 @@ export class SessionManager {
   /**
    * Invalidate all sessions for a user except current
    */
-  static async invalidateOtherUserSessions(userId: string, currentSessionId: string): Promise<void> {
+  static async invalidateOtherUserSessions(
+    userId: string,
+    currentSessionId: string
+  ): Promise<void> {
     try {
+      const hashedCurrentSessionId = this.hashSessionId(currentSessionId);
       await prisma.userSession.deleteMany({
         where: {
           userId,
-          sessionId: { not: currentSessionId }
-        }
+          sessionId: { not: hashedCurrentSessionId },
+        },
       });
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to invalidate other user sessions',
         'INVALIDATE_OTHER_SESSIONS_FAILED',
@@ -329,10 +355,10 @@ export class SessionManager {
   static async cleanupUserSessions(userId: string): Promise<number> {
     try {
       const result = await prisma.userSession.deleteMany({
-        where: { userId }
+        where: { userId },
       });
       return result.count;
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to cleanup user sessions',
         'CLEANUP_USER_SESSIONS_FAILED',
@@ -349,12 +375,12 @@ export class SessionManager {
       const result = await prisma.userSession.deleteMany({
         where: {
           expiresAt: {
-            lt: new Date()
-          }
-        }
+            lt: new Date(),
+          },
+        },
       });
       return result.count;
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to cleanup expired sessions',
         'CLEANUP_SESSIONS_FAILED',
@@ -366,19 +392,23 @@ export class SessionManager {
   /**
    * Extend session expiration
    */
-  static async extendSession(sessionId: string, additionalTime?: number): Promise<void> {
+  static async extendSession(
+    sessionId: string,
+    additionalTime?: number
+  ): Promise<void> {
     try {
       const extension = additionalTime || RBAC_CONSTANTS.SESSION_TIMEOUT;
       const newExpiresAt = new Date(Date.now() + extension);
+      const hashedSessionId = this.hashSessionId(sessionId);
 
       await prisma.userSession.update({
-        where: { sessionId },
+        where: { sessionId: hashedSessionId },
         data: {
           expiresAt: newExpiresAt,
-          lastActivity: new Date()
-        }
+          lastActivity: new Date(),
+        },
       });
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to extend session',
         'EXTEND_SESSION_FAILED',
@@ -396,13 +426,13 @@ export class SessionManager {
         where: {
           userId,
           expiresAt: {
-            gt: new Date()
-          }
+            gt: new Date(),
+          },
         },
-        orderBy: { lastActivity: 'desc' }
+        orderBy: { lastActivity: 'desc' },
       });
 
-      return sessions.map(session => ({
+      return sessions.map((session) => ({
         id: session.id,
         userId: session.userId,
         sessionId: session.sessionId,
@@ -413,9 +443,9 @@ export class SessionManager {
         expiresAt: session.expiresAt,
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
-        userAgent: session.userAgent || undefined
+        userAgent: session.userAgent || undefined,
       }));
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get user sessions',
         'GET_USER_SESSIONS_FAILED',
@@ -439,45 +469,44 @@ export class SessionManager {
       // Get active sessions
       const activeSessions = await prisma.userSession.findMany({
         where: {
-          expiresAt: { gt: now }
+          expiresAt: { gt: now },
         },
         include: {
           currentRole: {
-            select: { userType: true }
-          }
-        }
+            select: { userType: true },
+          },
+        },
       });
 
       // Get expired sessions count
       const expiredCount = await prisma.userSession.count({
         where: {
-          expiresAt: { lte: now }
-        }
+          expiresAt: { lte: now },
+        },
       });
 
       // Calculate statistics
       const sessionsByUserType: Record<string, number> = {};
       let totalDuration = 0;
 
-      activeSessions.forEach(session => {
+      activeSessions.forEach((session) => {
         const userType = session.currentRole?.userType || 'unknown';
         sessionsByUserType[userType] = (sessionsByUserType[userType] || 0) + 1;
-        
+
         const duration = now.getTime() - session.createdAt.getTime();
         totalDuration += duration;
       });
 
-      const averageSessionDuration = activeSessions.length > 0 
-        ? totalDuration / activeSessions.length 
-        : 0;
+      const averageSessionDuration =
+        activeSessions.length > 0 ? totalDuration / activeSessions.length : 0;
 
       return {
         totalActiveSessions: activeSessions.length,
         sessionsByUserType,
         expiredSessionsCount: expiredCount,
-        averageSessionDuration
+        averageSessionDuration,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get session statistics',
         'GET_SESSION_STATISTICS_FAILED',
@@ -493,7 +522,7 @@ export class SessionManager {
     try {
       const session = await this.getSession(sessionId);
       return session !== null;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -533,7 +562,7 @@ export class SessionManager {
       duration,
       timeUntilExpiry,
       isActive,
-      isNearExpiration
+      isNearExpiration,
     };
   }
 }
