@@ -319,6 +319,7 @@ function StaffPageContent() {
         firstName: member.firstName,
         lastName: member.lastName,
         email: member.email,
+        username: member.username,
       });
     } catch (error) {
       // Revert on failure
