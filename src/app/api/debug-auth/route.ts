@@ -1,7 +1,7 @@
 /**
  * Debug Authentication Endpoint
  * DEVELOPMENT ONLY - Provides authentication debugging information
- * 
+ *
  * SECURITY: This endpoint is disabled in production
  */
 
@@ -23,22 +23,35 @@ export async function GET(request: NextRequest) {
 
     // Check headers from middleware
     const headers = Object.fromEntries(request.headers.entries());
-    console.log('Request headers starting with x-:', Object.keys(headers).filter(h => h.startsWith('x-')));
+    console.log(
+      'Request headers starting with x-:',
+      Object.keys(headers).filter((h) => h.startsWith('x-'))
+    );
 
     // Check for token directly - try all user-type specific cookies
-    const ownerToken = request.cookies.get(AUTH_CONSTANTS.OWNER_COOKIE_NAME)?.value;
-    const staffToken = request.cookies.get(AUTH_CONSTANTS.STAFF_COOKIE_NAME)?.value;
-    const adminToken = request.cookies.get(AUTH_CONSTANTS.ADMIN_COOKIE_NAME)?.value;
+    const ownerToken = request.cookies.get(
+      AUTH_CONSTANTS.OWNER_COOKIE_NAME
+    )?.value;
+    const staffToken = request.cookies.get(
+      AUTH_CONSTANTS.STAFF_COOKIE_NAME
+    )?.value;
+    const adminToken = request.cookies.get(
+      AUTH_CONSTANTS.ADMIN_COOKIE_NAME
+    )?.value;
     const legacyToken = request.cookies.get(AUTH_CONSTANTS.COOKIE_NAME)?.value;
 
     console.log('🔍 Cookie Debug:', {
       ownerToken: ownerToken ? `${ownerToken.substring(0, 20)}...` : 'NONE',
       staffToken: staffToken ? `${staffToken.substring(0, 20)}...` : 'NONE',
       adminToken: adminToken ? `${adminToken.substring(0, 20)}...` : 'NONE',
-      legacyToken: legacyToken ? `${legacyToken.substring(0, 20)}...` : 'NONE'
+      legacyToken: legacyToken ? `${legacyToken.substring(0, 20)}...` : 'NONE',
     });
 
-    const token = ownerToken || staffToken || adminToken || legacyToken ||
+    const token =
+      ownerToken ||
+      staffToken ||
+      adminToken ||
+      legacyToken ||
       AuthService.extractTokenFromHeader(request.headers.get('authorization'));
 
     console.log('Token found:', !!token);
@@ -48,7 +61,8 @@ export async function GET(request: NextRequest) {
     // Check route classification (simulate middleware logic)
     const pathname = request.nextUrl.pathname;
     const protectedApiRoutes = [
-      '/api/staff',
+      '/api/admin/staff',
+      '/api/staff/analytics',
       '/api/orders',
       '/api/menu',
       '/api/restaurants',
@@ -58,8 +72,8 @@ export async function GET(request: NextRequest) {
       '/api/billing',
       '/api/debug-auth',
     ];
-    const isProtectedApiRoute = protectedApiRoutes.some(
-      (route) => pathname.startsWith(route)
+    const isProtectedApiRoute = protectedApiRoutes.some((route) =>
+      pathname.startsWith(route)
     );
 
     console.log('Is protected route:', isProtectedApiRoute);
@@ -101,15 +115,14 @@ export async function GET(request: NextRequest) {
         tokenLength: token?.length || 0,
         payload: token ? AuthService.verifyToken(token) : null,
         middlewareHeaders: tenantHeaders,
-        allHeaders: Object.keys(headers).filter(h => h.startsWith('x-')),
-      }
+        allHeaders: Object.keys(headers).filter((h) => h.startsWith('x-')),
+      },
     });
-
   } catch (error) {
     console.error('Debug auth error:', error);
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }
