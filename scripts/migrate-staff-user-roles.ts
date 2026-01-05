@@ -11,6 +11,20 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Map StaffRole name to valid RBAC roleTemplate
+const mapRoleNameToTemplate = (roleName: string): string => {
+  const mapping: Record<string, string> = {
+    Manager: 'manager',
+    'Assistant Manager': 'manager', // Map to manager since assistant_manager is not a valid template
+    Waiter: 'waiter',
+    Kitchen: 'kitchen_staff', // Map to kitchen_staff (not just 'kitchen')
+    'Kitchen Staff': 'kitchen_staff',
+    Cashier: 'cashier',
+  };
+
+  return mapping[roleName] || roleName.toLowerCase().replace(/\s+/g, '_');
+};
+
 async function migrateExistingStaff() {
   console.log(
     '🔄 Starting migration: Creating UserRole records for existing staff...\n'
@@ -48,8 +62,8 @@ async function migrateExistingStaff() {
           continue;
         }
 
-        // Convert role name to roleTemplate format
-        const roleTemplate = staff.role.name.toLowerCase().replace(/\s+/g, '_');
+        // Convert role name to roleTemplate format using proper mapping
+        const roleTemplate = mapRoleNameToTemplate(staff.role.name);
 
         // Create UserRole record
         await prisma.userRole.create({

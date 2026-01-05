@@ -149,6 +149,20 @@ export async function POST(request: NextRequest) {
     // Hash password (using generated password)
     const passwordHash = await AuthService.hashPassword(generatedPassword);
 
+    // Map StaffRole name to valid RBAC roleTemplate
+    const mapRoleNameToTemplate = (roleName: string): string => {
+      const mapping: Record<string, string> = {
+        Manager: 'manager',
+        'Assistant Manager': 'manager', // Map to manager since assistant_manager is not a valid template
+        Waiter: 'waiter',
+        Kitchen: 'kitchen_staff', // Map to kitchen_staff (not just 'kitchen')
+        'Kitchen Staff': 'kitchen_staff',
+        Cashier: 'cashier',
+      };
+
+      return mapping[roleName] || roleName.toLowerCase().replace(/\s+/g, '_');
+    };
+
     // Create staff member and UserRole in a transaction
     const staff = await prisma.$transaction(async (tx) => {
       // Create staff member
@@ -177,8 +191,8 @@ export async function POST(request: NextRequest) {
       });
 
       // Create UserRole record for RBAC authentication
-      // Convert role name to roleTemplate format (e.g., "Kitchen Staff" -> "kitchen_staff")
-      const roleTemplate = role.name.toLowerCase().replace(/\s+/g, '_');
+      // Use proper mapping to convert role name to valid roleTemplate
+      const roleTemplate = mapRoleNameToTemplate(role.name);
 
       await tx.userRole.create({
         data: {
