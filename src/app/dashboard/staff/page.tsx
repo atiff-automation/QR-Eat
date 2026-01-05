@@ -3,10 +3,12 @@
 import { useState, useEffect } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
+import { useHasPermission } from '@/lib/hooks/queries/useAuth';
 import CredentialsModal from '@/components/CredentialsModal';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import {
   Plus,
+  Pencil,
   AlertTriangle,
   CheckCircle,
   X,
@@ -86,8 +88,7 @@ function StaffPageContent() {
   // Check if user has permission to manage staff based on RBAC
   const canManageStaff = isOwner;
   // For viewing, we check if they have the 'staff:read' permission
-  const canViewStaff =
-    isOwner || user?.role?.permissions?.staff?.includes('read');
+  const canViewStaff = useHasPermission('staff:read') || isOwner;
 
   useEffect(() => {
     fetchStaff();
@@ -291,6 +292,44 @@ function StaffPageContent() {
     }
   };
 
+  // Toggle Status Function
+  const handleToggleStatus = async (
+    member: StaffMember,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation(); // Prevent card click
+
+    // Don't allow toggling own status
+    if (member.id === user?.id) {
+      return;
+    }
+
+    try {
+      // Optimistic update
+      setStaff((prev) =>
+        prev.map((s) =>
+          s.id === member.id ? { ...s, isActive: !s.isActive } : s
+        )
+      );
+
+      await ApiClient.put(`/admin/staff/${member.id}`, {
+        isActive: !member.isActive,
+        roleId: member.role.id,
+        firstName: member.firstName,
+        lastName: member.lastName,
+        email: member.email,
+      });
+    } catch (error) {
+      // Revert on failure
+      setStaff((prev) =>
+        prev.map((s) =>
+          s.id === member.id ? { ...s, isActive: !!member.isActive } : s
+        )
+      );
+      console.error('Failed to toggle status:', error);
+    }
+  };
+
   // Filter staff based on selected role
   const filteredStaff =
     selectedRoleFilter === 'all'
@@ -320,44 +359,32 @@ function StaffPageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white pb-20">
+    <div className="min-h-screen bg-gray-50/50 pb-20">
       {/* 
-        Phase 2 Refinement: Ultra-Compact Header 
-        Title is visually hidden or extremely minimal since it lives in App Nav.
+        Phase 3: Menu-Aligned UI 
+        - Title lives in Nav (assumed), but we'll keep a minimal one here just in case.
+        - Horizontal Pills for Roles (like Menu Categories).
       */}
       <div className="px-5 pt-6 pb-2">
-        <div className="flex items-end justify-between mb-4">
-          {/* Simple Staff Counter Title */}
+        <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
             Staff{' '}
             <span className="text-gray-400 font-normal ml-1">
               ({staff.length})
             </span>
           </h1>
-
-          {/* Top Add Button (Desktop visible, mobile relies on FAB) */}
-          <button
-            onClick={openAddModal}
-            className="hidden sm:flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 bg-blue-50 px-3 py-1.5 rounded-full transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            Add New
-          </button>
         </div>
 
-        {/* 
-          Phase 2 Refinement: Minimalist Roles (Pills)
-          Horizontal scroll, pill shape, active state black/white
-        */}
+        {/* Roles Filter (Pills) */}
         <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide no-scrollbar -mx-5 px-5 select-none">
           <button
             onClick={() => setSelectedRoleFilter('all')}
             className={`
-              flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all
+              flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all
               ${
                 selectedRoleFilter === 'all'
                   ? 'bg-gray-900 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-white text-gray-600 border border-gray-100 shadow-sm'
               }
             `}
           >
@@ -369,11 +396,11 @@ function StaffPageContent() {
               key={role.id}
               onClick={() => setSelectedRoleFilter(role.id)}
               className={`
-                flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all whitespace-nowrap
+                flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all whitespace-nowrap
                 ${
                   selectedRoleFilter === role.id
                     ? 'bg-gray-900 text-white shadow-sm'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    : 'bg-white text-gray-600 border border-gray-100 shadow-sm'
                 }
               `}
             >
@@ -385,25 +412,27 @@ function StaffPageContent() {
 
       {/* Status Messages */}
       {error && (
-        <div className="mx-5 mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+        <div className="mx-5 mb-4 bg-red-50 text-red-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 border border-red-100">
           <AlertTriangle className="h-4 w-4 flex-shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="mx-5 mb-4 bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+        <div className="mx-5 mb-4 bg-green-50 text-green-600 px-4 py-3 rounded-xl text-sm flex items-center gap-2 border border-green-100">
           <CheckCircle className="h-4 w-4 flex-shrink-0" />
           {success}
         </div>
       )}
 
       {/* 
-        Phase 2 Refinement: Clean Staff List
-        "Apple Settings" aesthetic: Full width (or framed), border-b dividers, clean whitespace
+        Phase 3: Card List
+        - Individual white cards
+        - Rounded-xl, Shadow-sm
+        - Layout: Avatar | Info | Actions (Toggle + Edit)
       */}
-      <div className="mt-2">
+      <div className="px-5 space-y-3">
         {filteredStaff.length === 0 ? (
-          <div className="text-center py-20 px-6">
+          <div className="text-center py-20 px-6 bg-white rounded-2xl border border-gray-100 shadow-sm">
             <div className="bg-gray-50 h-16 w-16 rounded-full flex items-center justify-center mx-auto mb-4">
               <Search className="h-8 w-8 text-gray-400" />
             </div>
@@ -415,63 +444,81 @@ function StaffPageContent() {
             </p>
           </div>
         ) : (
-          <div className="flex flex-col">
-            {filteredStaff.map((member) => (
-              <div
-                key={member.id}
-                onClick={() => openEditModal(member)}
-                className="group flex items-center gap-4 px-5 py-4 bg-white border-b border-gray-100 last:border-0 hover:bg-gray-50 active:bg-gray-100 transition-colors cursor-pointer"
-              >
-                {/* Minimal Avatar */}
-                <div className="flex-shrink-0">
-                  <div
-                    className={`
-                    h-11 w-11 rounded-full flex items-center justify-center text-sm font-semibold
-                    ${member.isActive ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}
-                  `}
-                  >
-                    {member.firstName[0]}
-                    {member.lastName[0]}
-                  </div>
+          filteredStaff.map((member) => (
+            <div
+              key={member.id}
+              onClick={() => openEditModal(member)}
+              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex items-center justify-between active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center gap-4">
+                {/* Avatar: Rounded Square with initials */}
+                <div
+                  className={`
+                  h-12 w-12 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0
+                  ${member.isActive ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}
+                `}
+                >
+                  {member.firstName[0]}
+                  {member.lastName[0]}
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 flex flex-col justify-center">
-                  <div className="flex items-center justify-between mb-0.5">
-                    <h3 className="font-semibold text-gray-900 text-[15px] truncate">
-                      {member.firstName} {member.lastName}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                      {/* Active Status Dot */}
-                      <div
-                        className={`h-2 w-2 rounded-full ${member.isActive ? 'bg-green-500' : 'bg-red-400'}`}
-                      />
-                      <ChevronRight className="h-4 w-4 text-gray-300" />
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
+                {/* Info */}
+                <div>
+                  <h3 className="font-bold text-gray-900 text-[15px]">
+                    {member.firstName} {member.lastName}
+                  </h3>
+                  <div className="flex items-center gap-2 mt-1">
                     <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
                       {member.role.name}
                     </span>
-                    {member.phone && (
-                      <span className="text-xs text-gray-400 truncate hidden sm:block">
-                        {member.phone}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+
+              {/* Actions Column: Toggle + Edit Icon */}
+              <div
+                className="flex flex-col items-end gap-3"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Status Toggle */}
+                {canManageStaff && (
+                  <button
+                    onClick={(e) => handleToggleStatus(member, e)}
+                    className={`
+                      relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
+                      ${member.isActive ? 'bg-green-500' : 'bg-gray-200'}
+                    `}
+                    disabled={member.id === user?.id}
+                  >
+                    <span className="sr-only">Use setting</span>
+                    <span
+                      aria-hidden="true"
+                      className={`
+                        pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                        ${member.isActive ? 'translate-x-5' : 'translate-x-0'}
+                      `}
+                    />
+                  </button>
+                )}
+
+                {/* Edit Icon */}
+                <button
+                  onClick={() => openEditModal(member)}
+                  className="text-gray-400 hover:text-gray-600 p-1"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          ))
         )}
       </div>
 
-      {/* Floating Action Button (Mobile) */}
+      {/* Floating Action Button (Mobile/Desktop) - Blue Circle with Plus */}
       {canManageStaff && (
         <button
           onClick={openAddModal}
-          className="fixed bottom-6 right-6 h-14 w-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 sm:hidden z-20"
+          className="fixed bottom-6 right-6 h-14 w-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 z-20"
           aria-label="Add Staff"
         >
           <Plus className="h-7 w-7" />
@@ -742,24 +789,33 @@ function StaffPageContent() {
                   </div>
                 </div>
 
+                {/* Status Toggle in Edit Modal (Optional since it is on card, but good for completeness) */}
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-100">
                   <span className="text-sm font-medium text-gray-900">
                     Account Status
                   </span>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.isActive}
-                      onChange={(e) =>
-                        setFormData((prev) => ({
-                          ...prev,
-                          isActive: e.target.checked,
-                        }))
-                      }
-                      className="sr-only peer"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        isActive: !prev.isActive,
+                      }))
+                    }
+                    className={`
+                      relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
+                      ${formData.isActive ? 'bg-green-500' : 'bg-gray-200'}
+                    `}
+                  >
+                    <span className="sr-only">Use setting</span>
+                    <span
+                      aria-hidden="true"
+                      className={`
+                        pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                        ${formData.isActive ? 'translate-x-5' : 'translate-x-0'}
+                      `}
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
+                  </button>
                 </div>
 
                 <div className="pt-4 flex flex-col gap-3">
