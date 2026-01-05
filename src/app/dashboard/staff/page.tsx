@@ -280,6 +280,7 @@ function StaffPageContent() {
         await ApiClient.delete(`/admin/staff/${member.id}`);
 
         await fetchStaff(); // Refresh the list
+        closeModals(); // Close the edit modal
         setSuccess('Staff member deleted successfully!');
         setTimeout(() => setSuccess(''), 3000);
       } catch (error) {
