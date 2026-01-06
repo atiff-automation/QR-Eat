@@ -7,9 +7,14 @@ import { ShoppingBag } from 'lucide-react';
 interface FloatingCartBarProps {
   cart: Cart;
   onReviewCart: () => void;
+  currency: string; // Phase 3 - Restaurant Settings
 }
 
-export function FloatingCartBar({ cart, onReviewCart }: FloatingCartBarProps) {
+export function FloatingCartBar({
+  cart,
+  onReviewCart,
+  currency,
+}: FloatingCartBarProps) {
   const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
 
   // Don't show if cart is empty
@@ -35,7 +40,7 @@ export function FloatingCartBar({ cart, onReviewCart }: FloatingCartBarProps) {
             <div className="flex flex-col items-start">
               <span className="text-xs font-medium text-orange-100">Total</span>
               <span className="text-base font-bold leading-tight">
-                {formatPrice(cart.totalAmount)}
+                {formatPrice(cart.totalAmount, currency)}
               </span>
             </div>
           </div>

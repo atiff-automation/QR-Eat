@@ -7,6 +7,11 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CartSummaryProps {
   cart: Cart;
+  restaurantSettings: {
+    currency: string;
+    taxLabel: string;
+    serviceChargeLabel: string;
+  } | null; // Phase 3 - Restaurant Settings
   onUpdateItem: (
     index: number,
     updates: Partial<Pick<CartItem, 'quantity' | 'specialInstructions'>>
@@ -23,6 +28,7 @@ import { useEffect } from 'react';
 
 export function CartSummary({
   cart,
+  restaurantSettings,
   onUpdateItem,
   onRemoveItem,
   onCheckout,
@@ -38,6 +44,12 @@ export function CartSummary({
 
   // Lock body scroll to prevent browser UI auto-hiding
   useBodyScrollLock(true);
+
+  // Extract settings with fallbacks
+  const currency = restaurantSettings?.currency || 'MYR';
+  const taxLabel = restaurantSettings?.taxLabel || 'Tax';
+  const serviceChargeLabel =
+    restaurantSettings?.serviceChargeLabel || 'Service Charge';
 
   return (
     <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col h-[100dvh]">
@@ -116,7 +128,7 @@ export function CartSummary({
                 </h3>
               </div>
               <div className="text-sm text-gray-500 mb-1">
-                {formatPrice(item.unitPrice)}
+                {formatPrice(item.unitPrice, currency)}
               </div>
 
               {item.selectedVariations.length > 0 && (
@@ -211,11 +223,17 @@ export function CartSummary({
         </div>
 
         <div className="p-4 pt-2">
-          {/* Consolidated Info Row */}
+          {/* Consolidated Info Row - Now includes service charge */}
           <div className="flex justify-center text-xs text-gray-400 mb-3 space-x-3">
-            <span>Subtotal: {formatPrice(cart.subtotal)}</span>
+            <span>Subtotal: {formatPrice(cart.subtotal, currency)}</span>
             <span className="text-gray-300">•</span>
-            <span>Tax: {formatPrice(cart.taxAmount)}</span>
+            <span>
+              {taxLabel}: {formatPrice(cart.taxAmount, currency)}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span>
+              {serviceChargeLabel}: {formatPrice(cart.serviceCharge, currency)}
+            </span>
           </div>
 
           <button
@@ -249,7 +267,7 @@ export function CartSummary({
               </span>
             ) : (
               <span className="uppercase tracking-wide">
-                Confirm Order - {formatPrice(cart.totalAmount)}
+                Confirm Order - {formatPrice(cart.totalAmount, currency)}
               </span>
             )}
           </button>

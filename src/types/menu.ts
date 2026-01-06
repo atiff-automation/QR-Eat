@@ -73,5 +73,7 @@ export interface Table {
     currency: string;
     taxRate: number;
     serviceChargeRate: number;
+    taxLabel?: string; // Phase 2 - Settings MVP
+    serviceChargeLabel?: string; // Phase 2 - Settings MVP
   };
 }

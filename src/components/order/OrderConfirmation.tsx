@@ -8,11 +8,13 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 interface OrderConfirmationProps {
   order: OrderResponse;
   onNewOrder: () => void;
+  currency: string; // Phase 3 - Restaurant Settings
 }
 
 export function OrderConfirmation({
   order,
   onNewOrder,
+  currency,
 }: OrderConfirmationProps) {
   // Lock body scroll to prevent browser UI auto-hiding
   useBodyScrollLock(true);
@@ -46,7 +48,7 @@ export function OrderConfirmation({
         <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-200">
           <p className="text-xs text-gray-600 mb-1">Total Amount</p>
           <p className="text-3xl font-bold text-orange-600">
-            {formatPrice(order.totalAmount)}
+            {formatPrice(order.totalAmount, currency)}
           </p>
           <p className="text-xs text-gray-500 mt-1">
             Pay at the counter when ready

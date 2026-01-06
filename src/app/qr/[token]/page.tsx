@@ -29,6 +29,11 @@ export default function QRMenuPage() {
   const [showCheckout, setShowCheckout] = useState(false);
   const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
+  const [restaurantSettings, setRestaurantSettings] = useState<{
+    currency: string;
+    taxLabel: string;
+    serviceChargeLabel: string;
+  } | null>(null);
 
   const {
     cart,
@@ -43,10 +48,10 @@ export default function QRMenuPage() {
     table?.id || null,
     table?.restaurant.taxRate
       ? parseFloat(table.restaurant.taxRate.toString())
-      : 0.085,
+      : 0,
     table?.restaurant.serviceChargeRate
       ? parseFloat(table.restaurant.serviceChargeRate.toString())
-      : 0.12
+      : 0
   );
 
   useEffect(() => {
@@ -63,6 +68,14 @@ export default function QRMenuPage() {
         `/api/qr/${token}`
       );
       setTable(tableResponse.table);
+
+      // Set restaurant settings
+      setRestaurantSettings({
+        currency: tableResponse.table.restaurant.currency || 'MYR',
+        taxLabel: tableResponse.table.restaurant.taxLabel || 'Tax',
+        serviceChargeLabel:
+          tableResponse.table.restaurant.serviceChargeLabel || 'Service Charge',
+      });
 
       // Fetch menu
       const menuResponse = await ApiClient.get<{ menu: MenuCategory[] }>(
@@ -308,7 +321,11 @@ export default function QRMenuPage() {
       {/* Main Content Area */}
       <div className="w-full px-4 py-4">
         {currentOrder ? (
-          <OrderConfirmation order={currentOrder} onNewOrder={handleNewOrder} />
+          <OrderConfirmation
+            order={currentOrder}
+            onNewOrder={handleNewOrder}
+            currency={restaurantSettings?.currency || 'MYR'}
+          />
         ) : showCheckout ? (
           <CheckoutForm
             onSubmit={createOrder}
@@ -321,6 +338,7 @@ export default function QRMenuPage() {
         ) : showCart ? (
           <CartSummary
             cart={cart}
+            restaurantSettings={restaurantSettings}
             onUpdateItem={updateCartItem}
             onRemoveItem={removeFromCart}
             onCheckout={handleCheckout}
@@ -365,6 +383,7 @@ export default function QRMenuPage() {
                         onAddToCart={addToCart}
                         onModalStateChange={setIsAnyModalOpen}
                         cartQuantity={cartQuantity}
+                        currency={restaurantSettings?.currency || 'MYR'}
                       />
                     );
                   })}
@@ -384,7 +403,11 @@ export default function QRMenuPage() {
 
       {/* Floating Cart Bar - Hidden when modal is open */}
       {!showCart && !showCheckout && !currentOrder && !isAnyModalOpen && (
-        <FloatingCartBar cart={cart} onReviewCart={() => setShowCart(true)} />
+        <FloatingCartBar
+          cart={cart}
+          onReviewCart={() => setShowCart(true)}
+          currency={restaurantSettings?.currency || 'MYR'}
+        />
       )}
     </div>
   );
