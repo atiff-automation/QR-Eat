@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Toaster } from 'react-hot-toast';
 import { QueryProvider } from '@/providers/QueryProvider';
@@ -14,19 +14,20 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-export const metadata: Metadata = {
-  title: 'QR-Eat - Restaurant Management System',
-  description: 'Mobile-first restaurant management and QR code ordering',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#2563eb' },
     { media: '(prefers-color-scheme: dark)', color: '#1e40af' },
   ],
+};
+
+export const metadata: Metadata = {
+  title: 'QR-Eat - Restaurant Management System',
+  description: 'Mobile-first restaurant management and QR code ordering',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
