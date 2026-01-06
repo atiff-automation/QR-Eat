@@ -226,6 +226,14 @@ model Restaurant {
   deliveryAvailable       Boolean @default(false) // Delivery service available
   takeoutAvailable        Boolean @default(true) // Takeout available
 
+  // Settings MVP Fields
+  taxLabel              String? // Custom tax label (e.g., "GST", "VAT", "Sales Tax")
+  serviceChargeLabel    String? // Custom service charge label
+  notificationSettings  Json    @default("{}") // Push notification preferences
+  receiptSettings       Json    @default("{}") // Receipt customization (header, footer, etc.)
+  paymentMethods        Json    @default("[]") // Enabled payment methods
+  systemPreferences     Json    @default("{}") // Currency, timezone, date format, etc.
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -242,6 +250,8 @@ model Restaurant {
   // RBAC Relations
   userRoles       UserRole[]
   userSessions    UserSession[]
+  // Settings MVP Relations
+  pushSubscriptions PushSubscription[]
 
   @@index([ownerId])
   @@index([slug])
@@ -1121,3 +1131,20 @@ model OrderModificationItem {
   @@index([orderItemId])
   @@map("order_modification_items")
 }
+
+// Settings MVP - Push Notifications
+model PushSubscription {
+  id           String   @id @default(uuid())
+  restaurantId String
+  endpoint     String
+  keys         Json // {p256dh, auth}
+  userAgent    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("push_subscriptions")
+}
+
