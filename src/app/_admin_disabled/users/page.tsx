@@ -9,7 +9,7 @@ import {
   Shield,
   Building2,
   Mail,
-  Phone
+  Phone,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ApiClient } from '@/lib/api-client';
@@ -56,17 +56,19 @@ export default function AdminUsersPage() {
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesUserType = userTypeFilter === 'all' || user.userType === userTypeFilter;
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'active' && user.isActive) ||
-                         (statusFilter === 'inactive' && !user.isActive);
-    
+
+    const matchesUserType =
+      userTypeFilter === 'all' || user.userType === userTypeFilter;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'active' && user.isActive) ||
+      (statusFilter === 'inactive' && !user.isActive);
+
     return matchesSearch && matchesUserType && matchesStatus;
   });
 
@@ -114,11 +116,17 @@ export default function AdminUsersPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">User Management</h1>
-              <p className="text-sm text-gray-500">Manage all users on the platform</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                User Management
+              </h1>
+              <p className="text-sm text-gray-500">
+                Manage all users on the platform
+              </p>
             </div>
             <Link href="/admin/dashboard">
-              <button className="text-gray-600 hover:text-gray-900">← Back to Dashboard</button>
+              <button className="text-gray-600 hover:text-gray-900">
+                ← Back to Dashboard
+              </button>
             </Link>
           </div>
         </div>
@@ -129,7 +137,9 @@ export default function AdminUsersPage() {
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Search</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Search
+              </label>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
@@ -142,7 +152,9 @@ export default function AdminUsersPage() {
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">User Type</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                User Type
+              </label>
               <select
                 value={userTypeFilter}
                 onChange={(e) => setUserTypeFilter(e.target.value)}
@@ -155,7 +167,9 @@ export default function AdminUsersPage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Status
+              </label>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -204,7 +218,8 @@ export default function AdminUsersPage() {
                       <div className="flex items-center">
                         <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
                           <span className="text-sm font-medium text-gray-700">
-                            {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                            {user.firstName.charAt(0)}
+                            {user.lastName.charAt(0)}
                           </span>
                         </div>
                         <div className="ml-4">
@@ -234,18 +249,25 @@ export default function AdminUsersPage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
-                        {user.userType === 'restaurant_owner' && user.restaurants ? (
+                        {user.userType === 'restaurant_owner' &&
+                        user.restaurants ? (
                           <div>
                             {user.restaurants.map((restaurant, index) => (
                               <div key={index} className="mb-1">
-                                <Link href={`/restaurant/${restaurant.slug}`} className="text-blue-600 hover:underline">
+                                <Link
+                                  href={`/restaurant/${restaurant.slug}`}
+                                  className="text-blue-600 hover:underline"
+                                >
                                   {restaurant.name}
                                 </Link>
                               </div>
                             ))}
                           </div>
                         ) : user.userType === 'staff' && user.restaurant ? (
-                          <Link href={`/restaurant/${user.restaurant.slug}`} className="text-blue-600 hover:underline">
+                          <Link
+                            href={`/restaurant/${user.restaurant.slug}`}
+                            className="text-blue-600 hover:underline"
+                          >
                             {user.restaurant.name}
                           </Link>
                         ) : user.userType === 'platform_admin' ? (
@@ -256,11 +278,13 @@ export default function AdminUsersPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.isActive ? (
                           <>
                             <UserCheck className="h-3 w-3 mr-1" />
@@ -275,10 +299,9 @@ export default function AdminUsersPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {user.lastLoginAt 
+                      {user.lastLoginAt
                         ? new Date(user.lastLoginAt).toLocaleDateString()
-                        : 'Never'
-                      }
+                        : 'Never'}
                     </td>
                   </tr>
                 ))}

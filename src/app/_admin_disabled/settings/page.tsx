@@ -52,7 +52,9 @@ export default function AdminSettingsPage() {
 
   const fetchSettings = async () => {
     try {
-      const data = await ApiClient.get<{ settings: PlatformSettings }>('/admin/settings');
+      const data = await ApiClient.get<{ settings: PlatformSettings }>(
+        '/admin/settings'
+      );
       setSettings(data.settings);
     } catch {
       console.error('Failed to fetch settings');
@@ -88,7 +90,10 @@ export default function AdminSettingsPage() {
       setMessage('Settings saved successfully!');
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.';
       setMessage(message);
     } finally {
       setSaving(false);

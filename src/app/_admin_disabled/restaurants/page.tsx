@@ -61,10 +61,15 @@ export default function AdminRestaurantsPage() {
   const toggleRestaurantStatus = async (restaurantId: string) => {
     try {
       const restaurant = restaurants.find((r) => r.id === restaurantId);
-      await ApiClient.patch(`/restaurants/${restaurantId}`, { isActive: !restaurant?.isActive });
+      await ApiClient.patch(`/restaurants/${restaurantId}`, {
+        isActive: !restaurant?.isActive,
+      });
       fetchRestaurants(); // Refresh the list
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Failed to update restaurant status';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to update restaurant status';
       alert(message);
     }
   };
@@ -79,10 +84,15 @@ export default function AdminRestaurantsPage() {
     }
 
     try {
-      await ApiClient.delete<{ error?: string }>(`/restaurants/${restaurantId}`);
+      await ApiClient.delete<{ error?: string }>(
+        `/restaurants/${restaurantId}`
+      );
       fetchRestaurants(); // Refresh the list
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Failed to delete restaurant';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to delete restaurant';
       alert(message);
     }
   };

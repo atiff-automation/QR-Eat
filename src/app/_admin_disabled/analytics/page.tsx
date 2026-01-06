@@ -49,7 +49,9 @@ export default function AdminAnalyticsPage() {
 
   const fetchAnalytics = useCallback(async () => {
     try {
-      const data = await ApiClient.get<{ analytics: AnalyticsData }>(`/admin/analytics?range=${dateRange}`);
+      const data = await ApiClient.get<{ analytics: AnalyticsData }>(
+        `/admin/analytics?range=${dateRange}`
+      );
       setAnalytics(data.analytics);
     } catch {
       console.error('Failed to fetch analytics');
@@ -64,7 +66,9 @@ export default function AdminAnalyticsPage() {
 
   const exportData = async () => {
     try {
-      const data = await ApiClient.get<Blob>(`/admin/analytics/export?range=${dateRange}`);
+      const data = await ApiClient.get<Blob>(
+        `/admin/analytics/export?range=${dateRange}`
+      );
       {
         const url = window.URL.createObjectURL(data);
         const a = document.createElement('a');
@@ -76,7 +80,10 @@ export default function AdminAnalyticsPage() {
         window.URL.revokeObjectURL(url);
       }
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Failed to export data';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to export data';
       alert(message);
     }
   };

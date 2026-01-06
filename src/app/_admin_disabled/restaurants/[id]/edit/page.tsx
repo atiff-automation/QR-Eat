@@ -12,7 +12,7 @@ import {
   Mail,
   Globe,
   Clock,
-  DollarSign
+  DollarSign,
 } from 'lucide-react';
 import Link from 'next/link';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
@@ -60,11 +60,16 @@ export default function EditRestaurantPage() {
 
   const fetchRestaurant = async (id: string) => {
     try {
-      const data = await ApiClient.get<{ restaurant: Restaurant }>(`/restaurants/${id}?includeSettings=true`);
+      const data = await ApiClient.get<{ restaurant: Restaurant }>(
+        `/restaurants/${id}?includeSettings=true`
+      );
       setRestaurant(data.restaurant);
     } catch (error) {
       console.error('Failed to fetch restaurant:', error);
-      const message = error instanceof ApiClientError ? error.message : 'Network error occurred';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error occurred';
       setMessage(message);
     } finally {
       setLoading(false);
@@ -74,33 +79,33 @@ export default function EditRestaurantPage() {
   const handleInputChange = (field: string, value: string | boolean) => {
     if (!restaurant) return;
 
-    setRestaurant(prev => ({
+    setRestaurant((prev) => ({
       ...prev!,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handleOwnerChange = (field: string, value: string) => {
     if (!restaurant) return;
 
-    setRestaurant(prev => ({
+    setRestaurant((prev) => ({
       ...prev!,
       owner: {
         ...prev!.owner,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
   const handleSettingsChange = (field: string, value: boolean | number) => {
     if (!restaurant) return;
 
-    setRestaurant(prev => ({
+    setRestaurant((prev) => ({
       ...prev!,
       settings: {
         ...prev!.settings,
-        [field]: value
-      }
+        [field]: value,
+      },
     }));
   };
 
@@ -123,7 +128,7 @@ export default function EditRestaurantPage() {
         currency: restaurant.currency,
         timezone: restaurant.timezone,
         owner: restaurant.owner,
-        settings: restaurant.settings
+        settings: restaurant.settings,
       });
 
       setMessage('Restaurant updated successfully!');
@@ -131,7 +136,10 @@ export default function EditRestaurantPage() {
         router.push('/admin/restaurants');
       }, 1500);
     } catch (error) {
-      const message = error instanceof ApiClientError ? error.message : 'Network error. Please try again.';
+      const message =
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.';
       setMessage(message);
     } finally {
       setSaving(false);
@@ -155,7 +163,10 @@ export default function EditRestaurantPage() {
         <div className="text-center">
           <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-500">Restaurant not found</p>
-          <Link href="/admin/restaurants" className="text-blue-600 hover:underline mt-2 inline-block">
+          <Link
+            href="/admin/restaurants"
+            className="text-blue-600 hover:underline mt-2 inline-block"
+          >
             ← Back to Restaurants
           </Link>
         </div>
@@ -170,8 +181,12 @@ export default function EditRestaurantPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Edit Restaurant</h1>
-              <p className="text-sm text-gray-500">Update restaurant information and settings</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Edit Restaurant
+              </h1>
+              <p className="text-sm text-gray-500">
+                Update restaurant information and settings
+              </p>
             </div>
             <div className="flex items-center space-x-4">
               <button
@@ -195,11 +210,13 @@ export default function EditRestaurantPage() {
             </div>
           </div>
           {message && (
-            <div className={`mt-4 p-3 rounded-lg ${
-              message.includes('successfully') 
-                ? 'bg-green-50 text-green-700 border border-green-200' 
-                : 'bg-red-50 text-red-700 border border-red-200'
-            }`}>
+            <div
+              className={`mt-4 p-3 rounded-lg ${
+                message.includes('successfully')
+                  ? 'bg-green-50 text-green-700 border border-green-200'
+                  : 'bg-red-50 text-red-700 border border-red-200'
+              }`}
+            >
               {message}
             </div>
           )}
@@ -211,7 +228,9 @@ export default function EditRestaurantPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Building2 className="h-5 w-5 text-blue-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Restaurant Information</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Restaurant Information
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -246,7 +265,9 @@ export default function EditRestaurantPage() {
               <textarea
                 rows={3}
                 value={restaurant.description}
-                onChange={(e) => handleInputChange('description', e.target.value)}
+                onChange={(e) =>
+                  handleInputChange('description', e.target.value)
+                }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Brief description of the restaurant"
               />
@@ -341,7 +362,9 @@ export default function EditRestaurantPage() {
                 <input
                   type="checkbox"
                   checked={restaurant.isActive}
-                  onChange={(e) => handleInputChange('isActive', e.target.checked)}
+                  onChange={(e) =>
+                    handleInputChange('isActive', e.target.checked)
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -356,7 +379,9 @@ export default function EditRestaurantPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <User className="h-5 w-5 text-purple-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Owner Information</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Owner Information
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -413,7 +438,9 @@ export default function EditRestaurantPage() {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="flex items-center mb-6">
             <Clock className="h-5 w-5 text-green-600 mr-2" />
-            <h2 className="text-lg font-medium text-gray-900">Restaurant Settings</h2>
+            <h2 className="text-lg font-medium text-gray-900">
+              Restaurant Settings
+            </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4">
@@ -421,7 +448,9 @@ export default function EditRestaurantPage() {
                 <input
                   type="checkbox"
                   checked={restaurant.settings.acceptReservations}
-                  onChange={(e) => handleSettingsChange('acceptReservations', e.target.checked)}
+                  onChange={(e) =>
+                    handleSettingsChange('acceptReservations', e.target.checked)
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -432,7 +461,12 @@ export default function EditRestaurantPage() {
                 <input
                   type="checkbox"
                   checked={restaurant.settings.autoConfirmReservations}
-                  onChange={(e) => handleSettingsChange('autoConfirmReservations', e.target.checked)}
+                  onChange={(e) =>
+                    handleSettingsChange(
+                      'autoConfirmReservations',
+                      e.target.checked
+                    )
+                  }
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
                 <label className="ml-2 block text-sm text-gray-900">
@@ -450,7 +484,12 @@ export default function EditRestaurantPage() {
                   min="1"
                   max="90"
                   value={restaurant.settings.maxReservationDays}
-                  onChange={(e) => handleSettingsChange('maxReservationDays', parseInt(e.target.value))}
+                  onChange={(e) =>
+                    handleSettingsChange(
+                      'maxReservationDays',
+                      parseInt(e.target.value)
+                    )
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -460,7 +499,12 @@ export default function EditRestaurantPage() {
                 </label>
                 <select
                   value={restaurant.settings.reservationTimeSlots}
-                  onChange={(e) => handleSettingsChange('reservationTimeSlots', parseInt(e.target.value))}
+                  onChange={(e) =>
+                    handleSettingsChange(
+                      'reservationTimeSlots',
+                      parseInt(e.target.value)
+                    )
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value={15}>15 minutes</option>
