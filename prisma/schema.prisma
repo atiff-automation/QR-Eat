@@ -226,6 +226,14 @@ model Restaurant {
   deliveryAvailable       Boolean @default(false) // Delivery service available
   takeoutAvailable        Boolean @default(true) // Takeout available
 
+  // Settings Fields (Phase 2 - Restaurant Settings MVP)
+  taxLabel              String  @default("SST (6%)")
+  serviceChargeLabel    String  @default("Service Charge (10%)")
+  notificationSettings  Json    @default("{\"orderAlerts\":true,\"soundEnabled\":true,\"soundType\":\"chime\",\"desktopNotifications\":true}")
+  receiptSettings       Json    @default("{\"headerText\":\"Thank you for dining with us!\",\"footerText\":\"Please come again!\",\"paperSize\":\"80mm\"}")
+  paymentMethods        Json    @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
+  systemPreferences     Json    @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -242,6 +250,7 @@ model Restaurant {
   // RBAC Relations
   userRoles       UserRole[]
   userSessions    UserSession[]
+  pushSubscriptions PushSubscription[]  // Phase 2 - Push Notifications
 
   @@index([ownerId])
   @@index([slug])
@@ -1120,4 +1129,27 @@ model OrderModificationItem {
   @@index([modificationId])
   @@index([orderItemId])
   @@map("order_modification_items")
+}
+
+// ============================================================================
+// Push Notifications (Phase 2 - Restaurant Settings MVP)
+// ============================================================================
+
+model PushSubscription {
+  id           String   @id @default(uuid())
+  userId       String
+  userType     String   // 'staff', 'restaurant_owner', 'platform_admin'
+  restaurantId String
+  endpoint     String   @unique
+  p256dh       String   // Client public key for encryption
+  auth         String   // Authentication secret for encryption
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, userType])
+  @@index([restaurantId])
+  @@index([endpoint])
+  @@map("push_subscriptions")
 }
