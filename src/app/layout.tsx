@@ -20,8 +20,8 @@ export const metadata: Metadata = {
   viewport: {
     width: 'device-width',
     initialScale: 1,
-    maximumScale: 5,
-    userScalable: true,
+    maximumScale: 1,
+    userScalable: false,
   },
   themeColor: [
     { media: '(prefers-color-scheme: light)', color: '#2563eb' },
