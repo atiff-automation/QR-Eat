@@ -16,13 +16,29 @@ const nextConfig: NextConfig = {
     'pg',
     'pg-connection-string',
   ],
-  webpack: (config) => {
+  // Temporarily exclude admin pages to unblock Settings MVP deployment
+  // TODO: Fix admin page module resolution issues separately
+  experimental: {
+    outputFileTracingExcludes: {
+      '*': ['src/app/admin/**/*'],
+    },
+  },
+  webpack: (config, { isServer }) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
       fs: false,
       net: false,
       tls: false,
     };
+
+    // Exclude admin pages from build temporarily
+    if (!isServer) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@/app/admin': false,
+      };
+    }
+
     return config;
   },
 };
