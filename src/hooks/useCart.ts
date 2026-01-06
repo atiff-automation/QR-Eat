@@ -4,10 +4,7 @@ import { useState, useCallback } from 'react';
 import { CartItem, Cart, MenuItem, MenuItemVariation } from '@/types/menu';
 import { calculateItemTotal } from '@/lib/qr-utils';
 
-export function useCart(
-  taxRate: number = 0.085,
-  serviceChargeRate: number = 0.12
-) {
+export function useCart(taxRate: number, serviceChargeRate: number) {
   const [cart, setCart] = useState<Cart>({
     items: [],
     subtotal: 0,

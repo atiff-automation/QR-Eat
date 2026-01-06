@@ -43,8 +43,8 @@ interface ServerCart {
 
 export function useServerCart(
   tableId: string | null,
-  taxRate: number = 0.085,
-  serviceChargeRate: number = 0.12
+  taxRate: number,
+  serviceChargeRate: number
 ) {
   const [cart, setCart] = useState<Cart>({
     items: [],
