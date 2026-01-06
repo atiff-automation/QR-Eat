@@ -30,6 +30,9 @@ export default function QRMenuPage() {
   const [currentOrder, setCurrentOrder] = useState<OrderResponse | null>(null);
   const [isAnyModalOpen, setIsAnyModalOpen] = useState(false);
 
+  // Extract currency from restaurant (defaults to MYR)
+  const currency = table?.restaurant.currency || 'MYR';
+
   const {
     cart,
     addToCart,
@@ -308,7 +311,11 @@ export default function QRMenuPage() {
       {/* Main Content Area */}
       <div className="w-full px-4 py-4">
         {currentOrder ? (
-          <OrderConfirmation order={currentOrder} onNewOrder={handleNewOrder} />
+          <OrderConfirmation
+            order={currentOrder}
+            currency={currency}
+            onNewOrder={handleNewOrder}
+          />
         ) : showCheckout ? (
           <CheckoutForm
             onSubmit={createOrder}
@@ -321,6 +328,7 @@ export default function QRMenuPage() {
         ) : showCart ? (
           <CartSummary
             cart={cart}
+            currency={currency}
             onUpdateItem={updateCartItem}
             onRemoveItem={removeFromCart}
             onCheckout={handleCheckout}
@@ -362,6 +370,7 @@ export default function QRMenuPage() {
                       <MenuCard
                         key={item.id}
                         item={item}
+                        currency={currency}
                         onAddToCart={addToCart}
                         onModalStateChange={setIsAnyModalOpen}
                         cartQuantity={cartQuantity}
@@ -384,7 +393,11 @@ export default function QRMenuPage() {
 
       {/* Floating Cart Bar - Hidden when modal is open */}
       {!showCart && !showCheckout && !currentOrder && !isAnyModalOpen && (
-        <FloatingCartBar cart={cart} onReviewCart={() => setShowCart(true)} />
+        <FloatingCartBar
+          cart={cart}
+          currency={currency}
+          onReviewCart={() => setShowCart(true)}
+        />
       )}
     </div>
   );

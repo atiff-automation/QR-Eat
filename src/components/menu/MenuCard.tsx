@@ -9,6 +9,7 @@ import Image from 'next/image';
 
 interface MenuCardProps {
   item: MenuItem;
+  currency: string;
   onAddToCart: (
     item: MenuItem,
     quantity: number,
@@ -25,6 +26,7 @@ interface MenuCardProps {
 
 export function MenuCard({
   item,
+  currency,
   onAddToCart,
   onModalStateChange,
   cartQuantity = 0,
@@ -158,7 +160,7 @@ export function MenuCard({
             )}
           </div>
           <p className="text-orange-600 font-bold text-base">
-            {formatPrice(item.price)}
+            {formatPrice(item.price, currency)}
           </p>
         </div>
       </div>
@@ -221,7 +223,7 @@ export function MenuCard({
                     </div>
                   </div>
                   <div className="text-xl font-bold text-orange-600 whitespace-nowrap pt-0.5">
-                    {formatPrice(item.price)}
+                    {formatPrice(item.price, currency)}
                   </div>
                 </div>
               </div>
@@ -278,7 +280,10 @@ export function MenuCard({
                                     className={`ml-2 text-xs font-bold ${isSelected ? 'text-orange-600' : 'text-gray-400'}`}
                                   >
                                     {variation.priceModifier > 0 ? '+' : ''}
-                                    {formatPrice(variation.priceModifier)}
+                                    {formatPrice(
+                                      variation.priceModifier,
+                                      currency
+                                    )}
                                   </span>
                                 )}
                               </button>
@@ -354,7 +359,8 @@ export function MenuCard({
                 className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center"
               >
                 <span className="uppercase">
-                  Add to Cart - {formatPrice(calculatePrice() * quantity)}
+                  Add to Cart -{' '}
+                  {formatPrice(calculatePrice() * quantity, currency)}
                 </span>
               </button>
             </div>

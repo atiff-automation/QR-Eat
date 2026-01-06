@@ -7,6 +7,7 @@ import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CartSummaryProps {
   cart: Cart;
+  currency: string;
   onUpdateItem: (
     index: number,
     updates: Partial<Pick<CartItem, 'quantity' | 'specialInstructions'>>
@@ -23,6 +24,7 @@ import { useEffect } from 'react';
 
 export function CartSummary({
   cart,
+  currency,
   onUpdateItem,
   onRemoveItem,
   onCheckout,
@@ -116,7 +118,7 @@ export function CartSummary({
                 </h3>
               </div>
               <div className="text-sm text-gray-500 mb-1">
-                {formatPrice(item.unitPrice)}
+                {formatPrice(item.unitPrice, currency)}
               </div>
 
               {item.selectedVariations.length > 0 && (
@@ -213,9 +215,9 @@ export function CartSummary({
         <div className="p-4 pt-2">
           {/* Consolidated Info Row */}
           <div className="flex justify-center text-xs text-gray-400 mb-3 space-x-3">
-            <span>Subtotal: {formatPrice(cart.subtotal)}</span>
+            <span>Subtotal: {formatPrice(cart.subtotal, currency)}</span>
             <span className="text-gray-300">•</span>
-            <span>Tax: {formatPrice(cart.taxAmount)}</span>
+            <span>Tax: {formatPrice(cart.taxAmount, currency)}</span>
           </div>
 
           <button
@@ -249,7 +251,7 @@ export function CartSummary({
               </span>
             ) : (
               <span className="uppercase tracking-wide">
-                Confirm Order - {formatPrice(cart.totalAmount)}
+                Confirm Order - {formatPrice(cart.totalAmount, currency)}
               </span>
             )}
           </button>
