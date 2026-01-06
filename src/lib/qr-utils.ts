@@ -13,8 +13,8 @@ export async function generateQRCodeImage(url: string): Promise<string> {
       margin: 2,
       color: {
         dark: '#000000',
-        light: '#FFFFFF'
-      }
+        light: '#FFFFFF',
+      },
     });
     return qrCodeDataURL;
   } catch (error) {
@@ -31,8 +31,8 @@ export async function generateQRCodeSVG(url: string): Promise<string> {
       margin: 2,
       color: {
         dark: '#000000',
-        light: '#FFFFFF'
-      }
+        light: '#FFFFFF',
+      },
     });
     return qrCodeSVG;
   } catch (error) {
@@ -62,11 +62,15 @@ export function generateCustomerSessionToken(): string {
   return crypto.randomUUID();
 }
 
-export function formatPrice(price: number | string): string {
+export function formatPrice(
+  price: number | string,
+  currency: string = 'MYR',
+  locale: string = 'en-MY'
+): string {
   const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-  return new Intl.NumberFormat('en-US', {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
-    currency: 'USD',
+    currency: currency,
   }).format(numPrice);
 }
 
