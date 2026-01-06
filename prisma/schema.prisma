@@ -212,6 +212,16 @@ model Restaurant {
   // Operating Hours (JSON structure for flexibility)
   operatingHours Json @default("{}") // Weekly schedule with special hours
 
+  // Settings MVP - Financial Labels
+  taxLabel           String @default("SST (6%)")
+  serviceChargeLabel String @default("Service Charge (10%)")
+
+  // Settings MVP - JSON Configurations
+  notificationSettings Json @default("{\"orderAlerts\":true,\"soundEnabled\":true,\"soundType\":\"chime\",\"desktopNotifications\":true}")
+  receiptSettings      Json @default("{\"headerText\":\"Thank you for dining with us!\",\"footerText\":\"Please come again!\",\"paperSize\":\"80mm\"}")
+  paymentMethods       Json @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
+  systemPreferences    Json @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")
+
   // Restaurant Features & Amenities
   features     Json   @default("[]") // Parking, WiFi, Outdoor seating, etc.
   cuisineTypes Json   @default("[]") // Italian, Mexican, Asian, etc.
@@ -229,19 +239,20 @@ model Restaurant {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  owner           RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  subscription    Subscription?
-  tables          Table[]
-  menuItems       MenuItem[]
-  categories      MenuCategory[]
-  orders          Order[]
-  staff           Staff[]
-  transactionFees TransactionFee[]
-  roleHierarchy   StaffRoleHierarchy[]
-  reservations    Reservation[]
+  owner             RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  subscription      Subscription?
+  tables            Table[]
+  menuItems         MenuItem[]
+  categories        MenuCategory[]
+  orders            Order[]
+  staff             Staff[]
+  transactionFees   TransactionFee[]
+  roleHierarchy     StaffRoleHierarchy[]
+  reservations      Reservation[]
   // RBAC Relations
-  userRoles       UserRole[]
-  userSessions    UserSession[]
+  userRoles         UserRole[]
+  userSessions      UserSession[]
+  pushSubscriptions PushSubscription[]
 
   @@index([ownerId])
   @@index([slug])
@@ -1120,4 +1131,27 @@ model OrderModificationItem {
   @@index([modificationId])
   @@index([orderItemId])
   @@map("order_modification_items")
+}
+
+// ============================================================================
+// Push Notifications - Settings MVP
+// ============================================================================
+
+model PushSubscription {
+  id           String   @id @default(uuid())
+  userId       String
+  userType     String // 'staff', 'restaurant_owner', 'platform_admin'
+  restaurantId String
+  endpoint     String   @unique
+  p256dh       String // Client public key for encryption
+  auth         String // Authentication secret for encryption
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([userId, userType])
+  @@index([restaurantId])
+  @@index([endpoint])
+  @@map("push_subscriptions")
 }
