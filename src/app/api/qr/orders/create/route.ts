@@ -25,6 +25,7 @@ import {
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { isRestaurantOpen } from '@/lib/utils/restaurant-utils';
 import { z } from 'zod';
 
 // ============================================================================
@@ -77,6 +78,8 @@ export async function POST(request: NextRequest) {
             taxRate: true,
             serviceChargeRate: true,
             isActive: true,
+            operatingHours: true,
+            timezone: true,
           },
         },
       },
@@ -89,6 +92,23 @@ export async function POST(request: NextRequest) {
     if (!table.restaurant.isActive) {
       return NextResponse.json(
         { error: 'Restaurant is currently closed' },
+        { status: 503 }
+      );
+    }
+
+    // Check operating hours
+    if (
+      !isRestaurantOpen(
+        table.restaurant.operatingHours,
+        table.restaurant.timezone
+      )
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Restaurant is currently closed',
+          details:
+            'We are not accepting orders at this time. Please check our operating hours.',
+        },
         { status: 503 }
       );
     }
