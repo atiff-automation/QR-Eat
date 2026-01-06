@@ -1,15 +1,32 @@
 /**
  * Receipt Generation Utilities
  *
- * Following CLAUDE.md principles:
- * - Single Responsibility
- * - No Hardcoding
- * - Type Safety
+ * Updated to use restaurant settings for dynamic formatting
  *
- * @see claudedocs/POS_IMPLEMENTATION_PLAN.md
+ * @see implementation_plan_production_v3.md - Integration Fixes
  */
 
 import type { ReceiptData } from '@/types/pos';
+import { formatCurrencySimple } from '@/lib/utils/currency-formatter';
+import { getDateFormatOptions } from '@/lib/utils/date-formatter';
+
+/**
+ * Restaurant settings interface for receipt formatting
+ */
+interface RestaurantSettings {
+  currency: string;
+  taxLabel: string;
+  serviceChargeLabel: string;
+  receiptSettings: {
+    headerText: string;
+    footerText: string;
+    paperSize: string;
+  };
+  systemPreferences: {
+    dateFormat: string;
+    timeFormat: string;
+  };
+}
 
 /**
  * Generate unique receipt number
@@ -27,10 +44,13 @@ export function generateReceiptNumber(): string {
 
 /**
  * Format receipt data for display/printing
+ * Now accepts restaurant settings for dynamic formatting
  */
-export function formatReceiptData(data: ReceiptData): string {
+export function formatReceiptData(
+  data: ReceiptData,
+  settings: RestaurantSettings
+): string {
   const { receiptNumber, order, payment, restaurant, cashier } = data;
-
   const lines: string[] = [];
 
   // Header
@@ -48,63 +68,107 @@ export function formatReceiptData(data: ReceiptData): string {
   lines.push('='.repeat(48));
   lines.push('');
 
+  // Custom header text
+  if (settings.receiptSettings.headerText) {
+    lines.push(
+      settings.receiptSettings.headerText.padStart(
+        24 + settings.receiptSettings.headerText.length / 2
+      )
+    );
+    lines.push('');
+  }
+
   // Receipt info
   lines.push(`Receipt #: ${receiptNumber}`);
   lines.push(`Order #: ${order.orderNumber}`);
-  lines.push(
-    `Date: ${new Date(order.createdAt).toLocaleString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })}`
+
+  // Use system preferences for date formatting
+  const dateFormatOptions = getDateFormatOptions(
+    settings.systemPreferences.dateFormat,
+    settings.systemPreferences.timeFormat
   );
+  lines.push(
+    `Date: ${new Date(order.createdAt).toLocaleString('en-MY', dateFormatOptions)}`
+  );
+
   lines.push(`Table: ${order.table.tableName || order.table.tableNumber}`);
   lines.push(`Cashier: ${cashier.firstName} ${cashier.lastName}`);
   lines.push('-'.repeat(48));
   lines.push('');
 
-  // Items
+  // Items - use restaurant currency
   order.items.forEach((item) => {
     const name = `${item.menuItem.name} x${item.quantity}`;
-    const price = `RM ${Number(item.totalAmount).toFixed(2)}`;
+    const price = formatCurrencySimple(
+      Number(item.totalAmount),
+      settings.currency
+    );
     lines.push(`${name.padEnd(36)}${price.padStart(12)}`);
   });
   lines.push('');
   lines.push('-'.repeat(48));
 
-  // Totals
-  const subtotal = `RM ${Number(order.subtotalAmount).toFixed(2)}`;
+  // Totals - use restaurant currency and custom labels
+  const subtotal = formatCurrencySimple(
+    Number(order.subtotalAmount),
+    settings.currency
+  );
   lines.push(`Subtotal:${subtotal.padStart(39)}`);
 
-  const tax = `RM ${Number(order.taxAmount).toFixed(2)}`;
-  lines.push(`Tax (6%):${tax.padStart(39)}`);
+  const tax = formatCurrencySimple(Number(order.taxAmount), settings.currency);
+  lines.push(
+    `${settings.taxLabel}:${tax.padStart(48 - settings.taxLabel.length - 1)}`
+  );
 
-  const serviceCharge = `RM ${Number(order.serviceCharge).toFixed(2)}`;
-  lines.push(`Service Charge (10%):${serviceCharge.padStart(27)}`);
+  const serviceCharge = formatCurrencySimple(
+    Number(order.serviceCharge),
+    settings.currency
+  );
+  lines.push(
+    `${settings.serviceChargeLabel}:${serviceCharge.padStart(48 - settings.serviceChargeLabel.length - 1)}`
+  );
 
   lines.push('');
-  const total = `RM ${Number(order.totalAmount).toFixed(2)}`;
+  const total = formatCurrencySimple(
+    Number(order.totalAmount),
+    settings.currency
+  );
   lines.push(`TOTAL:${total.padStart(42)}`);
   lines.push('');
 
-  // Payment details
+  // Payment details - use restaurant currency
   lines.push(`Payment Method: ${payment.paymentMethod.toUpperCase()}`);
 
   if (payment.cashReceived && payment.changeGiven) {
-    const cashReceived = `RM ${Number(payment.cashReceived).toFixed(2)}`;
+    const cashReceived = formatCurrencySimple(
+      Number(payment.cashReceived),
+      settings.currency
+    );
     lines.push(`Cash Received:${cashReceived.padStart(34)}`);
 
-    const changeGiven = `RM ${Number(payment.changeGiven).toFixed(2)}`;
+    const changeGiven = formatCurrencySimple(
+      Number(payment.changeGiven),
+      settings.currency
+    );
     lines.push(`Change Given:${changeGiven.padStart(35)}`);
   }
 
   lines.push('');
   lines.push('-'.repeat(48));
   lines.push('');
-  lines.push('Thank you for dining with us!'.padStart(36));
-  lines.push('Please come again!'.padStart(33));
+
+  // Custom footer text
+  if (settings.receiptSettings.footerText) {
+    lines.push(
+      settings.receiptSettings.footerText.padStart(
+        24 + settings.receiptSettings.footerText.length / 2
+      )
+    );
+  } else {
+    lines.push('Thank you for dining with us!'.padStart(36));
+    lines.push('Please come again!'.padStart(33));
+  }
+
   lines.push('');
   lines.push('='.repeat(48));
 
