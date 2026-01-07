@@ -15,6 +15,11 @@ interface RestaurantSettings {
   taxRate: number;
   serviceCharge: number;
   restaurantName: string;
+  paymentMethods: {
+    cash: boolean;
+    card: boolean;
+    ewallet: boolean;
+  };
   // Add other settings as needed
 }
 
@@ -30,6 +35,11 @@ const defaultSettings: RestaurantSettings = {
   taxRate: 0.1,
   serviceCharge: 0.05,
   restaurantName: 'Restaurant',
+  paymentMethods: {
+    cash: true,
+    card: true,
+    ewallet: true,
+  },
 };
 
 const RestaurantContext = createContext<RestaurantContextType>({
@@ -60,6 +70,8 @@ export function RestaurantProvider({ children }: { children: ReactNode }) {
           data.settings.serviceCharge || defaultSettings.serviceCharge,
         restaurantName:
           data.settings.restaurantName || defaultSettings.restaurantName,
+        paymentMethods:
+          data.settings.paymentMethods || defaultSettings.paymentMethods,
       });
 
       debug.info('RestaurantContext', 'Settings loaded:', data.settings);
@@ -105,4 +117,10 @@ export function useRestaurantSettings() {
 export function useCurrency() {
   const { settings } = useRestaurantSettings();
   return settings.currency;
+}
+
+// Convenience hook to get payment methods
+export function usePaymentMethods() {
+  const { settings } = useRestaurantSettings();
+  return settings.paymentMethods;
 }

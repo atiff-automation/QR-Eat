@@ -20,6 +20,7 @@ import { Receipt } from './Receipt';
 import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
 import type { PaymentInterfaceProps } from '@/types/pos';
+import { usePaymentMethods } from '@/contexts/RestaurantContext';
 
 export function PaymentInterface({
   order,
@@ -36,6 +37,7 @@ export function PaymentInterface({
   const [completedPayment, setCompletedPayment] = useState<Payment | null>(
     null
   );
+  const paymentMethods = usePaymentMethods();
 
   const handleMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method);
@@ -211,7 +213,10 @@ export function PaymentInterface({
 
             {/* Payment Method Selection */}
             {!selectedMethod && (
-              <PaymentMethodSelector onSelect={handleMethodSelect} />
+              <PaymentMethodSelector
+                onSelect={handleMethodSelect}
+                enabledMethods={paymentMethods}
+              />
             )}
 
             {selectedMethod === 'cash' && (

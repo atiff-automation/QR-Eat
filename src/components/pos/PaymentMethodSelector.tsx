@@ -15,8 +15,11 @@ import { Banknote, CreditCard, Smartphone } from 'lucide-react';
 
 export function PaymentMethodSelector({
   onSelect,
-}: PaymentMethodSelectorProps) {
-  const methods: {
+  enabledMethods = { cash: true, card: true, ewallet: true },
+}: PaymentMethodSelectorProps & {
+  enabledMethods?: { cash: boolean; card: boolean; ewallet: boolean };
+}) {
+  const allMethods: {
     value: PaymentMethod;
     label: string;
     Icon: typeof Banknote;
@@ -26,13 +29,18 @@ export function PaymentMethodSelector({
     { value: 'ewallet', label: 'E-Wallet', Icon: Smartphone },
   ];
 
+  // Filter methods based on enabled settings
+  const methods = allMethods.filter((method) => enabledMethods[method.value]);
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3">
       <h3 className="text-sm font-semibold text-gray-900 mb-2">
         Select Payment Method
       </h3>
       {/* Inline horizontal layout for mobile */}
-      <div className="grid grid-cols-3 gap-2">
+      <div
+        className={`grid gap-2 ${methods.length === 1 ? 'grid-cols-1' : methods.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}
+      >
         {methods.map((method) => (
           <button
             key={method.value}
