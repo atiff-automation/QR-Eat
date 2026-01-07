@@ -293,28 +293,27 @@ function SettingsContent() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
-      {/* Mobile Tabs */}
+      {/* Mobile Dropdown */}
       <div className="md:hidden px-5 pt-6 pb-2">
-        <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
-          <div className="flex gap-2">
-            {SECTIONS.map((section) => {
-              const Icon = section.icon;
-              return (
-                <button
-                  key={section.key}
-                  onClick={() => setActiveSection(section.key)}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
-                    activeSection === section.key
-                      ? 'bg-blue-600 text-white'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {section.label}
-                </button>
-              );
-            })}
-          </div>
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
+          <select
+            value={activeSection}
+            onChange={(e) => setActiveSection(e.target.value as SectionKey)}
+            className="w-full px-4 py-3 bg-white border-0 rounded-xl font-medium text-gray-900 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none cursor-pointer"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236B7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 0.75rem center',
+              backgroundSize: '1.5rem',
+              paddingRight: '2.5rem',
+            }}
+          >
+            {SECTIONS.map((section) => (
+              <option key={section.key} value={section.key}>
+                {section.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
