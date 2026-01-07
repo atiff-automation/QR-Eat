@@ -121,6 +121,7 @@ export interface PendingOrderCardProps {
 
 export interface PaymentInterfaceProps {
   order: OrderWithDetails;
+  currency?: string;
   onClose: () => void;
   onPaymentComplete: () => void;
 }
@@ -139,6 +140,7 @@ export interface CashPaymentFormProps {
 export interface ReceiptProps {
   order: OrderWithDetails;
   payment: Payment;
+  currency?: string;
   onClose: () => void;
 }
 

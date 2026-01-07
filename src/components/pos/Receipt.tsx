@@ -14,7 +14,12 @@ import type { ReceiptProps } from '@/types/pos';
 import { formatReceiptData } from '@/lib/utils/receipt-formatter';
 import { Printer, X } from 'lucide-react';
 
-export function Receipt({ order, payment, onClose }: ReceiptProps) {
+export function Receipt({
+  order,
+  payment,
+  currency = 'MYR',
+  onClose,
+}: ReceiptProps) {
   console.log('[Receipt] Order data:', {
     orderNumber: order.orderNumber,
     itemsCount: order.items?.length || 0,
@@ -25,21 +30,24 @@ export function Receipt({ order, payment, onClose }: ReceiptProps) {
     })),
   });
 
-  const receiptText = formatReceiptData({
-    receiptNumber: payment.receiptNumber || 'N/A',
-    order,
-    payment,
-    restaurant: {
-      name: 'QR Restaurant', // TODO: Get from context
-      address: '123 Main Street, Kuala Lumpur',
-      phone: '+60 12-345 6789',
-      email: 'info@qrrestaurant.com',
+  const receiptText = formatReceiptData(
+    {
+      receiptNumber: payment.receiptNumber || 'N/A',
+      order,
+      payment,
+      restaurant: {
+        name: 'QR Restaurant', // TODO: Get from context
+        address: '123 Main Street, Kuala Lumpur',
+        phone: '+60 12-345 6789',
+        email: 'info@qrrestaurant.com',
+      },
+      cashier: {
+        firstName: 'Cashier', // TODO: Get from auth context
+        lastName: 'User',
+      },
     },
-    cashier: {
-      firstName: 'Cashier', // TODO: Get from auth context
-      lastName: 'User',
-    },
-  });
+    currency
+  );
 
   const handlePrint = () => {
     const printWindow = window.open('', '_blank');

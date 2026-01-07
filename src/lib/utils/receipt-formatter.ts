@@ -28,7 +28,10 @@ export function generateReceiptNumber(): string {
 /**
  * Format receipt data for display/printing
  */
-export function formatReceiptData(data: ReceiptData): string {
+export function formatReceiptData(
+  data: ReceiptData,
+  currency: string = 'MYR'
+): string {
   const { receiptNumber, order, payment, restaurant, cashier } = data;
 
   const lines: string[] = [];
@@ -68,24 +71,24 @@ export function formatReceiptData(data: ReceiptData): string {
   // Items
   order.items.forEach((item) => {
     const name = `${item.menuItem.name} x${item.quantity}`;
-    const price = `RM ${Number(item.totalAmount).toFixed(2)}`;
+    const price = `${currency} ${Number(item.totalAmount).toFixed(2)}`;
     lines.push(`${name.padEnd(36)}${price.padStart(12)}`);
   });
   lines.push('');
   lines.push('-'.repeat(48));
 
   // Totals
-  const subtotal = `RM ${Number(order.subtotalAmount).toFixed(2)}`;
+  const subtotal = `${currency} ${Number(order.subtotalAmount).toFixed(2)}`;
   lines.push(`Subtotal:${subtotal.padStart(39)}`);
 
-  const tax = `RM ${Number(order.taxAmount).toFixed(2)}`;
+  const tax = `${currency} ${Number(order.taxAmount).toFixed(2)}`;
   lines.push(`Tax (6%):${tax.padStart(39)}`);
 
-  const serviceCharge = `RM ${Number(order.serviceCharge).toFixed(2)}`;
+  const serviceCharge = `${currency} ${Number(order.serviceCharge).toFixed(2)}`;
   lines.push(`Service Charge (10%):${serviceCharge.padStart(27)}`);
 
   lines.push('');
-  const total = `RM ${Number(order.totalAmount).toFixed(2)}`;
+  const total = `${currency} ${Number(order.totalAmount).toFixed(2)}`;
   lines.push(`TOTAL:${total.padStart(42)}`);
   lines.push('');
 
@@ -93,10 +96,10 @@ export function formatReceiptData(data: ReceiptData): string {
   lines.push(`Payment Method: ${payment.paymentMethod.toUpperCase()}`);
 
   if (payment.cashReceived && payment.changeGiven) {
-    const cashReceived = `RM ${Number(payment.cashReceived).toFixed(2)}`;
+    const cashReceived = `${currency} ${Number(payment.cashReceived).toFixed(2)}`;
     lines.push(`Cash Received:${cashReceived.padStart(34)}`);
 
-    const changeGiven = `RM ${Number(payment.changeGiven).toFixed(2)}`;
+    const changeGiven = `${currency} ${Number(payment.changeGiven).toFixed(2)}`;
     lines.push(`Change Given:${changeGiven.padStart(35)}`);
   }
 

@@ -19,19 +19,15 @@ import { CashPaymentForm } from './CashPaymentForm';
 import { Receipt } from './Receipt';
 import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
-interface PaymentInterfaceProps {
-  order: OrderWithDetails;
-  relatedOrders?: OrderWithDetails[];
-  onClose: () => void;
-  onPaymentComplete: () => void;
-}
+import type { PaymentInterfaceProps } from '@/types/pos';
 
 export function PaymentInterface({
   order,
   relatedOrders = [],
+  currency = 'MYR',
   onClose,
   onPaymentComplete,
-}: PaymentInterfaceProps) {
+}: PaymentInterfaceProps & { relatedOrders?: OrderWithDetails[] }) {
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(
     null
   );
@@ -271,6 +267,7 @@ export function PaymentInterface({
         <Receipt
           order={completedPayment.order}
           payment={completedPayment}
+          currency={currency}
           onClose={handleReceiptClose}
         />
       )}

@@ -9,8 +9,6 @@ import {
   RefreshCw,
   UtensilsCrossed,
   Edit2,
-  Trash2,
-  MoreHorizontal,
   Star,
   ChevronRight,
 } from 'lucide-react';
@@ -73,12 +71,24 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
+  const [currency, setCurrency] = useState('MYR');
 
   useEffect(() => {
     fetchCategories(true);
+    fetchSettings();
   }, []);
 
-
+  const fetchSettings = async () => {
+    try {
+      const data = await ApiClient.get<{ settings: { currency: string } }>(
+        '/settings/restaurant'
+      );
+      setCurrency(data.settings.currency || 'MYR');
+    } catch (error) {
+      console.error('Failed to fetch settings:', error);
+      // Keep default MYR if fetch fails
+    }
+  };
 
   const fetchCategories = async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -136,8 +146,6 @@ export default function MenuPage() {
     }
   };
 
-
-
   const handleCategorySelect = (categoryId: string) => {
     setSelectedCategory(categoryId);
     setViewMode('items');
@@ -184,9 +192,9 @@ export default function MenuPage() {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
+    return new Intl.NumberFormat('en-MY', {
       style: 'currency',
-      currency: 'USD',
+      currency: currency,
     }).format(price);
   };
 
@@ -218,10 +226,11 @@ export default function MenuPage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === mode
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-                  }`}
+                className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
+                  viewMode === mode
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
               >
                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
               </button>
@@ -294,14 +303,16 @@ export default function MenuPage() {
                         e.stopPropagation();
                         toggleCategoryStatus(category);
                       }}
-                      className={`p-2 rounded-lg transition-colors ${category.isActive
-                        ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
-                        : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
-                        }`}
+                      className={`p-2 rounded-lg transition-colors ${
+                        category.isActive
+                          ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
+                          : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
+                      }`}
                     >
                       <div
-                        className={`w-2.5 h-2.5 rounded-full ${category.isActive ? 'bg-green-500' : 'bg-gray-300'
-                          }`}
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          category.isActive ? 'bg-green-500' : 'bg-gray-300'
+                        }`}
                       />
                     </button>
                     <ChevronRight
@@ -356,8 +367,9 @@ export default function MenuPage() {
                 .map((item) => (
                   <div
                     key={item.id}
-                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${!item.isAvailable ? 'grayscale opacity-60 bg-gray-50' : ''
-                      }`}
+                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${
+                      !item.isAvailable ? 'grayscale opacity-60 bg-gray-50' : ''
+                    }`}
                   >
                     {/* Item Image */}
                     <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
@@ -366,8 +378,9 @@ export default function MenuPage() {
                           src={item.imageUrl}
                           alt={item.name}
                           fill
-                          className={`object-cover ${!item.isAvailable ? 'grayscale opacity-75' : ''
-                            }`}
+                          className={`object-cover ${
+                            !item.isAvailable ? 'grayscale opacity-75' : ''
+                          }`}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -403,19 +416,26 @@ export default function MenuPage() {
                     <div className="flex flex-col items-center justify-center gap-2 pl-2 border-l border-gray-100 self-stretch">
                       <button
                         onClick={() => toggleItemAvailability(item)}
-                        className={`p-1.5 rounded-lg transition-colors ${item.isAvailable
-                          ? 'text-green-600 bg-green-50'
-                          : 'text-gray-300 bg-gray-50'
-                          }`}
-                        title={item.isAvailable ? "Mark Unavailable" : "Mark Available"}
+                        className={`p-1.5 rounded-lg transition-colors ${
+                          item.isAvailable
+                            ? 'text-green-600 bg-green-50'
+                            : 'text-gray-300 bg-gray-50'
+                        }`}
+                        title={
+                          item.isAvailable
+                            ? 'Mark Unavailable'
+                            : 'Mark Available'
+                        }
                       >
                         <div
-                          className={`w-7 h-4 rounded-full relative transition-colors ${item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
-                            }`}
+                          className={`w-7 h-4 rounded-full relative transition-colors ${
+                            item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
+                          }`}
                         >
                           <div
-                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${item.isAvailable ? 'left-[14px]' : 'left-0.5'
-                              }`}
+                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${
+                              item.isAvailable ? 'left-[14px]' : 'left-0.5'
+                            }`}
                           />
                         </div>
                       </button>
@@ -432,8 +452,6 @@ export default function MenuPage() {
             </div>
           </div>
         )}
-
-
 
         {/* Empty State */}
         {categories.length === 0 && !loading && (
@@ -586,7 +604,21 @@ function AddModal({
           : '/api/admin/menu/items';
 
       // Fix data types for menu items
-      let requestData: any = { ...formData };
+      let requestData:
+        | typeof formData
+        | {
+            name: string;
+            description: string;
+            price: number;
+            categoryId: string;
+            preparationTime: number;
+            calories: number | null;
+            imageUrl: string;
+            allergens: string[];
+            dietaryInfo: string[];
+            isAvailable: boolean;
+            isFeatured: boolean;
+          } = { ...formData };
       if (type === 'item') {
         requestData = {
           ...formData,
@@ -625,7 +657,9 @@ function AddModal({
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
-      <div className={`bg-white rounded-2xl w-full ${type === 'category' ? 'max-w-sm' : 'max-w-md'} shadow-xl overflow-hidden flex flex-col max-h-[90vh]`}>
+      <div
+        className={`bg-white rounded-2xl w-full ${type === 'category' ? 'max-w-sm' : 'max-w-md'} shadow-xl overflow-hidden flex flex-col max-h-[90vh]`}
+      >
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
           <h3 className="font-bold text-gray-900">
             {type === 'category' ? 'New Category' : 'New Menu Item'}
@@ -651,7 +685,11 @@ function AddModal({
                   setFormData({ ...formData, name: e.target.value })
                 }
                 className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
-                placeholder={type === 'category' ? "e.g. Pasta" : "e.g. Spaghetti Carbonara"}
+                placeholder={
+                  type === 'category'
+                    ? 'e.g. Pasta'
+                    : 'e.g. Spaghetti Carbonara'
+                }
                 required
               />
             </div>
@@ -763,26 +801,31 @@ function AddModal({
                     Allergens
                   </label>
                   <div className="flex flex-wrap gap-2 mb-2">
-                    {formData.allergens.map((allergen: string, index: number) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium"
-                      >
-                        {allergen}
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newAllergens = formData.allergens.filter(
-                              (_: string, i: number) => i !== index
-                            );
-                            setFormData({ ...formData, allergens: newAllergens });
-                          }}
-                          className="ml-1 text-red-500 hover:text-red-700"
+                    {formData.allergens.map(
+                      (allergen: string, index: number) => (
+                        <span
+                          key={index}
+                          className="inline-flex items-center px-2 py-1 bg-red-100 text-red-700 text-xs rounded-lg font-medium"
                         >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                          {allergen}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newAllergens = formData.allergens.filter(
+                                (_: string, i: number) => i !== index
+                              );
+                              setFormData({
+                                ...formData,
+                                allergens: newAllergens,
+                              });
+                            }}
+                            className="ml-1 text-red-500 hover:text-red-700"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      )
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <input
@@ -808,7 +851,8 @@ function AddModal({
                     <button
                       type="button"
                       onClick={(e) => {
-                        const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                        const input = e.currentTarget
+                          .previousElementSibling as HTMLInputElement;
                         const value = input.value.trim();
                         if (value && !formData.allergens.includes(value)) {
                           setFormData({
@@ -879,7 +923,8 @@ function AddModal({
                     <button
                       type="button"
                       onClick={(e) => {
-                        const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                        const input = e.currentTarget
+                          .previousElementSibling as HTMLInputElement;
                         const value = input.value.trim();
                         if (value && !formData.dietaryInfo.includes(value)) {
                           setFormData({
@@ -910,31 +955,44 @@ function AddModal({
                       }
                       className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                     />
-                    <span className="text-sm font-medium text-gray-700">Available</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Available
+                    </span>
                   </label>
                   <label className="flex items-center cursor-pointer">
                     <input
                       type="checkbox"
                       checked={formData.isFeatured}
                       onChange={(e) =>
-                        setFormData({ ...formData, isFeatured: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          isFeatured: e.target.checked,
+                        })
                       }
                       className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                     />
-                    <span className="text-sm font-medium text-gray-700">Featured</span>
+                    <span className="text-sm font-medium text-gray-700">
+                      Featured
+                    </span>
                   </label>
                 </div>
               </>
             )}
 
-            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
+            {error && (
+              <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={isSubmitting}
               className="w-full py-3 bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-700 active:scale-95 transition-all text-sm"
             >
-              {isSubmitting ? 'Creating...' : `Create ${type === 'category' ? 'Category' : 'Item'}`}
+              {isSubmitting
+                ? 'Creating...'
+                : `Create ${type === 'category' ? 'Category' : 'Item'}`}
             </button>
           </form>
         </div>
@@ -1002,9 +1060,7 @@ function EditItemModal({
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
         <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 flex-shrink-0">
-          <h3 className="font-bold text-gray-900">
-            Edit Menu Item
-          </h3>
+          <h3 className="font-bold text-gray-900">Edit Menu Item</h3>
           <button
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-200"
@@ -1174,7 +1230,8 @@ function EditItemModal({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                    const input = e.currentTarget
+                      .previousElementSibling as HTMLInputElement;
                     const value = input.value.trim();
                     if (value && !formData.allergens.includes(value)) {
                       setFormData({
@@ -1209,7 +1266,10 @@ function EditItemModal({
                         const newDietaryInfo = formData.dietaryInfo.filter(
                           (_, i) => i !== index
                         );
-                        setFormData({ ...formData, dietaryInfo: newDietaryInfo });
+                        setFormData({
+                          ...formData,
+                          dietaryInfo: newDietaryInfo,
+                        });
                       }}
                       className="ml-1 text-green-500 hover:text-green-700"
                     >
@@ -1240,7 +1300,8 @@ function EditItemModal({
                 <button
                   type="button"
                   onClick={(e) => {
-                    const input = (e.currentTarget.previousElementSibling) as HTMLInputElement;
+                    const input = e.currentTarget
+                      .previousElementSibling as HTMLInputElement;
                     const value = input.value.trim();
                     if (value && !formData.dietaryInfo.includes(value)) {
                       setFormData({
@@ -1267,7 +1328,9 @@ function EditItemModal({
                   }
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">Available</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Available
+                </span>
               </label>
               <label className="flex items-center cursor-pointer">
                 <input
@@ -1278,11 +1341,17 @@ function EditItemModal({
                   }
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">Featured</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Featured
+                </span>
               </label>
             </div>
 
-            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
+            {error && (
+              <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -1390,11 +1459,17 @@ function EditCategoryModal({
                   }
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
-                <span className="text-sm font-medium text-gray-700">Active</span>
+                <span className="text-sm font-medium text-gray-700">
+                  Active
+                </span>
               </label>
             </div>
 
-            {error && <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">{error}</div>}
+            {error && (
+              <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"

@@ -47,6 +47,7 @@ function TablesContent() {
   const [selectedOrders, setSelectedOrders] = useState<OrderWithDetails[]>([]);
   const [originalOrders, setOriginalOrders] = useState<OrderWithDetails[]>([]);
   const [showPaymentInterface, setShowPaymentInterface] = useState(false);
+  const [currency, setCurrency] = useState('MYR');
 
   const fetchTables = useCallback(async () => {
     try {
@@ -72,6 +73,22 @@ function TablesContent() {
       setLoading(false);
     }
   }, [restaurantContext?.id]);
+
+  // Fetch restaurant settings for currency
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const data = await ApiClient.get<{ settings: { currency: string } }>(
+          '/settings/restaurant'
+        );
+        setCurrency(data.settings.currency || 'MYR');
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+        // Keep default MYR if fetch fails
+      }
+    };
+    fetchSettings();
+  }, []);
 
   // SSE Implementation
   useEffect(() => {
@@ -313,6 +330,7 @@ function TablesContent() {
         <PaymentInterface
           order={selectedOrders[0]}
           relatedOrders={originalOrders}
+          currency={currency}
           onClose={() => setShowPaymentInterface(false)}
           onPaymentComplete={handlePaymentComplete}
         />
