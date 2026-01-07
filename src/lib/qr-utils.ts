@@ -61,20 +61,42 @@ export function decodeQRToken(token: string): QRCodeData | null {
 export function generateCustomerSessionToken(): string {
   return crypto.randomUUID();
 }
+/**
+ * Map currency codes to their appropriate locales for proper symbol display
+ * This prevents issues like USD showing as "USD$" when using en-MY locale
+ */
+const CURRENCY_LOCALE_MAP: Record<string, string> = {
+  MYR: 'en-MY',
+  USD: 'en-US',
+  EUR: 'en-GB',
+  GBP: 'en-GB',
+  SGD: 'en-SG',
+  THB: 'th-TH',
+  IDR: 'id-ID',
+  PHP: 'en-PH',
+  VND: 'vi-VN',
+  CNY: 'zh-CN',
+  JPY: 'ja-JP',
+  KRW: 'ko-KR',
+  AUD: 'en-AU',
+  HKD: 'en-HK',
+  TWD: 'zh-TW',
+  INR: 'en-IN',
+  BDT: 'bn-BD', // Bangladeshi Taka
+  NPR: 'ne-NP', // Nepalese Rupee
+};
 
 /**
  * Format price with currency symbol
- * Consolidated function that handles all currency formatting needs
+ * Automatically uses the correct locale for each currency
  *
  * @param price - Price value (number, string, or Prisma Decimal)
  * @param currency - Currency code (default: 'MYR')
- * @param locale - Locale for formatting (default: 'en-MY')
- * @returns Formatted price string with currency symbol and space (e.g., "RM 31.98", "$ 31.98")
+ * @returns Formatted price string with currency symbol and space (e.g., "RM 31.98", "$ 31.98", "¥ 1,000")
  */
 export function formatPrice(
-  price: number | string | { toString(): string }, // Handles Decimal type
-  currency: string = 'MYR',
-  locale: string = 'en-MY'
+  price: number | string | { toString(): string },
+  currency: string = 'MYR'
 ): string {
   // Convert to number
   const numPrice =
@@ -84,8 +106,11 @@ export function formatPrice(
         ? price
         : Number(price.toString()); // Handle Prisma Decimal type
 
+  // Get the appropriate locale for this currency
+  const formatLocale = CURRENCY_LOCALE_MAP[currency] || 'en-US';
+
   // Format with Intl.NumberFormat
-  const formatted = new Intl.NumberFormat(locale, {
+  const formatted = new Intl.NumberFormat(formatLocale, {
     style: 'currency',
     currency: currency,
     currencyDisplay: 'symbol', // Use symbol (RM, $, €) instead of code (MYR, USD, EUR)
