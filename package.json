@@ -28,6 +28,7 @@
   "dependencies": {
     "@prisma/client": "^6.11.1",
     "@serwist/next": "^9.0.0",
+    "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-query": "^5.90.12",
     "@types/ioredis": "^4.28.10",
     "@types/pg": "^8.15.6",
@@ -52,6 +53,7 @@
     "server-only": "^0.0.1",
     "serwist": "^9.0.0",
     "tailwind-merge": "^2.5.4",
+    "typescript": "^5.9.3",
     "uuid": "^11.1.0",
     "web-push": "^3.6.7",
     "zod": "^4.1.13"
@@ -59,7 +61,6 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@serwist/cli": "^9.0.0",
-    "@tailwindcss/postcss": "^4.1.18",
     "@tanstack/react-query-devtools": "^5.91.1",
     "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.1.2",
@@ -81,8 +82,7 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
-    "tsx": "^4.20.3",
-    "typescript": "^5"
+    "tsx": "^4.20.3"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
