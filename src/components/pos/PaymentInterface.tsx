@@ -220,6 +220,7 @@ export function PaymentInterface({
                 onSubmit={handleCashPayment}
                 onCancel={() => setSelectedMethod(null)}
                 isProcessing={isProcessing}
+                currency={currency}
               />
             )}
 

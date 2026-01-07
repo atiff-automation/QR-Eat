@@ -135,6 +135,7 @@ export interface CashPaymentFormProps {
   onSubmit: (data: { cashReceived: number }) => void;
   onCancel: () => void;
   isProcessing: boolean;
+  currency?: string;
 }
 
 export interface ReceiptProps {
