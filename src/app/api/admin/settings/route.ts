@@ -33,8 +33,9 @@ const DEFAULT_SETTINGS = {
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -53,7 +54,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Only platform admins can view settings
-    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    const userType =
+      authResult.user.currentRole?.userType || authResult.user.userType;
     if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Only platform administrators can view settings' },
@@ -89,7 +91,9 @@ export async function GET(request: NextRequest) {
       {
         error: 'Failed to fetch settings',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development' && error instanceof Error
+            ? error.message
+            : undefined,
       },
       { status: 500 }
     );
@@ -99,8 +103,9 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -119,7 +124,8 @@ export async function PUT(request: NextRequest) {
     }
 
     // Only platform admins can update settings
-    const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+    const userType =
+      authResult.user.currentRole?.userType || authResult.user.userType;
     if (userType !== 'platform_admin') {
       return NextResponse.json(
         { error: 'Only platform administrators can update settings' },
@@ -242,7 +248,9 @@ export async function PUT(request: NextRequest) {
       {
         error: 'Failed to update settings',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development' && error instanceof Error
+            ? error.message
+            : undefined,
       },
       { status: 500 }
     );

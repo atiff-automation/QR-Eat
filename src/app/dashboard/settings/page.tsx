@@ -1,18 +1,44 @@
+/**
+ * Restaurant Settings Page
+ * Main settings page with sidebar navigation (desktop) and tabs (mobile)
+ */
+
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
-import {
-  AlertTriangle,
-  CheckCircle,
-  Key,
-  Eye,
-  EyeOff
-} from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import {
+  Building2,
+  Clock,
+  DollarSign,
+  Bell,
+  CreditCard,
+  Receipt,
+  Settings2,
+} from 'lucide-react';
 
-interface RestaurantSettings {
+// Import section components
+import { GeneralSection } from '@/components/settings/GeneralSection';
+import { OperatingHoursSection } from '@/components/settings/OperatingHoursSection';
+import { FinancialSection } from '@/components/settings/FinancialSection';
+import { NotificationsSection } from '@/components/settings/NotificationsSection';
+import { PaymentMethodsSection } from '@/components/settings/PaymentMethodsSection';
+import { ReceiptSection } from '@/components/settings/ReceiptSection';
+import { SystemPreferencesSection } from '@/components/settings/SystemPreferencesSection';
+import { SettingsLoadingSkeleton } from '@/components/settings/SettingsLoadingSkeleton';
+
+type SectionKey =
+  | 'general'
+  | 'hours'
+  | 'financial'
+  | 'notifications'
+  | 'payments'
+  | 'receipt'
+  | 'system';
+
+interface SettingsData {
+  id: string;
   name: string;
   address: string;
   phone: string;
@@ -21,214 +47,83 @@ interface RestaurantSettings {
   currency: string;
   taxRate: number;
   serviceChargeRate: number;
-}
-
-interface SystemSettings {
-  enableNotifications: boolean;
-  orderTimeout: number;
-  maxTablesPerQR: number;
-  defaultPreparationTime: number;
-  theme: 'light' | 'dark';
-}
-
-function PasswordChangeSection() {
-  const { } = useRole();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-
-  const handlePasswordChange = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-
-    // Validation
-    if (!currentPassword || !newPassword || !confirmPassword) {
-      setError('Please fill in all fields');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      setError('New passwords do not match');
-      return;
-    }
-
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters long');
-      return;
-    }
-
-    if (newPassword === currentPassword) {
-      setError('New password must be different from current password');
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      await ApiClient.post('/auth/change-password', {
-        currentPassword,
-        newPassword
-      });
-
-      setSuccess('Password changed successfully!');
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-      setTimeout(() => setSuccess(''), 5000);
-    } catch (error) {
-      console.error('Failed to change password:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Failed to change password. Please try again.');
-    } finally {
-      setIsLoading(false);
-    }
+  taxLabel: string;
+  serviceChargeLabel: string;
+  operatingHours: {
+    monday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    tuesday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    wednesday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    thursday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    friday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    saturday: { isOpen: boolean; slots: { open: string; close: string }[] };
+    sunday: { isOpen: boolean; slots: { open: string; close: string }[] };
   };
-
-  return (
-    <div className="bg-white border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center mb-4">
-        <Key className="h-5 w-5 text-blue-600 mr-2" />
-        <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
-      </div>
-
-      {error && (
-        <div className="mb-4 bg-red-50 border border-red-200 rounded-md p-3">
-          <div className="flex">
-            <AlertTriangle className="h-5 w-5 text-red-600 mr-2 flex-shrink-0" />
-            <p className="text-sm text-red-800">{error}</p>
-          </div>
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-4 bg-green-50 border border-green-200 rounded-md p-3">
-          <div className="flex">
-            <CheckCircle className="h-5 w-5 text-green-600 mr-2 flex-shrink-0" />
-            <p className="text-sm text-green-800">{success}</p>
-          </div>
-        </div>
-      )}
-
-      <form onSubmit={handlePasswordChange} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Current Password
-          </label>
-          <div className="relative">
-            <input
-              type={showCurrentPassword ? 'text' : 'password'}
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-              placeholder="Enter current password"
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showCurrentPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
-              ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showNewPassword ? 'text' : 'password'}
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-              placeholder="Enter new password"
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowNewPassword(!showNewPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showNewPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
-              ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-          <p className="text-xs text-gray-500 mt-1">
-            Password must be at least 8 characters long
-          </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Confirm New Password
-          </label>
-          <div className="relative">
-            <input
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10"
-              placeholder="Confirm new password"
-              disabled={isLoading}
-            />
-            <button
-              type="button"
-              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
-            >
-              {showConfirmPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
-              ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
-              )}
-            </button>
-          </div>
-        </div>
-
-        <div className="flex justify-end">
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? 'Changing Password...' : 'Change Password'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+  notificationSettings: {
+    orderAlerts: boolean;
+    soundEnabled: boolean;
+    soundType: 'chime' | 'bell' | 'ding' | 'silent';
+    desktopNotifications: boolean;
+  };
+  receiptSettings: {
+    headerText: string;
+    footerText: string;
+    paperSize: '80mm';
+  };
+  paymentMethods: {
+    cash: boolean;
+    card: boolean;
+    ewallet: boolean;
+  };
+  systemPreferences: {
+    dateFormat: 'DD/MM/YYYY' | 'MM/DD/YYYY' | 'YYYY-MM-DD';
+    timeFormat: '24h' | '12h';
+    language: 'en' | 'ms' | 'zh';
+  };
 }
+
+const SECTIONS = [
+  {
+    key: 'general' as SectionKey,
+    label: 'General',
+    icon: Building2,
+  },
+  {
+    key: 'hours' as SectionKey,
+    label: 'Operating Hours',
+    icon: Clock,
+  },
+  {
+    key: 'financial' as SectionKey,
+    label: 'Financial',
+    icon: DollarSign,
+  },
+  {
+    key: 'notifications' as SectionKey,
+    label: 'Notifications',
+    icon: Bell,
+  },
+  {
+    key: 'payments' as SectionKey,
+    label: 'Payment Methods',
+    icon: CreditCard,
+  },
+  {
+    key: 'receipt' as SectionKey,
+    label: 'Receipt',
+    icon: Receipt,
+  },
+  {
+    key: 'system' as SectionKey,
+    label: 'System',
+    icon: Settings2,
+  },
+];
 
 function SettingsContent() {
-  const [restaurantSettings, setRestaurantSettings] = useState<RestaurantSettings>({
-    name: '',
-    address: '',
-    phone: '',
-    email: '',
-    timezone: 'UTC',
-    currency: 'USD',
-    taxRate: 0,
-    serviceChargeRate: 0
-  });
-
+  const [activeSection, setActiveSection] = useState<SectionKey>('general');
+  const [settings, setSettings] = useState<SettingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchSettings();
@@ -237,52 +132,226 @@ function SettingsContent() {
   const fetchSettings = async () => {
     try {
       setLoading(true);
-
-      // Get current user/restaurant info
-      const data = await ApiClient.get<{
-        restaurant?: {
-          name: string;
-          address: string;
-          phone: string;
-          email: string;
-          timezone: string;
-          currency: string;
-          taxRate: number;
-          serviceChargeRate: number;
-        };
-      }>('/auth/me');
-
-      if (data.restaurant) {
-        setRestaurantSettings({
-          name: data.restaurant.name || '',
-          address: data.restaurant.address || '',
-          phone: data.restaurant.phone || '',
-          email: data.restaurant.email || '',
-          timezone: data.restaurant.timezone || 'UTC',
-          currency: data.restaurant.currency || 'USD',
-          taxRate: data.restaurant.taxRate || 0,
-          serviceChargeRate: data.restaurant.serviceChargeRate || 0
-        });
-      }
+      const data = await ApiClient.get<{ settings: SettingsData }>(
+        '/settings/restaurant'
+      );
+      setSettings(data.settings);
     } catch (error) {
       console.error('Failed to fetch settings:', error);
-      setError(error instanceof ApiClientError ? error.message : 'Failed to load settings');
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to load settings'
+      );
     } finally {
       setLoading(false);
     }
   };
 
   if (loading) {
+    return <SettingsLoadingSkeleton />;
+  }
+
+  if (error || !settings) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="text-gray-600">Loading settings...</div>
+      <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 max-w-md w-full text-center">
+          <p className="text-red-600 mb-4">
+            {error || 'Failed to load settings'}
+          </p>
+          <button
+            onClick={fetchSettings}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
+  const renderSection = () => {
+    switch (activeSection) {
+      case 'general':
+        return (
+          <GeneralSection
+            initialData={{
+              name: settings.name,
+              address: settings.address,
+              phone: settings.phone,
+              email: settings.email,
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'hours':
+        return (
+          <OperatingHoursSection
+            initialData={{
+              timezone: settings.timezone,
+              operatingHours: settings.operatingHours || {
+                monday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                tuesday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                wednesday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                thursday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                friday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                saturday: {
+                  isOpen: true,
+                  slots: [{ open: '09:00', close: '17:00' }],
+                },
+                sunday: { isOpen: false, slots: [] },
+              },
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'financial':
+        return (
+          <FinancialSection
+            initialData={{
+              currency: settings.currency,
+              taxRate: settings.taxRate,
+              serviceChargeRate: settings.serviceChargeRate,
+              taxLabel: settings.taxLabel,
+              serviceChargeLabel: settings.serviceChargeLabel,
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'notifications':
+        return (
+          <NotificationsSection
+            initialData={{
+              notificationSettings: settings.notificationSettings || {
+                orderAlerts: true,
+                soundEnabled: true,
+                soundType: 'chime',
+                desktopNotifications: true,
+              },
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'payments':
+        return (
+          <PaymentMethodsSection
+            initialData={{
+              paymentMethods: settings.paymentMethods || {
+                cash: true,
+                card: true,
+                ewallet: true,
+              },
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'receipt':
+        return (
+          <ReceiptSection
+            initialData={{
+              receiptSettings: settings.receiptSettings || {
+                headerText: 'Welcome to Our Restaurant',
+                footerText: 'Thank you for your visit!',
+                paperSize: '80mm',
+              },
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      case 'system':
+        return (
+          <SystemPreferencesSection
+            initialData={{
+              systemPreferences: settings.systemPreferences || {
+                dateFormat: 'DD/MM/YYYY',
+                timeFormat: '24h',
+                language: 'en',
+              },
+            }}
+            onUpdate={fetchSettings}
+          />
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
-    <div>
-      <h1>Settings</h1>
+    <div className="min-h-screen bg-gray-50/50 pb-20">
+      {/* Mobile Tabs */}
+      <div className="md:hidden px-5 pt-6 pb-2">
+        <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 overflow-x-auto">
+          <div className="flex gap-2">
+            {SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.key}
+                  onClick={() => setActiveSection(section.key)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
+                    activeSection === section.key
+                      ? 'bg-blue-600 text-white'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {section.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Desktop Layout */}
+      <div className="hidden md:flex h-[calc(100vh-4rem)]">
+        {/* Sidebar */}
+        <div className="w-64 bg-white border-r border-gray-200 p-5 overflow-y-auto">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Settings</h2>
+          <nav className="space-y-1">
+            {SECTIONS.map((section) => {
+              const Icon = section.icon;
+              return (
+                <button
+                  key={section.key}
+                  onClick={() => setActiveSection(section.key)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+                    activeSection === section.key
+                      ? 'bg-blue-50 text-blue-600'
+                      : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <Icon className="h-5 w-5" />
+                  {section.label}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Content Area */}
+        <div className="flex-1 p-6 overflow-y-auto">
+          <div className="max-w-3xl">{renderSection()}</div>
+        </div>
+      </div>
+
+      {/* Mobile Content */}
+      <div className="md:hidden px-5 pt-4">{renderSection()}</div>
     </div>
   );
 }
