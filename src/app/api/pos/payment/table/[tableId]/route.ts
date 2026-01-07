@@ -58,6 +58,8 @@ export async function POST(
           select: {
             id: true,
             name: true,
+            taxLabel: true,
+            serviceChargeLabel: true,
           },
         },
         table: {
@@ -272,7 +274,9 @@ export async function POST(
           (sum, o) => sum.plus(new Decimal(o.serviceCharge || 0)),
           new Decimal(0)
         ),
-        restaurant: eligibleOrders[0].restaurant,
+        restaurant: {
+          ...eligibleOrders[0].restaurant,
+        },
         table: {
           id: tableId,
           tableNumber: eligibleOrders[0].table?.tableNumber || 0,
@@ -288,6 +292,10 @@ export async function POST(
               orderNumber: order.orderNumber, // Track which order each item came from
             })) || []
         ),
+        // Add tax and service charge labels from restaurant settings
+        taxLabel: eligibleOrders[0].restaurant.taxLabel || 'Tax',
+        serviceChargeLabel:
+          eligibleOrders[0].restaurant.serviceChargeLabel || 'Service Charge',
       },
     };
 
