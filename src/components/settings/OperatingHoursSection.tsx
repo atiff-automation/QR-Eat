@@ -75,11 +75,52 @@ const DAY_LABELS: Record<(typeof DAYS)[number], string> = {
   sunday: 'Sunday',
 };
 
+// Helper function to ensure operating hours data has the correct structure
+const normalizeOperatingHours = (
+  data: OperatingHoursData
+): OperatingHoursData => {
+  const defaultSchedule: DaySchedule = {
+    isOpen: true,
+    slots: [{ open: '09:00', close: '17:00' }],
+  };
+
+  const normalizedHours: OperatingHours = {
+    monday: defaultSchedule,
+    tuesday: defaultSchedule,
+    wednesday: defaultSchedule,
+    thursday: defaultSchedule,
+    friday: defaultSchedule,
+    saturday: defaultSchedule,
+    sunday: { isOpen: false, slots: [] },
+  };
+
+  // If operatingHours exists and has the correct structure, use it
+  if (data.operatingHours) {
+    DAYS.forEach((day) => {
+      const dayData = data.operatingHours[day];
+      if (
+        dayData &&
+        typeof dayData.isOpen === 'boolean' &&
+        Array.isArray(dayData.slots)
+      ) {
+        normalizedHours[day] = dayData;
+      }
+    });
+  }
+
+  return {
+    timezone: data.timezone || 'Asia/Kuala_Lumpur',
+    operatingHours: normalizedHours,
+  };
+};
+
 export function OperatingHoursSection({
   initialData,
   onUpdate,
 }: OperatingHoursSectionProps) {
-  const [formData, setFormData] = useState<OperatingHoursData>(initialData);
+  const [formData, setFormData] = useState<OperatingHoursData>(
+    normalizeOperatingHours(initialData)
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
