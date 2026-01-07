@@ -82,10 +82,14 @@ export function formatReceiptData(
   lines.push(`Subtotal:${subtotal.padStart(39)}`);
 
   const tax = `${currency} ${Number(order.taxAmount).toFixed(2)}`;
-  lines.push(`Tax (6%):${tax.padStart(39)}`);
+  const taxLabel = restaurant.taxLabel || 'Tax';
+  lines.push(`${taxLabel}:${tax.padStart(48 - taxLabel.length - 1)}`);
 
   const serviceCharge = `${currency} ${Number(order.serviceCharge).toFixed(2)}`;
-  lines.push(`Service Charge (10%):${serviceCharge.padStart(27)}`);
+  const serviceChargeLabel = restaurant.serviceChargeLabel || 'Service Charge';
+  lines.push(
+    `${serviceChargeLabel}:${serviceCharge.padStart(48 - serviceChargeLabel.length - 1)}`
+  );
 
   lines.push('');
   const total = `${currency} ${Number(order.totalAmount).toFixed(2)}`;

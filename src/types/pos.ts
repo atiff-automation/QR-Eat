@@ -29,6 +29,9 @@ export interface OrderWithDetails extends Order {
     customerPhone: string | null;
   } | null;
   items: OrderItemWithDetails[];
+  // Restaurant settings for display
+  taxLabel?: string;
+  serviceChargeLabel?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }
@@ -75,6 +78,8 @@ export interface ReceiptData {
     address: string;
     phone: string;
     email: string;
+    taxLabel?: string;
+    serviceChargeLabel?: string;
   };
   cashier: {
     firstName: string;

@@ -89,13 +89,15 @@ export function OrderDetails({ order, currency = 'MYR' }: OrderDetailsProps) {
           </span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600">Tax (6%)</span>
+          <span className="text-gray-600">{order.taxLabel || 'Tax'}</span>
           <span className="font-medium text-gray-900">
             {formatCurrency(Number(order.taxAmount), currency)}
           </span>
         </div>
         <div className="flex justify-between text-xs">
-          <span className="text-gray-600">Service Charge (10%)</span>
+          <span className="text-gray-600">
+            {order.serviceChargeLabel || 'Service Charge'}
+          </span>
           <span className="font-medium text-gray-900">
             {formatCurrency(Number(order.serviceCharge), currency)}
           </span>

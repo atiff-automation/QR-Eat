@@ -26,6 +26,9 @@ export function ViewOrderDetailsModal({
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [taxLabel, setTaxLabel] = useState('Tax');
+  const [serviceChargeLabel, setServiceChargeLabel] =
+    useState('Service Charge');
 
   useEffect(() => {
     if (!isOpen) return;
@@ -37,6 +40,20 @@ export function ViewOrderDetailsModal({
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const data: any = await ApiClient.get(`/orders/${orderId}`);
         setOrder(data.order);
+
+        // Fetch restaurant settings for labels
+        try {
+          const settingsData = await ApiClient.get<{
+            settings: { taxLabel?: string; serviceChargeLabel?: string };
+          }>('/settings/restaurant');
+          setTaxLabel(settingsData.settings.taxLabel || 'Tax');
+          setServiceChargeLabel(
+            settingsData.settings.serviceChargeLabel || 'Service Charge'
+          );
+        } catch (err) {
+          console.error('Failed to fetch restaurant settings:', err);
+          // Use defaults if settings fetch fails
+        }
       } catch (err) {
         console.error('Failed to fetch order:', err);
         setError('Failed to load order details. Please try again.');
@@ -226,13 +243,13 @@ export function ViewOrderDetailsModal({
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Tax (10%)</span>
+                    <span className="text-gray-600">{taxLabel}</span>
                     <span className="text-gray-900">
                       {formatPrice(order.taxAmount, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Service (5%)</span>
+                    <span className="text-gray-600">{serviceChargeLabel}</span>
                     <span className="text-gray-900">
                       {formatPrice(order.serviceCharge, currency)}
                     </span>

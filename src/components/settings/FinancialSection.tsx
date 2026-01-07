@@ -47,12 +47,23 @@ export function FinancialSection({
   initialData,
   onUpdate,
 }: FinancialSectionProps) {
-  const [formData, setFormData] = useState<FinancialSettings>(initialData);
+  // Convert decimal rates (0.06) to percentages (6) for display
+  const [formData, setFormData] = useState<FinancialSettings>({
+    ...initialData,
+    taxRate: initialData.taxRate * 100, // Convert 0.06 to 6
+    serviceChargeRate: initialData.serviceChargeRate * 100, // Convert 0.10 to 10
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
+  const hasChanges =
+    JSON.stringify(formData) !==
+    JSON.stringify({
+      ...initialData,
+      taxRate: initialData.taxRate * 100,
+      serviceChargeRate: initialData.serviceChargeRate * 100,
+    });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
