@@ -13,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import Image from 'next/image';
+import { useCurrency } from '@/contexts/RestaurantContext';
 
 interface MenuCategory {
   id: string;
@@ -71,24 +72,11 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
-  const [currency, setCurrency] = useState('MYR');
+  const currency = useCurrency(); // Get currency from context
 
   useEffect(() => {
     fetchCategories(true);
-    fetchSettings();
   }, []);
-
-  const fetchSettings = async () => {
-    try {
-      const data = await ApiClient.get<{ settings: { currency: string } }>(
-        '/settings/restaurant'
-      );
-      setCurrency(data.settings.currency || 'MYR');
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      // Keep default MYR if fetch fails
-    }
-  };
 
   const fetchCategories = async (showLoading = false) => {
     if (showLoading) setLoading(true);

@@ -22,6 +22,7 @@ interface TableOrdersViewProps {
   onSelectOrder: (order: OrderWithDetails) => void;
   isLoading: boolean;
   onRefresh: () => void;
+  currency?: string;
 }
 
 interface TableGroup {
@@ -38,6 +39,7 @@ export function TableOrdersView({
   orders,
   onSelectOrder,
   isLoading,
+  currency = 'MYR',
 }: TableOrdersViewProps) {
   // Group orders by table
   const tableGroups = useMemo(() => {
@@ -106,6 +108,7 @@ export function TableOrdersView({
           key={group.tableId}
           group={group}
           onSelectOrder={onSelectOrder}
+          currency={currency}
         />
       ))}
     </div>
@@ -115,9 +118,14 @@ export function TableOrdersView({
 interface TableGroupCardProps {
   group: TableGroup;
   onSelectOrder: (order: OrderWithDetails) => void;
+  currency?: string;
 }
 
-function TableGroupCard({ group, onSelectOrder }: TableGroupCardProps) {
+function TableGroupCard({
+  group,
+  onSelectOrder,
+  currency = 'MYR',
+}: TableGroupCardProps) {
   const waitTime = Math.floor(
     (Date.now() - group.oldestOrderTime.getTime()) / 60000
   );
@@ -152,7 +160,7 @@ function TableGroupCard({ group, onSelectOrder }: TableGroupCardProps) {
                 #{order.orderNumber}
               </span>
               <span className="text-sm font-bold text-orange-600">
-                {formatPrice(Number(order.totalAmount))}
+                {formatPrice(Number(order.totalAmount), currency)}
               </span>
             </div>
             <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -173,7 +181,7 @@ function TableGroupCard({ group, onSelectOrder }: TableGroupCardProps) {
             Table Total:
           </span>
           <span className="text-lg font-bold text-gray-900">
-            {formatPrice(group.totalAmount)}
+            {formatPrice(group.totalAmount, currency)}
           </span>
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">

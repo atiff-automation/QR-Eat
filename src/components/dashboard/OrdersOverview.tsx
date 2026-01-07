@@ -9,6 +9,7 @@ import { ModifyOrderModal } from './modals/ModifyOrderModal';
 import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { debug } from '@/lib/debug';
+import { useCurrency } from '@/contexts/RestaurantContext';
 
 // Constants
 const DEFAULT_ORDER_LIMIT = 50;
@@ -42,6 +43,7 @@ export function OrdersOverview() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const currency = useCurrency(); // Get currency from context
 
   // Modal states
   const [viewDetailsOrderId, setViewDetailsOrderId] = useState<string | null>(
@@ -288,7 +290,7 @@ export function OrdersOverview() {
               {/* Revenue with Time Label */}
               <div className="flex items-center gap-1.5 ml-auto">
                 <span className="text-base font-bold text-green-600">
-                  {formatPrice(stats.totalRevenue)}
+                  {formatPrice(stats.totalRevenue, currency)}
                 </span>
                 <span className="text-xs text-gray-500">
                   {timeFilter === 'today' ? 'Today' : 'All Time'}
@@ -327,19 +329,21 @@ export function OrdersOverview() {
             <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
               <button
                 onClick={() => setTimeFilter('today')}
-                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${timeFilter === 'today'
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
+                  timeFilter === 'today'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                }`}
               >
                 Today
               </button>
               <button
                 onClick={() => setTimeFilter('all_time')}
-                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${timeFilter === 'all_time'
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
+                  timeFilter === 'all_time'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-gray-500 hover:text-gray-900'
-                  }`}
+                }`}
               >
                 All Time
               </button>
@@ -356,10 +360,11 @@ export function OrdersOverview() {
                 <button
                   key={tab.id}
                   onClick={() => setStatusFilter(tab.id as StatusFilter)}
-                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${statusFilter === tab.id
+                  className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all border ${
+                    statusFilter === tab.id
                       ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300'
-                    }`}
+                  }`}
                 >
                   {tab.label}
                 </button>
@@ -407,6 +412,7 @@ export function OrdersOverview() {
               onViewDetails={handleViewDetails}
               onModify={handleModify}
               onCancel={handleCancel}
+              currency={currency}
             />
           ))}
         </div>
@@ -433,6 +439,7 @@ export function OrdersOverview() {
           orderId={viewDetailsOrderId}
           isOpen={!!viewDetailsOrderId}
           onClose={() => setViewDetailsOrderId(null)}
+          currency={currency}
         />
       )}
 
@@ -442,6 +449,7 @@ export function OrdersOverview() {
           isOpen={!!modifyOrder}
           onClose={() => setModifyOrder(null)}
           onSuccess={handleModalSuccess}
+          currency={currency}
         />
       )}
 

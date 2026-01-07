@@ -59,6 +59,8 @@ export interface OrderCardProps {
   onCancel?: (orderId: string) => void;
   /** Whether the order is currently being updated */
   isUpdating?: boolean;
+  /** Currency code for price formatting */
+  currency?: string;
 }
 
 /**
@@ -93,6 +95,7 @@ export function OrderCard({
   onModify,
   onCancel,
   isUpdating = false,
+  currency = 'MYR',
 }: OrderCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const nextAction = getNextOrderAction(order.status);
@@ -187,7 +190,7 @@ export function OrderCard({
               : orderTime}
           </span>
           <span className="font-bold text-gray-900">
-            {formatPrice(order.totalAmount)}
+            {formatPrice(order.totalAmount, currency)}
           </span>
         </div>
       </div>

@@ -31,6 +31,7 @@ interface TableDetailModalProps {
   onUpdateStatus: (tableId: string, status: string) => Promise<void>;
   onShowQR: (table: NonNullable<TableDetailModalProps['table']>) => void;
   onProcessPayment?: (tableId: string, orders: OrderWithDetails[]) => void;
+  currency?: string;
 }
 
 export function TableDetailModal({
@@ -40,6 +41,7 @@ export function TableDetailModal({
   onUpdateStatus,
   onShowQR,
   onProcessPayment,
+  currency = 'MYR',
 }: TableDetailModalProps) {
   const [isVisible, setIsVisible] = useState(false);
 
@@ -175,14 +177,16 @@ export function TableDetailModal({
             <div className="space-y-2 pb-2 border-b border-gray-100">
               <p className="text-sm text-gray-600 font-medium">
                 {orders.length} {orders.length === 1 ? 'Order' : 'Orders'} •{' '}
-                {formatPrice(tableTotal)}
+                {formatPrice(tableTotal, currency)}
               </p>
               <button
                 onClick={() => onProcessPayment?.(table.id, orders)}
                 className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
               >
                 <CreditCard className="w-4 h-4" />
-                <span>Process Payment - {formatPrice(tableTotal)}</span>
+                <span>
+                  Process Payment - {formatPrice(tableTotal, currency)}
+                </span>
               </button>
             </div>
           )}

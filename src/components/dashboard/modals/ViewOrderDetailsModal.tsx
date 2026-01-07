@@ -13,12 +13,14 @@ interface ViewOrderDetailsModalProps {
   orderId: string;
   isOpen: boolean;
   onClose: () => void;
+  currency?: string;
 }
 
 export function ViewOrderDetailsModal({
   orderId,
   isOpen,
   onClose,
+  currency = 'MYR',
 }: ViewOrderDetailsModalProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [order, setOrder] = useState<any>(null);
@@ -203,11 +205,12 @@ export function ViewOrderDetailsModal({
                             {item.menuItem.name}
                           </p>
                           <p className="text-sm text-gray-500">
-                            Qty: {item.quantity} × {formatPrice(item.unitPrice)}
+                            Qty: {item.quantity} ×{' '}
+                            {formatPrice(item.unitPrice, currency)}
                           </p>
                         </div>
                         <p className="font-semibold text-gray-900">
-                          {formatPrice(item.totalAmount)}
+                          {formatPrice(item.totalAmount, currency)}
                         </p>
                       </div>
                     ))}
@@ -219,25 +222,25 @@ export function ViewOrderDetailsModal({
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Subtotal</span>
                     <span className="text-gray-900">
-                      {formatPrice(order.subtotalAmount)}
+                      {formatPrice(order.subtotalAmount, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Tax (10%)</span>
                     <span className="text-gray-900">
-                      {formatPrice(order.taxAmount)}
+                      {formatPrice(order.taxAmount, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Service (5%)</span>
                     <span className="text-gray-900">
-                      {formatPrice(order.serviceCharge)}
+                      {formatPrice(order.serviceCharge, currency)}
                     </span>
                   </div>
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span className="text-gray-900">Total</span>
                     <span className="text-blue-600">
-                      {formatPrice(order.totalAmount)}
+                      {formatPrice(order.totalAmount, currency)}
                     </span>
                   </div>
                 </div>
@@ -297,11 +300,11 @@ export function ViewOrderDetailsModal({
                           <div className="flex items-center gap-2 text-sm font-semibold pt-2 border-t border-orange-200">
                             <span className="text-gray-600">Total:</span>
                             <span className="text-gray-500 line-through">
-                              {formatPrice(mod.oldTotal)}
+                              {formatPrice(mod.oldTotal, currency)}
                             </span>
                             <span className="text-orange-900">→</span>
                             <span className="text-orange-900">
-                              {formatPrice(mod.newTotal)}
+                              {formatPrice(mod.newTotal, currency)}
                             </span>
                           </div>
                         </div>

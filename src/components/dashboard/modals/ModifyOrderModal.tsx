@@ -32,6 +32,7 @@ interface ModifyOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  currency?: string;
 }
 
 interface ItemChange {
@@ -57,6 +58,7 @@ export function ModifyOrderModal({
   isOpen,
   onClose,
   onSuccess,
+  currency = 'MYR',
 }: ModifyOrderModalProps) {
   const [items, setItems] = useState(order.items);
   const [reason, setReason] = useState<string>('out_of_stock');
@@ -251,7 +253,7 @@ export function ModifyOrderModal({
                     <div>
                       <h4 className="font-medium">{item.menuItem.name}</h4>
                       <p className="text-sm text-gray-600">
-                        {formatPrice(item.menuItem.price)} each
+                        {formatPrice(item.menuItem.price, currency)} each
                       </p>
                     </div>
                     <button
@@ -288,7 +290,7 @@ export function ModifyOrderModal({
                       </button>
                     </div>
                     <span className="font-semibold">
-                      {formatPrice(item.totalAmount)}
+                      {formatPrice(item.totalAmount, currency)}
                     </span>
                   </div>
                 </div>
@@ -300,19 +302,20 @@ export function ModifyOrderModal({
           <div className="border-t pt-3">
             <div className="flex justify-between text-sm mb-1">
               <span className="text-gray-600">Original Total:</span>
-              <span>{formatPrice(order.totalAmount)}</span>
+              <span>{formatPrice(order.totalAmount, currency)}</span>
             </div>
             <div className="flex justify-between font-bold">
               <span>New Total:</span>
               <span
                 className={newTotal < order.totalAmount ? 'text-red-600' : ''}
               >
-                {formatPrice(newTotal)}
+                {formatPrice(newTotal, currency)}
               </span>
             </div>
             {newTotal < order.totalAmount && (
               <div className="text-sm text-red-600 mt-1">
-                Difference: -{formatPrice(order.totalAmount - newTotal)}
+                Difference: -
+                {formatPrice(order.totalAmount - newTotal, currency)}
               </div>
             )}
           </div>

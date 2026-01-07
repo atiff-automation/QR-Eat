@@ -37,6 +37,7 @@ import { NotificationBell } from './NotificationBell';
 import { DashboardClock } from '@/components/ui/LiveClock';
 import { ApiClient } from '@/lib/api-client';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
+import { RestaurantProvider } from '@/contexts/RestaurantContext';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -195,193 +196,195 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile sidebar */}
-      <div
-        className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
-          isSidebarOpen
-            ? 'opacity-100 pointer-events-auto'
-            : 'opacity-0 pointer-events-none'
-        }`}
-      >
+    <RestaurantProvider>
+      <div className="min-h-screen bg-gray-50">
+        {/* Mobile sidebar */}
         <div
-          className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
-            isSidebarOpen ? 'opacity-100' : 'opacity-0'
-          }`}
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-        <div
-          className={`relative flex flex-col w-64 bg-white h-full transform transition-transform duration-300 ease-in-out ${
-            isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+          className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
+            isSidebarOpen
+              ? 'opacity-100 pointer-events-auto'
+              : 'opacity-0 pointer-events-none'
           }`}
         >
-          <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <span className="text-lg font-semibold text-gray-900">Menu</span>
-            <button
-              onClick={() => setIsSidebarOpen(false)}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <nav className="flex-1 px-4 py-4 space-y-2">
-            {navigationItems.map((item) => (
-              <PermissionGuard key={item.name} permission={item.permission}>
-                <Link
-                  href={item.href}
-                  onClick={() => setIsSidebarOpen(false)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                    item.current
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </Link>
-              </PermissionGuard>
-            ))}
-          </nav>
-
-          <div className="flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="flex items-center mb-3">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {user.firstName[0]}
-                    {user.lastName[0]}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user.email}</p>
-              </div>
+          <div
+            className={`fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity duration-300 ${
+              isSidebarOpen ? 'opacity-100' : 'opacity-0'
+            }`}
+            onClick={() => setIsSidebarOpen(false)}
+          ></div>
+          <div
+            className={`relative flex flex-col w-64 bg-white h-full transform transition-transform duration-300 ease-in-out ${
+              isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200">
+              <span className="text-lg font-semibold text-gray-900">Menu</span>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
             </div>
-
-            <button
-              onClick={handleLogout}
-              className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Desktop sidebar */}
-      <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
-          <div className="flex items-center flex-shrink-0 px-4 py-5 border-b border-gray-200">
-            <div className="flex-1">
-              <h1 className="text-lg font-semibold text-gray-900">
-                {restaurantContext?.name || 'Dashboard'}
-              </h1>
-              <div className="flex items-center space-x-2 mt-1">
-                <span className="text-xs text-gray-500">Role:</span>
-                <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
-                  {currentRole.roleTemplate.replace('_', ' ')}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <nav className="flex-1 px-4 py-4 space-y-2">
-            {navigationItems.map((item) => (
-              <PermissionGuard key={item.name} permission={item.permission}>
-                <Link
-                  href={item.href}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
-                    item.current
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  <item.icon className="mr-3 h-5 w-5" />
-                  {item.name}
-                </Link>
-              </PermissionGuard>
-            ))}
-          </nav>
-
-          <div className="flex-shrink-0 border-t border-gray-200 p-4">
-            <div className="flex items-center mb-3">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
-                    {user.firstName[0]}
-                    {user.lastName[0]}
-                  </span>
-                </div>
-              </div>
-              <div className="ml-3 flex-1">
-                <p className="text-sm font-medium text-gray-900">
-                  {user.firstName} {user.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user.email}</p>
-              </div>
-            </div>
-
-            <button
-              onClick={handleLogout}
-              className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
-            >
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Main content */}
-      <div className="lg:pl-64">
-        {/* Top header */}
-        <header className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
-          <div className="px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between items-center py-2">
-              <div className="flex items-center">
-                <button
-                  onClick={() => setIsSidebarOpen(true)}
-                  className="touch-target lg:hidden mr-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
-                  aria-label="Open navigation menu"
-                >
-                  <Menu className="h-6 w-6" />
-                </button>
-                <div className="flex items-center gap-2">
-                  {(() => {
-                    const PageIcon = getPageIcon();
-                    return (
-                      <PageIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
-                    );
-                  })()}
-                  <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
-                    {getPageTitle()}
-                  </h1>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-4">
-                {/* Role Switcher */}
-                <RoleSwitcher />
-
-                {/* Notifications */}
-                <PermissionGuard permission="notifications:read">
-                  <NotificationBell />
+            <nav className="flex-1 px-4 py-4 space-y-2">
+              {navigationItems.map((item) => (
+                <PermissionGuard key={item.name} permission={item.permission}>
+                  <Link
+                    href={item.href}
+                    onClick={() => setIsSidebarOpen(false)}
+                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                      item.current
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="mr-3 h-5 w-5" />
+                    {item.name}
+                  </Link>
                 </PermissionGuard>
+              ))}
+            </nav>
 
-                {/* Live Clock - Local Browser Timezone */}
-                <DashboardClock />
+            <div className="flex-shrink-0 border-t border-gray-200 p-4">
+              <div className="flex items-center mb-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user.firstName[0]}
+                      {user.lastName[0]}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user.firstName} {user.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                </div>
               </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </button>
             </div>
           </div>
-        </header>
+        </div>
 
-        {/* Page content */}
-        <main className="flex-1">{children}</main>
+        {/* Desktop sidebar */}
+        <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0">
+          <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
+            <div className="flex items-center flex-shrink-0 px-4 py-5 border-b border-gray-200">
+              <div className="flex-1">
+                <h1 className="text-lg font-semibold text-gray-900">
+                  {restaurantContext?.name || 'Dashboard'}
+                </h1>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-xs text-gray-500">Role:</span>
+                  <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
+                    {currentRole.roleTemplate.replace('_', ' ')}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <nav className="flex-1 px-4 py-4 space-y-2">
+              {navigationItems.map((item) => (
+                <PermissionGuard key={item.name} permission={item.permission}>
+                  <Link
+                    href={item.href}
+                    className={`flex items-center px-3 py-2 rounded-md text-sm font-medium ${
+                      item.current
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <item.icon className="mr-3 h-5 w-5" />
+                    {item.name}
+                  </Link>
+                </PermissionGuard>
+              ))}
+            </nav>
+
+            <div className="flex-shrink-0 border-t border-gray-200 p-4">
+              <div className="flex items-center mb-3">
+                <div className="flex-shrink-0">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+                    <span className="text-white text-sm font-medium">
+                      {user.firstName[0]}
+                      {user.lastName[0]}
+                    </span>
+                  </div>
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user.firstName} {user.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500">{user.email}</p>
+                </div>
+              </div>
+
+              <button
+                onClick={handleLogout}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Main content */}
+        <div className="lg:pl-64">
+          {/* Top header */}
+          <header className="sticky top-0 z-30 bg-white shadow-sm border-b border-gray-200">
+            <div className="px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center py-2">
+                <div className="flex items-center">
+                  <button
+                    onClick={() => setIsSidebarOpen(true)}
+                    className="touch-target lg:hidden mr-2 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                    aria-label="Open navigation menu"
+                  >
+                    <Menu className="h-6 w-6" />
+                  </button>
+                  <div className="flex items-center gap-2">
+                    {(() => {
+                      const PageIcon = getPageIcon();
+                      return (
+                        <PageIcon className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
+                      );
+                    })()}
+                    <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+                      {getPageTitle()}
+                    </h1>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  {/* Role Switcher */}
+                  <RoleSwitcher />
+
+                  {/* Notifications */}
+                  <PermissionGuard permission="notifications:read">
+                    <NotificationBell />
+                  </PermissionGuard>
+
+                  {/* Live Clock - Local Browser Timezone */}
+                  <DashboardClock />
+                </div>
+              </div>
+            </div>
+          </header>
+
+          {/* Page content */}
+          <main className="flex-1">{children}</main>
+        </div>
       </div>
-    </div>
+    </RestaurantProvider>
   );
 }
