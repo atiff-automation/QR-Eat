@@ -121,7 +121,7 @@ export function CashPaymentForm({
               className="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
               disabled={isProcessing}
             >
-              +{currency === 'MYR' ? 'RM' : currency === 'USD' ? '$' : currency}
+              +{formatCurrency(amount, currency).replace(/[\d,.\s]/g, '')}
               {amount}
             </button>
           ))}

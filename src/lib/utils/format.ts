@@ -9,24 +9,14 @@
  * @see claudedocs/CODING_STANDARDS.md
  */
 
-import type { Decimal } from '@prisma/client/runtime/library';
-
 /**
- * Format currency amount to Malaysian Ringgit (MYR)
+ * Format currency amount
+ * @deprecated Use formatPrice from '@/lib/qr-utils' instead
+ * This is kept for backward compatibility and re-exports formatPrice
  */
-export function formatCurrency(
-  amount: number | Decimal,
-  currency = 'MYR'
-): string {
-  const numericAmount = typeof amount === 'number' ? amount : Number(amount);
+import { formatPrice } from '@/lib/qr-utils';
 
-  return new Intl.NumberFormat('en-MY', {
-    style: 'currency',
-    currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(numericAmount);
-}
+export const formatCurrency = formatPrice;
 
 /**
  * Format relative time (e.g., "5 minutes ago", "2 hours ago")

@@ -62,16 +62,40 @@ export function generateCustomerSessionToken(): string {
   return crypto.randomUUID();
 }
 
+/**
+ * Format price with currency symbol
+ * Consolidated function that handles all currency formatting needs
+ *
+ * @param price - Price value (number, string, or Prisma Decimal)
+ * @param currency - Currency code (default: 'MYR')
+ * @param locale - Locale for formatting (default: 'en-MY')
+ * @returns Formatted price string with currency symbol and space (e.g., "RM 31.98", "$ 31.98")
+ */
 export function formatPrice(
-  price: number | string,
+  price: number | string | { toString(): string }, // Handles Decimal type
   currency: string = 'MYR',
   locale: string = 'en-MY'
 ): string {
-  const numPrice = typeof price === 'string' ? parseFloat(price) : price;
-  return new Intl.NumberFormat(locale, {
+  // Convert to number
+  const numPrice =
+    typeof price === 'string'
+      ? parseFloat(price)
+      : typeof price === 'number'
+        ? price
+        : Number(price.toString()); // Handle Prisma Decimal type
+
+  // Format with Intl.NumberFormat
+  const formatted = new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,
+    currencyDisplay: 'symbol', // Use symbol (RM, $, €) instead of code (MYR, USD, EUR)
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(numPrice);
+
+  // Ensure space between symbol and number
+  // Some locales (like en-US) don't add space, so we normalize it
+  return formatted.replace(/^([^\d\s]+)(\d)/, '$1 $2');
 }
 
 export function calculateItemTotal(
