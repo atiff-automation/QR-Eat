@@ -147,6 +147,7 @@ export interface ReceiptProps {
 
 export interface OrderDetailsProps {
   order: OrderWithDetails;
+  currency?: string;
 }
 
 // NEW: Table Orders List Props

@@ -13,7 +13,7 @@
 import type { OrderDetailsProps } from '@/types/pos';
 import { formatCurrency, formatDate } from '@/lib/utils/format';
 
-export function OrderDetails({ order }: OrderDetailsProps) {
+export function OrderDetails({ order, currency = 'MYR' }: OrderDetailsProps) {
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3">
       <div className="mb-3">
@@ -64,7 +64,8 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                   {item.menuItem.name}
                 </p>
                 <p className="text-xs text-gray-600">
-                  {formatCurrency(Number(item.unitPrice))} × {item.quantity}
+                  {formatCurrency(Number(item.unitPrice), currency)} ×{' '}
+                  {item.quantity}
                 </p>
                 {item.specialInstructions && (
                   <p className="text-xs text-gray-500 mt-0.5">
@@ -73,7 +74,7 @@ export function OrderDetails({ order }: OrderDetailsProps) {
                 )}
               </div>
               <p className="text-sm font-semibold text-gray-900">
-                {formatCurrency(Number(item.totalAmount))}
+                {formatCurrency(Number(item.totalAmount), currency)}
               </p>
             </div>
           ))}
@@ -84,25 +85,25 @@ export function OrderDetails({ order }: OrderDetailsProps) {
         <div className="flex justify-between text-xs">
           <span className="text-gray-600">Subtotal</span>
           <span className="font-medium text-gray-900">
-            {formatCurrency(Number(order.subtotalAmount))}
+            {formatCurrency(Number(order.subtotalAmount), currency)}
           </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-600">Tax (6%)</span>
           <span className="font-medium text-gray-900">
-            {formatCurrency(Number(order.taxAmount))}
+            {formatCurrency(Number(order.taxAmount), currency)}
           </span>
         </div>
         <div className="flex justify-between text-xs">
           <span className="text-gray-600">Service Charge (10%)</span>
           <span className="font-medium text-gray-900">
-            {formatCurrency(Number(order.serviceCharge))}
+            {formatCurrency(Number(order.serviceCharge), currency)}
           </span>
         </div>
         <div className="flex justify-between text-base font-bold pt-1.5 border-t border-gray-200">
           <span className="text-gray-900">Total</span>
           <span className="text-gray-900">
-            {formatCurrency(Number(order.totalAmount))}
+            {formatCurrency(Number(order.totalAmount), currency)}
           </span>
         </div>
       </div>
