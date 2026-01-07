@@ -132,54 +132,6 @@ export function FinancialSection({
           </select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-              Tax Rate (%) *
-            </label>
-            <input
-              type="number"
-              required
-              min="0"
-              max="100"
-              step="0.01"
-              value={formData.taxRate}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  taxRate: parseFloat(e.target.value) || 0,
-                }))
-              }
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-              placeholder="6.00"
-              disabled={isLoading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-              Service Charge (%) *
-            </label>
-            <input
-              type="number"
-              required
-              min="0"
-              max="100"
-              step="0.01"
-              value={formData.serviceChargeRate}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  serviceChargeRate: parseFloat(e.target.value) || 0,
-                }))
-              }
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-              placeholder="10.00"
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-
         <div>
           <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
             Tax Label *
@@ -198,6 +150,29 @@ export function FinancialSection({
           <p className="text-xs text-gray-500 mt-1">
             This label will appear on receipts and invoices
           </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+            Tax Rate (%) *
+          </label>
+          <input
+            type="number"
+            required
+            min="0"
+            max="100"
+            step="0.01"
+            value={formData.taxRate}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                taxRate: parseFloat(e.target.value) || 0,
+              }))
+            }
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
+            placeholder="6.00"
+            disabled={isLoading}
+          />
         </div>
 
         <div>
@@ -221,6 +196,29 @@ export function FinancialSection({
           <p className="text-xs text-gray-500 mt-1">
             This label will appear on receipts and invoices
           </p>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+            Service Charge (%) *
+          </label>
+          <input
+            type="number"
+            required
+            min="0"
+            max="100"
+            step="0.01"
+            value={formData.serviceChargeRate}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                serviceChargeRate: parseFloat(e.target.value) || 0,
+              }))
+            }
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
+            placeholder="10.00"
+            disabled={isLoading}
+          />
         </div>
 
         <div className="pt-2">
