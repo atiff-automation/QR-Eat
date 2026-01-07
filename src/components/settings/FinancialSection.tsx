@@ -73,7 +73,16 @@ export function FinancialSection({
     setIsLoading(true);
 
     try {
-      await ApiClient.put('/settings/restaurant/financial', formData);
+      // Convert percentage values to decimals for API
+      const apiData = {
+        currency: formData.currency,
+        taxRate: formData.taxRate / 100, // Convert 6 to 0.06
+        serviceChargeRate: formData.serviceChargeRate / 100, // Convert 10 to 0.10
+        taxLabel: formData.taxLabel,
+        serviceChargeLabel: formData.serviceChargeLabel,
+      };
+
+      await ApiClient.put('/settings/restaurant/financial', apiData);
       setSuccess('Financial settings updated successfully!');
       onUpdate();
       setTimeout(() => setSuccess(''), 3000);
