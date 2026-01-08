@@ -187,7 +187,7 @@ export function CartSummary({
 
       {/* Fixed Footer - Compact Pitboy Style */}
       <div
-        className="bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-100 z-10 w-full fixed bottom-0 left-0 right-0"
+        className="qr-cart-footer bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-100 w-full"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))' }}
       >
         {/* Compact Cashback Row */}

@@ -359,6 +359,25 @@ a {
   }
 }
 
+/* Cart Summary Footer Positioning */
+.qr-cart-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+}
+
+/* Desktop override for Cart Summary Footer */
+@media (min-width: 768px) {
+  #mobile-frame-content .qr-cart-footer {
+    left: 50%;
+    right: auto;
+    width: 414px;
+    margin-left: -207px;
+  }
+}
+
 /* Remove the old generic overrides since we will use specific classes */
 /* Keep the container styles */
 
