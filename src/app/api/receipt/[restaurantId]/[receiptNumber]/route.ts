@@ -36,12 +36,32 @@ export async function GET(
     });
 
     // Query payment with all necessary relations
+    // For table payments, the receiptNumber has a suffix (-1, -2, etc.)
+    // but the QR code uses the primary receipt number
+    // So we need to query by either:
+    // 1. Direct match on receiptNumber (single order payments)
+    // 2. Match on paymentMetadata.primaryReceipt (table payments)
     const payment = await prisma.payment.findFirst({
       where: {
-        receiptNumber: receiptNumber,
-        order: {
-          restaurantId: restaurantId,
-        },
+        OR: [
+          {
+            // Direct match for single order payments
+            receiptNumber: receiptNumber,
+            order: {
+              restaurantId: restaurantId,
+            },
+          },
+          {
+            // Match primary receipt for table payments
+            paymentMetadata: {
+              path: ['primaryReceipt'],
+              equals: receiptNumber,
+            },
+            order: {
+              restaurantId: restaurantId,
+            },
+          },
+        ],
       },
       include: {
         order: {
