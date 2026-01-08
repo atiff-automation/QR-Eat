@@ -30,6 +30,11 @@ export async function GET(
       );
     }
 
+    console.log('[Receipt API] Looking up receipt:', {
+      receiptNumber,
+      restaurantId,
+    });
+
     // Query payment with all necessary relations
     const payment = await prisma.payment.findFirst({
       where: {
@@ -71,8 +76,14 @@ export async function GET(
       },
     });
 
+    console.log('[Receipt API] Query result:', payment ? 'Found' : 'Not found');
+
     // Receipt not found
     if (!payment) {
+      console.log('[Receipt API] Receipt not found for:', {
+        receiptNumber,
+        restaurantId,
+      });
       return NextResponse.json({ error: 'Receipt not found' }, { status: 404 });
     }
 
