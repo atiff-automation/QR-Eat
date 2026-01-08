@@ -31,15 +31,26 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
 
     setIsGenerating(true);
     try {
-      // Capture receipt as canvas with better compatibility
-      const canvas = await html2canvas(receiptRef.current, {
+      // Create a temporary container
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      document.body.appendChild(tempContainer);
+
+      // Clone and convert colors
+      const clone = receiptRef.current.cloneNode(true) as HTMLElement;
+      tempContainer.appendChild(clone);
+
+      // Capture the clone as canvas
+      const canvas = await html2canvas(clone, {
         scale: 2,
         backgroundColor: '#ffffff',
-        useCORS: true,
         logging: false,
-        allowTaint: true,
-        foreignObjectRendering: false, // Avoid oklch color issues
       });
+
+      // Clean up
+      document.body.removeChild(tempContainer);
 
       // Convert to blob
       canvas.toBlob(async (blob) => {
@@ -86,15 +97,26 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
 
     setIsGenerating(true);
     try {
-      // Capture receipt as canvas with better compatibility
-      const canvas = await html2canvas(receiptRef.current, {
+      // Create a temporary container
+      const tempContainer = document.createElement('div');
+      tempContainer.style.position = 'absolute';
+      tempContainer.style.left = '-9999px';
+      tempContainer.style.top = '0';
+      document.body.appendChild(tempContainer);
+
+      // Clone and convert colors
+      const clone = receiptRef.current.cloneNode(true) as HTMLElement;
+      tempContainer.appendChild(clone);
+
+      // Capture the clone as canvas
+      const canvas = await html2canvas(clone, {
         scale: 2,
         backgroundColor: '#ffffff',
-        useCORS: true,
         logging: false,
-        allowTaint: true,
-        foreignObjectRendering: false, // Avoid oklch color issues
       });
+
+      // Clean up
+      document.body.removeChild(tempContainer);
 
       // Create PDF
       const imgData = canvas.toDataURL('image/png');
