@@ -62,39 +62,35 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
             <h1 className="text-lg font-bold mb-1">
               {receipt.restaurant.name}
             </h1>
-            <p className="text-xs text-gray-800">
-              {receipt.restaurant.address}
-            </p>
-            <p className="text-xs text-gray-800">
+            <p className="text-xs text-black">{receipt.restaurant.address}</p>
+            <p className="text-xs text-black">
               Tel: {receipt.restaurant.phone}
             </p>
             {receipt.restaurant.email && (
-              <p className="text-xs text-gray-800">
-                {receipt.restaurant.email}
-              </p>
+              <p className="text-xs text-black">{receipt.restaurant.email}</p>
             )}
           </div>
 
           {/* Receipt Info */}
           <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Receipt #:</span>
+              <span className="text-black">Receipt #:</span>
               <span className="font-semibold">{receipt.receiptNumber}</span>
             </div>
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Order #:</span>
+              <span className="text-black">Order #:</span>
               <span>{receipt.order.orderNumber}</span>
             </div>
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Date:</span>
+              <span className="text-black">Date:</span>
               <span>{formatDate(receipt.order.createdAt)}</span>
             </div>
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Table:</span>
+              <span className="text-black">Table:</span>
               <span>{receipt.order.tableName}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-800">Cashier:</span>
+              <span className="text-black">Cashier:</span>
               <span>
                 {receipt.cashier.firstName} {receipt.cashier.lastName}
               </span>
@@ -118,17 +114,17 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           {/* Totals */}
           <div className="mb-4">
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Subtotal:</span>
+              <span className="text-black">Subtotal:</span>
               <span>{formatCurrency(receipt.order.subtotalAmount)}</span>
             </div>
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">
+              <span className="text-black">
                 {receipt.restaurant.taxLabel || 'Tax'}:
               </span>
               <span>{formatCurrency(receipt.order.taxAmount)}</span>
             </div>
             <div className="flex justify-between mb-2">
-              <span className="text-gray-800">
+              <span className="text-black">
                 {receipt.restaurant.serviceChargeLabel || 'Service Charge'}:
               </span>
               <span>{formatCurrency(receipt.order.serviceCharge)}</span>
@@ -142,7 +138,7 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           {/* Payment Details */}
           <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
             <div className="flex justify-between mb-1">
-              <span className="text-gray-800">Payment Method:</span>
+              <span className="text-black">Payment Method:</span>
               <span className="uppercase">{receipt.payment.method}</span>
             </div>
             {receipt.payment.cashReceived && (
@@ -162,7 +158,7 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           </div>
 
           {/* Footer */}
-          <div className="text-center text-xs text-gray-800">
+          <div className="text-center text-xs text-black">
             <p className="mb-1">Thank you for dining with us!</p>
             <p>Please come again!</p>
           </div>
