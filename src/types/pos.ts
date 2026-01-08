@@ -178,3 +178,51 @@ export interface TableOrdersListProps {
   onProcessPayment: () => void;
   isLoading: boolean;
 }
+
+// ============================================================================
+// Public Receipt Types (for customer access)
+// ============================================================================
+
+export interface PublicReceiptData {
+  receiptNumber: string;
+  restaurant: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+    taxLabel?: string;
+    serviceChargeLabel?: string;
+  };
+  order: {
+    orderNumber: string;
+    tableName: string;
+    items: {
+      name: string;
+      quantity: number;
+      unitPrice: number;
+      totalAmount: number;
+    }[];
+    subtotalAmount: number;
+    taxAmount: number;
+    serviceCharge: number;
+    totalAmount: number;
+    createdAt: Date;
+  };
+  payment: {
+    method: string;
+    amount: number;
+    cashReceived?: number;
+    changeGiven?: number;
+    completedAt: Date | null;
+  };
+  cashier: {
+    firstName: string;
+    lastName: string;
+  };
+}
+
+export interface ReceiptQRDisplayProps {
+  receiptNumber: string;
+  restaurantId: string;
+  onClose: () => void;
+}

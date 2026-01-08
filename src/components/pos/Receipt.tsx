@@ -10,9 +10,11 @@
 
 'use client';
 
+import { useState } from 'react';
 import type { ReceiptProps } from '@/types/pos';
 import { formatReceiptData } from '@/lib/utils/receipt-formatter';
-import { Printer, X } from 'lucide-react';
+import { QrCode, X } from 'lucide-react';
+import { ReceiptQRDisplay } from './ReceiptQRDisplay';
 
 export function Receipt({
   order,
@@ -22,6 +24,8 @@ export function Receipt({
   cashierInfo,
   onClose,
 }: ReceiptProps) {
+  const [showQR, setShowQR] = useState(false);
+
   console.log('[Receipt] Order data:', {
     orderNumber: order.orderNumber,
     itemsCount: order.items?.length || 0,
@@ -53,22 +57,6 @@ export function Receipt({
     currency
   );
 
-  const handlePrint = () => {
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write('<html><head><title>Receipt</title>');
-      printWindow.document.write('<style>');
-      printWindow.document.write(
-        'body { font-family: monospace; white-space: pre; }'
-      );
-      printWindow.document.write('</style></head><body>');
-      printWindow.document.write(receiptText);
-      printWindow.document.write('</body></html>');
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
@@ -93,11 +81,11 @@ export function Receipt({
 
           <div className="flex gap-3">
             <button
-              onClick={handlePrint}
+              onClick={() => setShowQR(true)}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
             >
-              <Printer className="w-5 h-5" />
-              Print Receipt
+              <QrCode className="w-5 h-5" />
+              Show QR
             </button>
             <button
               onClick={onClose}
@@ -108,6 +96,15 @@ export function Receipt({
           </div>
         </div>
       </div>
+
+      {/* QR Code Modal */}
+      {showQR && payment.receiptNumber && (
+        <ReceiptQRDisplay
+          receiptNumber={payment.receiptNumber}
+          restaurantId={order.restaurantId}
+          onClose={() => setShowQR(false)}
+        />
+      )}
     </div>
   );
 }

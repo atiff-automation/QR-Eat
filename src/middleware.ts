@@ -238,6 +238,7 @@ function isPublicRoute(pathname: string): boolean {
     '/qr/',
     '/menu/',
     '/restaurant/',
+    '/receipt/', // Public receipt access for customers
     '/_next/',
     '/favicon.ico',
     '/test-login.html',
@@ -272,6 +273,7 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/subdomain/',
     '/api/webhooks/', // Webhook handlers (external services)
     '/api/orders/', // Public order status tracking (order ID acts as security token)
+    '/api/receipt/', // Public receipt access for customers
   ];
 
   return publicApiRoutes.some((route) => pathname.startsWith(route));
