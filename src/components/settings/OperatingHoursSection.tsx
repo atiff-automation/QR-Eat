@@ -1,13 +1,19 @@
 /**
  * Operating Hours Settings Section
- * Timezone and weekly schedule
+ * Timezone and weekly schedule with accordion-style UI
  */
 
 'use client';
 
 import { useState } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
-import { AlertTriangle, CheckCircle, Clock, Plus, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  ChevronRight,
+  Trash2,
+} from 'lucide-react';
 
 interface TimeSlot {
   open: string;
@@ -114,12 +120,32 @@ const normalizeOperatingHours = (
   };
 };
 
+// Helper to format time slots for display
+const formatTimeSlots = (slots: TimeSlot[]): string => {
+  if (slots.length === 0) return '';
+  if (slots.length === 1) {
+    return `${formatTime(slots[0].open)} - ${formatTime(slots[0].close)}`;
+  }
+  return `${slots.length} time slots`;
+};
+
+const formatTime = (time: string): string => {
+  const [hours, minutes] = time.split(':');
+  const hour = parseInt(hours);
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
+  return `${displayHour}:${minutes} ${ampm}`;
+};
+
 export function OperatingHoursSection({
   initialData,
   onUpdate,
 }: OperatingHoursSectionProps) {
   const [formData, setFormData] = useState<OperatingHoursData>(
     normalizeOperatingHours(initialData)
+  );
+  const [expandedDay, setExpandedDay] = useState<(typeof DAYS)[number] | null>(
+    null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -213,6 +239,10 @@ export function OperatingHoursSection({
     }));
   };
 
+  const toggleExpanded = (day: (typeof DAYS)[number]) => {
+    setExpandedDay(expandedDay === day ? null : day);
+  };
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <div className="flex items-center gap-2 mb-5">
@@ -235,9 +265,10 @@ export function OperatingHoursSection({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-            Timezone *
+        {/* Timezone Selector */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
+            Timezone
           </label>
           <select
             required
@@ -245,7 +276,7 @@ export function OperatingHoursSection({
             onChange={(e) =>
               setFormData((prev) => ({ ...prev, timezone: e.target.value }))
             }
-            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
+            className="w-full px-0 py-0 bg-transparent border-0 focus:ring-0 outline-none font-medium text-gray-900 text-base"
             disabled={isLoading}
           >
             {TIMEZONES.map((tz) => (
@@ -256,96 +287,147 @@ export function OperatingHoursSection({
           </select>
         </div>
 
-        <div className="space-y-3">
-          <label className="block text-xs font-semibold uppercase text-gray-500">
-            Weekly Schedule
-          </label>
+        {/* Weekly Schedule - Accordion List */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          {DAYS.map((day, index) => {
+            const isExpanded = expandedDay === day;
+            const daySchedule = formData.operatingHours[day];
 
-          {DAYS.map((day) => (
-            <div
-              key={day}
-              className="border border-gray-200 rounded-lg p-3 space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            return (
+              <div key={day}>
+                {/* Day Row */}
+                <div
+                  className={`flex items-center gap-3 px-4 py-3 ${
+                    index !== DAYS.length - 1 && !isExpanded
+                      ? 'border-b border-gray-200'
+                      : ''
+                  }`}
+                >
+                  {/* Toggle Switch */}
                   <button
                     type="button"
                     onClick={() => toggleDay(day)}
-                    className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      formData.operatingHours[day].isOpen
-                        ? 'bg-green-500'
-                        : 'bg-gray-200'
+                    className={`relative inline-flex h-7 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      daySchedule.isOpen ? 'bg-blue-500' : 'bg-gray-300'
                     }`}
                     disabled={isLoading}
                   >
                     <span
-                      className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                        formData.operatingHours[day].isOpen
-                          ? 'translate-x-5'
-                          : 'translate-x-0'
+                      className={`pointer-events-none inline-block h-6 w-6 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        daySchedule.isOpen ? 'translate-x-5' : 'translate-x-0'
                       }`}
                     />
                   </button>
-                  <span className="font-medium text-gray-900">
+
+                  {/* Day Name */}
+                  <span className="font-medium text-gray-900 flex-shrink-0">
                     {DAY_LABELS[day]}
                   </span>
-                </div>
 
-                {formData.operatingHours[day].isOpen && (
+                  {/* Hours Summary */}
+                  <span className="flex-1 text-right text-gray-600 text-sm">
+                    {daySchedule.isOpen
+                      ? formatTimeSlots(daySchedule.slots)
+                      : 'Closed'}
+                  </span>
+
+                  {/* Expand/Collapse Button */}
                   <button
                     type="button"
-                    onClick={() => addTimeSlot(day)}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center gap-1"
+                    onClick={() => toggleExpanded(day)}
+                    className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
                     disabled={isLoading}
                   >
-                    <Plus className="h-4 w-4" />
-                    Add Slot
+                    <ChevronRight
+                      className={`h-5 w-5 transition-transform duration-200 ${
+                        isExpanded ? 'rotate-90' : ''
+                      }`}
+                    />
                   </button>
-                )}
-              </div>
+                </div>
 
-              {formData.operatingHours[day].isOpen &&
-                formData.operatingHours[day].slots.map((slot, index) => (
-                  <div key={index} className="flex items-center gap-2">
-                    <input
-                      type="time"
-                      value={slot.open}
-                      onChange={(e) =>
-                        updateTimeSlot(day, index, 'open', e.target.value)
-                      }
-                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-                      disabled={isLoading}
-                    />
-                    <span className="text-gray-500">-</span>
-                    <input
-                      type="time"
-                      value={slot.close}
-                      onChange={(e) =>
-                        updateTimeSlot(day, index, 'close', e.target.value)
-                      }
-                      className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-                      disabled={isLoading}
-                    />
-                    {formData.operatingHours[day].slots.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeTimeSlot(day, index)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        disabled={isLoading}
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <div
+                    className={`px-4 pb-4 pt-2 bg-gray-50 space-y-3 ${
+                      index !== DAYS.length - 1
+                        ? 'border-b border-gray-200'
+                        : ''
+                    }`}
+                  >
+                    {daySchedule.isOpen ? (
+                      <>
+                        {/* Time Slots */}
+                        {daySchedule.slots.map((slot, slotIndex) => (
+                          <div
+                            key={slotIndex}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              type="time"
+                              value={slot.open}
+                              onChange={(e) =>
+                                updateTimeSlot(
+                                  day,
+                                  slotIndex,
+                                  'open',
+                                  e.target.value
+                                )
+                              }
+                              className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
+                              disabled={isLoading}
+                            />
+                            <span className="text-gray-500 font-medium">-</span>
+                            <input
+                              type="time"
+                              value={slot.close}
+                              onChange={(e) =>
+                                updateTimeSlot(
+                                  day,
+                                  slotIndex,
+                                  'close',
+                                  e.target.value
+                                )
+                              }
+                              className="flex-1 px-3 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
+                              disabled={isLoading}
+                            />
+                            {daySchedule.slots.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => removeTimeSlot(day, slotIndex)}
+                                className="p-2.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                disabled={isLoading}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Add Break Button */}
+                        <button
+                          type="button"
+                          onClick={() => addTimeSlot(day)}
+                          className="w-full py-2.5 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg font-medium text-sm transition-colors"
+                          disabled={isLoading}
+                        >
+                          + Add Break
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-gray-500 text-center py-2">
+                        This day is marked as closed
+                      </p>
                     )}
                   </div>
-                ))}
-
-              {!formData.operatingHours[day].isOpen && (
-                <p className="text-sm text-gray-500">Closed</p>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
         </div>
 
+        {/* Save Button */}
         <div className="pt-2">
           <button
             type="submit"
