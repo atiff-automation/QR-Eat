@@ -10,7 +10,7 @@ import {
   ModifyOrderSchema,
   type ModifyOrderInput,
 } from '@/lib/validation/order-modification-schemas';
-import { calculateOrderTotals } from '@/lib/order-utils';
+import { calculateOrderTotals, PAYMENT_STATUS } from '@/lib/order-utils';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 
 /**
@@ -81,7 +81,7 @@ export async function PATCH(
         }
 
         // 3. Block modifications to paid orders
-        if (order.paymentStatus === 'PAID') {
+        if (order.paymentStatus === PAYMENT_STATUS.PAID) {
           throw new Error(
             'Cannot modify paid orders. Please contact staff to process a refund first.'
           );
@@ -94,7 +94,7 @@ export async function PATCH(
           );
         }
 
-        // 4. Check idempotency
+        // 5. Check idempotency
         const existingModification = await tx.orderModification.findUnique({
           where: { idempotencyKey: data.idempotencyKey },
         });
@@ -114,7 +114,7 @@ export async function PATCH(
           };
         }
 
-        // 5. Apply item changes
+        // 6. Apply item changes
         const modificationItems = [];
         for (const change of data.itemChanges) {
           const item = order.items.find((i) => i.id === change.itemId);
@@ -165,7 +165,7 @@ export async function PATCH(
           }
         }
 
-        // 6. Recalculate order totals
+        // 7. Recalculate order totals
         const updatedItems = await tx.orderItem.findMany({
           where: { orderId },
           include: { menuItem: true },
@@ -212,7 +212,7 @@ export async function PATCH(
           serviceChargeRate
         );
 
-        // 7. Create modification record
+        // 8. Create modification record
         const modification = await tx.orderModification.create({
           data: {
             order: { connect: { id: orderId } }, // Explicit connection
@@ -235,7 +235,7 @@ export async function PATCH(
           },
         });
 
-        // 8. Update order with new totals and increment version
+        // 9. Update order with new totals and increment version
         const updatedOrder = await tx.order.update({
           where: { id: orderId },
           data: {
@@ -255,10 +255,10 @@ export async function PATCH(
           },
         });
 
-        // 9. Check if refund needed
+        // 10. Check if refund needed
         let refundNeeded = null;
         if (
-          order.paymentStatus === 'PAID' &&
+          order.paymentStatus === PAYMENT_STATUS.PAID &&
           totals.totalAmount < Number(order.totalAmount)
         ) {
           refundNeeded = Number(order.totalAmount) - totals.totalAmount;
