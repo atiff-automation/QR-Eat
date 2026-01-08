@@ -86,14 +86,22 @@ export function ModifyOrderModal({
     totalAmount: order.totalAmount,
   });
 
-  // Calculate rates from original order
-  const taxRate =
-    order.subtotalAmount > 0 ? order.taxAmount / order.subtotalAmount : 0;
+  // Convert Prisma Decimal to number and calculate rates from original order
+  const originalSubtotal = Number(order.subtotalAmount);
+  const originalTax = Number(order.taxAmount);
+  const originalService = Number(order.serviceCharge);
+  const originalTotal = Number(order.totalAmount);
+
+  const taxRate = originalSubtotal > 0 ? originalTax / originalSubtotal : 0;
   const serviceChargeRate =
-    order.subtotalAmount > 0 ? order.serviceCharge / order.subtotalAmount : 0;
+    originalSubtotal > 0 ? originalService / originalSubtotal : 0;
 
   // DEBUG: Log calculated values
   console.log('🔍 Calculation Debug:', {
+    originalSubtotal,
+    originalTax,
+    originalService,
+    originalTotal,
     newSubtotal,
     taxRate,
     serviceChargeRate,
@@ -109,7 +117,7 @@ export function ModifyOrderModal({
   const newTotal = newSubtotal + newTax + newServiceCharge;
 
   // Calculate difference
-  const difference = newTotal - order.totalAmount;
+  const difference = newTotal - originalTotal;
 
   const refundNeeded = calculateRefundNeeded(order, newTotal);
   const hasChanges = JSON.stringify(items) !== JSON.stringify(order.items);
