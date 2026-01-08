@@ -76,7 +76,11 @@ export function ModifyOrderModal({
   }, [order.items]);
 
   // Calculate new totals with tax and service charge
-  const newSubtotal = items.reduce((sum, item) => sum + item.totalAmount, 0);
+  // Convert to Number to prevent string concatenation
+  const newSubtotal = items.reduce(
+    (sum, item) => sum + Number(item.totalAmount),
+    0
+  );
 
   // DEBUG: Log order values
   console.log('🔍 Order Debug:', {
