@@ -59,7 +59,7 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
         <div className="p-6 font-mono text-sm">
           {/* Header */}
           <div className="text-center mb-4 pb-4 border-b-2 border-dashed border-gray-300">
-            <h1 className="text-lg font-bold mb-1">
+            <h1 className="text-lg font-bold mb-1 text-black">
               {receipt.restaurant.name}
             </h1>
             <p className="text-xs text-black">{receipt.restaurant.address}</p>
@@ -153,18 +153,24 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
             <div className="flex justify-between mb-1">
               <span className="text-black">Payment Method:</span>
-              <span className="uppercase">{receipt.payment.method}</span>
+              <span className="uppercase text-black">
+                {receipt.payment.method}
+              </span>
             </div>
             {receipt.payment.cashReceived && (
               <>
                 <div className="flex justify-between mb-1">
-                  <span className="text-gray-800">Cash Received:</span>
-                  <span>{formatCurrency(receipt.payment.cashReceived)}</span>
+                  <span className="text-black">Cash Received:</span>
+                  <span className="text-black">
+                    {formatCurrency(receipt.payment.cashReceived)}
+                  </span>
                 </div>
                 {receipt.payment.changeGiven && (
                   <div className="flex justify-between">
-                    <span className="text-gray-800">Change Given:</span>
-                    <span>{formatCurrency(receipt.payment.changeGiven)}</span>
+                    <span className="text-black">Change Given:</span>
+                    <span className="text-black">
+                      {formatCurrency(receipt.payment.changeGiven)}
+                    </span>
                   </div>
                 )}
               </>
