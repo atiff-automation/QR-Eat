@@ -47,7 +47,7 @@ export function CashPaymentForm({
   }, [isValid, change]); // Keep dependencies to ensure it updates with change
 
   const handleQuickAmount = (amount: number) => {
-    setCashReceived((totalAmount + amount).toFixed(2));
+    setCashReceived(amount.toFixed(2));
     setError('');
   };
 
