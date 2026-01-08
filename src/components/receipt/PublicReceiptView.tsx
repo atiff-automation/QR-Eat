@@ -75,23 +75,27 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
             <div className="flex justify-between mb-1">
               <span className="text-black">Receipt #:</span>
-              <span className="font-semibold">{receipt.receiptNumber}</span>
+              <span className="font-semibold text-black">
+                {receipt.receiptNumber}
+              </span>
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-black">Order #:</span>
-              <span>{receipt.order.orderNumber}</span>
+              <span className="text-black">{receipt.order.orderNumber}</span>
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-black">Date:</span>
-              <span>{formatDate(receipt.order.createdAt)}</span>
+              <span className="text-black">
+                {formatDate(receipt.order.createdAt)}
+              </span>
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-black">Table:</span>
-              <span>{receipt.order.tableName}</span>
+              <span className="text-black">{receipt.order.tableName}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-black">Cashier:</span>
-              <span>
+              <span className="text-black">
                 {receipt.cashier.firstName} {receipt.cashier.lastName}
               </span>
             </div>
@@ -102,10 +106,12 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
             {receipt.order.items.map((item, index) => (
               <div key={index} className="mb-2">
                 <div className="flex justify-between">
-                  <span>
+                  <span className="text-black">
                     {item.name} x{item.quantity}
                   </span>
-                  <span>{formatCurrency(item.totalAmount)}</span>
+                  <span className="text-black">
+                    {formatCurrency(item.totalAmount)}
+                  </span>
                 </div>
               </div>
             ))}
@@ -115,23 +121,31 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
           <div className="mb-4">
             <div className="flex justify-between mb-1">
               <span className="text-black">Subtotal:</span>
-              <span>{formatCurrency(receipt.order.subtotalAmount)}</span>
+              <span className="text-black">
+                {formatCurrency(receipt.order.subtotalAmount)}
+              </span>
             </div>
             <div className="flex justify-between mb-1">
               <span className="text-black">
                 {receipt.restaurant.taxLabel || 'Tax'}:
               </span>
-              <span>{formatCurrency(receipt.order.taxAmount)}</span>
+              <span className="text-black">
+                {formatCurrency(receipt.order.taxAmount)}
+              </span>
             </div>
             <div className="flex justify-between mb-2">
               <span className="text-black">
                 {receipt.restaurant.serviceChargeLabel || 'Service Charge'}:
               </span>
-              <span>{formatCurrency(receipt.order.serviceCharge)}</span>
+              <span className="text-black">
+                {formatCurrency(receipt.order.serviceCharge)}
+              </span>
             </div>
             <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-300">
-              <span>TOTAL:</span>
-              <span>{formatCurrency(receipt.order.totalAmount)}</span>
+              <span className="text-black">TOTAL:</span>
+              <span className="text-black">
+                {formatCurrency(receipt.order.totalAmount)}
+              </span>
             </div>
           </div>
 
