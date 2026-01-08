@@ -1,17 +1,17 @@
-import * as jwt from 'jsonwebtoken';
 import * as bcrypt from 'bcryptjs';
-import { NextRequest } from 'next/server';
-import { Staff, StaffRole, PlatformAdmin, RestaurantOwner } from '@prisma/client';
+import {
+  Staff,
+  StaffRole,
+  PlatformAdmin,
+  RestaurantOwner,
+} from '@prisma/client';
 import { prisma } from './database';
 import { SecurityUtils } from './security';
-
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-for-development';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
 export enum UserType {
   PLATFORM_ADMIN = 'platform_admin',
   RESTAURANT_OWNER = 'restaurant_owner',
-  STAFF = 'staff'
+  STAFF = 'staff',
 }
 
 export interface JWTPayload {
@@ -60,7 +60,9 @@ export class AuthService {
     // Validate password strength before hashing
     const validation = SecurityUtils.validatePasswordStrength(password);
     if (!validation.isValid) {
-      throw new Error(`Password validation failed: ${validation.errors.join(', ')}`);
+      throw new Error(
+        `Password validation failed: ${validation.errors.join(', ')}`
+      );
     }
     return bcrypt.hash(password, 12);
   }
@@ -80,7 +82,7 @@ export class AuthService {
 
   /**
    * REMOVED - This method has been fully replaced by RBAC system
-   * Use: AuthServiceV2.validateToken from @/lib/rbac/auth-service  
+   * Use: AuthServiceV2.validateToken from @/lib/rbac/auth-service
    * Migration Date: 2025-12-16
    */
 
@@ -109,18 +111,20 @@ export class AuthService {
   /**
    * Find user by email across all user types (platform admin, restaurant owner, staff)
    */
-  static async findUserByEmail(email: string): Promise<AuthenticatedUser | null> {
+  static async findUserByEmail(
+    email: string
+  ): Promise<AuthenticatedUser | null> {
     const normalizedEmail = email.toLowerCase();
 
     // Try platform admin first
     const platformAdmin = await prisma.platformAdmin.findUnique({
-      where: { email: normalizedEmail }
+      where: { email: normalizedEmail },
     });
 
     if (platformAdmin) {
       return {
         type: UserType.PLATFORM_ADMIN,
-        user: platformAdmin
+        user: platformAdmin,
       };
     }
 
@@ -133,16 +137,16 @@ export class AuthService {
             id: true,
             name: true,
             slug: true,
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (restaurantOwner) {
       return {
         type: UserType.RESTAURANT_OWNER,
-        user: restaurantOwner
+        user: restaurantOwner,
       };
     }
 
@@ -156,16 +160,16 @@ export class AuthService {
             id: true,
             name: true,
             slug: true,
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     });
 
     if (staff) {
       return {
         type: UserType.STAFF,
-        user: staff
+        user: staff,
       };
     }
 
@@ -175,7 +179,10 @@ export class AuthService {
   /**
    * Authenticate user with email and password
    */
-  static async authenticateUser(email: string, password: string): Promise<AuthenticatedUser | null> {
+  static async authenticateUser(
+    email: string,
+    password: string
+  ): Promise<AuthenticatedUser | null> {
     const user = await this.findUserByEmail(email);
     if (!user) return null;
 
@@ -185,7 +192,9 @@ export class AuthService {
     // For staff, check if their restaurant is active - block login if restaurant is inactive
     if (user.type === UserType.STAFF) {
       if (!user.user.restaurant.isActive) {
-        throw new Error('Restaurant is inactive. Please contact your restaurant owner or administrator.');
+        throw new Error(
+          'Restaurant is inactive. Please contact your restaurant owner or administrator.'
+        );
       }
     }
 
@@ -193,12 +202,19 @@ export class AuthService {
     // This is different from staff who are completely blocked
 
     // Check if account is locked (for platform admin and restaurant owner)
-    if ('lockedUntil' in user.user && user.user.lockedUntil && user.user.lockedUntil > new Date()) {
+    if (
+      'lockedUntil' in user.user &&
+      user.user.lockedUntil &&
+      user.user.lockedUntil > new Date()
+    ) {
       return null;
     }
 
     // Verify password
-    const isValidPassword = await this.verifyPassword(password, user.user.passwordHash);
+    const isValidPassword = await this.verifyPassword(
+      password,
+      user.user.passwordHash
+    );
     if (!isValidPassword) return null;
 
     return user;
@@ -207,26 +223,26 @@ export class AuthService {
 
 /**
  * DEPRECATED: Legacy AUTH_CONSTANTS - DO NOT USE IN NEW CODE
- * 
+ *
  * All legacy cookie names have been replaced with 'qr_rbac_token'
  * Migration completed: 2025-12-16
- * 
+ *
  * This object is kept ONLY for:
  * 1. Debug endpoint reference
  * 2. Old documentation
  * 3. Migration tracking
- * 
+ *
  * Use RBAC_CONSTANTS from @/lib/rbac/types instead
  */
 export const AUTH_CONSTANTS = {
-  COOKIE_NAME: 'qr_auth_token',          // REMOVED - Use 'qr_rbac_token'
-  OWNER_COOKIE_NAME: 'qr_owner_token',    // REMOVED - Use 'qr_rbac_token'
-  STAFF_COOKIE_NAME: 'qr_staff_token',    // REMOVED - Use 'qr_rbac_token'
-  ADMIN_COOKIE_NAME: 'qr_admin_token',    // REMOVED - Use 'qr_rbac_token'
-  HEADER_NAME: 'authorization',           // Still valid for debug purposes
-  SESSION_DURATION: '24h',                // REMOVED - See RBAC system
-  MAX_LOGIN_ATTEMPTS: 5,                  // REMOVED - See RBAC system
-  LOCKOUT_DURATION: 15 * 60 * 1000,       // REMOVED - See RBAC system
+  COOKIE_NAME: 'qr_auth_token', // REMOVED - Use 'qr_rbac_token'
+  OWNER_COOKIE_NAME: 'qr_owner_token', // REMOVED - Use 'qr_rbac_token'
+  STAFF_COOKIE_NAME: 'qr_staff_token', // REMOVED - Use 'qr_rbac_token'
+  ADMIN_COOKIE_NAME: 'qr_admin_token', // REMOVED - Use 'qr_rbac_token'
+  HEADER_NAME: 'authorization', // Still valid for debug purposes
+  SESSION_DURATION: '24h', // REMOVED - See RBAC system
+  MAX_LOGIN_ATTEMPTS: 5, // REMOVED - See RBAC system
+  LOCKOUT_DURATION: 15 * 60 * 1000, // REMOVED - See RBAC system
 } as const;
 
 /**
@@ -237,7 +253,7 @@ export const AUTH_CONSTANTS = {
 
 export const SECURITY_HEADERS = {
   'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
+  'X-Frame-Options': 'SAMEORIGIN', // Allow iframe within same domain (for staff ordering modal)
   'X-XSS-Protection': '1; mode=block',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
@@ -254,15 +270,15 @@ export interface AuthVerificationResult {
 
 /**
  * REMOVED FUNCTION: verifyAuthToken
- * 
+ *
  * Fully replaced by: AuthServiceV2.validateToken from @/lib/rbac/auth-service
  * Migration Date: 2025-12-16
- * 
+ *
  * Previous functionality:
  * - Multi-cookie token lookup (qr_auth_token, qr_owner_token, qr_staff_token, qr_admin_token)
  * - Legacy JWT validation
  * - User lookup and activity tracking
- * 
+ *
  * New RBAC equivalent:
  * const validation = await AuthServiceV2.validateToken(token);
  * if (validation.isValid && validation.user) { // use validation.user }

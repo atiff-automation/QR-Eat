@@ -10,7 +10,7 @@ import { requestIdMiddleware } from '@/middleware/request-id';
 
 // Security headers for all responses
 const SECURITY_HEADERS = {
-  'X-Frame-Options': 'DENY',
+  'X-Frame-Options': 'SAMEORIGIN', // Allow iframe within same domain (for staff ordering modal)
   'X-Content-Type-Options': 'nosniff',
   'Referrer-Policy': 'origin-when-cross-origin',
   'X-XSS-Protection': '1; mode=block',
