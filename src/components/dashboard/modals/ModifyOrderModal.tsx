@@ -86,7 +86,7 @@ export function ModifyOrderModal({
         return {
           ...item,
           quantity: newQty,
-          totalAmount: item.menuItem.price * newQty,
+          totalAmount: item.unitPrice * newQty,
         };
       })
     );

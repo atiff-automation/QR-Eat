@@ -143,7 +143,7 @@ export async function PATCH(
               );
             }
 
-            const newTotal = Number(item.menuItem.price) * change.newQuantity;
+            const newTotal = Number(item.unitPrice) * change.newQuantity;
 
             await tx.orderItem.update({
               where: { id: change.itemId },
@@ -177,6 +177,27 @@ export async function PATCH(
           );
         }
 
+        // Calculate tax and service charge rates from original order
+        // This preserves the rates that were in effect when the order was placed
+        const originalSubtotal = Number(order.subtotalAmount);
+        let taxRate = 0;
+        let serviceChargeRate = 0;
+
+        if (originalSubtotal > 0 && !isNaN(originalSubtotal)) {
+          const calculatedTaxRate = Number(order.taxAmount) / originalSubtotal;
+          const calculatedServiceRate =
+            Number(order.serviceCharge) / originalSubtotal;
+
+          taxRate =
+            !isNaN(calculatedTaxRate) && isFinite(calculatedTaxRate)
+              ? calculatedTaxRate
+              : 0;
+          serviceChargeRate =
+            !isNaN(calculatedServiceRate) && isFinite(calculatedServiceRate)
+              ? calculatedServiceRate
+              : 0;
+        }
+
         const totals = calculateOrderTotals(
           updatedItems.map((item) => ({
             ...item,
@@ -184,11 +205,11 @@ export async function PATCH(
               ...item.menuItem,
               price: Number(item.menuItem.price),
             },
-            totalPrice: Number(item.totalAmount),
+            totalPrice: Number(item.totalAmount), // Map totalAmount to totalPrice for calculateOrderTotals
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           })) as any,
-          0.1, // 10% tax
-          0.05 // 5% service charge
+          taxRate,
+          serviceChargeRate
         );
 
         // 7. Create modification record
@@ -265,6 +286,10 @@ export async function PATCH(
     });
   } catch (error) {
     console.error('Failed to modify order:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+    });
 
     if (error instanceof z.ZodError) {
       return NextResponse.json(
