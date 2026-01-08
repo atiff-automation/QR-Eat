@@ -52,7 +52,7 @@ export function CartSummary({
     restaurantSettings?.serviceChargeLabel || 'Service Charge';
 
   return (
-    <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col h-[100dvh]">
+    <div className="qr-cart-summary bg-gray-50 flex flex-col h-[100dvh]">
       <div className="p-3 border-b border-gray-200 bg-white shadow-sm shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center">
