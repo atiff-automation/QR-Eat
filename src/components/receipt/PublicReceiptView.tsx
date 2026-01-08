@@ -2,7 +2,7 @@
  * Public Receipt View Component
  *
  * Displays receipt in thermal printer format for customers
- * Includes PDF download and share functionality
+ * Uses browser's native print functionality
  *
  * Following CLAUDE.md principles:
  * - Type Safety
@@ -12,133 +12,14 @@
 
 'use client';
 
-import { useState, useRef } from 'react';
 import type { PublicReceiptData } from '@/types/pos';
-import { Share2, Printer, Download } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import { jsPDF } from 'jspdf';
+import { Printer } from 'lucide-react';
 
 interface PublicReceiptViewProps {
   receipt: PublicReceiptData;
 }
 
 export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const receiptRef = useRef<HTMLDivElement>(null);
-
-  const handleShare = async () => {
-    if (!receiptRef.current) return;
-
-    setIsGenerating(true);
-    try {
-      // Create a temporary container
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '0';
-      document.body.appendChild(tempContainer);
-
-      // Clone and convert colors
-      const clone = receiptRef.current.cloneNode(true) as HTMLElement;
-      tempContainer.appendChild(clone);
-
-      // Capture the clone as canvas
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      // Clean up
-      document.body.removeChild(tempContainer);
-
-      // Convert to blob
-      canvas.toBlob(async (blob) => {
-        if (!blob) {
-          setIsGenerating(false);
-          return;
-        }
-
-        const file = new File([blob], `receipt-${receipt.receiptNumber}.png`, {
-          type: 'image/png',
-        });
-
-        // Try native share API
-        if (navigator.share && navigator.canShare?.({ files: [file] })) {
-          try {
-            await navigator.share({
-              files: [file],
-              title: `Receipt ${receipt.receiptNumber}`,
-              text: `Receipt from ${receipt.restaurant.name}`,
-            });
-          } catch (err) {
-            console.error('Share failed:', err);
-          }
-        } else {
-          // Fallback: download the image
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `receipt-${receipt.receiptNumber}.png`;
-          a.click();
-          URL.revokeObjectURL(url);
-        }
-
-        setIsGenerating(false);
-      }, 'image/png');
-    } catch (error) {
-      console.error('Failed to generate image:', error);
-      setIsGenerating(false);
-    }
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!receiptRef.current) return;
-
-    setIsGenerating(true);
-    try {
-      // Create a temporary container
-      const tempContainer = document.createElement('div');
-      tempContainer.style.position = 'absolute';
-      tempContainer.style.left = '-9999px';
-      tempContainer.style.top = '0';
-      document.body.appendChild(tempContainer);
-
-      // Clone and convert colors
-      const clone = receiptRef.current.cloneNode(true) as HTMLElement;
-      tempContainer.appendChild(clone);
-
-      // Capture the clone as canvas
-      const canvas = await html2canvas(clone, {
-        scale: 2,
-        backgroundColor: '#ffffff',
-        logging: false,
-      });
-
-      // Clean up
-      document.body.removeChild(tempContainer);
-
-      // Create PDF
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-      });
-
-      const imgWidth = 80; // 80mm thermal receipt width
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      pdf.addImage(imgData, 'PNG', 15, 10, imgWidth, imgHeight);
-      pdf.save(`receipt-${receipt.receiptNumber}.pdf`);
-
-      setIsGenerating(false);
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-      setIsGenerating(false);
-    }
-  };
-
   const handlePrint = () => {
     window.print();
   };
@@ -160,38 +41,21 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       {/* Action Buttons - Hide on print */}
-      <div className="max-w-md mx-auto mb-4 flex gap-2 print:hidden">
+      <div className="max-w-md mx-auto mb-4 print:hidden">
         <button
           onClick={handlePrint}
-          disabled={isGenerating}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
+          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm"
         >
-          <Printer className="w-4 h-4" />
-          Print
+          <Printer className="w-5 h-5" />
+          Print / Save as PDF
         </button>
-        <button
-          onClick={handleDownloadPDF}
-          disabled={isGenerating}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
-        >
-          <Download className="w-4 h-4" />
-          {isGenerating ? 'Generating...' : 'PDF'}
-        </button>
-        <button
-          onClick={handleShare}
-          disabled={isGenerating}
-          className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:opacity-50"
-        >
-          <Share2 className="w-4 h-4" />
-          {isGenerating ? 'Generating...' : 'Share'}
-        </button>
+        <p className="text-center text-sm text-gray-600 mt-2">
+          Use your browser&apos;s print dialog to save as PDF or print
+        </p>
       </div>
 
       {/* Receipt Display - Thermal Printer Style */}
-      <div
-        ref={receiptRef}
-        className="max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden"
-      >
+      <div className="max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
         <div className="p-6 font-mono text-sm">
           {/* Header */}
           <div className="text-center mb-4 pb-4 border-b-2 border-dashed border-gray-300">
