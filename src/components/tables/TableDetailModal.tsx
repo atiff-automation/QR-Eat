@@ -44,6 +44,7 @@ export function TableDetailModal({
   currency = 'MYR',
 }: TableDetailModalProps) {
   const [isVisible, setIsVisible] = useState(false);
+  const [showOrderModal, setShowOrderModal] = useState(false);
 
   // Fetch orders for this table (only when modal is open)
   const { orders, tableTotal } = useTableOrders(table?.id ?? null, isOpen);
@@ -58,6 +59,31 @@ export function TableDetailModal({
     }
   }, [isOpen]);
 
+  // Handle Escape key to close order modal
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showOrderModal) {
+        setShowOrderModal(false);
+      }
+    };
+
+    if (showOrderModal) {
+      window.addEventListener('keydown', handleEscape);
+      return () => window.removeEventListener('keydown', handleEscape);
+    }
+  }, [showOrderModal]);
+
+  // Prevent body scroll when order modal is open
+  useEffect(() => {
+    if (showOrderModal) {
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = previousOverflow;
+      };
+    }
+  }, [showOrderModal]);
+
   if (!isVisible && !isOpen) return null;
   if (!table) return null;
 
@@ -66,9 +92,8 @@ export function TableDetailModal({
     return `${baseUrl}/qr/${token}`;
   };
 
-  const openMenuPreview = () => {
-    const qrUrl = generateQRCode(table.qrCodeToken);
-    window.open(qrUrl, '_blank');
+  const openOrderModal = () => {
+    setShowOrderModal(true);
   };
 
   const getDuration = () => {
@@ -194,7 +219,7 @@ export function TableDetailModal({
           {/* Action Buttons - Compact */}
           <div className="space-y-1.5">
             <button
-              onClick={openMenuPreview}
+              onClick={openOrderModal}
               className="w-full h-10 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
             >
               <span>Make Order</span>
@@ -231,6 +256,37 @@ export function TableDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Order Modal */}
+      {showOrderModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          {/* Backdrop */}
+          <div
+            onClick={() => setShowOrderModal(false)}
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          />
+
+          {/* Modal Content */}
+          <div className="relative w-full h-full max-w-2xl bg-white rounded-lg shadow-2xl overflow-hidden">
+            {/* Close Button */}
+            <button
+              onClick={() => setShowOrderModal(false)}
+              className="absolute top-4 right-4 z-10 p-2 bg-white/90 hover:bg-white rounded-full shadow-lg transition-colors"
+              aria-label="Close order interface"
+            >
+              <X className="w-6 h-6 text-gray-600" />
+            </button>
+
+            {/* Iframe - QR Ordering Interface */}
+            <iframe
+              src={generateQRCode(table.qrCodeToken)}
+              className="w-full h-full border-0"
+              title="Order Interface"
+              allow="payment"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
