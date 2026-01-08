@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { AlertTriangle, CheckCircle, Building2 } from 'lucide-react';
 
@@ -27,6 +27,11 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Update form data when initialData changes (after save/refresh)
+  useEffect(() => {
+    setFormData(initialData);
+  }, [initialData]);
 
   const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
 

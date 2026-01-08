@@ -43,6 +43,7 @@ interface SettingsData {
   address: string;
   phone: string;
   email: string;
+  description?: string;
   timezone: string;
   currency: string;
   taxRate: number;
@@ -180,6 +181,7 @@ function SettingsContent() {
               address: settings.address,
               phone: settings.phone,
               email: settings.email,
+              description: settings.description,
             }}
             onUpdate={fetchSettings}
           />
