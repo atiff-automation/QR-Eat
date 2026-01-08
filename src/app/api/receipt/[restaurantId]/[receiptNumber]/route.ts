@@ -35,13 +35,9 @@ export async function GET(
       restaurantId,
     });
 
-    // Query payment with all necessary relations
-    // For table payments, the receiptNumber has a suffix (-1, -2, etc.)
-    // but the QR code uses the primary receipt number
-    // So we need to query by either:
-    // 1. Direct match on receiptNumber (single order payments)
-    // 2. Match on paymentMetadata.primaryReceipt (table payments)
-    const payment = await prisma.payment.findFirst({
+    // For table payments, we need to find ALL payments with the same primaryReceipt
+    // and consolidate them (just like the POS receipt modal does)
+    const payments = await prisma.payment.findMany({
       where: {
         OR: [
           {
@@ -94,12 +90,19 @@ export async function GET(
           },
         },
       },
+      orderBy: {
+        createdAt: 'asc',
+      },
     });
 
-    console.log('[Receipt API] Query result:', payment ? 'Found' : 'Not found');
+    console.log(
+      '[Receipt API] Query result:',
+      payments.length,
+      'payment(s) found'
+    );
 
     // Receipt not found
-    if (!payment) {
+    if (payments.length === 0) {
       console.log('[Receipt API] Receipt not found for:', {
         receiptNumber,
         restaurantId,
@@ -107,56 +110,97 @@ export async function GET(
       return NextResponse.json({ error: 'Receipt not found' }, { status: 404 });
     }
 
-    // Get cashier info (could be staff, owner, or admin)
-    const cashier = payment.processedByStaff ||
-      payment.processedByOwner ||
-      payment.processedByAdmin || { firstName: 'Staff', lastName: 'Member' };
+    // Get cashier info from first payment (all payments have same cashier)
+    const firstPayment = payments[0];
+    const cashier = firstPayment.processedByStaff ||
+      firstPayment.processedByOwner ||
+      firstPayment.processedByAdmin || {
+        firstName: 'Staff',
+        lastName: 'Member',
+      };
 
-    // Format response
+    // Check if this is a table payment (multiple payments with same primary receipt)
+    const isTablePayment = payments.length > 1;
+
+    // Consolidate data (matching the POS receipt modal behavior)
+    const allItems = payments.flatMap((payment) =>
+      payment.order.items.map((item) => ({
+        name: item.menuItem.name,
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice),
+        totalAmount: Number(item.totalAmount),
+      }))
+    );
+
+    const totalSubtotal = payments.reduce(
+      (sum, p) => sum + Number(p.order.subtotalAmount),
+      0
+    );
+    const totalTax = payments.reduce(
+      (sum, p) => sum + Number(p.order.taxAmount),
+      0
+    );
+    const totalServiceCharge = payments.reduce(
+      (sum, p) => sum + Number(p.order.serviceCharge),
+      0
+    );
+    const totalAmount = payments.reduce(
+      (sum, p) => sum + Number(p.order.totalAmount),
+      0
+    );
+
+    // Get cash received and change from first payment (where it's stored for table payments)
+    const cashReceived = firstPayment.cashReceived
+      ? Number(firstPayment.cashReceived)
+      : undefined;
+    const changeGiven = firstPayment.changeGiven
+      ? Number(firstPayment.changeGiven)
+      : undefined;
+
+    // Format response (matching POS receipt modal structure)
     const receiptData = {
-      receiptNumber: payment.receiptNumber,
+      receiptNumber: receiptNumber, // Use primary receipt number
       restaurant: {
-        name: payment.order.restaurant.name,
-        address: payment.order.restaurant.address,
-        phone: payment.order.restaurant.phone || '',
-        email: payment.order.restaurant.email || '',
-        taxLabel: payment.order.restaurant.taxLabel,
-        serviceChargeLabel: payment.order.restaurant.serviceChargeLabel,
+        name: firstPayment.order.restaurant.name,
+        address: firstPayment.order.restaurant.address,
+        phone: firstPayment.order.restaurant.phone || '',
+        email: firstPayment.order.restaurant.email || '',
+        taxLabel: firstPayment.order.restaurant.taxLabel,
+        serviceChargeLabel: firstPayment.order.restaurant.serviceChargeLabel,
       },
       order: {
-        orderNumber: payment.order.orderNumber,
+        orderNumber: isTablePayment
+          ? `TABLE-${payments.length}-ORDERS`
+          : firstPayment.order.orderNumber,
         tableName:
-          payment.order.table.tableName || payment.order.table.tableNumber,
-        items: payment.order.items.map(
-          (item: (typeof payment.order.items)[number]) => ({
-            name: item.menuItem.name,
-            quantity: item.quantity,
-            unitPrice: Number(item.unitPrice),
-            totalAmount: Number(item.totalAmount),
-          })
-        ),
-        subtotalAmount: Number(payment.order.subtotalAmount),
-        taxAmount: Number(payment.order.taxAmount),
-        serviceCharge: Number(payment.order.serviceCharge),
-        totalAmount: Number(payment.order.totalAmount),
-        createdAt: payment.order.createdAt,
+          firstPayment.order.table.tableName ||
+          firstPayment.order.table.tableNumber,
+        items: allItems, // All items from all orders
+        subtotalAmount: totalSubtotal,
+        taxAmount: totalTax,
+        serviceCharge: totalServiceCharge,
+        totalAmount: totalAmount,
+        createdAt: firstPayment.order.createdAt,
       },
       payment: {
-        method: payment.paymentMethod,
-        amount: Number(payment.amount),
-        cashReceived: payment.cashReceived
-          ? Number(payment.cashReceived)
-          : undefined,
-        changeGiven: payment.changeGiven
-          ? Number(payment.changeGiven)
-          : undefined,
-        completedAt: payment.completedAt,
+        method: firstPayment.paymentMethod,
+        amount: totalAmount, // Total amount for all orders
+        cashReceived: cashReceived,
+        changeGiven: changeGiven,
+        completedAt: firstPayment.completedAt,
       },
       cashier: {
         firstName: cashier.firstName,
         lastName: cashier.lastName,
       },
     };
+
+    console.log('[Receipt API] Returning consolidated receipt:', {
+      isTablePayment,
+      paymentsCount: payments.length,
+      itemsCount: allItems.length,
+      totalAmount,
+    });
 
     return NextResponse.json({ receipt: receiptData });
   } catch (error) {
