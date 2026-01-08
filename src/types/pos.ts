@@ -24,6 +24,12 @@ export type PaymentMethod = 'cash' | 'card' | 'ewallet';
 
 export interface OrderWithDetails extends Order {
   table: Pick<Table, 'tableNumber' | 'tableName'>;
+  restaurant?: {
+    id: string;
+    name: string;
+    taxLabel?: string | null;
+    serviceChargeLabel?: string | null;
+  };
   customerSession: {
     customerName: string | null;
     customerPhone: string | null;

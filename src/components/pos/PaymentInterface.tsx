@@ -73,9 +73,10 @@ export function PaymentInterface({
           0
         ) as unknown as typeof order.serviceCharge,
         items: relatedOrders.flatMap((o) => o.items || []),
-        // Preserve tax and service charge labels from the first order
-        taxLabel: order.taxLabel,
-        serviceChargeLabel: order.serviceChargeLabel,
+        // Preserve tax and service charge labels from restaurant or order
+        taxLabel: order.restaurant?.taxLabel || order.taxLabel,
+        serviceChargeLabel:
+          order.restaurant?.serviceChargeLabel || order.serviceChargeLabel,
       } as OrderWithDetails)
     : order;
 

@@ -65,6 +65,14 @@ export async function GET(
         paymentStatus: 'PENDING', // Only unpaid orders
       },
       include: {
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            taxLabel: true,
+            serviceChargeLabel: true,
+          },
+        },
         table: {
           select: {
             tableNumber: true,
