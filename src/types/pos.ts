@@ -153,6 +153,16 @@ export interface ReceiptProps {
   order: OrderWithDetails;
   payment: Payment;
   currency?: string;
+  restaurantInfo: {
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+  };
+  cashierInfo: {
+    firstName: string;
+    lastName: string;
+  };
   onClose: () => void;
 }
 

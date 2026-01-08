@@ -20,6 +20,10 @@ export const GeneralInfoSchema = z.object({
     .max(200, 'Address must be at most 200 characters'),
   phone: z.string().optional(),
   email: z.string().email('Invalid email format').optional(),
+  description: z
+    .string()
+    .max(500, 'Description must be at most 500 characters')
+    .optional(),
 });
 
 export type GeneralInfo = z.infer<typeof GeneralInfoSchema>;

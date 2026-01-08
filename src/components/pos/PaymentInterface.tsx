@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { PaymentMethod, OrderWithDetails } from '@/types/pos';
 import { OrderDetails } from './OrderDetails';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -21,6 +21,7 @@ import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
 import type { PaymentInterfaceProps } from '@/types/pos';
 import { usePaymentMethods } from '@/contexts/RestaurantContext';
+import { ApiClient } from '@/lib/api-client';
 
 export function PaymentInterface({
   order,
@@ -38,6 +39,62 @@ export function PaymentInterface({
     null
   );
   const paymentMethods = usePaymentMethods();
+  const [restaurantInfo, setRestaurantInfo] = useState<{
+    name: string;
+    address: string;
+    phone: string;
+    email: string;
+  } | null>(null);
+  const [cashierInfo, setCashierInfo] = useState<{
+    firstName: string;
+    lastName: string;
+  } | null>(null);
+
+  // Fetch restaurant and cashier info
+  useEffect(() => {
+    const fetchInfo = async () => {
+      try {
+        // Fetch restaurant settings
+        const settings = await ApiClient.get<{
+          settings: {
+            name: string;
+            address: string;
+            phone?: string;
+            email?: string;
+          };
+        }>('/settings/restaurant');
+        setRestaurantInfo({
+          name: settings.settings.name || 'Restaurant',
+          address: settings.settings.address || '',
+          phone: settings.settings.phone || '',
+          email: settings.settings.email || '',
+        });
+
+        // Fetch current user info
+        const user = await ApiClient.get<{
+          user: { firstName: string; lastName: string };
+        }>('/auth/me');
+        setCashierInfo({
+          firstName: user.user.firstName || 'Staff',
+          lastName: user.user.lastName || 'Member',
+        });
+      } catch (err) {
+        console.error('Failed to fetch restaurant/cashier info:', err);
+        // Set defaults
+        setRestaurantInfo({
+          name: 'Restaurant',
+          address: '',
+          phone: '',
+          email: '',
+        });
+        setCashierInfo({
+          firstName: 'Staff',
+          lastName: 'Member',
+        });
+      }
+    };
+    fetchInfo();
+  }, []);
 
   const handleMethodSelect = (method: PaymentMethod) => {
     setSelectedMethod(method);
@@ -114,13 +171,6 @@ export function PaymentInterface({
           );
 
       console.log('[PaymentInterface] processPayment result:', result);
-      console.log('[PaymentInterface] Payment object:', {
-        hasPayment: !!result.payment,
-        hasOrder: !!result.payment?.order,
-        itemsCount: result.payment?.order?.items?.length || 0,
-        orderNumber: result.payment?.order?.orderNumber,
-        totalAmount: result.payment?.order?.totalAmount,
-      });
 
       if (result.success) {
         setCompletedPayment(result.payment);
@@ -273,11 +323,13 @@ export function PaymentInterface({
         </div>
       </div>
 
-      {completedPayment && (
+      {completedPayment && restaurantInfo && cashierInfo && (
         <Receipt
-          order={completedPayment.order}
+          order={displayOrder}
           payment={completedPayment}
           currency={currency}
+          restaurantInfo={restaurantInfo}
+          cashierInfo={cashierInfo}
           onClose={handleReceiptClose}
         />
       )}

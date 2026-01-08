@@ -14,6 +14,7 @@ interface GeneralInfo {
   address: string;
   phone: string;
   email: string;
+  description?: string;
 }
 
 interface GeneralSectionProps {
@@ -154,6 +155,25 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
               disabled={isLoading}
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
+            Restaurant Description
+          </label>
+          <textarea
+            value={formData.description || ''}
+            onChange={(e) =>
+              setFormData((prev) => ({ ...prev, description: e.target.value }))
+            }
+            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900 resize-none"
+            placeholder="e.g., Authentic Italian Cuisine"
+            rows={3}
+            disabled={isLoading}
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Brief description shown on the ordering page (optional)
+          </p>
         </div>
 
         <div className="pt-2">

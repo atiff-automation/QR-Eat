@@ -51,6 +51,7 @@ export async function PUT(request: NextRequest) {
         address: true,
         phone: true,
         email: true,
+        description: true,
         updatedAt: true,
       },
     });

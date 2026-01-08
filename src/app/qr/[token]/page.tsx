@@ -269,9 +269,11 @@ export default function QRMenuPage() {
               <h1 className="text-2xl font-bold text-gray-900 mb-2 leading-tight">
                 {table.restaurant.name}
               </h1>
-              <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
-                Authentic Italian Cuisine
-              </p>
+              {table.restaurant.description && (
+                <p className="text-xs text-gray-500 uppercase tracking-widest font-semibold">
+                  {table.restaurant.description}
+                </p>
+              )}
             </div>
           </div>
 

@@ -75,5 +75,6 @@ export interface Table {
     serviceChargeRate: number;
     taxLabel?: string; // Phase 2 - Settings MVP
     serviceChargeLabel?: string; // Phase 2 - Settings MVP
+    description?: string;
   };
 }

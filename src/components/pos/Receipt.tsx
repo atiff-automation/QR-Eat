@@ -18,6 +18,8 @@ export function Receipt({
   order,
   payment,
   currency = 'MYR',
+  restaurantInfo,
+  cashierInfo,
   onClose,
 }: ReceiptProps) {
   console.log('[Receipt] Order data:', {
@@ -36,16 +38,16 @@ export function Receipt({
       order,
       payment,
       restaurant: {
-        name: 'QR Restaurant', // TODO: Get from context
-        address: '123 Main Street, Kuala Lumpur',
-        phone: '+60 12-345 6789',
-        email: 'info@qrrestaurant.com',
+        name: restaurantInfo.name,
+        address: restaurantInfo.address,
+        phone: restaurantInfo.phone,
+        email: restaurantInfo.email,
         taxLabel: order.taxLabel,
         serviceChargeLabel: order.serviceChargeLabel,
       },
       cashier: {
-        firstName: 'Cashier', // TODO: Get from auth context
-        lastName: 'User',
+        firstName: cashierInfo.firstName,
+        lastName: cashierInfo.lastName,
       },
     },
     currency

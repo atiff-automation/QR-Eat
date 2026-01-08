@@ -38,6 +38,7 @@ export async function GET(request: NextRequest) {
         address: true,
         phone: true,
         email: true,
+        description: true,
         timezone: true,
         currency: true,
         taxRate: true,
