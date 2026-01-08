@@ -78,11 +78,30 @@ export function ModifyOrderModal({
   // Calculate new totals with tax and service charge
   const newSubtotal = items.reduce((sum, item) => sum + item.totalAmount, 0);
 
+  // DEBUG: Log order values
+  console.log('🔍 Order Debug:', {
+    subtotalAmount: order.subtotalAmount,
+    taxAmount: order.taxAmount,
+    serviceCharge: order.serviceCharge,
+    totalAmount: order.totalAmount,
+  });
+
   // Calculate rates from original order
   const taxRate =
     order.subtotalAmount > 0 ? order.taxAmount / order.subtotalAmount : 0;
   const serviceChargeRate =
     order.subtotalAmount > 0 ? order.serviceCharge / order.subtotalAmount : 0;
+
+  // DEBUG: Log calculated values
+  console.log('🔍 Calculation Debug:', {
+    newSubtotal,
+    taxRate,
+    serviceChargeRate,
+    newTax: newSubtotal * taxRate,
+    newServiceCharge: newSubtotal * serviceChargeRate,
+    newTotal:
+      newSubtotal + newSubtotal * taxRate + newSubtotal * serviceChargeRate,
+  });
 
   // Apply rates to new subtotal
   const newTax = newSubtotal * taxRate;
