@@ -20,6 +20,9 @@ export interface OrderSummary {
   status: string;
   paymentStatus: string;
   totalAmount: number;
+  subtotalAmount: number;
+  taxAmount: number;
+  serviceCharge: number;
   createdAt: string;
   estimatedReadyTime?: string;
   version: number; // For optimistic locking

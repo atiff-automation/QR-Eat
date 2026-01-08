@@ -16,6 +16,9 @@ interface ModifyOrderModalProps {
     status: string;
     paymentStatus: string;
     totalAmount: number;
+    subtotalAmount: number;
+    taxAmount: number;
+    serviceCharge: number;
     version: number;
     items: Array<{
       id: string;
@@ -72,8 +75,23 @@ export function ModifyOrderModal({
     setItems(order.items);
   }, [order.items]);
 
-  // Calculate new total
-  const newTotal = items.reduce((sum, item) => sum + item.totalAmount, 0);
+  // Calculate new totals with tax and service charge
+  const newSubtotal = items.reduce((sum, item) => sum + item.totalAmount, 0);
+
+  // Calculate rates from original order
+  const taxRate =
+    order.subtotalAmount > 0 ? order.taxAmount / order.subtotalAmount : 0;
+  const serviceChargeRate =
+    order.subtotalAmount > 0 ? order.serviceCharge / order.subtotalAmount : 0;
+
+  // Apply rates to new subtotal
+  const newTax = newSubtotal * taxRate;
+  const newServiceCharge = newSubtotal * serviceChargeRate;
+  const newTotal = newSubtotal + newTax + newServiceCharge;
+
+  // Calculate difference
+  const difference = newTotal - order.totalAmount;
+
   const refundNeeded = calculateRefundNeeded(order, newTotal);
   const hasChanges = JSON.stringify(items) !== JSON.stringify(order.items);
 
@@ -298,13 +316,41 @@ export function ModifyOrderModal({
             </div>
           </div>
 
-          {/* Totals Comparison */}
-          <div className="border-t pt-3">
-            <div className="flex justify-between text-sm mb-1">
-              <span className="text-gray-600">Original Total:</span>
-              <span>{formatPrice(order.totalAmount, currency)}</span>
+          {/* Itemized Breakdown */}
+          <div className="border-t pt-3 space-y-2">
+            {/* Subtotal */}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-medium">
+                {formatPrice(newSubtotal, currency)}
+              </span>
             </div>
-            <div className="flex justify-between font-bold">
+
+            {/* Tax */}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">
+                Tax ({(taxRate * 100).toFixed(1)}%):
+              </span>
+              <span className="font-medium">
+                {formatPrice(newTax, currency)}
+              </span>
+            </div>
+
+            {/* Service Charge */}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">
+                Service Charge ({(serviceChargeRate * 100).toFixed(1)}%):
+              </span>
+              <span className="font-medium">
+                {formatPrice(newServiceCharge, currency)}
+              </span>
+            </div>
+
+            {/* Divider */}
+            <div className="border-t border-gray-300 my-2"></div>
+
+            {/* New Total */}
+            <div className="flex justify-between font-bold text-base">
               <span>New Total:</span>
               <span
                 className={newTotal < order.totalAmount ? 'text-red-600' : ''}
@@ -312,10 +358,25 @@ export function ModifyOrderModal({
                 {formatPrice(newTotal, currency)}
               </span>
             </div>
-            {newTotal < order.totalAmount && (
-              <div className="text-sm text-red-600 mt-1">
-                Difference: -
-                {formatPrice(order.totalAmount - newTotal, currency)}
+
+            {/* Original Total */}
+            <div className="flex justify-between text-sm text-gray-600 mt-3">
+              <span>Original Total:</span>
+              <span>{formatPrice(order.totalAmount, currency)}</span>
+            </div>
+
+            {/* Difference */}
+            {difference !== 0 && (
+              <div
+                className={`flex justify-between text-sm font-medium ${
+                  difference < 0 ? 'text-red-600' : 'text-green-600'
+                }`}
+              >
+                <span>Difference:</span>
+                <span>
+                  {difference < 0 ? '-' : '+'}
+                  {formatPrice(Math.abs(difference), currency)}
+                </span>
               </div>
             )}
           </div>
