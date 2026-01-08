@@ -31,10 +31,14 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
 
     setIsGenerating(true);
     try {
-      // Capture receipt as canvas
+      // Capture receipt as canvas with better compatibility
       const canvas = await html2canvas(receiptRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        foreignObjectRendering: false, // Avoid oklch color issues
       });
 
       // Convert to blob
@@ -82,10 +86,14 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
 
     setIsGenerating(true);
     try {
-      // Capture receipt as canvas
+      // Capture receipt as canvas with better compatibility
       const canvas = await html2canvas(receiptRef.current, {
         scale: 2,
         backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        foreignObjectRendering: false, // Avoid oklch color issues
       });
 
       // Create PDF
