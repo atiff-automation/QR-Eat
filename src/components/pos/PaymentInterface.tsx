@@ -55,25 +55,28 @@ export function PaymentInterface({
   const isTablePayment = relatedOrders.length > 0;
 
   // For table payments, create a combined order for display
-  const displayOrder = isTablePayment
-    ? {
+  const displayOrder: OrderWithDetails = isTablePayment
+    ? ({
         ...order,
         orderNumber: `TABLE-${relatedOrders.length}-ORDERS`,
-        totalAmount,
+        totalAmount: totalAmount as unknown as typeof order.totalAmount,
         subtotalAmount: relatedOrders.reduce(
           (sum, o) => sum + Number(o.subtotalAmount),
           0
-        ),
+        ) as unknown as typeof order.subtotalAmount,
         taxAmount: relatedOrders.reduce(
           (sum, o) => sum + Number(o.taxAmount || 0),
           0
-        ),
+        ) as unknown as typeof order.taxAmount,
         serviceCharge: relatedOrders.reduce(
           (sum, o) => sum + Number(o.serviceCharge || 0),
           0
-        ),
+        ) as unknown as typeof order.serviceCharge,
         items: relatedOrders.flatMap((o) => o.items || []),
-      }
+        // Preserve tax and service charge labels from the first order
+        taxLabel: order.taxLabel,
+        serviceChargeLabel: order.serviceChargeLabel,
+      } as OrderWithDetails)
     : order;
 
   console.log('[PaymentInterface] Payment setup:', {

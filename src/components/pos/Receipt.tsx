@@ -40,6 +40,8 @@ export function Receipt({
         address: '123 Main Street, Kuala Lumpur',
         phone: '+60 12-345 6789',
         email: 'info@qrrestaurant.com',
+        taxLabel: order.taxLabel,
+        serviceChargeLabel: order.serviceChargeLabel,
       },
       cashier: {
         firstName: 'Cashier', // TODO: Get from auth context
