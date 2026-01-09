@@ -101,7 +101,7 @@ export function SalesChart({ data, loading, timeframe }: SalesChartProps) {
 
   return (
     <div className="h-[300px] w-full">
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minWidth={0}>
         <AreaChart
           data={chartData}
           margin={{ top: 10, right: 0, left: -20, bottom: 0 }}
