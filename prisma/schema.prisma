@@ -191,8 +191,8 @@ model Restaurant {
   address           String
   phone             String?
   email             String?
-  timezone          String  @default("UTC")
-  currency          String  @default("USD")
+  timezone          String  @default("Asia/Kuala_Lumpur")
+  currency          String  @default("MYR")
   taxRate           Decimal @default(0.0000) @db.Decimal(5, 4)
   serviceChargeRate Decimal @default(0.0000) @db.Decimal(5, 4)
   isActive          Boolean @default(true)
