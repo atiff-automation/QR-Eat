@@ -253,11 +253,11 @@ export default function QRMenuPage() {
         <>
           {/* Restaurant Identity - Scrolls Away */}
           <div className="bg-white pb-2 relative z-30">
-            {/* Powered by QR-Eat & Table Number - Top Bar */}
+            {/* Powered by Tabtep & Table Number - Top Bar */}
             <div className="flex justify-between items-center px-4 pt-3 pb-2 text-xs font-medium text-gray-500 border-b border-gray-50">
               <div className="flex items-center space-x-1">
                 <span>Powered by</span>
-                <span className="text-orange-500 font-bold">QR-Eat</span>
+                <span className="text-orange-500 font-bold">Tabtep</span>
               </div>
               <div className="bg-gray-100 px-3 py-1 rounded-full text-gray-700 font-semibold">
                 Table {table.tableNumber}

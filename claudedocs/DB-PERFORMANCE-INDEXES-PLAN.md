@@ -1,6 +1,6 @@
 # Database Performance Indexes - Implementation Plan
 
-**Project:** QR Restaurant System
+**Project:** Tabtep
 **Priority:** P0 (CRITICAL)
 **Effort:** 3.5 hours
 **Impact:** Performance

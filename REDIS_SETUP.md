@@ -1,6 +1,6 @@
 # Redis Real-Time Updates Setup Guide
 
-This guide explains how to set up and use Redis for real-time order updates in the QR Restaurant System.
+This guide explains how to set up and use Redis for real-time order updates in Tabtep.
 
 ## 🚀 What's New
 

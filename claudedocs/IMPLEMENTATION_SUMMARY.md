@@ -1,4 +1,4 @@
-# QR Restaurant System - Counter Payment Implementation Summary
+# Tabtep - Counter Payment Implementation Summary
 
 **Date**: 2025-12-07
 **Status**: Planning Complete, Ready for Approval

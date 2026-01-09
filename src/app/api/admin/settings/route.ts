@@ -5,7 +5,7 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 // Default platform settings
 const DEFAULT_SETTINGS = {
   general: {
-    platformName: 'QR Restaurant System',
+    platformName: 'Tabtep',
     supportEmail: 'support@qrrestaurant.com',
     maxRestaurantsPerOwner: 5,
     defaultCurrency: 'USD',

@@ -26,9 +26,9 @@ const SUBDOMAIN_CONFIG = {
   // Main domain configurations
   MAIN_DOMAINS: [
     'localhost:3000',
-    'qrorder.local',
-    'qrorder.com',
-    'qrorder.app',
+    'tabtep.local',
+    'tabtep.com',
+    'tabtep.app',
     // Railway deployment domains
     'up.railway.app',
     'railway.app',
@@ -226,7 +226,7 @@ export function getBaseDomain(): string {
   }
 
   // In production, this should be set via environment variable
-  return process.env.BASE_DOMAIN || 'qrorder.com';
+  return process.env.BASE_DOMAIN || 'tabtep.com';
 }
 
 /**

@@ -1,5 +1,5 @@
 # User Guide
-## QR Restaurant System - RBAC Enhanced Interface
+## Tabtep - RBAC Enhanced Interface
 
 **Version**: 2.0  
 **Last Updated**: 2025-01-17  

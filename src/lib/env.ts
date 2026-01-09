@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Environment variable schema for QR-Eat
+ * Environment variable schema for Tabtep
  * Ensures all required variables are present and correctly formatted.
  */
 const envSchema = z.object({

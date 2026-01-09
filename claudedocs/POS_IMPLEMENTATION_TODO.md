@@ -1,6 +1,6 @@
 # POS System Implementation TODO List
 
-**Project:** QR Restaurant System - Point of Sale Interface
+**Project:** Tabtep - Point of Sale Interface
 **Date:** 2025-12-11
 **Status:** Ready for Implementation
 **Based On:** POS_IMPLEMENTATION_PLAN.md

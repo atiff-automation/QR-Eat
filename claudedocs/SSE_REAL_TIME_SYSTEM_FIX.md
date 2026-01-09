@@ -9,7 +9,7 @@
 
 ## Executive Summary
 
-This document details the architectural fix for intermittent real-time order update failures in the QR Restaurant System. The solution is based on industry research from production systems (Uber, DoorDash, Toast POS, Square KDS) and follows the coding standards defined in `CLAUDE.md`.
+This document details the architectural fix for intermittent real-time order update failures in Tabtep. The solution is based on industry research from production systems (Uber, DoorDash, Toast POS, Square KDS) and follows the coding standards defined in `CLAUDE.md`.
 
 ### Problem Statement
 Real-time order notifications inconsistently reach owner and kitchen displays, requiring manual page refreshes. Events are silently dropped when PostgreSQL PubSub client is not initialized, causing orders to be missed.

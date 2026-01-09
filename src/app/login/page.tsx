@@ -329,7 +329,7 @@ function LoginForm() {
                     <p>• Staff: */staff123</p>
                   ) : (
                     <>
-                      <p>• Admin: admin@qrorder.com / admin123</p>
+                      <p>• Admin: admin@tabtep.com / admin123</p>
                       <p>• Owner: */owner123</p>
                       <p>• Staff: */staff123</p>
                     </>

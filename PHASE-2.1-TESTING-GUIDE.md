@@ -23,7 +23,7 @@ Open your browser and go to: http://localhost:3000/api/health
 1. **URL:** http://localhost:3000
 2. **Expected Results:**
    - ✅ Page loads successfully
-   - ✅ Shows "QR Restaurant SaaS Platform" title
+   - ✅ Shows "Tabtep" title
    - ✅ Displays multi-tenant features grid
    - ✅ Shows demo section with restaurant examples
    - ✅ Navigation includes "Find Restaurant" and "Login" buttons

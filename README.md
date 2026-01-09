@@ -1,4 +1,4 @@
-# QR Restaurant Ordering System
+# Tabtep - QR Ordering, POS & KDS
 
 A modern QR code-based restaurant ordering system built with Next.js, TypeScript, and PostgreSQL.
 

@@ -1,7 +1,7 @@
 # RBAC Implementation Testing Guide
 
 ## Overview
-This document provides comprehensive step-by-step testing procedures to validate the Role-Based Access Control (RBAC) implementation in the QR Restaurant System. Follow these tests systematically to ensure all features work correctly.
+This document provides comprehensive step-by-step testing procedures to validate the Role-Based Access Control (RBAC) implementation in Tabtep. Follow these tests systematically to ensure all features work correctly.
 
 ## Quick Start
 

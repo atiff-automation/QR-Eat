@@ -21,24 +21,28 @@ export interface NewRestaurantOwnerEmailData {
 
 export class EmailService {
   private static isDevelopment = process.env.NODE_ENV === 'development';
-  
+
   /**
    * Send email (development version logs to console)
    */
   static async sendEmail(template: EmailTemplate): Promise<boolean> {
     try {
       if (this.isDevelopment) {
-        console.log('\n==================== EMAIL NOTIFICATION ====================');
+        console.log(
+          '\n==================== EMAIL NOTIFICATION ===================='
+        );
         console.log(`TO: ${template.to}`);
         console.log(`SUBJECT: ${template.subject}`);
         console.log('HTML CONTENT:');
         console.log(template.htmlContent);
         console.log('TEXT CONTENT:');
         console.log(template.textContent);
-        console.log('============================================================\n');
+        console.log(
+          '============================================================\n'
+        );
         return true;
       }
-      
+
       // In production, integrate with actual email service
       // Example with SendGrid:
       /*
@@ -63,7 +67,7 @@ export class EmailService {
       
       return response.ok;
       */
-      
+
       return true;
     } catch (error) {
       console.error('Failed to send email:', error);
@@ -74,12 +78,14 @@ export class EmailService {
   /**
    * Send welcome email to new restaurant owner
    */
-  static async sendNewRestaurantOwnerEmail(data: NewRestaurantOwnerEmailData): Promise<boolean> {
+  static async sendNewRestaurantOwnerEmail(
+    data: NewRestaurantOwnerEmailData
+  ): Promise<boolean> {
     const template: EmailTemplate = {
       to: data.ownerEmail,
-      subject: `Welcome to QR Restaurant System - Your ${data.restaurantName} Account`,
+      subject: `Welcome to Tabtep - Your ${data.restaurantName} Account`,
       htmlContent: this.generateNewOwnerHtmlEmail(data),
-      textContent: this.generateNewOwnerTextEmail(data)
+      textContent: this.generateNewOwnerTextEmail(data),
     };
 
     return this.sendEmail(template);
@@ -88,13 +94,15 @@ export class EmailService {
   /**
    * Generate HTML email for new restaurant owner
    */
-  private static generateNewOwnerHtmlEmail(data: NewRestaurantOwnerEmailData): string {
+  private static generateNewOwnerHtmlEmail(
+    data: NewRestaurantOwnerEmailData
+  ): string {
     return `
 <!DOCTYPE html>
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Welcome to QR Restaurant System</title>
+    <title>Welcome to Tabtep</title>
     <style>
         body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
         .container { max-width: 600px; margin: 0 auto; padding: 20px; }
@@ -109,13 +117,13 @@ export class EmailService {
 <body>
     <div class="container">
         <div class="header">
-            <h1>Welcome to QR Restaurant System</h1>
+            <h1>Welcome to Tabtep</h1>
         </div>
         
         <div class="content">
             <h2>Hello ${data.ownerName}!</h2>
             
-            <p>Welcome to QR Restaurant System! Your restaurant <strong>${data.restaurantName}</strong> has been successfully set up on our platform.</p>
+            <p>Welcome to Tabtep! Your restaurant <strong>${data.restaurantName}</strong> has been successfully set up on our platform.</p>
             
             <div class="credentials">
                 <h3>Your Login Credentials:</h3>
@@ -150,12 +158,12 @@ export class EmailService {
             
             <p>If you have any questions or need assistance, please contact our support team.</p>
             
-            <p>Best regards,<br>The QR Restaurant System Team</p>
+            <p>Best regards,<br>The Tabtep Team</p>
         </div>
         
         <div class="footer">
             <p>This email was sent to ${data.ownerEmail} because a restaurant account was created for you.</p>
-            <p>© 2024 QR Restaurant System. All rights reserved.</p>
+            <p>© 2024 Tabtep. All rights reserved.</p>
         </div>
     </div>
 </body>
@@ -165,13 +173,15 @@ export class EmailService {
   /**
    * Generate text email for new restaurant owner
    */
-  private static generateNewOwnerTextEmail(data: NewRestaurantOwnerEmailData): string {
+  private static generateNewOwnerTextEmail(
+    data: NewRestaurantOwnerEmailData
+  ): string {
     return `
-Welcome to QR Restaurant System!
+Welcome to Tabtep!
 
 Hello ${data.ownerName},
 
-Welcome to QR Restaurant System! Your restaurant "${data.restaurantName}" has been successfully set up on our platform.
+Welcome to Tabtep! Your restaurant "${data.restaurantName}" has been successfully set up on our platform.
 
 YOUR LOGIN CREDENTIALS:
 Email: ${data.ownerEmail}
@@ -195,24 +205,28 @@ WHAT'S NEXT?
 If you have any questions or need assistance, please contact our support team.
 
 Best regards,
-The QR Restaurant System Team
+The Tabtep Team
 
 ---
 This email was sent to ${data.ownerEmail} because a restaurant account was created for you.
-© 2024 QR Restaurant System. All rights reserved.
+© 2024 Tabtep. All rights reserved.
 `;
   }
 
   /**
    * Send password reset email
    */
-  static async sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<boolean> {
+  static async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+    resetUrl: string
+  ): Promise<boolean> {
     const template: EmailTemplate = {
       to: email,
-      subject: 'Password Reset - QR Restaurant System',
+      subject: 'Password Reset - Tabtep',
       htmlContent: `
         <h2>Password Reset Request</h2>
-        <p>You requested a password reset for your QR Restaurant System account.</p>
+        <p>You requested a password reset for your Tabtep account.</p>
         <p><a href="${resetUrl}">Click here to reset your password</a></p>
         <p>This link will expire in 1 hour.</p>
         <p>If you didn't request this reset, please ignore this email.</p>
@@ -220,14 +234,14 @@ This email was sent to ${data.ownerEmail} because a restaurant account was creat
       textContent: `
         Password Reset Request
         
-        You requested a password reset for your QR Restaurant System account.
+        You requested a password reset for your Tabtep account.
         
         Reset URL: ${resetUrl}
         
         This link will expire in 1 hour.
         
         If you didn't request this reset, please ignore this email.
-      `
+      `,
     };
 
     return this.sendEmail(template);

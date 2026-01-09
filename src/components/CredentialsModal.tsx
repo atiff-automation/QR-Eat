@@ -49,7 +49,7 @@ export default function CredentialsModal({
     // WhatsApp-optimized format: clean, simple, mobile-friendly
     const shareText = `Hi ${staffName}! 👋
 
-Your QR-Eat account is ready!
+Your Tabtep account is ready!
 
 *Login Details:*
 📧 Email: ${staffEmail}
@@ -68,7 +68,7 @@ Welcome to the team! 🎉`;
       // Check if Web Share API is available
       if (navigator.share) {
         await navigator.share({
-          title: 'QR-Eat Login Credentials',
+          title: 'Tabtep Login Credentials',
           text: shareText,
         });
       } else {

@@ -1,17 +1,21 @@
 /**
  * Test Utilities for RBAC System Testing
- * 
+ *
  * This module provides utilities for testing RBAC system components including
  * mock authentication, database mocking, and test data factories.
  */
 
 import { NextRequest } from 'next/server';
-import { EnhancedJWTPayload, UserRole, RestaurantContext } from '@/lib/rbac/types';
+import {
+  EnhancedJWTPayload,
+  UserRole,
+  RestaurantContext,
+} from '@/lib/rbac/types';
 
 // Mock User Types
 export const mockPlatformAdmin = {
   id: 'admin-123',
-  email: 'admin@qrorder.com',
+  email: 'admin@tabtep.com',
   firstName: 'Admin',
   lastName: 'User',
   userType: 'platform_admin' as const,
@@ -133,11 +137,7 @@ export const mockStaffJWT: EnhancedJWTPayload = {
   currentRole: mockStaffRole,
   availableRoles: [mockStaffRole],
   restaurantContext: mockRestaurantContext,
-  permissions: [
-    'orders:read',
-    'orders:write',
-    'menu:read',
-  ],
+  permissions: ['orders:read', 'orders:write', 'menu:read'],
   sessionId: 'session-staff-123',
   iat: Math.floor(Date.now() / 1000),
   exp: Math.floor(Date.now() / 1000) + 3600,
@@ -189,14 +189,24 @@ export const mockPermissions = [
 export const mockRoleTemplates = [
   {
     template: 'platform_admin',
-    permissions: ['permissions:read', 'permissions:write', 'role_templates:read', 'users:read'],
+    permissions: [
+      'permissions:read',
+      'permissions:write',
+      'role_templates:read',
+      'users:read',
+    ],
     permissionCount: 4,
     categories: ['platform', 'users'],
     description: 'Platform Administrator',
   },
   {
     template: 'restaurant_owner',
-    permissions: ['restaurant:read', 'restaurant:write', 'menu:read', 'menu:write'],
+    permissions: [
+      'restaurant:read',
+      'restaurant:write',
+      'menu:read',
+      'menu:write',
+    ],
     permissionCount: 4,
     categories: ['restaurant', 'menu'],
     description: 'Restaurant Owner',
@@ -234,29 +244,35 @@ export function createMockRequest(options: {
   method: string;
   url?: string;
   headers?: Record<string, string>;
-  body?: any;
+  body?: unknown;
   cookies?: Record<string, string>;
 }): NextRequest {
-  const { method, url = 'http://localhost:3000/api/test', headers = {}, body, cookies = {} } = options;
-  
+  const {
+    method,
+    url = 'http://localhost:3000/api/test',
+    headers = {},
+    body,
+    cookies = {},
+  } = options;
+
   const mockHeaders = new Headers(headers);
-  
+
   // Add authorization header if not provided
   if (!mockHeaders.has('authorization') && !mockHeaders.has('cookie')) {
     mockHeaders.set('authorization', 'Bearer mock-jwt-token');
   }
-  
+
   const mockRequest = new NextRequest(url, {
     method,
     headers: mockHeaders,
     body: body ? JSON.stringify(body) : undefined,
   });
-  
+
   // Mock cookies
   Object.entries(cookies).forEach(([key, value]) => {
     mockRequest.cookies.set(key, value);
   });
-  
+
   return mockRequest;
 }
 
@@ -346,7 +362,7 @@ export const testDataFactory = {
     updatedAt: new Date(),
     ...overrides,
   }),
-  
+
   roleTemplate: (overrides = {}) => ({
     template: 'test_template',
     permissions: ['test:permission'],
@@ -355,7 +371,7 @@ export const testDataFactory = {
     description: 'Test role template',
     ...overrides,
   }),
-  
+
   userRole: (overrides = {}) => ({
     id: 'user-role-test-123',
     userId: 'user-test-123',
@@ -368,7 +384,7 @@ export const testDataFactory = {
     updatedAt: new Date(),
     ...overrides,
   }),
-  
+
   restaurant: (overrides = {}) => ({
     id: 'restaurant-test-123',
     name: 'Test Restaurant',
@@ -376,7 +392,7 @@ export const testDataFactory = {
     isActive: true,
     ...overrides,
   }),
-  
+
   auditLog: (overrides = {}) => ({
     id: 'audit-test-123',
     userId: 'user-test-123',
@@ -393,12 +409,12 @@ export const testDataFactory = {
 
 // Mock Response Helpers
 export const mockResponse = {
-  json: (data: any, init?: ResponseInit) => ({
+  json: (data: unknown, init?: ResponseInit) => ({
     json: jest.fn().mockResolvedValue(data),
     status: init?.status || 200,
     headers: init?.headers || {},
   }),
-  
+
   error: (message: string, status = 500) => ({
     json: jest.fn().mockResolvedValue({ error: message }),
     status,
@@ -406,9 +422,11 @@ export const mockResponse = {
 };
 
 // Async Test Helpers
-export const waitFor = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+export const waitFor = (ms: number) =>
+  new Promise((resolve) => setTimeout(resolve, ms));
 
-export const flushPromises = () => new Promise(resolve => setImmediate(resolve));
+export const flushPromises = () =>
+  new Promise((resolve) => setImmediate(resolve));
 
 // Mock Rate Limiter
 export const mockRateLimiter = {
@@ -444,7 +462,7 @@ export const mockPermissionManager = {
   getAllPermissions: jest.fn(),
 };
 
-export default {
+const testUtils = {
   mockPlatformAdmin,
   mockRestaurantOwner,
   mockStaffUser,
@@ -471,3 +489,5 @@ export default {
   mockAuditLogger,
   mockPermissionManager,
 };
+
+export default testUtils;

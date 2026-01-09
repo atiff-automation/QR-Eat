@@ -28,7 +28,7 @@
 ## Executive Summary
 
 ### Problem Statement
-The QR Restaurant System currently lacks a Point-of-Sale (POS) interface for staff to process counter payments. While customers can order via QR code and orders flow to the kitchen, there is no way for cashiers/staff to:
+Tabtep currently lacks a Point-of-Sale (POS) interface for staff to process counter payments. While customers can order via QR code and orders flow to the kitchen, there is no way for cashiers/staff to:
 - View pending payments by table
 - Select payment method (cash/card/ewallet)
 - Mark orders as paid

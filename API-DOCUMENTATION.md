@@ -1,5 +1,5 @@
 # API Documentation
-## QR Restaurant System - RBAC Enhanced APIs
+## Tabtep - RBAC Enhanced APIs
 
 **Version**: 2.0  
 **Last Updated**: 2025-01-17  

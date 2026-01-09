@@ -1,6 +1,6 @@
 # Polling Patterns Guide
 
-**How to Use Polling Correctly in QR Restaurant System**
+**How to Use Polling Correctly in Tabtep**
 
 ---
 

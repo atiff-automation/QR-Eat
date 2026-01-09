@@ -1,5 +1,5 @@
 # Troubleshooting Guide
-## QR Restaurant System - RBAC Enhanced
+## Tabtep - RBAC Enhanced
 
 **Version**: 2.0  
 **Last Updated**: 2025-01-17  

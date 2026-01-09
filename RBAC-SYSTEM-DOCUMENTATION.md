@@ -1,5 +1,5 @@
 # RBAC System Documentation
-## QR Restaurant System - Role-Based Access Control
+## Tabtep - Role-Based Access Control
 
 **Version**: 1.0  
 **Last Updated**: 2025-01-17  

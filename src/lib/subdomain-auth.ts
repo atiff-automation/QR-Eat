@@ -282,14 +282,14 @@ export function getLoginFormConfig(authContext: SubdomainAuthContext): {
   }
 
   return {
-    title: 'QR Restaurant System',
+    title: 'Tabtep',
     subtitle: 'Multi-Tenant SaaS Login',
     showQuickLogin: process.env.NODE_ENV === 'development',
     quickLoginOptions: [
       {
         id: 'admin',
         label: 'Platform Admin',
-        email: 'admin@qrorder.com',
+        email: 'admin@tabtep.com',
         password: 'admin123',
         userType: 'platform_admin',
       },

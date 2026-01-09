@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-Successfully migrated the QR Restaurant System from manual state management to TanStack Query, fixing a critical infinite re-render bug and implementing industry-standard best practices.
+Successfully migrated Tabtep from manual state management to TanStack Query, fixing a critical infinite re-render bug and implementing industry-standard best practices.
 
 **Key Results**:
 - ✅ Infinite re-render bug **FIXED** (200+ renders/s → 1 render/s = **99.5% improvement**)

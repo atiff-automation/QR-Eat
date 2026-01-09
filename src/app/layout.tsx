@@ -26,12 +26,12 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'QR-Eat - Restaurant Management System',
-  description: 'Mobile-first restaurant management and QR code ordering',
+  title: 'Tabtep - QR Ordering, POS & KDS',
+  description: 'QR Ordering, POS & KDS — All from Your Phone',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'QR-Eat',
+    title: 'Tabtep',
   },
   manifest: '/manifest.json',
   icons: {

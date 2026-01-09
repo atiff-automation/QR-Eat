@@ -31,16 +31,16 @@ function RestaurantNotFoundContent() {
         {subdomain && (
           <div className="bg-gray-100 rounded-md p-3 mb-4">
             <p className="text-sm text-gray-600">
-              Looking for: <span className="font-mono font-semibold">{subdomain}</span>
+              Looking for:{' '}
+              <span className="font-mono font-semibold">{subdomain}</span>
             </p>
           </div>
         )}
 
         <p className="text-gray-600 mb-6">
-          {error === 'Restaurant not found' 
+          {error === 'Restaurant not found'
             ? "We couldn't find a restaurant with this address. It may have been moved, renamed, or temporarily unavailable."
-            : error
-          }
+            : error}
         </p>
 
         <div className="space-y-3">
@@ -63,8 +63,12 @@ function RestaurantNotFoundContent() {
 
         <div className="mt-8 pt-6 border-t border-gray-200">
           <p className="text-xs text-gray-500">
-            If you think this is an error, please contact the restaurant directly or 
-            <Link href="/contact" className="text-blue-600 hover:text-blue-500 ml-1">
+            If you think this is an error, please contact the restaurant
+            directly or
+            <Link
+              href="/contact"
+              className="text-blue-600 hover:text-blue-500 ml-1"
+            >
               contact our support team
             </Link>
             .
@@ -81,7 +85,7 @@ function RestaurantNotFoundContent() {
           <p className="text-sm text-blue-700">
             Restaurant URLs follow the format: <br />
             <span className="font-mono bg-blue-100 px-2 py-1 rounded text-xs">
-              restaurant-name.qrorder.com
+              restaurant-name.tabtep.app
             </span>
           </p>
         </div>
@@ -92,7 +96,13 @@ function RestaurantNotFoundContent() {
 
 export default function RestaurantNotFoundPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          Loading...
+        </div>
+      }
+    >
       <RestaurantNotFoundContent />
     </Suspense>
   );

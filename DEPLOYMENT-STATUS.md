@@ -1,4 +1,4 @@
-# QR Restaurant System - Deployment Status
+# Tabtep - Deployment Status
 
 ## ✅ Successfully Deployed to Railway
 

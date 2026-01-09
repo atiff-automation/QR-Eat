@@ -1,7 +1,7 @@
 # Image Upload Feature
 
 ## Overview
-The QR Restaurant System now supports local file upload for menu item images with automatic resizing and optimization guidelines.
+Tabtep now supports local file upload for menu item images with automatic resizing and optimization guidelines.
 
 ## Features
 

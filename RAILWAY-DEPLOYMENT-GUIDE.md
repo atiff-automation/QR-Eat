@@ -1,4 +1,4 @@
-# Railway Deployment Guide - QR Restaurant System
+# Railway Deployment Guide - Tabtep
 
 Complete guide to deploy your QR Restaurant System to Railway with PostgreSQL database.
 
