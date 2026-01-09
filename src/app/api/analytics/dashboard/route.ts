@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { Prisma } from '@prisma/client';
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
 
     const url = new URL(request.url);
     const restaurantId = url.searchParams.get('restaurantId');
-    const timeframe = url.searchParams.get('timeframe') || '24h'; // 24h, 7d, 30d
+    const timeframe = url.searchParams.get('timeframe') || 'daily'; // daily, weekly, monthly, yearly
 
     // User type check
     const userType =
@@ -81,22 +82,52 @@ export async function GET(request: NextRequest) {
       restaurantIds = [staffRestaurantId];
     }
 
-    // Calculate date range
+    // Calculate date range and grouping
     const now = new Date();
     let startDate: Date;
+    let truncUnit: string;
 
     switch (timeframe) {
-      case '7d':
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      case 'yearly':
+        // Last 12 months
+        startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        truncUnit = 'month';
         break;
-      case '30d':
+      case 'monthly':
+        // Last 30 days
         startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        truncUnit = 'day';
         break;
-      case '24h':
+      case 'weekly':
+        // Last 7 days
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        truncUnit = 'day';
+        break;
+      case 'daily':
       default:
+        // Last 24 hours
         startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        truncUnit = 'hour';
         break;
     }
+
+    // Create raw query parts safely
+    // Primate $queryRaw uses variable substitution to prevent injection
+    // But for table/column names or SQL keywords (like truncUnit), we need to handle them carefully.
+    // However, DATE_TRUNC second argument is a string literal in PG, so we can pass it as a parameter if using $queryRaw,
+    // or rely on the switch case above which ensures it's a safe string.
+
+    // Because Prisma $queryRaw template literal is strict, we might need a different approach for dynamic intervals if we can't interpolate.
+    // Fortunately, we can cast the unit to text or just have multiple queries.
+    // For simplicity and safety with varying units, I'll use a conditional query construction or specific RAW execution.
+
+    // Using Prisma.sql to build the unit part is one way.
+    let dateTruncSql;
+    if (truncUnit === 'month')
+      dateTruncSql = Prisma.sql`DATE_TRUNC('month', "createdAt")`;
+    else if (truncUnit === 'day')
+      dateTruncSql = Prisma.sql`DATE_TRUNC('day', "createdAt")`;
+    else dateTruncSql = Prisma.sql`DATE_TRUNC('hour', "createdAt")`;
 
     // Get analytics data in parallel
     const [
@@ -105,9 +136,10 @@ export async function GET(request: NextRequest) {
       avgOrderValue,
       ordersByStatus,
       topMenuItems,
-      hourlyOrders,
+      salesTrend,
       tableUtilization,
       staffPerformance,
+      totalMenuItemsCount,
     ] = await Promise.all([
       // Total orders
       prisma.order.count({
@@ -162,17 +194,18 @@ export async function GET(request: NextRequest) {
         take: 10,
       }),
 
-      // Hourly orders for trend analysis
+      // Sales Trend
       prisma.$queryRaw`
         SELECT 
-          DATE_TRUNC('hour', "createdAt") as hour,
+          ${dateTruncSql} as date,
           COUNT(*) as order_count,
           SUM("totalAmount") as revenue
         FROM "orders" 
         WHERE "restaurantId" = ANY(${restaurantIds})
           AND "createdAt" >= ${startDate}
-        GROUP BY DATE_TRUNC('hour', "createdAt")
-        ORDER BY hour ASC
+          AND "status" != 'CANCELLED'
+        GROUP BY 1
+        ORDER BY 1 ASC
       `,
 
       // Table utilization
@@ -184,6 +217,7 @@ export async function GET(request: NextRequest) {
               orders: {
                 where: {
                   createdAt: { gte: startDate },
+                  status: { not: 'CANCELLED' }, // Only count valid orders
                 },
               },
             },
@@ -199,9 +233,11 @@ export async function GET(request: NextRequest) {
               id: true,
               firstName: true,
               lastName: true,
+              role: true,
               _count: {
                 select: {
-                  ordersServed: {
+                  orders: {
+                    // Changed from ordersServed to orders
                     where: {
                       createdAt: { gte: startDate },
                     },
@@ -210,11 +246,19 @@ export async function GET(request: NextRequest) {
               },
             },
             orderBy: {
-              ordersServed: { _count: 'desc' },
+              orders: { _count: 'desc' }, // Changed from ordersServed to orders
             },
             take: 10,
           })
         : [],
+
+      // Total menu items count
+      prisma.menuItem.count({
+        where: {
+          restaurantId: { in: restaurantIds },
+          isAvailable: true, // Optional: count only available items or all? Let's count all active
+        },
+      }),
     ]);
 
     // Get menu item names for top items
@@ -248,9 +292,10 @@ export async function GET(request: NextRequest) {
             count: status._count.id,
           })),
         },
+        totalMenuItemsCount,
         topMenuItems: topMenuItemsWithNames,
         trends: {
-          hourlyOrders: hourlyOrders,
+          sales: salesTrend, // Now passing the dynamic trend data
         },
         tableUtilization: tableUtilization.map((table) => ({
           tableNumber: table.tableNumber,
@@ -261,7 +306,8 @@ export async function GET(request: NextRequest) {
         staffPerformance: staffPerformance.map((staff) => ({
           id: staff.id,
           name: `${staff.firstName} ${staff.lastName}`,
-          ordersServed: staff._count.ordersServed,
+          role: staff.role,
+          ordersServed: staff._count.orders,
         })),
       },
     });
