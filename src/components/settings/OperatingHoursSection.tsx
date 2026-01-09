@@ -245,16 +245,27 @@ export function OperatingHoursSection({
   };
 
   const toggleDay = (day: (typeof DAYS)[number]) => {
-    setFormData((prev) => ({
-      ...prev,
-      operatingHours: {
-        ...prev.operatingHours,
-        [day]: {
-          ...prev.operatingHours[day],
-          isOpen: !prev.operatingHours[day].isOpen,
+    setFormData((prev) => {
+      const currentDay = prev.operatingHours[day];
+      const newIsOpen = !currentDay.isOpen;
+
+      // If toggling ON and no slots exist, add a default slot
+      const newSlots =
+        newIsOpen && currentDay.slots.length === 0
+          ? [{ open: '09:00', close: '17:00' }]
+          : currentDay.slots;
+
+      return {
+        ...prev,
+        operatingHours: {
+          ...prev.operatingHours,
+          [day]: {
+            isOpen: newIsOpen,
+            slots: newSlots,
+          },
         },
-      },
-    }));
+      };
+    });
   };
 
   const toggleExpanded = (day: (typeof DAYS)[number]) => {
