@@ -40,6 +40,7 @@ export function DashboardStatsGrid({
   }
 
   const hasPendingOrders = (stats.pendingOrdersCount || 0) > 0;
+  const hasOccupiedTables = stats.tablesActive > 0;
 
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
@@ -51,7 +52,7 @@ export function DashboardStatsGrid({
         href="/dashboard/orders"
         color="blue"
         badgeCount={stats.pendingOrdersCount}
-        alert={hasPendingOrders}
+        variant={hasPendingOrders ? 'alert' : 'default'}
       />
       <StatCard
         title="Tables"
@@ -60,6 +61,8 @@ export function DashboardStatsGrid({
         icon={ChefHat}
         href="/dashboard/tables"
         color="green"
+        badgeCount={stats.tablesActive}
+        variant={hasOccupiedTables ? 'active' : 'default'}
       />
       <StatCard
         title="Menu"

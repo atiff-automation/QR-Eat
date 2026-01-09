@@ -11,7 +11,7 @@ interface StatCardProps {
   href: string;
   color: 'blue' | 'green' | 'purple' | 'orange' | 'red';
   badgeCount?: number;
-  alert?: boolean;
+  variant?: 'default' | 'active' | 'alert';
 }
 
 export function StatCard({
@@ -22,7 +22,7 @@ export function StatCard({
   href,
   color,
   badgeCount,
-  alert,
+  variant = 'default',
 }: StatCardProps) {
   const colorStyles = {
     blue: 'bg-blue-50 text-blue-600 group-hover:bg-blue-100',
@@ -32,14 +32,21 @@ export function StatCard({
     red: 'bg-red-50 text-red-600 group-hover:bg-red-100',
   };
 
+  const getBorderClass = () => {
+    switch (variant) {
+      case 'alert':
+        return 'border-orange-400 ring-2 ring-orange-100 animate-pulse';
+      case 'active':
+        return 'border-orange-400 ring-1 ring-orange-50';
+      default:
+        return 'border-gray-100';
+    }
+  };
+
   return (
     <Link
       href={href}
-      className={`group bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full relative ${
-        alert
-          ? 'border-orange-400 ring-2 ring-orange-100 animate-pulse'
-          : 'border-gray-100'
-      }`}
+      className={`group bg-white p-4 rounded-xl border shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between h-full relative ${getBorderClass()}`}
     >
       <div className="flex items-start justify-between mb-3">
         <div
