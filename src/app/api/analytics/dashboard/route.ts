@@ -129,6 +129,27 @@ export async function GET(request: NextRequest) {
       dateTruncSql = Prisma.sql`DATE_TRUNC('day', "createdAt")`;
     else dateTruncSql = Prisma.sql`DATE_TRUNC('hour', "createdAt")`;
 
+    // If no restaurants, return empty data structure immediately
+    if (restaurantIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        timeframe,
+        analytics: {
+          overview: {
+            totalOrders: 0,
+            totalRevenue: 0,
+            avgOrderValue: 0,
+            ordersByStatus: [],
+          },
+          totalMenuItemsCount: 0,
+          topMenuItems: [],
+          trends: { sales: [] },
+          tableUtilization: [],
+          staffPerformance: [],
+        },
+      });
+    }
+
     // Get analytics data in parallel
     const [
       totalOrders,
@@ -198,10 +219,10 @@ export async function GET(request: NextRequest) {
       prisma.$queryRaw`
         SELECT 
           ${dateTruncSql} as date,
-          COUNT(*) as order_count,
-          SUM("totalAmount") as revenue
+          CAST(COUNT(*) AS INTEGER) as order_count,
+          CAST(COALESCE(SUM("totalAmount"), 0) AS DOUBLE PRECISION) as revenue
         FROM "orders" 
-        WHERE "restaurantId" = ANY(${restaurantIds})
+        WHERE "restaurantId" IN (${Prisma.join(restaurantIds)})
           AND "createdAt" >= ${startDate}
           AND "status" != 'CANCELLED'
         GROUP BY 1
