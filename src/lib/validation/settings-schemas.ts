@@ -34,18 +34,6 @@ export type GeneralInfo = z.infer<typeof GeneralInfoSchema>;
 // OPERATING HOURS
 // ============================================================================
 
-// Valid IANA timezones for Southeast Asia + UTC
-const VALID_TIMEZONES = [
-  'Asia/Kuala_Lumpur',
-  'Asia/Singapore',
-  'Asia/Bangkok',
-  'Asia/Jakarta',
-  'Asia/Manila',
-  'Asia/Hong_Kong',
-  'Asia/Tokyo',
-  'UTC',
-] as const;
-
 // Time slot with validation that close time is after open time
 export const TimeSlotSchema = z
   .object({
@@ -77,7 +65,6 @@ export const TimeSlotSchema = z
   );
 
 export const OperatingHoursSchema = z.object({
-  timezone: z.enum(VALID_TIMEZONES),
   operatingHours: z.object({
     monday: z.array(TimeSlotSchema).optional(),
     tuesday: z.array(TimeSlotSchema).optional(),

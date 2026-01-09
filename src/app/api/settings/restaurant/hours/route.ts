@@ -12,6 +12,7 @@ import {
 } from '@/lib/tenant-context';
 import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 import { OperatingHoursSchema } from '@/lib/validation/settings-schemas';
+import { DEFAULT_RESTAURANT_TIMEZONE } from '@/lib/constants';
 
 /**
  * PUT /api/settings/restaurant/hours
@@ -42,10 +43,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // 3. Update restaurant
+    // Backend enforces timezone - frontend cannot override
     const updatedRestaurant = await prisma.restaurant.update({
       where: { id: restaurantId },
       data: {
-        timezone: result.data.timezone,
+        timezone: DEFAULT_RESTAURANT_TIMEZONE,
         operatingHours: result.data.operatingHours,
       },
       select: {

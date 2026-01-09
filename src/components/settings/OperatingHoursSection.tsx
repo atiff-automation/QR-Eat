@@ -7,6 +7,7 @@
 
 import { useState } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { TIMEZONE_DISPLAY_NAME } from '@/lib/constants';
 import {
   AlertTriangle,
   CheckCircle,
@@ -36,7 +37,6 @@ interface OperatingHours {
 }
 
 interface OperatingHoursData {
-  timezone: string;
   operatingHours: OperatingHours;
 }
 
@@ -44,13 +44,6 @@ interface OperatingHoursSectionProps {
   initialData: OperatingHoursData;
   onUpdate: () => void;
 }
-
-/**
- * Default timezone for MVP
- * Fixed to Asia/Kuala_Lumpur (GMT+8) to avoid confusion
- * when owners set hours from different timezones
- */
-const DEFAULT_TIMEZONE = 'Asia/Kuala_Lumpur';
 
 const DAYS = [
   'monday',
@@ -106,7 +99,6 @@ const normalizeOperatingHours = (
   }
 
   return {
-    timezone: data.timezone || DEFAULT_TIMEZONE,
     operatingHours: normalizedHours,
   };
 };
@@ -152,6 +144,7 @@ export function OperatingHoursSection({
     setIsLoading(true);
 
     try {
+      // Send only operating hours - backend sets timezone
       await ApiClient.put('/settings/restaurant/hours', formData);
       setSuccess('Operating hours updated successfully!');
       onUpdate();
@@ -256,6 +249,21 @@ export function OperatingHoursSection({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Read-only Timezone Display */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <label className="block text-xs font-medium text-blue-700 mb-1.5">
+            Timezone (Read-only)
+          </label>
+          <div className="flex items-center gap-2">
+            <span className="font-medium text-blue-900 text-base">
+              {TIMEZONE_DISPLAY_NAME}
+            </span>
+            <span className="text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded">
+              Fixed for MVP
+            </span>
+          </div>
+        </div>
+
         {/* Weekly Schedule - Accordion List */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           {DAYS.map((day, index) => {

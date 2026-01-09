@@ -190,7 +190,6 @@ function SettingsContent() {
         return (
           <OperatingHoursSection
             initialData={{
-              timezone: settings.timezone || 'Asia/Kuala_Lumpur',
               operatingHours: settings.operatingHours || {
                 monday: {
                   isOpen: true,
