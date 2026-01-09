@@ -13,6 +13,7 @@ interface OverviewStats {
   tablesActive: number;
   tablesTotal: number;
   menuItemsCount: number;
+  pendingOrdersCount?: number;
 }
 
 interface DashboardStatsGridProps {
@@ -38,6 +39,8 @@ export function DashboardStatsGrid({
     );
   }
 
+  const hasPendingOrders = (stats.pendingOrdersCount || 0) > 0;
+
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
       <StatCard
@@ -47,6 +50,8 @@ export function DashboardStatsGrid({
         icon={ClipboardList}
         href="/dashboard/orders"
         color="blue"
+        badgeCount={stats.pendingOrdersCount}
+        alert={hasPendingOrders}
       />
       <StatCard
         title="Tables"

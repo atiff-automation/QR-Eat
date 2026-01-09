@@ -20,6 +20,10 @@ interface AnalyticsResponse {
   analytics: {
     overview: {
       totalOrders: number;
+      ordersByStatus: Array<{
+        status: string;
+        count: number;
+      }>;
     };
     tableUtilization: Array<{
       status: string;
@@ -41,12 +45,14 @@ export default function DashboardPage() {
     tablesActive: number;
     tablesTotal: number;
     menuItemsCount: number;
+    pendingOrdersCount: number;
     salesTrend: SalesData[];
   }>({
     ordersCount: 0,
     tablesActive: 18,
     tablesTotal: 25,
     menuItemsCount: 0,
+    pendingOrdersCount: 0,
     salesTrend: [],
   });
 
@@ -70,6 +76,10 @@ export default function DashboardPage() {
           ).length,
           tablesTotal: data.analytics.tableUtilization.length || 0,
           menuItemsCount: data.analytics.totalMenuItemsCount || 0,
+          pendingOrdersCount:
+            data.analytics.overview.ordersByStatus.find(
+              (s) => s.status === 'PENDING'
+            )?.count || 0,
           salesTrend: data.analytics.trends.sales || [],
         });
       }
@@ -134,6 +144,7 @@ export default function DashboardPage() {
           tablesActive: stats.tablesActive,
           tablesTotal: stats.tablesTotal,
           menuItemsCount: stats.menuItemsCount,
+          pendingOrdersCount: stats.pendingOrdersCount,
         }}
         loading={loading}
       />
