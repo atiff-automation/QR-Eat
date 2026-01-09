@@ -87,16 +87,9 @@ export default function DashboardPage() {
   return (
     <div className="p-4 sm:p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header & Time Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Overview of your restaurant performance
-          </p>
-        </div>
-
-        {/* Timeframe Pill Selector */}
-        <div className="bg-gray-100 p-1 rounded-xl inline-flex self-start sm:self-auto">
+      {/* Timeframe Selector */}
+      <div className="flex flex-col sm:flex-row justify-end mb-4">
+        <div className="bg-gray-100 p-1 rounded-xl inline-flex self-center sm:self-auto">
           {(['daily', 'weekly', 'monthly', 'yearly'] as Timeframe[]).map(
             (t) => (
               <button
