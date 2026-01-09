@@ -144,8 +144,26 @@ export function OperatingHoursSection({
     setIsLoading(true);
 
     try {
+      // Transform data to match backend schema
+      // Backend expects: { monday: TimeSlot[], tuesday: TimeSlot[], ... }
+      // Frontend has: { monday: {isOpen, slots}, tuesday: {isOpen, slots}, ... }
+      const transformedHours: Record<
+        string,
+        { open: string; close: string }[]
+      > = {};
+
+      DAYS.forEach((day) => {
+        const daySchedule = formData.operatingHours[day];
+        // Only include slots if day is open, otherwise send empty array
+        transformedHours[day] = daySchedule.isOpen ? daySchedule.slots : [];
+      });
+
+      const payload = {
+        operatingHours: transformedHours,
+      };
+
       // Send only operating hours - backend sets timezone
-      await ApiClient.put('/settings/restaurant/hours', formData);
+      await ApiClient.put('/settings/restaurant/hours', payload);
       setSuccess('Operating hours updated successfully!');
       onUpdate();
       setTimeout(() => setSuccess(''), 3000);
