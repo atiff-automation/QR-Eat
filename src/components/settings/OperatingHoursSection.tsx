@@ -5,7 +5,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { TIMEZONE_DISPLAY_NAME } from '@/lib/constants';
 import {
@@ -84,16 +84,25 @@ const normalizeOperatingHours = (
     sunday: { isOpen: false, slots: [] },
   };
 
-  // If operatingHours exists and has the correct structure, use it
+  // If operatingHours exists, normalize it
   if (data.operatingHours) {
     DAYS.forEach((day) => {
       const dayData = data.operatingHours[day];
+
+      // Handle frontend format: {isOpen, slots}
       if (
         dayData &&
         typeof dayData.isOpen === 'boolean' &&
         Array.isArray(dayData.slots)
       ) {
         normalizedHours[day] = dayData;
+      }
+      // Handle backend format: TimeSlot[] array
+      else if (Array.isArray(dayData)) {
+        normalizedHours[day] = {
+          isOpen: dayData.length > 0, // If has slots, it's open
+          slots: dayData,
+        };
       }
     });
   }
@@ -134,7 +143,14 @@ export function OperatingHoursSection({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
+  // Update formData when initialData changes (e.g., after save)
+  useEffect(() => {
+    setFormData(normalizeOperatingHours(initialData));
+  }, [initialData]);
+
+  const hasChanges =
+    JSON.stringify(formData) !==
+    JSON.stringify(normalizeOperatingHours(initialData));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
