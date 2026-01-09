@@ -121,15 +121,14 @@ function LoginForm() {
         <div className="bg-white/95 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-10 border border-white/20">
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
-            <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg">
-              <div className="relative w-10 h-10 sm:w-12 sm:h-12">
-                <Image
-                  src="/icons/icon-192x192.png"
-                  alt="Tabtep Logo"
-                  fill
-                  className="object-contain"
-                />
-              </div>
+            <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-4">
+              <Image
+                src="/icons/icon-192x192.png"
+                alt="Tabtep Logo"
+                fill
+                className="object-cover rounded-2xl shadow-xl"
+                priority
+              />
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               {formConfig.title}
