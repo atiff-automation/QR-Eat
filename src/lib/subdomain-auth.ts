@@ -283,7 +283,7 @@ export function getLoginFormConfig(authContext: SubdomainAuthContext): {
 
   return {
     title: 'Tabtep',
-    subtitle: 'Multi-Tenant SaaS Login',
+    subtitle: 'QR Ordering, POS & KDS — All from Your Phone',
     showQuickLogin: process.env.NODE_ENV === 'development',
     quickLoginOptions: [
       {
