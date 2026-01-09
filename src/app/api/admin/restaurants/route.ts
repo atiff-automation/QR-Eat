@@ -162,12 +162,8 @@ export async function POST(request: NextRequest) {
           passwordHash: hashedPassword,
           firstName: Sanitizer.sanitizeString(requestData.ownerFirstName),
           lastName: Sanitizer.sanitizeString(requestData.ownerLastName),
-          phone: requestData.ownerPhone
-            ? Sanitizer.sanitizePhone(requestData.ownerPhone)
-            : null,
-          companyName: requestData.ownerCompanyName
-            ? Sanitizer.sanitizeString(requestData.ownerCompanyName)
-            : null,
+          phone: null,
+          companyName: null,
           isActive: true,
           emailVerified: false,
           mustChangePassword: true,
