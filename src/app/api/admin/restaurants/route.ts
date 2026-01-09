@@ -201,6 +201,17 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Create UserRole for the owner (Required for RBAC login)
+      await tx.userRole.create({
+        data: {
+          userId: owner.id,
+          userType: 'restaurant_owner',
+          restaurantId: restaurant.id,
+          roleTemplate: 'restaurant_owner',
+          isActive: true,
+        },
+      });
+
       return { owner, restaurant, tempPassword };
     });
 
