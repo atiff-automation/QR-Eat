@@ -34,10 +34,6 @@ export const metadata: Metadata = {
     title: 'Tabtep',
   },
   manifest: '/manifest.json',
-  icons: {
-    icon: '/icons/icon-192x192.png',
-    apple: '/icons/apple-touch-icon.png',
-  },
 };
 
 export default function RootLayout({
