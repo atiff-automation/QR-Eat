@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import './login.css';
 import {
   getClientSubdomainAuthContext,
@@ -121,19 +122,14 @@ function LoginForm() {
           {/* Header */}
           <div className="text-center mb-6 sm:mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-xl sm:rounded-2xl mb-3 sm:mb-4 shadow-lg">
-              <svg
-                className="w-7 h-7 sm:w-8 sm:h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              <div className="relative w-10 h-10 sm:w-12 sm:h-12">
+                <Image
+                  src="/icons/icon-192x192.png"
+                  alt="Tabtep Logo"
+                  fill
+                  className="object-contain"
                 />
-              </svg>
+              </div>
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-purple-600 to-indigo-600 bg-clip-text text-transparent">
               {formConfig.title}
