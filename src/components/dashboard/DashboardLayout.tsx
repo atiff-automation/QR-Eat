@@ -218,7 +218,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             }`}
           >
             <div className="flex items-center justify-between p-4 border-b border-gray-200">
-              <span className="text-lg font-semibold text-gray-900">Menu</span>
+              <span className="text-lg font-semibold text-gray-900">
+                {restaurantContext?.name || 'Menu'}
+              </span>
               <button
                 onClick={() => setIsSidebarOpen(false)}
                 className="text-gray-400 hover:text-gray-600"
