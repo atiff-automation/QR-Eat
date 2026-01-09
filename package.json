@@ -23,7 +23,8 @@
     "test:coverage": "jest --coverage",
     "test:admin": "jest src/app/api/admin",
     "test:rbac": "jest src/lib/rbac",
-    "test:ci": "jest --ci --coverage --watchAll=false"
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "generate-vapid-keys": "tsx scripts/generate-vapid-keys.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.11.1",
