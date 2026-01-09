@@ -40,13 +40,8 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
     setError('');
     setSuccess('');
 
-    // Validation
-    if (
-      !formData.name ||
-      !formData.address ||
-      !formData.phone ||
-      !formData.email
-    ) {
+    // Validation - exclude name from required fields
+    if (!formData.address || !formData.phone || !formData.email) {
       setError('Please fill in all required fields');
       return;
     }
@@ -54,7 +49,10 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
     setIsLoading(true);
 
     try {
-      await ApiClient.put('/settings/restaurant/general', formData);
+      // Remove name from update data
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { name, ...updateData } = formData;
+      await ApiClient.put('/settings/restaurant/general', updateData);
       setSuccess('General information updated successfully!');
       onUpdate();
       setTimeout(() => setSuccess(''), 3000);
@@ -98,15 +96,14 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
           </label>
           <input
             type="text"
-            required
             value={formData.name}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, name: e.target.value }))
-            }
-            className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-            placeholder="My Restaurant"
-            disabled={isLoading}
+            disabled={true}
+            className="w-full px-3 py-2 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed opacity-75 font-medium text-gray-900"
+            title="Restaurant name is permanent and can only be changed by platform administrator"
           />
+          <p className="text-xs text-gray-500 mt-1">
+            🔒 Contact platform administrator to change restaurant name
+          </p>
         </div>
 
         <div>

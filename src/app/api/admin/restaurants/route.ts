@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { AuthService } from '@/lib/auth';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { validateApiInput, Sanitizer } from '@/lib/validation';
 import { EmailService } from '@/lib/email';
@@ -88,22 +89,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Comprehensive input validation
+    // Comprehensive input validation - only 6 required fields
     const validation = validateApiInput(requestData, {
-      // Restaurant data
+      // Restaurant data (3 fields)
       name: { required: true, type: 'string', minLength: 2, maxLength: 100 },
       slug: { required: true, type: 'string', minLength: 2, maxLength: 50 },
       address: { required: true, type: 'string', minLength: 5, maxLength: 200 },
-      phone: { required: false, type: 'string' },
-      email: { required: false, type: 'email' },
-      timezone: { required: true, type: 'string' },
-      currency: { required: true, type: 'string' },
-      businessType: { required: true, type: 'string' },
-      description: { required: false, type: 'string', maxLength: 500 },
-      website: { required: false, type: 'url' },
-      priceRange: { required: true, type: 'string' },
 
-      // Owner data
+      // Owner data (3 fields)
       ownerFirstName: {
         required: true,
         type: 'string',
@@ -117,15 +110,6 @@ export async function POST(request: NextRequest) {
         maxLength: 50,
       },
       ownerEmail: { required: true, type: 'email' },
-      ownerPhone: { required: false, type: 'string' },
-      ownerCompanyName: { required: false, type: 'string', maxLength: 100 },
-
-      // Settings
-      taxRate: { required: false, type: 'string' },
-      serviceChargeRate: { required: false, type: 'string' },
-      acceptsReservations: { required: false, type: 'boolean' },
-      deliveryAvailable: { required: false, type: 'boolean' },
-      takeoutAvailable: { required: false, type: 'boolean' },
     });
 
     if (!validation.isValid) {
@@ -190,42 +174,33 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Create restaurant
+      // Create restaurant with Malaysian defaults
       const restaurant = await tx.restaurant.create({
         data: {
           ownerId: owner.id,
           name: Sanitizer.sanitizeString(requestData.name),
           slug: requestData.slug.toLowerCase(),
           address: Sanitizer.sanitizeString(requestData.address),
-          phone: requestData.phone
-            ? Sanitizer.sanitizePhone(requestData.phone)
-            : null,
-          email: requestData.email
-            ? Sanitizer.sanitizeEmail(requestData.email)
-            : null,
-          timezone: requestData.timezone,
-          currency: requestData.currency,
-          businessType: requestData.businessType,
-          description: requestData.description
-            ? Sanitizer.sanitizeString(requestData.description)
-            : null,
-          website: requestData.website || null,
-          priceRange: requestData.priceRange,
-          taxRate: requestData.taxRate
-            ? parseFloat(requestData.taxRate)
-            : 0.085,
-          serviceChargeRate: requestData.serviceChargeRate
-            ? parseFloat(requestData.serviceChargeRate)
-            : 0.12,
-          acceptsReservations: Sanitizer.sanitizeBoolean(
-            requestData.acceptsReservations ?? false
-          ),
-          deliveryAvailable: Sanitizer.sanitizeBoolean(
-            requestData.deliveryAvailable ?? false
-          ),
-          takeoutAvailable: Sanitizer.sanitizeBoolean(
-            requestData.takeoutAvailable ?? true
-          ),
+
+          // Malaysian defaults
+          timezone: 'Asia/Kuala_Lumpur',
+          currency: 'MYR',
+          taxRate: 0.06, // 6% SST (Malaysian Sales & Service Tax)
+          serviceChargeRate: 0.1, // 10% service charge
+
+          // Sensible defaults
+          businessType: 'restaurant',
+          priceRange: '$$',
+          acceptsReservations: false,
+          deliveryAvailable: false,
+          takeoutAvailable: true,
+
+          // Optional fields - null by default
+          phone: null,
+          email: null,
+          description: null,
+          website: null,
+
           isActive: true,
         },
       });
@@ -293,7 +268,11 @@ export async function POST(request: NextRequest) {
       {
         error: 'Failed to create restaurant',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : 'Unknown error'
+            : undefined,
       },
       { status: 500 }
     );
