@@ -45,21 +45,12 @@ interface OperatingHoursSectionProps {
   onUpdate: () => void;
 }
 
-const TIMEZONES = [
-  'Asia/Kuala_Lumpur',
-  'Asia/Singapore',
-  'Asia/Bangkok',
-  'Asia/Jakarta',
-  'Asia/Manila',
-  'Asia/Hong_Kong',
-  'Asia/Tokyo',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-  'America/New_York',
-  'America/Los_Angeles',
-  'Europe/London',
-  'Europe/Paris',
-];
+/**
+ * Default timezone for MVP
+ * Fixed to Asia/Kuala_Lumpur (GMT+8) to avoid confusion
+ * when owners set hours from different timezones
+ */
+const DEFAULT_TIMEZONE = 'Asia/Kuala_Lumpur';
 
 const DAYS = [
   'monday',
@@ -115,7 +106,7 @@ const normalizeOperatingHours = (
   }
 
   return {
-    timezone: data.timezone || 'Asia/Kuala_Lumpur',
+    timezone: data.timezone || DEFAULT_TIMEZONE,
     operatingHours: normalizedHours,
   };
 };
@@ -265,28 +256,6 @@ export function OperatingHoursSection({
       )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Timezone Selector */}
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
-          <label className="block text-xs font-medium text-gray-500 mb-1.5">
-            Timezone
-          </label>
-          <select
-            required
-            value={formData.timezone}
-            onChange={(e) =>
-              setFormData((prev) => ({ ...prev, timezone: e.target.value }))
-            }
-            className="w-full px-0 py-0 bg-transparent border-0 focus:ring-0 outline-none font-medium text-gray-900 text-base"
-            disabled={isLoading}
-          >
-            {TIMEZONES.map((tz) => (
-              <option key={tz} value={tz}>
-                {tz}
-              </option>
-            ))}
-          </select>
-        </div>
-
         {/* Weekly Schedule - Accordion List */}
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           {DAYS.map((day, index) => {
