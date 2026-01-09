@@ -26,6 +26,8 @@ export const GeneralInfoSchema = z.object({
     .optional(),
 });
 
+export const GeneralInfoUpdateSchema = GeneralInfoSchema.omit({ name: true });
+
 export type GeneralInfo = z.infer<typeof GeneralInfoSchema>;
 
 // ============================================================================

@@ -11,7 +11,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
-import { GeneralInfoSchema } from '@/lib/validation/settings-schemas';
+import { GeneralInfoUpdateSchema } from '@/lib/validation/settings-schemas';
 
 /**
  * PUT /api/settings/restaurant/general
@@ -29,7 +29,7 @@ export async function PUT(request: NextRequest) {
 
     // 2. Parse and validate request body
     const body = await request.json();
-    const result = GeneralInfoSchema.safeParse(body);
+    const result = GeneralInfoUpdateSchema.safeParse(body);
 
     if (!result.success) {
       return NextResponse.json(
