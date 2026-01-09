@@ -322,8 +322,11 @@ export default function NewRestaurantPage() {
       {/* Credentials Modal */}
       {showCredentialsModal && createdRestaurant && (
         <CredentialsModal
-          username={createdRestaurant.owner.email}
-          password={createdRestaurant.owner.tempPassword}
+          isOpen={showCredentialsModal}
+          credentials={{
+            username: createdRestaurant.owner.email,
+            password: createdRestaurant.owner.tempPassword,
+          }}
           staffName={createdRestaurant.restaurant.name}
           staffEmail={createdRestaurant.owner.email}
           onClose={handleCloseCredentialsModal}
