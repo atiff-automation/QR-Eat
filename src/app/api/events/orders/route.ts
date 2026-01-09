@@ -16,6 +16,7 @@ import {
   SSE_RESPONSE_HEADERS,
   SSE_EVENT_TYPES,
 } from '@/lib/constants/sse';
+import { pushNotificationService } from '@/lib/push-notification-service';
 
 // Connection tracking types
 interface ActiveConnection {
@@ -280,6 +281,17 @@ function handlePostgresMessage(
       type: sseEvent.type,
       eventId: (eventData as { orderId?: string }).orderId || 'unknown',
     });
+
+    // Send push notification for new orders
+    if (
+      sseEvent.type === SSE_EVENT_TYPES.ORDER_CREATED &&
+      connection.restaurantId
+    ) {
+      // Send push notification in background (don't await)
+      sendPushNotification(connection.restaurantId, eventData).catch((error) =>
+        console.error('[Push] Error sending notification:', error)
+      );
+    }
   } catch (error) {
     console.error(
       `[SSE] Error handling PostgreSQL message for ${connectionId}:`,
@@ -355,6 +367,45 @@ function cleanup(connectionId: string) {
     activeConnections.delete(connectionId);
 
     console.log(`[SSE] Connection ${connectionId} cleaned up successfully`);
+  }
+}
+
+/**
+ * Send push notification for new order
+ */
+async function sendPushNotification(
+  restaurantId: string,
+  eventData: unknown
+): Promise<void> {
+  try {
+    const orderData = eventData as {
+      orderId?: string;
+      orderNumber?: string;
+      totalAmount?: number;
+    };
+
+    const payload = {
+      title: 'New Order',
+      body: `Order #${orderData.orderNumber || orderData.orderId || 'Unknown'} received`,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/badge-72x72.png',
+      data: {
+        orderId: orderData.orderId,
+        url: `/dashboard/orders?id=${orderData.orderId}`,
+      },
+    };
+
+    const result = await pushNotificationService.sendToRestaurant(
+      restaurantId,
+      payload
+    );
+
+    console.log(
+      `[Push] Notification sent for order ${orderData.orderId}: ${result.sent} sent, ${result.failed} failed`
+    );
+  } catch (error) {
+    console.error('[Push] Error sending push notification:', error);
+    // Don't throw - push notification failure shouldn't affect SSE
   }
 }
 
