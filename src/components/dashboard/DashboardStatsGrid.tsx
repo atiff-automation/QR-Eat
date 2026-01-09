@@ -52,7 +52,7 @@ export function DashboardStatsGrid({
         href="/dashboard/orders"
         color="blue"
         badgeCount={stats.pendingOrdersCount}
-        variant={hasPendingOrders ? 'alert' : 'default'}
+        variant={hasPendingOrders ? 'active' : 'default'}
       />
       <StatCard
         title="Tables"

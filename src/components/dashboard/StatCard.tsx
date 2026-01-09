@@ -56,7 +56,7 @@ export function StatCard({
         </div>
 
         {badgeCount !== undefined && badgeCount > 0 && (
-          <div className="flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs font-bold rounded-full shadow-sm animate-bounce">
+          <div className="flex items-center justify-center w-6 h-6 bg-orange-500 text-white text-xs font-bold rounded-full shadow-sm animate-bounce">
             {badgeCount > 99 ? '99+' : badgeCount}
           </div>
         )}

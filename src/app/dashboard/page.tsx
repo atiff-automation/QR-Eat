@@ -72,7 +72,7 @@ export default function DashboardPage() {
           ordersCount: data.analytics.overview.totalOrders,
           // Use table utilization data if available to count active tables
           tablesActive: data.analytics.tableUtilization.filter(
-            (t) => t.status === 'OCCUPIED' || t.ordersCount > 0
+            (t) => t.status === 'OCCUPIED'
           ).length,
           tablesTotal: data.analytics.tableUtilization.length || 0,
           menuItemsCount: data.analytics.totalMenuItemsCount || 0,
