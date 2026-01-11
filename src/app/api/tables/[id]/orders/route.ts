@@ -77,6 +77,7 @@ export async function GET(
           select: {
             tableNumber: true,
             tableName: true,
+            locationDescription: true,
           },
         },
         customerSession: {
