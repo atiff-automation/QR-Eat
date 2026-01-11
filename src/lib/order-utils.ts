@@ -1,18 +1,5 @@
 import { CartItem } from '@/types/menu';
 
-/**
- * Generate a random order number
- * @deprecated Use SequenceManager.getNextOrder() instead
- */
-export function generateOrderNumber(): string {
-  console.warn('Using deprecated generateOrderNumber()');
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.floor(Math.random() * 1000)
-    .toString()
-    .padStart(3, '0');
-  return `ORD-${timestamp}-${random}`;
-}
-
 export function calculateOrderTotals(
   items: CartItem[],
   taxRate: number,
