@@ -12,14 +12,14 @@
 
 import { useState } from 'react';
 import type { ReceiptProps } from '@/types/pos';
-import { formatReceiptData } from '@/lib/utils/receipt-formatter';
 import { QrCode, X } from 'lucide-react';
 import { ReceiptQRDisplay } from './ReceiptQRDisplay';
+import { ReceiptCard } from '@/components/receipt/ReceiptCard';
+import { adaptPosToDisplay } from '@/lib/utils/receipt-adapter';
 
 export function Receipt({
   order,
   payment,
-  currency = 'MYR',
   restaurantInfo,
   cashierInfo,
   onClose,
@@ -36,31 +36,30 @@ export function Receipt({
     })),
   });
 
-  const receiptText = formatReceiptData(
-    {
-      receiptNumber: payment.receiptNumber || 'N/A',
-      order,
-      payment,
-      restaurant: {
-        name: restaurantInfo.name,
-        address: restaurantInfo.address,
-        phone: restaurantInfo.phone,
-        email: restaurantInfo.email,
-        taxLabel: order.taxLabel,
-        serviceChargeLabel: order.serviceChargeLabel,
-      },
-      cashier: {
-        firstName: cashierInfo.firstName,
-        lastName: cashierInfo.lastName,
-      },
+  // Create unified receipt data structure
+  const receiptData = {
+    receiptNumber: payment.receiptNumber || 'N/A',
+    order,
+    payment,
+    restaurant: {
+      name: restaurantInfo.name,
+      address: restaurantInfo.address,
+      phone: restaurantInfo.phone,
+      email: restaurantInfo.email,
     },
-    currency
-  );
+    cashier: {
+      firstName: cashierInfo.firstName,
+      lastName: cashierInfo.lastName,
+    },
+  };
+
+  const receiptDisplayData = adaptPosToDisplay(receiptData);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[70]">
-      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4">
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
+      <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
           <h3 className="text-lg font-semibold text-gray-900">
             Payment Receipt
           </h3>
@@ -72,11 +71,13 @@ export function Receipt({
           </button>
         </div>
 
-        <div className="p-6">
-          <div className="bg-gray-50 p-4 rounded-lg mb-6 overflow-x-auto">
-            <pre className="text-xs font-mono whitespace-pre">
-              {receiptText}
-            </pre>
+        {/* Scrollable Content */}
+        <div className="p-6 overflow-y-auto">
+          {/* Card Wrapper for consistent shadow/border if needed, 
+              though ReceiptCard has its own shadow. 
+              We'll add a bit of padding/bg to distinguish it from the modal. */}
+          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <ReceiptCard data={receiptDisplayData} />
           </div>
 
           <div className="flex gap-3">

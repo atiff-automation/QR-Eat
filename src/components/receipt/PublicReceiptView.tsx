@@ -14,6 +14,8 @@
 
 import type { PublicReceiptData } from '@/types/pos';
 import { Printer } from 'lucide-react';
+import { ReceiptCard } from '@/components/receipt/ReceiptCard';
+import { adaptPublicToDisplay } from '@/lib/utils/receipt-adapter';
 
 interface PublicReceiptViewProps {
   receipt: PublicReceiptData;
@@ -24,19 +26,7 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
     window.print();
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RM ${amount.toFixed(2)}`;
-  };
-
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleString('en-MY', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  const receiptDisplayData = adaptPublicToDisplay(receipt);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -54,135 +44,9 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
         </p>
       </div>
 
-      {/* Receipt Display - Thermal Printer Style */}
-      <div className="max-w-md mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
-        <div className="p-6 font-mono text-sm">
-          {/* Header */}
-          <div className="text-center mb-4 pb-4 border-b-2 border-dashed border-gray-300">
-            <h1 className="text-lg font-bold mb-1 text-black">
-              {receipt.restaurant.name}
-            </h1>
-            <p className="text-xs text-black">{receipt.restaurant.address}</p>
-            <p className="text-xs text-black">
-              Tel: {receipt.restaurant.phone}
-            </p>
-            {receipt.restaurant.email && (
-              <p className="text-xs text-black">{receipt.restaurant.email}</p>
-            )}
-          </div>
-
-          {/* Receipt Info */}
-          <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Receipt #:</span>
-              <span className="font-semibold text-black">
-                {receipt.receiptNumber}
-              </span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Order #:</span>
-              <span className="text-black">{receipt.order.orderNumber}</span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Date:</span>
-              <span className="text-black">
-                {formatDate(receipt.order.createdAt)}
-              </span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Table:</span>
-              <span className="text-black">{receipt.order.tableName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-black">Cashier:</span>
-              <span className="text-black">
-                {receipt.cashier.firstName} {receipt.cashier.lastName}
-              </span>
-            </div>
-          </div>
-
-          {/* Items */}
-          <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
-            {receipt.order.items.map((item, index) => (
-              <div key={index} className="mb-2">
-                <div className="flex justify-between">
-                  <span className="text-black">
-                    {item.name} x{item.quantity}
-                  </span>
-                  <span className="text-black">
-                    {formatCurrency(item.totalAmount)}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Totals */}
-          <div className="mb-4">
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Subtotal:</span>
-              <span className="text-black">
-                {formatCurrency(receipt.order.subtotalAmount)}
-              </span>
-            </div>
-            <div className="flex justify-between mb-1">
-              <span className="text-black">
-                {receipt.restaurant.taxLabel || 'Tax'}:
-              </span>
-              <span className="text-black">
-                {formatCurrency(receipt.order.taxAmount)}
-              </span>
-            </div>
-            <div className="flex justify-between mb-2">
-              <span className="text-black">
-                {receipt.restaurant.serviceChargeLabel || 'Service Charge'}:
-              </span>
-              <span className="text-black">
-                {formatCurrency(receipt.order.serviceCharge)}
-              </span>
-            </div>
-            <div className="flex justify-between text-lg font-bold pt-2 border-t border-gray-300">
-              <span className="text-black">TOTAL:</span>
-              <span className="text-black">
-                {formatCurrency(receipt.order.totalAmount)}
-              </span>
-            </div>
-          </div>
-
-          {/* Payment Details */}
-          <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
-            <div className="flex justify-between mb-1">
-              <span className="text-black">Payment Method:</span>
-              <span className="uppercase text-black">
-                {receipt.payment.method}
-              </span>
-            </div>
-            {receipt.payment.cashReceived && (
-              <>
-                <div className="flex justify-between mb-1">
-                  <span className="text-black">Cash Received:</span>
-                  <span className="text-black">
-                    {formatCurrency(receipt.payment.cashReceived)}
-                  </span>
-                </div>
-                {receipt.payment.changeGiven && (
-                  <div className="flex justify-between">
-                    <span className="text-black">Change Given:</span>
-                    <span className="text-black">
-                      {formatCurrency(receipt.payment.changeGiven)}
-                    </span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="text-center text-xs text-black">
-            <p className="mb-1">Thank you for dining with us!</p>
-            <p>Please come again!</p>
-          </div>
-        </div>
+      {/* Shared Receipt Card */}
+      <div className="max-w-md mx-auto">
+        <ReceiptCard data={receiptDisplayData} />
       </div>
 
       {/* Print Styles */}
