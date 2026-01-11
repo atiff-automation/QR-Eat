@@ -48,26 +48,32 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
         </div>
 
         {/* Receipt Info */}
-        <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
-          <div className="flex justify-between mb-1">
-            <span className="text-black">Receipt #:</span>
-            <span className="font-semibold text-black">{receiptNumber}</span>
+        <div className="mb-4 pb-4 border-b border-dashed border-gray-300 space-y-1">
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Receipt #:</span>
+            <span className="font-semibold text-black text-right break-all">
+              {receiptNumber}
+            </span>
           </div>
-          <div className="flex justify-between mb-1">
-            <span className="text-black">Order #:</span>
-            <span className="text-black">{order.orderNumber}</span>
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Order #:</span>
+            <span className="text-black text-right break-all">
+              {order.orderNumber}
+            </span>
           </div>
-          <div className="flex justify-between mb-1">
-            <span className="text-black">Date:</span>
-            <span className="text-black">{formatDate(order.createdAt)}</span>
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Date:</span>
+            <span className="text-black text-right">
+              {formatDate(order.createdAt)}
+            </span>
           </div>
-          <div className="flex justify-between mb-1">
-            <span className="text-black">Table:</span>
-            <span className="text-black">{order.tableName}</span>
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Table:</span>
+            <span className="text-black text-right">{order.tableName}</span>
           </div>
-          <div className="flex justify-between">
-            <span className="text-black">Cashier:</span>
-            <span className="text-black">
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Cashier:</span>
+            <span className="text-black text-right">
               {cashier.firstName} {cashier.lastName}
             </span>
           </div>
