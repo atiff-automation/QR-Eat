@@ -514,6 +514,29 @@ export class ApiClient {
       method: 'DELETE',
     });
   }
+  /**
+   * Download a file from the API
+   * Handles binary data responses and supports JSON body
+   */
+  static async downloadFile(
+    endpoint: string,
+    options?: Omit<ApiRequestOptions, 'body'> & { body?: unknown }
+  ): Promise<Blob> {
+    const requestOptions = { ...options };
+
+    // Handle JSON body if provided as object
+    if (
+      requestOptions.body &&
+      typeof requestOptions.body === 'object' &&
+      !(requestOptions.body instanceof FormData) &&
+      !(requestOptions.body instanceof Blob) &&
+      !(requestOptions.body instanceof URLSearchParams)
+    ) {
+      requestOptions.body = JSON.stringify(requestOptions.body);
+    }
+
+    return this.request<Blob>(endpoint, requestOptions as ApiRequestOptions);
+  }
 }
 
 /**
