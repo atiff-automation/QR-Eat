@@ -17,6 +17,7 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [userInfo, setUserInfo] = useState<{
+    firstName: string;
     lastName: string;
     email: string;
     mustChangePassword?: boolean;
