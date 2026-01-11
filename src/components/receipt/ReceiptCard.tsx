@@ -138,7 +138,7 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
             <span className="text-black">Payment Method:</span>
             <span className="uppercase text-black">{payment.method}</span>
           </div>
-          {payment.cashReceived !== undefined && (
+          {payment.method === 'cash' && payment.cashReceived !== undefined && (
             <>
               <div className="flex justify-between mb-1">
                 <span className="text-black">Cash Received:</span>

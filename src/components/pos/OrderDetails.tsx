@@ -41,7 +41,7 @@ export function OrderDetails({
           <div>
             <p className="text-gray-600">Table</p>
             <p className="font-semibold text-gray-900">
-              {`Table ${order.table.tableNumber}${
+              {`${order.table.tableNumber}${
                 order.table.tableName ? ` - ${order.table.tableName}` : ''
               }`}
             </p>

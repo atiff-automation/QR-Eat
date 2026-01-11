@@ -41,7 +41,8 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
               : order.orderNumber}
           </p>
           <p className="text-sm text-gray-600">
-            Table {order.table.tableName || order.table.tableNumber}
+            Table {order.table.tableNumber}
+            {order.table.tableName ? ` - ${order.table.tableName}` : ''}
           </p>
         </div>
         <div className="text-right">
