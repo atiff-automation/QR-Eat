@@ -64,6 +64,7 @@ export async function GET(
       where: {
         tableId: tableId,
         paymentStatus: 'PENDING', // Only unpaid orders
+        status: { not: 'CANCELLED' },
       },
       include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
