@@ -21,6 +21,7 @@ export interface ReceiptDisplayData {
   order: {
     orderNumber: string;
     tableName: string;
+    tableLocation?: string;
     createdAt: Date;
     items: {
       name: string;

@@ -31,6 +31,7 @@ export function adaptPublicToDisplay(
     order: {
       orderNumber: data.order.orderNumber,
       tableName: data.order.tableName,
+      tableLocation: data.order.tableLocation,
       createdAt: new Date(data.order.createdAt),
       items: data.order.items.map((item) => ({
         name: item.name,
@@ -80,6 +81,7 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
     order: {
       orderNumber: order.orderNumber,
       tableName: order.table.tableName || order.table.tableNumber || 'N/A',
+      tableLocation: order.table.locationDescription || undefined,
       createdAt: new Date(order.createdAt),
       items: order.items.map((item) => ({
         name: item.menuItem.name,

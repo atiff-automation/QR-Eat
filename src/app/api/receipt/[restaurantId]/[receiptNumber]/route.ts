@@ -175,6 +175,8 @@ export async function GET(
         tableName:
           firstPayment.order.table.tableName ||
           firstPayment.order.table.tableNumber,
+        tableLocation:
+          firstPayment.order.table.locationDescription || undefined,
         items: allItems, // All items from all orders
         subtotalAmount: totalSubtotal,
         taxAmount: totalTax,
