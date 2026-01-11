@@ -72,11 +72,11 @@ export function Receipt({
         </div>
 
         {/* Scrollable Content */}
-        <div className="p-6 overflow-y-auto">
+        <div className="p-4 overflow-y-auto">
           {/* Card Wrapper for consistent shadow/border if needed, 
               though ReceiptCard has its own shadow. 
               We'll add a bit of padding/bg to distinguish it from the modal. */}
-          <div className="bg-gray-50 p-4 rounded-lg mb-6">
+          <div className="bg-gray-50 p-2 rounded-lg mb-4">
             <ReceiptCard data={receiptDisplayData} />
           </div>
 
