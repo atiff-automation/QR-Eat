@@ -170,7 +170,7 @@ export async function GET(
       },
       order: {
         orderNumber: isTablePayment
-          ? `TABLE-${payments.length}-ORDERS`
+          ? payments.map((p) => p.order.orderNumber).join(', ')
           : firstPayment.order.orderNumber,
         tableName:
           firstPayment.order.table.tableName ||
