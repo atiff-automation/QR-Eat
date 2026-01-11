@@ -6,6 +6,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { PAYMENT_STATUS } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { SequenceManager } from '@/lib/sequence-manager';
 
 // Validation schema for table payment
 const TablePaymentSchema = z.object({
@@ -14,13 +15,6 @@ const TablePaymentSchema = z.object({
   externalTransactionId: z.string().optional(),
   notes: z.string().optional(),
 });
-
-// Generate unique receipt number
-function generateReceiptNumber(): string {
-  const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
-  return `RCP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${timestamp}-${random}`;
-}
 
 /**
  * POST /api/pos/payment/table/[tableId]
@@ -127,8 +121,9 @@ export async function POST(
       );
     }
 
-    // Generate receipt number for this table payment
-    const receiptNumber = generateReceiptNumber();
+    // Generate sequential receipt number for this table payment
+    const { number: dailySeq, formatted: receiptNumber } =
+      await SequenceManager.getNextReceipt(restaurantId!);
 
     // Process all payments in a single transaction
     const result = await prisma.$transaction(async (tx) => {
@@ -162,6 +157,7 @@ export async function POST(
           cashReceived: orderCashReceived,
           changeGiven: orderChangeGiven,
           receiptNumber: `${receiptNumber}-${i + 1}`,
+          dailySeq: dailySeq,
           externalTransactionId: validatedData.externalTransactionId,
           paymentMetadata: {
             tablePayment: true,

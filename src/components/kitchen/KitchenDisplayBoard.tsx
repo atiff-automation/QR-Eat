@@ -10,6 +10,7 @@ import { KitchenClock } from '@/components/ui/LiveClock';
 interface KitchenOrder {
   id: string;
   orderNumber: string;
+  dailySeq?: number;
   status: string;
   totalAmount: number;
   createdAt: string;
@@ -429,16 +430,21 @@ export function KitchenDisplayBoard() {
               return (
                 <div
                   key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${priority === 'urgent'
+                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
+                    priority === 'urgent'
                       ? 'border-red-500'
                       : priority === 'warning'
                         ? 'border-orange-500'
                         : 'border-blue-500'
-                    }`}
+                  }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
-                      <h3 className="text-lg font-bold">{order.orderNumber}</h3>
+                      <h3 className="text-lg font-bold">
+                        {order.dailySeq
+                          ? `#${String(order.dailySeq).padStart(3, '0')}`
+                          : order.orderNumber}
+                      </h3>
                       <p className="text-sm text-gray-300">
                         Table {order.table.tableNumber}
                         {order.table.tableName && ` - ${order.table.tableName}`}
@@ -532,12 +538,13 @@ export function KitchenDisplayBoard() {
               return (
                 <div
                   key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${priority === 'urgent'
+                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
+                    priority === 'urgent'
                       ? 'border-red-500'
                       : priority === 'warning'
                         ? 'border-orange-500'
                         : 'border-orange-400'
-                    }`}
+                  }`}
                 >
                   <div className="flex justify-between items-start mb-3">
                     <div>
@@ -586,10 +593,11 @@ export function KitchenDisplayBoard() {
                           </div>
                           <button
                             onClick={() => updateItemStatus(item.id, 'READY')}
-                            className={`px-2 py-1 text-xs rounded ${item.status === 'READY'
+                            className={`px-2 py-1 text-xs rounded ${
+                              item.status === 'READY'
                                 ? 'bg-green-600 text-white'
                                 : 'bg-gray-600 hover:bg-green-600 text-gray-300'
-                              }`}
+                            }`}
                           >
                             {item.status === 'READY' ? '✓ Done' : 'Mark Done'}
                           </button>

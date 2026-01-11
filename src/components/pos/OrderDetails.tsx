@@ -23,7 +23,16 @@ export function OrderDetails({ order, currency = 'MYR' }: OrderDetailsProps) {
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div>
             <p className="text-gray-600">Order Number</p>
-            <p className="font-semibold text-gray-900">{order.orderNumber}</p>
+            <p className="font-semibold text-gray-900">
+              {order.dailySeq
+                ? `#${String(order.dailySeq).padStart(3, '0')}`
+                : order.orderNumber}
+            </p>
+            {order.dailySeq && (
+              <p className="text-[10px] text-gray-500 leading-tight break-all">
+                {order.orderNumber}
+              </p>
+            )}
           </div>
           <div>
             <p className="text-gray-600">Table</p>

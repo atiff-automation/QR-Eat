@@ -195,6 +195,7 @@ export interface PublicReceiptData {
   };
   order: {
     orderNumber: string;
+    dailySeq?: number;
     tableName: string;
     tableLocation?: string;
     items: {

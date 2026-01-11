@@ -32,6 +32,7 @@ export interface ReceiptDisplayData {
     taxAmount: number;
     serviceCharge: number;
     totalAmount: number;
+    dailySeq?: number;
   };
   payment: {
     method: string;

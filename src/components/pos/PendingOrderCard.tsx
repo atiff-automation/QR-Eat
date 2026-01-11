@@ -36,7 +36,9 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
       <div className="flex justify-between items-start mb-3">
         <div>
           <p className="font-semibold text-lg text-gray-900">
-            {order.orderNumber}
+            {order.dailySeq
+              ? `#${String(order.dailySeq).padStart(3, '0')}`
+              : order.orderNumber}
           </p>
           <p className="text-sm text-gray-600">
             Table {order.table.tableName || order.table.tableNumber}

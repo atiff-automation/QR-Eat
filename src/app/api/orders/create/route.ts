@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import {
-  generateOrderNumber,
-  calculateOrderTotals,
-  estimateReadyTime,
-} from '@/lib/order-utils';
+import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
+import { SequenceManager } from '@/lib/sequence-manager';
 import { CreateOrderRequest } from '@/types/order';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getCustomerContext } from '@/lib/get-tenant-context';
@@ -65,8 +62,9 @@ export async function POST(request: NextRequest) {
       parseFloat(table.restaurant.serviceChargeRate.toString())
     );
 
-    // Generate order number
-    const orderNumber = generateOrderNumber();
+    // Generate sequential order number
+    const { number: dailySeq, formatted: orderNumber } =
+      await SequenceManager.getNextOrder(table.restaurant.id);
 
     // Create or get customer session
     const sessionToken = crypto.randomUUID();
@@ -91,6 +89,7 @@ export async function POST(request: NextRequest) {
     const order = await prisma.order.create({
       data: {
         orderNumber,
+        dailySeq,
         restaurantId: table.restaurant.id,
         tableId,
         customerSessionId: customerSession.id,
@@ -171,6 +170,7 @@ export async function POST(request: NextRequest) {
       order: {
         id: order.id,
         orderNumber: order.orderNumber,
+        dailySeq: order.dailySeq ?? undefined,
         status: order.status,
         paymentStatus: order.paymentStatus,
         totalAmount: order.totalAmount,

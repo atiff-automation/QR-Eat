@@ -319,9 +319,6 @@ export async function DELETE(
 
         // 2. Check if cancellation is allowed (includes permission check)
         const { canCancelOrder } = await import('@/lib/refund-utils');
-        const { generateReceiptNumber } = await import(
-          '@/lib/utils/receipt-formatter'
-        );
 
         const cancellationCheck = canCancelOrder(
           order,
@@ -356,6 +353,11 @@ export async function DELETE(
         if (refundAmount > 0 && order.payments.length > 0) {
           const originalPayment = order.payments[0];
 
+          // Generate sequential receipt number for refund
+          const { SequenceManager } = await import('@/lib/sequence-manager');
+          const { number: refundDailySeq, formatted: refundReceiptNumber } =
+            await SequenceManager.getNextReceipt(order.restaurantId);
+
           // Create refund payment record (negative amount for full refund)
           await tx.payment.create({
             data: {
@@ -367,7 +369,8 @@ export async function DELETE(
               status: 'PAID',
               processedBy: context!.userId,
               processedByType: context!.userType,
-              receiptNumber: generateReceiptNumber(),
+              receiptNumber: refundReceiptNumber,
+              dailySeq: refundDailySeq,
               paymentMetadata: {
                 refundReason: data.reason,
                 refundNotes: data.reasonNotes,

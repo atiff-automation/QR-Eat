@@ -17,6 +17,7 @@ import { formatPrice } from '@/lib/qr-utils';
 export interface OrderSummary {
   id: string;
   orderNumber: string;
+  dailySeq?: number;
   status: string;
   paymentStatus: string;
   totalAmount: number;
@@ -177,9 +178,12 @@ export function OrderCard({
       {/* Order Details - Compact */}
       <div className="space-y-1 mb-3">
         {/* Order Number + Items */}
-        {/* Order Number + Items */}
         <div className="flex items-center justify-between text-sm">
-          <span className="font-medium text-gray-900">{order.orderNumber}</span>
+          <span className="font-medium text-gray-900">
+            {order.dailySeq
+              ? `#${String(order.dailySeq).padStart(3, '0')}`
+              : order.orderNumber}
+          </span>
           <span className="text-gray-600">{itemSummary}</span>
         </div>
 

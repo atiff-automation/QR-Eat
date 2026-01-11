@@ -251,6 +251,7 @@ model Restaurant {
   userRoles       UserRole[]
   userSessions    UserSession[]
   pushSubscriptions PushSubscription[]  // Phase 2 - Push Notifications
+  dailySequences    DailySequence[]
 
   @@index([ownerId])
   @@index([slug])
@@ -577,6 +578,7 @@ model CartItem {
 model Order {
   id                  String             @id @default(uuid())
   orderNumber         String             @unique
+  dailySeq            Int?               @default(0)
   restaurantId        String
   tableId             String
   customerSessionId   String
@@ -700,6 +702,7 @@ model Payment {
   cashReceived  Decimal? @db.Decimal(10, 2) // For cash payments
   changeGiven   Decimal? @db.Decimal(10, 2) // For cash payments
   receiptNumber String?  @unique // Unique receipt identifier
+  dailySeq      Int?     @default(0)
 
   // Multi-user-type pattern (following AuditLog architecture)
   processedBy        String? // Generic user ID who processed payment
@@ -796,6 +799,19 @@ model AuditLog {
   @@index([category])
   @@index([changedAt])
   @@map("audit_logs")
+}
+
+model DailySequence {
+  id           String   @id @default(uuid())
+  restaurantId String
+  date         String // YYYY-MM-DD
+  orderCount   Int      @default(0)
+  paymentCount Int      @default(0)
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, date])
+  @@map("daily_sequences")
 }
 
 // Notifications System

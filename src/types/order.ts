@@ -15,6 +15,7 @@ export interface CustomerSession {
 export interface Order {
   id: string;
   orderNumber: string;
+  dailySeq?: number;
   restaurantId: string;
   tableId: string;
   customerSessionId: string;
@@ -87,6 +88,7 @@ export interface OrderStatusUpdate {
 export interface OrderResponse {
   id: string;
   orderNumber: string;
+  dailySeq?: number;
   status: string;
   paymentStatus: string;
   totalAmount: number;

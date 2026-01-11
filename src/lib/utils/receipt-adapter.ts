@@ -30,6 +30,7 @@ export function adaptPublicToDisplay(
     },
     order: {
       orderNumber: data.order.orderNumber,
+      dailySeq: data.order.dailySeq,
       tableName: data.order.tableName,
       tableLocation: data.order.tableLocation,
       createdAt: new Date(data.order.createdAt),
@@ -80,6 +81,7 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
     },
     order: {
       orderNumber: order.orderNumber,
+      dailySeq: order.dailySeq ?? undefined,
       tableName: order.table.tableName || order.table.tableNumber || 'N/A',
       tableLocation: order.table.locationDescription || undefined,
       createdAt: new Date(order.createdAt),

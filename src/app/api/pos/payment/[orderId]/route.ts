@@ -20,7 +20,7 @@ import {
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { PAYMENT_STATUS, ORDER_STATUS } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
-import { generateReceiptNumber } from '@/lib/utils/receipt-formatter';
+import { SequenceManager } from '@/lib/sequence-manager';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
 import { Decimal } from '@prisma/client/runtime/library';
@@ -158,8 +158,9 @@ export async function POST(
         changeGiven = cashReceived.minus(totalAmount);
       }
 
-      // Generate receipt number
-      const receiptNumber = generateReceiptNumber();
+      // Generate sequential receipt number
+      const { number: dailySeq, formatted: receiptNumber } =
+        await SequenceManager.getNextReceipt(restaurantId!);
       console.log(`[API] Generated Receipt Number: ${receiptNumber}`);
 
       // Process ALL payments in a single transaction
@@ -216,6 +217,7 @@ export async function POST(
             changeGiven: orderChangeGiven, // Actual change on first order, 0 on others
             // FIX: receiptNumber must be unique per payment record. Append index to make it unique for multi-order table payment.
             receiptNumber: `${receiptNumber}-${eligibleOrders.indexOf(currentOrder) + 1}`,
+            dailySeq, // Store same sequence for grouped payment
             externalTransactionId: validatedData.externalTransactionId,
             paymentMetadata: validatedData.notes
               ? {
@@ -327,8 +329,9 @@ export async function POST(
         changeGiven = cashReceived.minus(totalAmount);
       }
 
-      // Generate receipt number
-      const receiptNumber = generateReceiptNumber();
+      // Generate sequential receipt number
+      const { number: dailySeq, formatted: receiptNumber } =
+        await SequenceManager.getNextReceipt(order.restaurant.id);
       console.log(`[API] Generated Receipt Number: ${receiptNumber}`);
 
       const basePaymentData = {
@@ -345,6 +348,7 @@ export async function POST(
           : new Decimal(order.totalAmount),
         changeGiven: changeGiven ?? new Decimal(0),
         receiptNumber,
+        dailySeq,
         externalTransactionId: validatedData.externalTransactionId,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         paymentMetadata: (validatedData.paymentMetadata as any) || undefined,
