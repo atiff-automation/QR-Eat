@@ -60,9 +60,18 @@ export function Receipt({
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 bg-white sticky top-0 z-10">
-          <h3 className="text-lg font-semibold text-gray-900">
-            Payment Receipt
-          </h3>
+          <div className="flex items-center gap-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Payment Receipt
+            </h3>
+            <button
+              onClick={() => setShowQR(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              Show QR
+            </button>
+          </div>
           <button
             onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
@@ -76,24 +85,8 @@ export function Receipt({
           {/* Card Wrapper for consistent shadow/border if needed, 
               though ReceiptCard has its own shadow. 
               We'll add a bit of padding/bg to distinguish it from the modal. */}
-          <div className="bg-gray-50 p-2 rounded-lg mb-4">
+          <div className="bg-gray-50 p-2 rounded-lg">
             <ReceiptCard data={receiptDisplayData} />
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={() => setShowQR(true)}
-              className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors"
-            >
-              <QrCode className="w-5 h-5" />
-              Show QR
-            </button>
-            <button
-              onClick={onClose}
-              className="flex-1 px-4 py-3 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 font-medium transition-colors"
-            >
-              Close
-            </button>
           </div>
         </div>
       </div>
