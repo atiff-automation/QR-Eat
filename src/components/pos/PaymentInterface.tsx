@@ -115,7 +115,7 @@ export function PaymentInterface({
   const displayOrder: OrderWithDetails = isTablePayment
     ? ({
         ...order,
-        orderNumber: `TABLE-${relatedOrders.length}-ORDERS`,
+        orderNumber: relatedOrders.map((o) => o.orderNumber).join(', '),
         totalAmount: totalAmount as unknown as typeof order.totalAmount,
         subtotalAmount: relatedOrders.reduce(
           (sum, o) => sum + Number(o.subtotalAmount),
