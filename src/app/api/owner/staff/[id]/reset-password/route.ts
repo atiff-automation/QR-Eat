@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { prisma } from '@/lib/database';
+import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 export async function POST(
@@ -9,9 +10,10 @@ export async function POST(
 ) {
   try {
     // Authenticate using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value || 
-                  request.cookies.get('qr_auth_token')?.value;
-    
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -20,7 +22,7 @@ export async function POST(
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
-    
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -36,18 +38,19 @@ export async function POST(
         hasStaffWrite: authResult.user.permissions.includes('staff:write'),
         hasStaffInvite: authResult.user.permissions.includes('staff:invite'),
         hasStaffRoles: authResult.user.permissions.includes('staff:roles'),
-        hasStaffRead: authResult.user.permissions.includes('staff:read')
+        hasStaffRead: authResult.user.permissions.includes('staff:read'),
       });
     }
 
-    const hasStaffPermission = authResult.user.permissions.includes('staff:write') ||
-                              authResult.user.permissions.includes('staff:invite') ||
-                              authResult.user.permissions.includes('staff:roles');
+    const hasStaffPermission =
+      authResult.user.permissions.includes('staff:write') ||
+      authResult.user.permissions.includes('staff:invite') ||
+      authResult.user.permissions.includes('staff:roles');
 
     if (!hasStaffPermission) {
       console.error('❌ Access denied for staff password reset:', {
         userType: authResult.user.userType,
-        userPermissions: authResult.user.permissions
+        userPermissions: authResult.user.permissions,
       });
       return NextResponse.json(
         { error: 'Unauthorized - Staff management permission required' },
@@ -59,7 +62,7 @@ export async function POST(
 
     // Verify the staff belongs to this user's restaurant
     const userRestaurantId = authResult.user.currentRole?.restaurantId;
-    
+
     if (!userRestaurantId) {
       return NextResponse.json(
         { error: 'No restaurant context found' },
@@ -74,16 +77,16 @@ export async function POST(
         restaurant: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         role: {
           select: {
             name: true,
-            permissions: true
-          }
-        }
-      }
+            permissions: true,
+          },
+        },
+      },
     });
 
     if (!staffMember || staffMember.restaurantId !== userRestaurantId) {
@@ -107,8 +110,8 @@ export async function POST(
         passwordResetToken: null,
         passwordResetExpires: null,
         failedLoginAttempts: 0,
-        lockedUntil: null
-      }
+        lockedUntil: null,
+      },
     });
 
     // Mark any related password reset notifications as completed
@@ -118,23 +121,38 @@ export async function POST(
         where: {
           userId: authResult.user.id,
           isRead: false,
-          title: 'Staff Password Reset Request'
-        }
+          title: 'Staff Password Reset Request',
+        },
       });
+
+      // Define expected metadata structure
+      interface PasswordResetMetadata {
+        action?: string;
+        staffId?: string;
+        completed?: boolean;
+        completedAt?: string;
+        completedBy?: string;
+        [key: string]: unknown;
+      }
 
       // Filter and update notifications related to this staff member
       const updatesPromises = relatedNotifications
-        .filter(notification => {
-          const metadata = notification.metadata as any;
-          return metadata?.action === 'password_reset_request' && metadata?.staffId === staffId;
+        .filter((notification) => {
+          const metadata =
+            notification.metadata as unknown as PasswordResetMetadata;
+          return (
+            metadata?.action === 'password_reset_request' &&
+            metadata?.staffId === staffId
+          );
         })
-        .map(notification => {
-          const metadata = notification.metadata as any;
-          const updatedMetadata = {
+        .map((notification) => {
+          const metadata =
+            notification.metadata as unknown as PasswordResetMetadata;
+          const updatedMetadata: PasswordResetMetadata = {
             ...metadata,
             completed: true,
             completedAt: new Date().toISOString(),
-            completedBy: authResult.user.id
+            completedBy: authResult.user.id,
           };
 
           return prisma.notification.update({
@@ -142,8 +160,8 @@ export async function POST(
             data: {
               isRead: true,
               readAt: new Date(),
-              metadata: updatedMetadata
-            }
+              metadata: updatedMetadata as unknown as Prisma.InputJsonValue,
+            },
           });
         });
 
@@ -151,18 +169,20 @@ export async function POST(
       await Promise.all(updatesPromises);
     } catch (notificationError) {
       // Don't fail the password reset if notification update fails
-      console.error('Error updating notifications (non-critical):', notificationError);
+      console.error(
+        'Error updating notifications (non-critical):',
+        notificationError
+      );
     }
 
     // In production, you would send this via email
-    // For development, return it in the response
+    // For development (and current fix as requested), return it in the response
     return NextResponse.json({
       message: 'Password reset successfully',
-      temporaryPassword: process.env.NODE_ENV === 'development' ? tempPassword : undefined,
+      temporaryPassword: tempPassword,
       staffName: `${staffMember.firstName} ${staffMember.lastName}`,
-      staffEmail: staffMember.email
+      staffEmail: staffMember.email,
     });
-
   } catch (error) {
     console.error('Owner password reset error:', error);
     return NextResponse.json(
@@ -175,20 +195,24 @@ export async function POST(
 function generateTemporaryPassword(): string {
   // Generate a secure temporary password
   const length = 12;
-  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+  const charset =
+    'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
   let password = '';
-  
+
   // Ensure at least one of each type
   password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)]; // Uppercase
   password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)]; // Lowercase
   password += '0123456789'[Math.floor(Math.random() * 10)]; // Number
   password += '!@#$%^&*'[Math.floor(Math.random() * 8)]; // Special char
-  
+
   // Fill the rest randomly
   for (let i = 4; i < length; i++) {
     password += charset[Math.floor(Math.random() * charset.length)];
   }
-  
+
   // Shuffle the password
-  return password.split('').sort(() => Math.random() - 0.5).join('');
+  return password
+    .split('')
+    .sort(() => Math.random() - 0.5)
+    .join('');
 }
