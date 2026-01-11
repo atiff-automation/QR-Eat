@@ -7,18 +7,23 @@
 
 import { prisma } from '@/lib/database';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { Prisma } from '@prisma/client';
 
 /**
  * Determines if a table should be marked as available based on its orders
  *
  * @param tableId - The ID of the table to check
+ * @param tx - Optional transaction client for atomic operations
  * @returns true if table should be available, false otherwise
  */
 export async function shouldTableBeAvailable(
-  tableId: string
+  tableId: string,
+  tx?: Prisma.TransactionClient
 ): Promise<boolean> {
+  const db = tx || prisma;
+
   try {
-    const activeOrderCount = await prisma.order.count({
+    const activeOrderCount = await db.order.count({
       where: {
         tableId,
         OR: [
@@ -55,12 +60,18 @@ export async function shouldTableBeAvailable(
  * It will only update the table status if needed.
  *
  * @param tableId - The ID of the table to update
+ * @param tx - Optional transaction client for atomic operations
  * @returns Promise that resolves when update is complete
  */
-export async function autoUpdateTableStatus(tableId: string): Promise<void> {
+export async function autoUpdateTableStatus(
+  tableId: string,
+  tx?: Prisma.TransactionClient
+): Promise<void> {
+  const db = tx || prisma;
+
   try {
     // Get current table status
-    const table = await prisma.table.findUnique({
+    const table = await db.table.findUnique({
       where: { id: tableId },
       select: { status: true, tableNumber: true, restaurantId: true },
     });
@@ -71,11 +82,11 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
     }
 
     // Check if table should be available
-    const shouldBeAvailable = await shouldTableBeAvailable(tableId);
+    const shouldBeAvailable = await shouldTableBeAvailable(tableId, tx);
 
     // Only update if status needs to change
     if (shouldBeAvailable && table.status === 'OCCUPIED') {
-      await prisma.table.update({
+      await db.table.update({
         where: { id: tableId },
         data: {
           status: 'AVAILABLE',
@@ -88,6 +99,8 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
       );
 
       // Publish real-time update
+      // PubSub is outside transaction as it's a side effect
+      // Ideally run this AFTER transaction commits, but for now we run it here
       await PostgresEventManager.publishTableStatusChange({
         tableId,
         restaurantId: table.restaurantId,
@@ -99,7 +112,7 @@ export async function autoUpdateTableStatus(tableId: string): Promise<void> {
     } else if (!shouldBeAvailable && table.status === 'AVAILABLE') {
       // Edge case: Table is available but has active orders
       // This shouldn't happen in normal flow, but we'll fix it
-      await prisma.table.update({
+      await db.table.update({
         where: { id: tableId },
         data: {
           status: 'OCCUPIED',

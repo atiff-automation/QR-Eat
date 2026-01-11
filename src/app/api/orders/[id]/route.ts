@@ -6,6 +6,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
+import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 
 export async function GET(
   request: NextRequest,
@@ -220,49 +221,50 @@ export async function PATCH(
       updateData.estimatedReadyTime = new Date(estimatedReadyTime);
     }
 
-    const order = await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: {
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-          },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                description: true,
-                preparationTime: true,
-              },
+    const result = await prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: {
+          table: {
+            select: {
+              tableNumber: true,
+              tableName: true,
             },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    name: true,
-                    variationType: true,
+          },
+          items: {
+            include: {
+              menuItem: {
+                select: {
+                  name: true,
+                  description: true,
+                  preparationTime: true,
+                },
+              },
+              variations: {
+                include: {
+                  variation: {
+                    select: {
+                      name: true,
+                      variationType: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
+      });
+
+      // ✅ NEW: Update table status atomically using the single source of truth
+      // This handles "Served" checks and re-verifies if table should be cleared
+      // It runs INSIDE the transaction to prevent race conditions
+      await autoUpdateTableStatus(order.tableId, tx);
+
+      return { order };
     });
 
-    // Update table status if order is completed/cancelled
-    if (status === 'SERVED' || status === 'CANCELLED') {
-      await prisma.table.update({
-        where: { id: order.tableId },
-        data: { status: 'AVAILABLE' },
-      });
-    }
-
-    return NextResponse.json({ order });
+    return NextResponse.json(result);
   } catch (error) {
     console.error('Order update error:', error);
     return NextResponse.json(
@@ -406,6 +408,7 @@ export async function DELETE(
         });
 
         // 8. Update order status and payment status
+        // 8. Update order status and payment status
         await tx.order.update({
           where: { id: orderId },
           data: {
@@ -415,6 +418,10 @@ export async function DELETE(
             lastModifiedAt: new Date(),
           },
         });
+
+        // 9. ✅ NEW: Auto-update table status within transaction
+        // This ensures if this was the last active order, the table becomes AVAILABLE
+        await autoUpdateTableStatus(order.tableId, tx);
 
         return {
           isDuplicate: false,
