@@ -67,6 +67,7 @@ export async function POST(
             id: true,
             tableNumber: true,
             tableName: true,
+            locationDescription: true,
           },
         },
         items: {
@@ -283,6 +284,7 @@ export async function POST(
           tableName:
             eligibleOrders[0].table?.tableName ||
             `Table ${eligibleOrders[0].table?.tableNumber || ''}`,
+          locationDescription: eligibleOrders[0].table?.locationDescription,
         },
         // Combine all items from all orders
         items: eligibleOrders.flatMap(
@@ -307,7 +309,7 @@ export async function POST(
         combinedPayment.order.items?.map((i) => ({
           name: i.menuItem?.name || 'Unknown',
           quantity: i.quantity || 0,
-          price: i.price?.toString() || '0',
+          price: i.unitPrice?.toString() || '0',
         })) || [],
     });
 
@@ -335,7 +337,7 @@ export async function POST(
         {
           success: false,
           error: 'Invalid request data',
-          details: error.errors,
+          details: error.issues,
         },
         { status: 400 }
       );

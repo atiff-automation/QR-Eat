@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
           select: {
             tableNumber: true,
             tableName: true,
+            locationDescription: true,
           },
         },
         customerSession: {
