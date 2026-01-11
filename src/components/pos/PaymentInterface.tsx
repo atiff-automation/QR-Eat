@@ -103,33 +103,36 @@ export function PaymentInterface({
 
   const calculateTotalAmount = () => {
     if (relatedOrders.length > 0) {
-      return relatedOrders.reduce((sum, o) => sum + Number(o.totalAmount), 0);
+      return relatedOrders
+        .filter((o) => o.status !== 'CANCELLED')
+        .reduce((sum, o) => sum + Number(o.totalAmount), 0);
     }
-    return Number(order.totalAmount);
+    return order.status !== 'CANCELLED' ? Number(order.totalAmount) : 0;
   };
 
   const totalAmount = calculateTotalAmount();
   const isTablePayment = relatedOrders.length > 0;
 
   // For table payments, create a combined order for display
+  const validOrders = relatedOrders.filter((o) => o.status !== 'CANCELLED');
   const displayOrder: OrderWithDetails = isTablePayment
     ? ({
         ...order,
-        orderNumber: relatedOrders.map((o) => o.orderNumber).join(', '),
+        orderNumber: validOrders.map((o) => o.orderNumber).join(', '),
         totalAmount: totalAmount as unknown as typeof order.totalAmount,
-        subtotalAmount: relatedOrders.reduce(
+        subtotalAmount: validOrders.reduce(
           (sum, o) => sum + Number(o.subtotalAmount),
           0
         ) as unknown as typeof order.subtotalAmount,
-        taxAmount: relatedOrders.reduce(
+        taxAmount: validOrders.reduce(
           (sum, o) => sum + Number(o.taxAmount || 0),
           0
         ) as unknown as typeof order.taxAmount,
-        serviceCharge: relatedOrders.reduce(
+        serviceCharge: validOrders.reduce(
           (sum, o) => sum + Number(o.serviceCharge || 0),
           0
         ) as unknown as typeof order.serviceCharge,
-        items: relatedOrders.flatMap((o) => o.items || []),
+        items: validOrders.flatMap((o) => o.items || []),
         // Preserve tax and service charge labels from restaurant or order
         taxLabel: order.restaurant?.taxLabel || order.taxLabel,
         serviceChargeLabel:

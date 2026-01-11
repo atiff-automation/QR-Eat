@@ -45,7 +45,8 @@ export async function POST(
         tableId,
         restaurantId: restaurantId!,
         paymentStatus: PAYMENT_STATUS.PENDING,
-        // No status filter - allow early payment for any status (PENDING, CONFIRMED, READY, SERVED)
+        // Exclude cancelled orders from payment calculation
+        status: { not: 'CANCELLED' },
       },
       include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
