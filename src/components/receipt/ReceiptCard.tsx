@@ -52,25 +52,15 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Receipt #:</span>
             <span className="font-semibold text-black text-right break-all">
-              {data.order.dailySeq
-                ? `#${String(data.order.dailySeq).padStart(3, '0')}`
-                : receiptNumber}
+              {receiptNumber}
             </span>
           </div>
-          {data.order.dailySeq && (
-            <div className="flex justify-between gap-4 text-xs text-gray-500">
-              <span className="shrink-0">Receipt ID:</span>
-              <span className="text-right break-all">{receiptNumber}</span>
-            </div>
-          )}
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Order #:</span>
             <div className="text-black text-right">
-              {data.order.dailySeq
-                ? `#${String(data.order.dailySeq).padStart(3, '0')}`
-                : order.orderNumber
-                    .split(', ')
-                    .map((num, i) => <div key={i}>{num}</div>)}
+              {order.orderNumber.split(', ').map((num, i) => (
+                <div key={i}>{num}</div>
+              ))}
             </div>
           </div>
           <div className="flex justify-between gap-4">
