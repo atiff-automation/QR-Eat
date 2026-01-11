@@ -28,6 +28,7 @@ import {
   X,
   LogOut,
   CreditCard,
+  Lock,
   type LucideIcon,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
@@ -265,6 +266,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 </div>
               </div>
 
+              <Link
+                href="/change-password"
+                className="w-full mb-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center transition-colors"
+                title="Change Password"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Change Password
+              </Link>
+
               <button
                 onClick={handleLogout}
                 className="w-full bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center"
@@ -328,6 +338,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                   <p className="text-xs text-gray-500">{user.email}</p>
                 </div>
               </div>
+
+              <Link
+                href="/change-password"
+                className="w-full mb-2 bg-gray-50 hover:bg-gray-100 text-gray-700 px-3 py-2 rounded-md text-sm font-medium flex items-center justify-center transition-colors"
+                title="Change Password"
+              >
+                <Lock className="h-4 w-4 mr-2" />
+                Change Password
+              </Link>
 
               <button
                 onClick={handleLogout}

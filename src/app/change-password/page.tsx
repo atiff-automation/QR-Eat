@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff, LogOut } from 'lucide-react';
+import { Lock, Eye, EyeOff } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
 
@@ -44,16 +44,7 @@ export default function ChangePasswordPage() {
           return;
         }
 
-        if (!data.user.mustChangePassword) {
-          if (data.user.userType === 'restaurant_owner') {
-            router.push('/owner/dashboard');
-          } else if (data.user.userType === 'staff') {
-            router.push('/dashboard/kitchen');
-          } else {
-            router.push('/dashboard');
-          }
-          return;
-        }
+        // Allow voluntary access - removing the redirect block
 
         setUserInfo({
           firstName: data.user.firstName,
@@ -120,13 +111,8 @@ export default function ChangePasswordPage() {
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await ApiClient.post('/auth/logout');
-      router.push(AUTH_ROUTES.LOGIN);
-    } catch (error) {
-      console.error('Logout failed:', error);
-    }
+  const handleCancel = () => {
+    router.back();
   };
 
   if (!userInfo) {
@@ -273,13 +259,14 @@ export default function ChangePasswordPage() {
               {isLoading ? 'Changing...' : 'Change Password'}
             </button>
 
+            {/* Cancel Button */}
             <button
               type="button"
-              onClick={handleLogout}
-              className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all"
-              title="Logout"
+              onClick={handleCancel}
+              className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all text-sm font-medium"
+              title="Cancel"
             >
-              <LogOut className="h-4 w-4" />
+              Cancel
             </button>
           </div>
         </form>
