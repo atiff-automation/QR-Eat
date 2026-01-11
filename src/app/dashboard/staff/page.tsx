@@ -82,7 +82,12 @@ function StaffPageContent() {
     password: string;
   } | null>(null);
   const [newStaffName, setNewStaffName] = useState('');
+
   const [newStaffEmail, setNewStaffEmail] = useState('');
+  const [credentialsModalDetails, setCredentialsModalDetails] = useState<{
+    title?: string;
+    description?: React.ReactNode;
+  }>({});
 
   // Check if user has permission to manage staff based on RBAC
   const canManageStaff = isOwner;
@@ -218,6 +223,17 @@ function StaffPageContent() {
           });
           setNewStaffName(`${formData.firstName} ${formData.lastName}`);
           setNewStaffEmail(formData.email);
+          setCredentialsModalDetails({
+            title: 'Staff Created',
+            description: (
+              <p>
+                <span className="font-medium text-gray-900">
+                  {formData.firstName} {formData.lastName}
+                </span>{' '}
+                has been created successfully.
+              </p>
+            ),
+          });
           setShowCredentialsModal(true);
         }
 
@@ -254,6 +270,19 @@ function StaffPageContent() {
             password: data.temporaryPassword,
           });
           setNewStaffName(data.staffName);
+          setNewStaffEmail(data.staffEmail); // Fix: Set the email state
+          setCredentialsModalDetails({
+            title: 'Password Reset',
+            description: (
+              <p>
+                The password for{' '}
+                <span className="font-medium text-gray-900">
+                  {data.staffName}
+                </span>{' '}
+                has been reset successfully.
+              </p>
+            ),
+          });
           setShowCredentialsModal(true);
         }
 
@@ -845,6 +874,8 @@ function StaffPageContent() {
           credentials={newStaffCredentials}
           staffName={newStaffName}
           staffEmail={newStaffEmail}
+          title={credentialsModalDetails.title}
+          description={credentialsModalDetails.description}
         />
       )}
     </div>

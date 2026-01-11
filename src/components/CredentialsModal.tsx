@@ -12,6 +12,8 @@ interface CredentialsModalProps {
   };
   staffName: string;
   staffEmail: string;
+  title?: string;
+  description?: React.ReactNode;
 }
 
 export default function CredentialsModal({
@@ -20,6 +22,8 @@ export default function CredentialsModal({
   credentials,
   staffName,
   staffEmail,
+  title = 'Staff Created',
+  description,
 }: CredentialsModalProps) {
   const [copiedPassword, setCopiedPassword] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
@@ -101,7 +105,7 @@ Welcome to the team! 🎉`;
       <div className="bg-white rounded-2xl w-full max-w-md shadow-xl animate-scale-in overflow-hidden">
         {/* Header */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
-          <h3 className="font-bold text-gray-900">Staff Created</h3>
+          <h3 className="font-bold text-gray-900">{title}</h3>
           <button
             onClick={onClose}
             className="p-1 rounded-full hover:bg-gray-200 text-gray-500 transition-colors"
@@ -112,11 +116,15 @@ Welcome to the team! 🎉`;
 
         {/* Content */}
         <div className="p-5 space-y-4">
-          {/* Staff Name */}
-          <p className="text-sm text-gray-600">
-            <span className="font-medium text-gray-900">{staffName}</span> has
-            been created successfully.
-          </p>
+          {/* Staff Name/Description */}
+          {description ? (
+            <div className="text-sm text-gray-600">{description}</div>
+          ) : (
+            <p className="text-sm text-gray-600">
+              <span className="font-medium text-gray-900">{staffName}</span> has
+              been created successfully.
+            </p>
+          )}
 
           {/* Email Display */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
