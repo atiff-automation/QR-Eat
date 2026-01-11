@@ -25,21 +25,19 @@ export function OrderDetails({
           Order Details
         </h3>
         <div className="grid grid-cols-2 gap-2 text-xs">
-          {showOrderNumber && (
-            <div>
-              <p className="text-gray-600">Order Number</p>
-              <p className="font-semibold text-gray-900">
-                {order.dailySeq
-                  ? `#${String(order.dailySeq).padStart(3, '0')}`
-                  : order.orderNumber}
+          <div>
+            <p className="text-gray-600">Order Number</p>
+            <p className="font-semibold text-gray-900">
+              {showOrderNumber && order.dailySeq
+                ? `#${String(order.dailySeq).padStart(3, '0')}`
+                : order.orderNumber}
+            </p>
+            {showOrderNumber && order.dailySeq && (
+              <p className="text-[10px] text-gray-500 leading-tight break-all">
+                {order.orderNumber}
               </p>
-              {order.dailySeq && (
-                <p className="text-[10px] text-gray-500 leading-tight break-all">
-                  {order.orderNumber}
-                </p>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           <div>
             <p className="text-gray-600">Table</p>
             <p className="font-semibold text-gray-900">
