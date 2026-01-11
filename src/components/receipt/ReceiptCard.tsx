@@ -69,9 +69,9 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
               {formatDate(order.createdAt)}
             </span>
           </div>
-          <div className="flex justify-between text-sm gap-4">
-            <span className="text-gray-600 shrink-0">Table:</span>
-            <span className="font-medium text-right">
+          <div className="flex justify-between gap-4">
+            <span className="text-black shrink-0">Table:</span>
+            <span className="text-black text-right">
               {data.order.tableName}
               {data.order.tableLocation && (
                 <span className="text-gray-500 font-normal block text-xs">
