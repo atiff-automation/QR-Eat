@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { getTenantContext, requireAuth } from '@/lib/tenant-context';
 import { Decimal } from '@prisma/client/runtime/library';
-import { PAYMENT_STATUS } from '@/lib/order-utils';
+import { PAYMENT_STATUS, ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { SequenceManager } from '@/lib/sequence-manager';
@@ -47,34 +47,7 @@ export async function POST(
         paymentStatus: PAYMENT_STATUS.PENDING,
         // No status filter - allow early payment for any status (PENDING, CONFIRMED, READY, SERVED)
       },
-      include: {
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            taxLabel: true,
-            serviceChargeLabel: true,
-          },
-        },
-        table: {
-          select: {
-            id: true,
-            tableNumber: true,
-            tableName: true,
-            locationDescription: true,
-          },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                price: true,
-              },
-            },
-          },
-        },
-      },
+      include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
         createdAt: 'asc',
       },

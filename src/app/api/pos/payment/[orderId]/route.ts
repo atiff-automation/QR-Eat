@@ -18,7 +18,11 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
-import { PAYMENT_STATUS, ORDER_STATUS } from '@/lib/order-utils';
+import {
+  PAYMENT_STATUS,
+  ORDER_STATUS,
+  ORDER_WITH_DETAILS_INCLUDE,
+} from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
@@ -64,22 +68,7 @@ export async function POST(
       where: {
         id: orderId,
       },
-      include: {
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        table: {
-          select: {
-            id: true,
-            tableNumber: true,
-            tableName: true,
-            locationDescription: true,
-          },
-        },
-      },
+      include: ORDER_WITH_DETAILS_INCLUDE,
     });
 
     if (!order) {

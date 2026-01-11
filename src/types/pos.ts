@@ -30,10 +30,15 @@ export interface OrderWithDetails extends Order {
     name: string;
     taxLabel?: string | null;
     serviceChargeLabel?: string | null;
+    address?: string | null;
+    phone?: string | null;
+    email?: string | null;
   };
   customerSession: {
     customerName: string | null;
     customerPhone: string | null;
+    customerEmail?: string | null;
+    sessionToken?: string | null;
   } | null;
   items: OrderItemWithDetails[];
   // Restaurant settings for display
@@ -50,6 +55,13 @@ export interface OrderItemWithDetails {
   totalAmount: Decimal;
   specialInstructions: string | null;
   menuItem: Pick<MenuItem, 'name' | 'price' | 'preparationTime'>;
+  variations?: {
+    variation: {
+      name: string;
+      priceModifier: Decimal;
+      variationType: string;
+    };
+  }[];
 }
 
 // ============================================================================

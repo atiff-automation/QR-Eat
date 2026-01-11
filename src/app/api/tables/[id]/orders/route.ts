@@ -23,6 +23,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
 
 export async function GET(
   request: NextRequest,
@@ -64,41 +65,7 @@ export async function GET(
         tableId: tableId,
         paymentStatus: 'PENDING', // Only unpaid orders
       },
-      include: {
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            taxLabel: true,
-            serviceChargeLabel: true,
-          },
-        },
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-            locationDescription: true,
-          },
-        },
-        customerSession: {
-          select: {
-            customerName: true,
-            customerPhone: true,
-            customerEmail: true,
-          },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                price: true,
-                preparationTime: true,
-              },
-            },
-          },
-        },
-      },
+      include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
         createdAt: 'asc', // Oldest first
       },

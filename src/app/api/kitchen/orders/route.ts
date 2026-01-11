@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
 
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value || 
-                  request.cookies.get('qr_auth_token')?.value;
-    
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
+
     if (!token) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     const authResult = await AuthServiceV2.validateToken(token);
-    
+
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -26,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     // Get restaurant ID from auth result
     const restaurantId = authResult.user.currentRole.restaurantId;
-    
+
     if (!restaurantId) {
       return NextResponse.json(
         { error: 'Restaurant access required' },
@@ -39,52 +41,19 @@ export async function GET(request: NextRequest) {
       where: {
         restaurantId: restaurantId,
         status: {
-          in: ['CONFIRMED', 'PREPARING', 'READY']
-        }
-      },
-      include: {
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true
-          }
+          in: ['CONFIRMED', 'PREPARING', 'READY'],
         },
-        customerSession: {
-          select: {
-            customerName: true
-          }
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                preparationTime: true
-              }
-            },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    name: true,
-                    variationType: true
-                  }
-                }
-              }
-            }
-          }
-        }
       },
+      include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
-        createdAt: 'asc'
-      }
+        createdAt: 'asc',
+      },
     });
 
     return NextResponse.json({
       success: true,
-      orders
+      orders,
     });
-
   } catch (error) {
     console.error('Failed to fetch kitchen orders:', error);
     return NextResponse.json(

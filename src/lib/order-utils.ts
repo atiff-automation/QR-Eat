@@ -195,3 +195,61 @@ export function getElapsedTime(createdAt: string): string {
   if (minutes === 1) return '1 min';
   return `${minutes} mins`;
 }
+
+/**
+ * Standard Prisma include object for fetching orders with full details.
+ * Ensures consistent field availability (e.g. locationDescription) across all views.
+ *
+ * Use this in prisma.order.findMany/findUnique({ include: ORDER_WITH_DETAILS_INCLUDE })
+ */
+export const ORDER_WITH_DETAILS_INCLUDE = {
+  table: {
+    select: {
+      id: true,
+      tableNumber: true,
+      tableName: true,
+      locationDescription: true,
+    },
+  },
+  customerSession: {
+    select: {
+      customerName: true,
+      customerPhone: true,
+      customerEmail: true,
+      sessionToken: true,
+    },
+  },
+  items: {
+    include: {
+      menuItem: {
+        select: {
+          name: true,
+          price: true,
+          preparationTime: true,
+        },
+      },
+      variations: {
+        include: {
+          variation: {
+            select: {
+              name: true,
+              priceModifier: true,
+              variationType: true,
+            },
+          },
+        },
+      },
+    },
+  },
+  restaurant: {
+    select: {
+      id: true,
+      name: true,
+      taxLabel: true,
+      serviceChargeLabel: true,
+      address: true,
+      phone: true,
+      email: true,
+    },
+  },
+} as const;

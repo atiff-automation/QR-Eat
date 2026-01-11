@@ -17,7 +17,11 @@ import {
   requirePermission,
   createRestaurantFilter,
 } from '@/lib/tenant-context';
-import { ORDER_STATUS, PAYMENT_STATUS } from '@/lib/order-utils';
+import {
+  ORDER_STATUS,
+  PAYMENT_STATUS,
+  ORDER_WITH_DETAILS_INCLUDE,
+} from '@/lib/order-utils';
 
 export async function GET(request: NextRequest) {
   try {
@@ -46,32 +50,7 @@ export async function GET(request: NextRequest) {
     // Fetch pending orders with full details
     const orders = await prisma.order.findMany({
       where,
-      include: {
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-            locationDescription: true,
-          },
-        },
-        customerSession: {
-          select: {
-            customerName: true,
-            customerPhone: true,
-          },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                price: true,
-                preparationTime: true,
-              },
-            },
-          },
-        },
-      },
+      include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: {
         createdAt: 'desc',
       },
