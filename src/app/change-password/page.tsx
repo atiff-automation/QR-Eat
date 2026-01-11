@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Eye, EyeOff } from 'lucide-react';
+import { Lock, Eye, EyeOff, LogOut } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { AUTH_ROUTES } from '@/lib/auth-routes';
 
@@ -17,9 +17,9 @@ export default function ChangePasswordPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [userInfo, setUserInfo] = useState<{
-    firstName: string;
     lastName: string;
     email: string;
+    mustChangePassword?: boolean;
   } | null>(null);
   const router = useRouter();
 
@@ -50,6 +50,7 @@ export default function ChangePasswordPage() {
           firstName: data.user.firstName,
           lastName: data.user.lastName,
           email: data.user.email,
+          mustChangePassword: data.user.mustChangePassword,
         });
       } catch (error) {
         console.error('Auth check failed:', error);
@@ -108,6 +109,15 @@ export default function ChangePasswordPage() {
       );
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await ApiClient.post('/auth/logout');
+      router.push(AUTH_ROUTES.LOGIN);
+    } catch (error) {
+      console.error('Logout failed:', error);
     }
   };
 
@@ -259,15 +269,25 @@ export default function ChangePasswordPage() {
               {isLoading ? 'Changing...' : 'Change Password'}
             </button>
 
-            {/* Cancel Button */}
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all text-sm font-medium"
-              title="Cancel"
-            >
-              Cancel
-            </button>
+            {userInfo.mustChangePassword ? (
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all"
+                title="Logout"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleCancel}
+                className="px-3 py-2.5 border border-gray-300 hover:bg-gray-50 text-gray-700 rounded-lg transition-all text-sm font-medium"
+                title="Cancel"
+              >
+                Cancel
+              </button>
+            )}
           </div>
         </form>
       </div>
