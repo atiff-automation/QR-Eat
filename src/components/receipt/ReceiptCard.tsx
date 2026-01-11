@@ -57,9 +57,11 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Order #:</span>
-            <span className="text-black text-right break-all">
-              {order.orderNumber}
-            </span>
+            <div className="text-black text-right">
+              {order.orderNumber.split(', ').map((num, i) => (
+                <div key={i}>{num}</div>
+              ))}
+            </div>
           </div>
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Date:</span>
@@ -69,7 +71,7 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
           </div>
           <div className="flex justify-between text-sm gap-4">
             <span className="text-gray-600 shrink-0">Table:</span>
-            <span className="font-medium break-all text-right">
+            <span className="font-medium text-right">
               {data.order.tableName}
               {data.order.tableLocation && (
                 <span className="text-gray-500 font-normal block text-xs">
