@@ -71,6 +71,14 @@ export async function POST(
             name: true,
           },
         },
+        table: {
+          select: {
+            id: true,
+            tableNumber: true,
+            tableName: true,
+            locationDescription: true,
+          },
+        },
       },
     });
 
@@ -160,7 +168,7 @@ export async function POST(
 
       // Generate sequential receipt number
       const { number: dailySeq, formatted: receiptNumber } =
-        await SequenceManager.getNextReceipt(restaurantId!);
+        await SequenceManager.getNextReceipt(order.restaurantId);
       console.log(`[API] Generated Receipt Number: ${receiptNumber}`);
 
       // Process ALL payments in a single transaction

@@ -172,9 +172,12 @@ export async function GET(
         orderNumber: isTablePayment
           ? payments.map((p) => p.order.orderNumber).join(', ')
           : firstPayment.order.orderNumber,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        dailySeq: (firstPayment.order as any).dailySeq || undefined,
+        tableNumber: firstPayment.order.table.tableNumber,
         tableName:
           firstPayment.order.table.tableName ||
-          firstPayment.order.table.tableNumber,
+          `Table ${firstPayment.order.table.tableNumber}`,
         tableLocation:
           firstPayment.order.table.locationDescription || undefined,
         items: allItems, // All items from all orders

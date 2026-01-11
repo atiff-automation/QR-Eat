@@ -31,7 +31,9 @@ export function adaptPublicToDisplay(
     order: {
       orderNumber: data.order.orderNumber,
       dailySeq: data.order.dailySeq,
-      tableName: data.order.tableName,
+      tableName: `Table ${data.order.tableNumber}${
+        data.order.tableName ? ` - ${data.order.tableName}` : ''
+      }`,
       tableLocation: data.order.tableLocation,
       createdAt: new Date(data.order.createdAt),
       items: data.order.items.map((item) => ({
@@ -82,7 +84,9 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
     order: {
       orderNumber: order.orderNumber,
       dailySeq: order.dailySeq ?? undefined,
-      tableName: order.table.tableName || order.table.tableNumber || 'N/A',
+      tableName: `Table ${order.table.tableNumber}${
+        order.table.tableName ? ` - ${order.table.tableName}` : ''
+      }`,
       tableLocation: order.table.locationDescription || undefined,
       createdAt: new Date(order.createdAt),
       items: order.items.map((item) => ({

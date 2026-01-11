@@ -41,8 +41,15 @@ export function OrderDetails({
           <div>
             <p className="text-gray-600">Table</p>
             <p className="font-semibold text-gray-900">
-              {order.table.tableName || `Table ${order.table.tableNumber}`}
+              {`Table ${order.table.tableNumber}${
+                order.table.tableName ? ` - ${order.table.tableName}` : ''
+              }`}
             </p>
+            {order.table.locationDescription && (
+              <p className="text-[10px] text-gray-500 leading-tight">
+                ({order.table.locationDescription})
+              </p>
+            )}
           </div>
           <div>
             <p className="text-gray-600">Created</p>
