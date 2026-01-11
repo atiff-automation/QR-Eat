@@ -66,7 +66,7 @@ export function Receipt({
             </h3>
             <button
               onClick={() => setShowQR(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 text-white text-xs font-medium rounded-md hover:bg-blue-700 transition-colors"
             >
               <QrCode className="w-3.5 h-3.5" />
               Show QR
@@ -88,6 +88,17 @@ export function Receipt({
           <div className="bg-gray-50 p-2 rounded-lg">
             <ReceiptCard data={receiptDisplayData} />
           </div>
+        </div>
+
+        {/* Mobile Sticky Footer */}
+        <div className="p-4 border-t border-gray-200 bg-white sm:hidden sticky bottom-0 z-10">
+          <button
+            onClick={() => setShowQR(true)}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm"
+          >
+            <QrCode className="w-5 h-5" />
+            Show QR Code
+          </button>
         </div>
       </div>
 
