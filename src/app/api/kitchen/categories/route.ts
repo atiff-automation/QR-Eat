@@ -21,8 +21,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Safely extract restaurant ID
     const restaurantId =
-      authResult.user.restaurantId || authResult.user.currentRole?.restaurantId;
+      authResult.user.restaurantContext?.id ||
+      authResult.user.currentRole?.restaurantId;
+
+    console.log('[API] /kitchen/categories - Debug:', {
+      userId: authResult.user.id,
+      restaurantId,
+      contextId: authResult.user.restaurantContext?.id,
+      roleId: authResult.user.currentRole?.id,
+    });
+
     if (!restaurantId) {
       return NextResponse.json(
         { error: 'No active restaurant context' },
@@ -42,7 +52,10 @@ export async function GET(request: NextRequest) {
         name: true,
       },
       orderBy: {
-        sortOrder: 'asc',
+        // displayOrder might not exist on all schemas or might be named differently?
+        // Let's verify schema on line 287 -> displayOrder Int @default(0)
+        // It exists.
+        displayOrder: 'asc',
       },
     });
 
@@ -52,8 +65,12 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to fetch kitchen categories:', error);
+    // Be explicit about the error cause
     return NextResponse.json(
-      { error: 'Failed to fetch categories' },
+      {
+        error: 'Failed to fetch categories',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
       { status: 500 }
     );
   }
