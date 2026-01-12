@@ -7,6 +7,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { queryKeys } from '@/lib/query-client';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
@@ -49,6 +51,7 @@ function TablesContent() {
   const [originalOrders, setOriginalOrders] = useState<OrderWithDetails[]>([]);
   const [showPaymentInterface, setShowPaymentInterface] = useState(false);
   const currency = useCurrency(); // Get currency from context
+  const queryClient = useQueryClient();
 
   const fetchTables = useCallback(async () => {
     try {
@@ -83,6 +86,7 @@ function TablesContent() {
     fetchTables();
 
     // Setup SSE
+    // Setup SSE
     console.log('[TablesPage] Setting up SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
 
@@ -90,6 +94,7 @@ function TablesContent() {
       try {
         const data = JSON.parse(event.data);
 
+        // Handle Table Status Changes
         if (data.type === 'table_status_changed') {
           const { tableId, newStatus } = data.data;
           console.log(
@@ -106,6 +111,19 @@ function TablesContent() {
             setSelectedTable((prev) =>
               prev ? { ...prev, status: newStatus } : null
             );
+          }
+        }
+
+        // Handle New Orders -> Trigger Immediate Refresh for Modal
+        if (data.type === 'order_created') {
+          const { tableId } = data.data;
+          if (tableId) {
+            console.log(
+              `[TablesPage] New order for table ${tableId}, invalidating cache...`
+            );
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.tables.orders(tableId),
+            });
           }
         }
       } catch (error) {
