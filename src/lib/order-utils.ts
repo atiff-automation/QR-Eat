@@ -213,6 +213,7 @@ export const ORDER_WITH_DETAILS_INCLUDE = {
           name: true,
           price: true,
           preparationTime: true,
+          categoryId: true,
         },
       },
       variations: {

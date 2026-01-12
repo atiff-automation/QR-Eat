@@ -490,6 +490,7 @@ model Staff {
   failedLoginAttempts    Int       @default(0)
   lockedUntil            DateTime?
   permissions            Json      @default("{}") // Additional custom permissions
+  preferences            Json      @default("{}") // User preferences (e.g. KDS station filters)
   emailVerified          Boolean   @default(false)
   emailVerificationToken String?
   passwordResetToken     String?

@@ -5,7 +5,8 @@ import { ChefHat } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
-import { KitchenClock } from '@/components/ui/LiveClock';
+import { KitchenHeader } from './KitchenHeader';
+import { useKitchenSettings } from '@/hooks/useKitchenSettings';
 
 interface KitchenOrder {
   id: string;
@@ -32,6 +33,7 @@ interface KitchenOrder {
     menuItem: {
       name: string;
       preparationTime: number;
+      categoryId: string;
     };
     variations: {
       id: string;
@@ -49,6 +51,16 @@ export function KitchenDisplayBoard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sseConnected, setSseConnected] = useState(false);
+
+  // Station Filter Settings
+  const {
+    categories,
+    selectedCategories,
+    toggleCategory,
+    selectAll,
+    deselectAll,
+    saving,
+  } = useKitchenSettings();
 
   /**
    * SSE-BACKED CONDITIONAL POLLING
@@ -354,10 +366,30 @@ export function KitchenDisplayBoard() {
     return 'text-green-600';
   };
 
+  // FILTERING LOGIC
+  // 1. Filter items within each order based on selected category
+  const filteredOrders = orders
+    .map((order) => {
+      // If no categories selected (or initial load), show all (Safe Default)
+      if (selectedCategories.length === 0) return order;
+
+      const filteredItems = order.items.filter((item) =>
+        selectedCategories.includes(item.menuItem.categoryId)
+      );
+
+      // Return order with only matching items
+      return {
+        ...order,
+        items: filteredItems,
+      };
+    })
+    // 2. Remove orders that have NO matching items for this station
+    .filter((order) => order.items.length > 0);
+
   const groupedOrders = {
-    confirmed: orders.filter((order) => order.status === 'CONFIRMED'),
-    preparing: orders.filter((order) => order.status === 'PREPARING'),
-    ready: orders.filter((order) => order.status === 'READY'),
+    confirmed: filteredOrders.filter((order) => order.status === 'CONFIRMED'),
+    preparing: filteredOrders.filter((order) => order.status === 'PREPARING'),
+    ready: filteredOrders.filter((order) => order.status === 'READY'),
   };
 
   if (loading) {
@@ -374,42 +406,25 @@ export function KitchenDisplayBoard() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4">
       {/* Header */}
-      <div className="mb-6">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white">
-            Kitchen Display System
-          </h1>
-          <KitchenClock className="text-right text-white" />
-        </div>
+      <KitchenHeader
+        counts={{
+          confirmed: groupedOrders.confirmed.length,
+          preparing: groupedOrders.preparing.length,
+          ready: groupedOrders.ready.length,
+        }}
+        categories={categories}
+        selectedCategories={selectedCategories}
+        onToggleCategory={toggleCategory}
+        onSelectAll={selectAll}
+        onDeselectAll={deselectAll}
+        saving={saving}
+      />
 
-        {error && (
-          <div className="mt-4 bg-red-600 text-white p-3 rounded-lg">
-            <p>{error}</p>
-          </div>
-        )}
-
-        {/* Summary Stats */}
-        <div className="mt-4 grid grid-cols-3 gap-4">
-          <div className="bg-blue-800 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">
-              {groupedOrders.confirmed.length}
-            </div>
-            <div className="text-sm">New Orders</div>
-          </div>
-          <div className="bg-orange-600 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">
-              {groupedOrders.preparing.length}
-            </div>
-            <div className="text-sm">In Progress</div>
-          </div>
-          <div className="bg-green-600 p-4 rounded-lg text-center">
-            <div className="text-2xl font-bold">
-              {groupedOrders.ready.length}
-            </div>
-            <div className="text-sm">Ready</div>
-          </div>
+      {error && (
+        <div className="mb-6 bg-red-600 text-white p-3 rounded-lg">
+          <p>{error}</p>
         </div>
-      </div>
+      )}
 
       {/* Order Columns */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">

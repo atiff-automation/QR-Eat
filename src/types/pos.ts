@@ -23,7 +23,7 @@ export type PaymentMethod = 'cash' | 'card' | 'ewallet';
 // ============================================================================
 
 export interface OrderWithDetails extends Order {
-  dailySeq?: number;
+  dailySeq: number | null;
   table: Pick<Table, 'tableNumber' | 'tableName' | 'locationDescription'>;
   restaurant?: {
     id: string;
@@ -51,6 +51,7 @@ export interface OrderWithDetails extends Order {
 export interface OrderItemWithDetails {
   id: string;
   quantity: number;
+  status: string; // Added for Partial Ready workflow
   unitPrice: Decimal;
   totalAmount: Decimal;
   specialInstructions: string | null;

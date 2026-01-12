@@ -28,6 +28,24 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
 
   const isOldOrder = orderDateString < todayDateString;
 
+  // Partial Ready Logic
+  // Count TOTAL quantity of items that are READY vs TOTAL quantity
+  // This gives a granular "2/5 items ready" view
+  const totalQuantity = order.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
+
+  const readyQuantity = order.items.reduce(
+    (sum, item) => (item.status === 'READY' ? sum + item.quantity : sum),
+    0
+  );
+
+  const isPartialReady =
+    readyQuantity > 0 &&
+    readyQuantity < totalQuantity &&
+    order.status !== 'READY';
+
   return (
     <button
       onClick={onClick}
@@ -61,6 +79,16 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
         </div>
       )}
 
+      {/* Partial Ready Badge */}
+      {isPartialReady && (
+        <div className="flex items-center gap-1 text-xs text-orange-700 bg-orange-100 px-2 py-1 rounded mb-2 border border-orange-200">
+          <AlertCircle className="h-3 w-3" />
+          <span className="font-semibold">
+            {readyQuantity}/{totalQuantity} Items Ready
+          </span>
+        </div>
+      )}
+
       <div className="flex items-center gap-4 text-sm text-gray-600">
         <div className="flex items-center gap-1">
           <Clock className="w-4 h-4" />
@@ -78,8 +106,22 @@ export function PendingOrderCard({ order, onClick }: PendingOrderCardProps) {
       <div className="mt-3 pt-3 border-t border-gray-100">
         <p className="text-xs text-gray-500 font-medium">
           Status:{' '}
-          <span className="text-green-600 font-semibold">
-            {order.status === 'READY' ? 'Ready for Payment' : 'Served'}
+          <span
+            className={`font-semibold ${
+              order.status === 'READY'
+                ? 'text-green-600'
+                : order.status === 'SERVED'
+                  ? 'text-gray-600'
+                  : 'text-orange-600'
+            }`}
+          >
+            {order.status === 'READY'
+              ? 'Ready for Payment'
+              : order.status === 'SERVED'
+                ? 'Served'
+                : order.status === 'PREPARING'
+                  ? 'Preparing'
+                  : order.status}
           </span>
         </p>
       </div>
