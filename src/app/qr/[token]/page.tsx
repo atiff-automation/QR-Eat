@@ -246,6 +246,43 @@ export default function QRMenuPage() {
 
   // All categories are now displayed - no filtering needed
 
+  // ✅ RESERVED TABLE SCREEN
+  if (table.status === 'RESERVED') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full space-y-6">
+          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
+            <svg
+              className="w-8 h-8 text-blue-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+              />
+            </svg>
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-gray-900">Table Reserved</h1>
+            <p className="text-gray-600">
+              This table is currently reserved. Please contact a staff member to
+              check you in.
+            </p>
+          </div>
+          <div className="pt-2 border-t border-gray-100">
+            <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+              Table {table.tableNumber} • {table.restaurant.name}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Conditional Menu Header (Restaurant Info & Search) */}

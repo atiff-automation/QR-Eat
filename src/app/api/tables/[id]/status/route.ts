@@ -24,12 +24,23 @@ export async function PATCH(
     await requireTableAccess(tableId, context!);
 
     // Get the current table for logging/notifications
+    // ✅ STRICT VALIDATION: Prevent setting an OCCUPIED table to RESERVED
     const currentTable = await prisma.table.findUnique({
       where: { id: tableId },
     });
 
     if (!currentTable) {
       return NextResponse.json({ error: 'Table not found' }, { status: 404 });
+    }
+
+    if (currentTable.status === 'OCCUPIED' && status === 'RESERVED') {
+      return NextResponse.json(
+        {
+          error:
+            'Cannot reserve an occupied table. Please clear the table first.',
+        },
+        { status: 400 }
+      );
     }
 
     // Update the table status

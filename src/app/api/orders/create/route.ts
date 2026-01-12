@@ -55,6 +55,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ STRICT VALIDATION: Prevent ordering from a RESERVED table
+    if (table.status === 'RESERVED') {
+      return NextResponse.json(
+        {
+          error:
+            'Table is reserved. Please ask staff to check you in before ordering.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Calculate order totals
     const totals = calculateOrderTotals(
       items,

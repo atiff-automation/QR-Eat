@@ -218,12 +218,34 @@ export function TableDetailModal({
 
           {/* Action Buttons - Compact */}
           <div className="space-y-1.5">
+            {/* Make Order Button - Disabled if Reserved */}
             <button
-              onClick={openOrderModal}
-              className="w-full h-10 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+              onClick={() => {
+                if (table.status !== 'RESERVED') {
+                  openOrderModal();
+                }
+              }}
+              disabled={table.status === 'RESERVED'}
+              title={
+                table.status === 'RESERVED'
+                  ? 'Table must be checked-in (unreserved) before ordering'
+                  : 'Place order for this table'
+              }
+              className={`
+                w-full h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all
+                ${
+                  table.status === 'RESERVED'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    : 'bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white'
+                }
+              `}
             >
               <span>Make Order</span>
-              <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              {table.status === 'RESERVED' ? (
+                <Lock className="w-3.5 h-3.5 opacity-60" />
+              ) : (
+                <ExternalLink className="w-3.5 h-3.5 opacity-80" />
+              )}
             </button>
 
             <button
@@ -237,8 +259,25 @@ export function TableDetailModal({
             {/* Reserve Toggle - Show for all statuses except reserved */}
             {table.status !== 'RESERVED' && (
               <button
-                onClick={() => onUpdateStatus(table.id, 'RESERVED')}
-                className="w-full h-10 bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
+                onClick={() => {
+                  if (table.status !== 'OCCUPIED') {
+                    onUpdateStatus(table.id, 'RESERVED');
+                  }
+                }}
+                disabled={table.status === 'OCCUPIED'}
+                title={
+                  table.status === 'OCCUPIED'
+                    ? 'Cannot reserve an occupied table. Clear it first.'
+                    : 'Reserve this table'
+                }
+                className={`
+                  w-full h-10 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all
+                  ${
+                    table.status === 'OCCUPIED'
+                      ? 'bg-gray-50 text-gray-300 cursor-not-allowed'
+                      : 'bg-gray-100 hover:bg-gray-200 active:scale-[0.98] text-gray-700'
+                  }
+                `}
               >
                 <Lock className="w-3.5 h-3.5" />
                 <span>Reserve Table</span>
