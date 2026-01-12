@@ -126,6 +126,22 @@ function TablesContent() {
             });
           }
         }
+        // Handle Payment Completion -> Trigger Immediate Refresh for Modal
+        if (data.type === 'payment_completed') {
+          const { tableId } = data.data;
+          if (tableId) {
+            console.log(
+              `[TablesPage] Payment completed for table ${tableId}, invalidating cache...`
+            );
+            // 1. Refresh Table List (to show Status: Clean/Available)
+            fetchTables();
+
+            // 2. Invalidate Table Details Modal Orders (to remove "Process Payment" button)
+            queryClient.invalidateQueries({
+              queryKey: queryKeys.tables.orders(tableId),
+            });
+          }
+        }
       } catch (error) {
         console.error('[TablesPage] SSE parse error:', error);
       }
@@ -213,11 +229,17 @@ function TablesContent() {
     setIsModalOpen(false); // Close table modal
   };
 
+  // Payment Handler - Callback when payment is successful
   const handlePaymentComplete = () => {
+    // Invalidate the cache for this specific table's orders
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.tables.orders(selectedOrders[0]?.tableId),
+    });
+    // Also refresh the main table list
+    fetchTables();
     setShowPaymentInterface(false);
     setSelectedOrders([]);
-    setOriginalOrders([]); // Clear original orders
-    fetchTables(); // Refresh table list
+    setOriginalOrders([]);
   };
 
   if (loading) {
