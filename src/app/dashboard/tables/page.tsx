@@ -136,8 +136,8 @@ function TablesContent() {
             // 1. Refresh Table List (to show Status: Clean/Available)
             fetchTables();
 
-            // 2. Invalidate Table Details Modal Orders (to remove "Process Payment" button)
-            queryClient.invalidateQueries({
+            // 2. Remove Table Details Modal Orders (to prevent payment button flicker)
+            queryClient.removeQueries({
               queryKey: queryKeys.tables.orders(tableId),
             });
           }
@@ -154,7 +154,7 @@ function TablesContent() {
       eventSource.close();
       clearInterval(interval);
     };
-  }, [restaurantContext?.id, fetchTables, selectedTable?.id]);
+  }, [restaurantContext?.id, fetchTables, selectedTable?.id, queryClient]);
 
   // Filter Logic
   useEffect(() => {
@@ -231,8 +231,8 @@ function TablesContent() {
 
   // Payment Handler - Callback when payment is successful
   const handlePaymentComplete = () => {
-    // Invalidate the cache for this specific table's orders
-    queryClient.invalidateQueries({
+    // Remove the cache for this specific table's orders to prevent flicker
+    queryClient.removeQueries({
       queryKey: queryKeys.tables.orders(selectedOrders[0]?.tableId),
     });
     // Also refresh the main table list

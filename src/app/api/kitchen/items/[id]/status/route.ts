@@ -121,7 +121,10 @@ export async function PATCH(
         (item) => item.status === 'READY'
       );
 
-      if (allItemsReady && orderItem.order.status === 'PREPARING') {
+      if (
+        allItemsReady &&
+        ['CONFIRMED', 'PREPARING'].includes(orderItem.order.status)
+      ) {
         await prisma.order.update({
           where: { id: orderItem.order.id },
           data: {

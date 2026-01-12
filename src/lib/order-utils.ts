@@ -53,7 +53,7 @@ export const PAYMENT_STATUS = {
 // State transition validation
 export const VALID_ORDER_TRANSITIONS: Record<string, string[]> = {
   PENDING: ['CONFIRMED', 'CANCELLED'],
-  CONFIRMED: ['PREPARING', 'CANCELLED'],
+  CONFIRMED: ['PREPARING', 'READY', 'CANCELLED'],
   PREPARING: ['READY', 'CANCELLED'],
   READY: ['SERVED', 'CANCELLED'],
   SERVED: [], // Terminal state
@@ -124,9 +124,9 @@ export function getNextOrderAction(status: string): {
       };
     case ORDER_STATUS.CONFIRMED:
       return {
-        label: 'Start',
-        nextStatus: ORDER_STATUS.PREPARING,
-        color: 'blue', // Acknowledged - matches blue border
+        label: 'Ready',
+        nextStatus: ORDER_STATUS.READY,
+        color: 'green', // One-Touch: Jump directly to Ready
       };
     case ORDER_STATUS.PREPARING:
       return {

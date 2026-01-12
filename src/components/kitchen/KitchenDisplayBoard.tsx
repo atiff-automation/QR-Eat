@@ -283,33 +283,6 @@ export function KitchenDisplayBoard() {
     }
   };
 
-  const updateOrderStatus = async (orderId: string, newStatus: string) => {
-    try {
-      // Optimistic update - update UI immediately
-      setOrders((prevOrders) =>
-        prevOrders.map((order) =>
-          order.id === orderId ? { ...order, status: newStatus } : order
-        )
-      );
-
-      await ApiClient.patch(`/orders/${orderId}/status`, { status: newStatus });
-      console.log(
-        '[KitchenDisplay] Order status updated successfully, waiting for SSE confirmation'
-      );
-      // SSE will send the real update - no need to fetch manually
-      // This prevents race conditions between manual fetch and SSE update
-    } catch (error) {
-      console.error('[KitchenDisplay] Failed to update order status:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
-      // Revert optimistic update on error
-      fetchKitchenOrders();
-    }
-  };
-
   const updateItemStatus = async (itemId: string, newStatus: string) => {
     try {
       // Optimistic update - update item status immediately
@@ -507,7 +480,7 @@ export function KitchenDisplayBoard() {
       )}
 
       {/* Order Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
         {/* New Orders */}
         <div className="space-y-4">
           <div className="bg-blue-800 p-3 rounded-lg">
@@ -521,6 +494,13 @@ export function KitchenDisplayBoard() {
                 (max, item) => Math.max(max, item.menuItem.preparationTime),
                 0
               );
+
+              // Sort items: Active first, Ready last
+              const sortedItems = [...order.items].sort((a, b) => {
+                if (a.status === 'READY' && b.status !== 'READY') return 1;
+                if (a.status !== 'READY' && b.status === 'READY') return -1;
+                return 0;
+              });
 
               return (
                 <div
@@ -564,11 +544,22 @@ export function KitchenDisplayBoard() {
 
                   {/* Order Items */}
                   <div className="space-y-2 mb-3">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="bg-gray-700 p-2 rounded">
+                    {sortedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`bg-gray-700 p-2 rounded ${
+                          item.status === 'READY' ? 'opacity-50' : ''
+                        }`}
+                      >
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
-                            <span className="font-medium">
+                            <span
+                              className={`font-medium ${
+                                item.status === 'READY'
+                                  ? 'line-through text-gray-400'
+                                  : ''
+                              }`}
+                            >
                               {item.quantity}× {item.menuItem.name}
                             </span>
                             {item.variations.length > 0 && (
@@ -588,7 +579,9 @@ export function KitchenDisplayBoard() {
                             )}
                           </div>
                           <div className="text-xs text-gray-400">
-                            {item.menuItem.preparationTime}m
+                            {item.status === 'READY'
+                              ? 'Done'
+                              : `${item.menuItem.preparationTime}m`}
                           </div>
                         </div>
                       </div>
@@ -606,11 +599,11 @@ export function KitchenDisplayBoard() {
 
                   <button
                     onClick={() =>
-                      handleBulkItemUpdate(order.id, order.items, 'PREPARING')
+                      handleBulkItemUpdate(order.id, order.items, 'READY')
                     }
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded font-medium"
+                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded font-medium"
                   >
-                    Start Cooking
+                    Mark Ready (Bump)
                   </button>
                 </div>
               );
@@ -631,6 +624,13 @@ export function KitchenDisplayBoard() {
                 (max, item) => Math.max(max, item.menuItem.preparationTime),
                 0
               );
+
+              // Sort items: Active first, Ready last
+              const sortedItems = [...order.items].sort((a, b) => {
+                if (a.status === 'READY' && b.status !== 'READY') return 1;
+                if (a.status !== 'READY' && b.status === 'READY') return -1;
+                return 0;
+              });
 
               return (
                 <div
@@ -665,11 +665,22 @@ export function KitchenDisplayBoard() {
 
                   {/* Order Items with Individual Status */}
                   <div className="space-y-2 mb-3">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="bg-gray-700 p-2 rounded">
+                    {sortedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`bg-gray-700 p-2 rounded ${
+                          item.status === 'READY' ? 'opacity-50' : ''
+                        }`}
+                      >
                         <div className="flex justify-between items-center">
                           <div className="flex-1">
-                            <span className="font-medium">
+                            <span
+                              className={`font-medium ${
+                                item.status === 'READY'
+                                  ? 'line-through text-gray-400'
+                                  : ''
+                              }`}
+                            >
                               {item.quantity}× {item.menuItem.name}
                             </span>
                             {item.variations.length > 0 && (
@@ -689,12 +700,18 @@ export function KitchenDisplayBoard() {
                             )}
                           </div>
                           <button
-                            onClick={() => updateItemStatus(item.id, 'READY')}
+                            onClick={() =>
+                              // Toggle logic? Or just redundant if already ready
+                              item.status !== 'READY'
+                                ? updateItemStatus(item.id, 'READY')
+                                : null
+                            }
                             className={`px-2 py-1 text-xs rounded ${
                               item.status === 'READY'
-                                ? 'bg-green-600 text-white'
+                                ? 'bg-transparent text-gray-500 cursor-default'
                                 : 'bg-gray-600 hover:bg-green-600 text-gray-300'
                             }`}
+                            disabled={item.status === 'READY'}
                           >
                             {item.status === 'READY' ? '✓ Done' : 'Mark Done'}
                           </button>
@@ -711,70 +728,6 @@ export function KitchenDisplayBoard() {
                   >
                     Mark All Ready
                   </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Ready for Pickup */}
-        <div className="space-y-4">
-          <div className="bg-green-600 p-3 rounded-lg">
-            <h2 className="text-xl font-bold text-center">Ready for Pickup</h2>
-          </div>
-
-          <div className="space-y-4 max-h-screen overflow-y-auto">
-            {groupedOrders.ready.map((order) => {
-              const age = getOrderAge(order.createdAt);
-
-              return (
-                <div
-                  key={order.id}
-                  className="bg-gray-800 rounded-lg p-4 border-l-4 border-green-500"
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold">{order.orderNumber}</h3>
-                      <p className="text-sm text-gray-300">
-                        Table {order.table.tableNumber}
-                        {order.table.tableName && ` - ${order.table.tableName}`}
-                      </p>
-                      {order.customerSession?.customerName && (
-                        <p className="text-sm text-gray-300">
-                          {order.customerSession.customerName}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div className="text-lg font-mono text-green-400">
-                        READY
-                      </div>
-                      <div className="text-sm text-gray-400">{age}m ago</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1 mb-3">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="text-sm">
-                        {item.quantity}× {item.menuItem.name}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* 
-                     For 'Mark Served', we can still update the Global Order Status to SERVED
-                     if this station is done. 
-                     Refinement: 'Mark Served' usually implies the waiter took it.
-                     So keeping it as global update is acceptable for now.
-                  */}
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => updateOrderStatus(order.id, 'SERVED')}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-medium"
-                    >
-                      Pickup Completed
-                    </button>
-                  </div>
                 </div>
               );
             })}
