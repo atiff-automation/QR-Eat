@@ -480,259 +480,156 @@ export function KitchenDisplayBoard() {
       )}
 
       {/* Order Columns */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-        {/* New Orders */}
-        <div className="space-y-4">
-          <div className="bg-blue-800 p-3 rounded-lg">
-            <h2 className="text-xl font-bold text-center">New Orders</h2>
-          </div>
+      {/* Single Active Orders List (Masonry-like Grid) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+        {[...groupedOrders.confirmed, ...groupedOrders.preparing]
+          // Sort by creation time (Oldest first)
+          .sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          )
+          .map((order) => {
+            const priority = getOrderPriority(order);
+            const estimatedTime = order.items.reduce(
+              (max, item) => Math.max(max, item.menuItem.preparationTime),
+              0
+            );
 
-          <div className="space-y-4 max-h-screen overflow-y-auto">
-            {groupedOrders.confirmed.map((order) => {
-              const priority = getOrderPriority(order);
-              const estimatedTime = order.items.reduce(
-                (max, item) => Math.max(max, item.menuItem.preparationTime),
-                0
-              );
+            // Sort items: Active first, Ready last
+            const sortedItems = [...order.items].sort((a, b) => {
+              if (a.status === 'READY' && b.status !== 'READY') return 1;
+              if (a.status !== 'READY' && b.status === 'READY') return -1;
+              return 0;
+            });
 
-              // Sort items: Active first, Ready last
-              const sortedItems = [...order.items].sort((a, b) => {
-                if (a.status === 'READY' && b.status !== 'READY') return 1;
-                if (a.status !== 'READY' && b.status === 'READY') return -1;
-                return 0;
-              });
+            // Determine border color based on priority
+            const borderColor =
+              priority === 'urgent'
+                ? 'border-red-500'
+                : priority === 'warning'
+                  ? 'border-orange-500'
+                  : 'border-blue-500';
 
-              return (
-                <div
-                  key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent'
-                      ? 'border-red-500'
-                      : priority === 'warning'
-                        ? 'border-orange-500'
-                        : 'border-blue-500'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold">
-                        {order.dailySeq
-                          ? `#${String(order.dailySeq).padStart(3, '0')}`
-                          : order.orderNumber}
-                      </h3>
-                      <p className="text-sm text-gray-300">
-                        Table {order.table.tableNumber}
-                        {order.table.tableName && ` - ${order.table.tableName}`}
+            return (
+              <div
+                key={order.id}
+                className={`bg-gray-800 rounded-lg p-3 border-l-4 ${borderColor} flex flex-col h-full shadow-lg`}
+              >
+                {/* Header */}
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="text-xl font-bold text-white">
+                      {order.dailySeq
+                        ? `#${String(order.dailySeq).padStart(3, '0')}`
+                        : order.orderNumber}
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Table {order.table.tableNumber}
+                      {order.table.tableName && ` - ${order.table.tableName}`}
+                    </p>
+                    {order.customerSession?.customerName && (
+                      <p className="text-xs text-gray-400 truncate max-w-[120px]">
+                        {order.customerSession.customerName}
                       </p>
-                      {order.customerSession?.customerName && (
-                        <p className="text-sm text-gray-300">
-                          {order.customerSession.customerName}
-                        </p>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
-                      >
-                        {getOrderAge(order.createdAt)}m
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Est: {estimatedTime}m
-                      </div>
+                    )}
+                  </div>
+                  <div className="text-right">
+                    <div
+                      className={`text-xl font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
+                    >
+                      {getOrderAge(order.createdAt)}m
                     </div>
                   </div>
-
-                  {/* Order Items */}
-                  <div className="space-y-2 mb-3">
-                    {sortedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`bg-gray-700 p-2 rounded ${
-                          item.status === 'READY' ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <span
-                              className={`font-medium ${
-                                item.status === 'READY'
-                                  ? 'line-through text-gray-400'
-                                  : ''
-                              }`}
-                            >
-                              {item.quantity}× {item.menuItem.name}
-                            </span>
-                            {item.variations.length > 0 && (
-                              <div className="text-sm text-gray-300 mt-1">
-                                {item.variations.map((variation) => (
-                                  <span key={variation.id} className="mr-2">
-                                    {variation.quantity}×{' '}
-                                    {variation.variation.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {item.specialInstructions && (
-                              <div className="text-sm text-yellow-300 mt-1">
-                                Note: {item.specialInstructions}
-                              </div>
-                            )}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            {item.status === 'READY'
-                              ? 'Done'
-                              : `${item.menuItem.preparationTime}m`}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {order.specialInstructions && (
-                    <div className="bg-yellow-900 p-2 rounded mb-3">
-                      <p className="text-sm text-yellow-200">
-                        <strong>Special Instructions:</strong>{' '}
-                        {order.specialInstructions}
-                      </p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={() =>
-                      handleBulkItemUpdate(order.id, order.items, 'READY')
-                    }
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded font-medium"
-                  >
-                    Mark Ready (Bump)
-                  </button>
                 </div>
-              );
-            })}
-          </div>
-        </div>
 
-        {/* In Progress */}
-        <div className="space-y-4">
-          <div className="bg-orange-600 p-3 rounded-lg">
-            <h2 className="text-xl font-bold text-center">In Progress</h2>
-          </div>
-
-          <div className="space-y-4 max-h-screen overflow-y-auto">
-            {groupedOrders.preparing.map((order) => {
-              const priority = getOrderPriority(order);
-              const estimatedTime = order.items.reduce(
-                (max, item) => Math.max(max, item.menuItem.preparationTime),
-                0
-              );
-
-              // Sort items: Active first, Ready last
-              const sortedItems = [...order.items].sort((a, b) => {
-                if (a.status === 'READY' && b.status !== 'READY') return 1;
-                if (a.status !== 'READY' && b.status === 'READY') return -1;
-                return 0;
-              });
-
-              return (
-                <div
-                  key={order.id}
-                  className={`bg-gray-800 rounded-lg p-4 border-l-4 ${
-                    priority === 'urgent'
-                      ? 'border-red-500'
-                      : priority === 'warning'
-                        ? 'border-orange-500'
-                        : 'border-orange-400'
-                  }`}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-lg font-bold">{order.orderNumber}</h3>
-                      <p className="text-sm text-gray-300">
-                        Table {order.table.tableNumber}
-                        {order.table.tableName && ` - ${order.table.tableName}`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`text-lg font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
-                      >
-                        {getOrderAge(order.createdAt)}m
-                      </div>
-                      <div className="text-xs text-gray-400">
-                        Est: {estimatedTime}m
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Order Items with Individual Status */}
-                  <div className="space-y-2 mb-3">
-                    {sortedItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`bg-gray-700 p-2 rounded ${
-                          item.status === 'READY' ? 'opacity-50' : ''
-                        }`}
-                      >
-                        <div className="flex justify-between items-center">
-                          <div className="flex-1">
-                            <span
-                              className={`font-medium ${
-                                item.status === 'READY'
-                                  ? 'line-through text-gray-400'
-                                  : ''
-                              }`}
-                            >
-                              {item.quantity}× {item.menuItem.name}
-                            </span>
-                            {item.variations.length > 0 && (
-                              <div className="text-sm text-gray-300 mt-1">
-                                {item.variations.map((variation) => (
-                                  <span key={variation.id} className="mr-2">
-                                    {variation.quantity}×{' '}
-                                    {variation.variation.name}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {item.specialInstructions && (
-                              <div className="text-sm text-yellow-300 mt-1">
-                                Note: {item.specialInstructions}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() =>
-                              // Toggle logic? Or just redundant if already ready
-                              item.status !== 'READY'
-                                ? updateItemStatus(item.id, 'READY')
-                                : null
-                            }
-                            className={`px-2 py-1 text-xs rounded ${
+                {/* Items List */}
+                <div className="space-y-2 flex-grow mb-3">
+                  {sortedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className={`p-2 rounded flex justify-between items-center ${
+                        item.status === 'READY'
+                          ? 'bg-gray-700/50 opacity-60'
+                          : 'bg-gray-700'
+                      }`}
+                    >
+                      <div className="flex-1 min-w-0 pr-2">
+                        <div className="flex items-center">
+                          <span
+                            className={`font-medium truncate ${
                               item.status === 'READY'
-                                ? 'bg-transparent text-gray-500 cursor-default'
-                                : 'bg-gray-600 hover:bg-green-600 text-gray-300'
+                                ? 'line-through text-gray-500'
+                                : 'text-gray-100'
                             }`}
-                            disabled={item.status === 'READY'}
                           >
-                            {item.status === 'READY' ? '✓ Done' : 'Mark Done'}
-                          </button>
+                            {item.quantity}× {item.menuItem.name}
+                          </span>
                         </div>
-                      </div>
-                    ))}
-                  </div>
 
-                  <button
-                    onClick={() =>
-                      handleBulkItemUpdate(order.id, order.items, 'READY')
-                    }
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded font-medium"
-                  >
-                    Mark All Ready
-                  </button>
+                        {/* Variations */}
+                        {item.variations.length > 0 && (
+                          <div className="text-xs text-gray-400 ml-1">
+                            {item.variations.map((v) => (
+                              <span key={v.id} className="block">
+                                + {v.quantity > 1 ? `${v.quantity}x ` : ''}
+                                {v.variation.name}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Notes */}
+                        {item.specialInstructions && (
+                          <div className="text-xs text-yellow-500 italic mt-0.5">
+                            &quot;{item.specialInstructions}&quot;
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Item Action Button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          // Only allow action if not ready
+                          if (item.status !== 'READY') {
+                            updateItemStatus(item.id, 'READY');
+                          }
+                        }}
+                        disabled={item.status === 'READY'}
+                        className={`h-8 px-3 rounded text-sm font-semibold transition-colors flex-shrink-0 ${
+                          item.status === 'READY'
+                            ? 'bg-transparent text-green-500 cursor-default'
+                            : 'bg-gray-600 hover:bg-green-600 text-white'
+                        }`}
+                      >
+                        {item.status === 'READY' ? '✓' : 'Done'}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-              );
-            })}
-          </div>
-        </div>
+
+                {/* Order Special Instructions */}
+                {order.specialInstructions && (
+                  <div className="bg-yellow-900/30 border border-yellow-700/50 p-2 rounded mb-3">
+                    <p className="text-xs text-yellow-200 break-words">
+                      <span className="font-bold">Note:</span>{' '}
+                      {order.specialInstructions}
+                    </p>
+                  </div>
+                )}
+
+                {/* Ticket Action Button (Bump) */}
+                <button
+                  onClick={() =>
+                    handleBulkItemUpdate(order.id, order.items, 'READY')
+                  }
+                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-3 rounded-lg font-bold text-lg shadow-md transition-colors mt-auto"
+                >
+                  BUMP
+                </button>
+              </div>
+            );
+          })}
       </div>
 
       {orders.length === 0 && !loading && (
