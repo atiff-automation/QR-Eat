@@ -2,10 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 
-import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
-
 export async function GET(request: NextRequest) {
   try {
     const token =
