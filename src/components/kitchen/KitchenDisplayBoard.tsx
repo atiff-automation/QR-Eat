@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { ChefHat } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
@@ -386,10 +387,89 @@ export function KitchenDisplayBoard() {
     // 2. Remove orders that have NO matching items for this station
     .filter((order) => order.items.length > 0);
 
+  // Helper: Determine the effective status for this station based on its items
+  const getDisplayStatus = (
+    order: KitchenOrder
+  ): 'CONFIRMED' | 'PREPARING' | 'READY' | 'SERVED' => {
+    // If all items are READY or SERVED, treat as READY (for this station)
+    const allReady = order.items.every((item) =>
+      ['READY', 'SERVED'].includes(item.status)
+    );
+    if (allReady) return 'READY';
+
+    // If any item is PREPARING, READY, or SERVED (but not all are ready), treat as PREPARING
+    const anyInProgres = order.items.some((item) =>
+      ['PREPARING', 'READY', 'SERVED'].includes(item.status)
+    );
+    if (anyInProgres) return 'PREPARING';
+
+    // Otherwise, it's New
+    return 'CONFIRMED';
+  };
+
   const groupedOrders = {
-    confirmed: filteredOrders.filter((order) => order.status === 'CONFIRMED'),
-    preparing: filteredOrders.filter((order) => order.status === 'PREPARING'),
-    ready: filteredOrders.filter((order) => order.status === 'READY'),
+    confirmed: filteredOrders.filter(
+      (order) => getDisplayStatus(order) === 'CONFIRMED'
+    ),
+    preparing: filteredOrders.filter(
+      (order) => getDisplayStatus(order) === 'PREPARING'
+    ),
+    ready: filteredOrders.filter(
+      (order) => getDisplayStatus(order) === 'READY'
+    ),
+  };
+
+  // Bulk update items for "Start Cooking" or "Mark Ready" actions
+  const handleBulkItemUpdate = async (
+    orderId: string,
+    items: { id: string }[],
+    newStatus: string
+  ) => {
+    try {
+      // Optimistic update
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== orderId) return o;
+          return {
+            ...o,
+            items: o.items.map((i) => {
+              if (items.some((target) => target.id === i.id)) {
+                return { ...i, status: newStatus };
+              }
+              return i;
+            }),
+          };
+        })
+      );
+
+      // API Calls (Parallel)
+      await Promise.all(
+        items.map((item) =>
+          ApiClient.patch(`/kitchen/items/${item.id}/status`, {
+            status: newStatus,
+          })
+        )
+      );
+
+      // Side Effect: If starting cooking, ensure Global Order Status is at least PREPARING
+      if (newStatus === 'PREPARING') {
+        // We don't await this to avoid blocking the UI response, and we catch errors silently
+        ApiClient.patch(`/orders/${orderId}/status`, {
+          status: 'PREPARING',
+        }).catch((err) =>
+          console.warn('Failed to auto-update global order status:', err)
+        );
+      }
+
+      // If marking items READY, check if ALL items in the original order are now ready
+      // This logic is complex to do purely client-side without full order context.
+      // Ideally backend handles "Check All Ready".
+      // For now, we rely on the waiter/kds visual cue.
+    } catch (error) {
+      console.error('Failed to bulk update items:', error);
+      toast.error('Failed to update items');
+      fetchKitchenOrders();
+    }
   };
 
   if (loading) {
@@ -525,7 +605,9 @@ export function KitchenDisplayBoard() {
                   )}
 
                   <button
-                    onClick={() => updateOrderStatus(order.id, 'PREPARING')}
+                    onClick={() =>
+                      handleBulkItemUpdate(order.id, order.items, 'PREPARING')
+                    }
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded font-medium"
                   >
                     Start Cooking
@@ -622,10 +704,12 @@ export function KitchenDisplayBoard() {
                   </div>
 
                   <button
-                    onClick={() => updateOrderStatus(order.id, 'READY')}
+                    onClick={() =>
+                      handleBulkItemUpdate(order.id, order.items, 'READY')
+                    }
                     className="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded font-medium"
                   >
-                    Mark Ready
+                    Mark All Ready
                   </button>
                 </div>
               );
@@ -677,12 +761,18 @@ export function KitchenDisplayBoard() {
                     ))}
                   </div>
 
+                  {/* 
+                     For 'Mark Served', we can still update the Global Order Status to SERVED
+                     if this station is done. 
+                     Refinement: 'Mark Served' usually implies the waiter took it.
+                     So keeping it as global update is acceptable for now.
+                  */}
                   <div className="flex space-x-2">
                     <button
                       onClick={() => updateOrderStatus(order.id, 'SERVED')}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded font-medium"
                     >
-                      Mark Served
+                      Pickup Completed
                     </button>
                   </div>
                 </div>
