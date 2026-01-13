@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ChefHat } from 'lucide-react';
+import { ChefHat, Check } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
@@ -457,7 +457,7 @@ export function KitchenDisplayBoard() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-4">
+    <div className="min-h-screen bg-black text-white p-2 md:p-4">
       {/* Header */}
       <KitchenHeader
         counts={{
@@ -481,7 +481,7 @@ export function KitchenDisplayBoard() {
 
       {/* Order Columns */}
       {/* Single Active Orders List (Masonry-like Grid) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4 pb-20">
         {[...groupedOrders.confirmed, ...groupedOrders.preparing]
           // Sort by creation time (Oldest first)
           .sort(
@@ -513,17 +513,17 @@ export function KitchenDisplayBoard() {
             return (
               <div
                 key={order.id}
-                className={`bg-gray-800 rounded-lg p-3 border-l-4 ${borderColor} flex flex-col h-full shadow-lg`}
+                className={`bg-gray-900 md:bg-gray-800 rounded-lg p-3 border-l-4 ${borderColor} flex flex-col h-full shadow-lg`}
               >
                 {/* Header */}
-                <div className="flex justify-between items-start mb-2">
+                <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="text-xl font-bold text-white">
+                    <h3 className="text-2xl md:text-xl font-bold text-white">
                       {order.dailySeq
                         ? `#${String(order.dailySeq).padStart(3, '0')}`
                         : order.orderNumber}
                     </h3>
-                    <p className="text-xs text-gray-400">
+                    <p className="text-sm text-gray-400 font-medium">
                       Table {order.table.tableNumber}
                       {order.table.tableName && ` - ${order.table.tableName}`}
                     </p>
@@ -535,7 +535,7 @@ export function KitchenDisplayBoard() {
                   </div>
                   <div className="text-right">
                     <div
-                      className={`text-xl font-mono ${getTimeColor(order.createdAt, estimatedTime)}`}
+                      className={`text-2xl md:text-xl font-mono font-bold ${getTimeColor(order.createdAt, estimatedTime)}`}
                     >
                       {getOrderAge(order.createdAt)}m
                     </div>
@@ -543,32 +543,35 @@ export function KitchenDisplayBoard() {
                 </div>
 
                 {/* Items List */}
-                <div className="space-y-2 flex-grow mb-3">
+                <div className="space-y-3 md:space-y-2 flex-grow mb-4">
                   {sortedItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`p-2 rounded flex justify-between items-center ${
+                      className={`p-3 md:p-2 rounded flex justify-between items-center ${
                         item.status === 'READY'
-                          ? 'bg-gray-700/50 opacity-60'
-                          : 'bg-gray-700'
+                          ? 'bg-gray-800/50 md:bg-gray-700/50 opacity-60'
+                          : 'bg-gray-800 md:bg-gray-700'
                       }`}
                     >
-                      <div className="flex-1 min-w-0 pr-2">
+                      <div className="flex-1 min-w-0 pr-3">
                         <div className="flex items-center">
                           <span
-                            className={`font-medium truncate ${
+                            className={`text-lg md:text-base font-bold md:font-medium leading-tight ${
                               item.status === 'READY'
                                 ? 'line-through text-gray-500'
                                 : 'text-gray-100'
                             }`}
                           >
-                            {item.quantity}× {item.menuItem.name}
+                            <span className="text-xl md:text-lg mr-2 inline-block">
+                              {item.quantity}×
+                            </span>
+                            {item.menuItem.name}
                           </span>
                         </div>
 
                         {/* Variations */}
                         {item.variations.length > 0 && (
-                          <div className="text-xs text-gray-400 ml-1">
+                          <div className="text-sm md:text-xs text-gray-400 ml-1 mt-1">
                             {item.variations.map((v) => (
                               <span key={v.id} className="block">
                                 + {v.quantity > 1 ? `${v.quantity}x ` : ''}
@@ -580,29 +583,40 @@ export function KitchenDisplayBoard() {
 
                         {/* Notes */}
                         {item.specialInstructions && (
-                          <div className="text-xs text-yellow-500 italic mt-0.5">
+                          <div className="text-sm md:text-xs text-yellow-500 italic mt-1 font-medium">
                             &quot;{item.specialInstructions}&quot;
                           </div>
                         )}
                       </div>
 
-                      {/* Item Action Button */}
+                      {/* Item Action Button - Large Touch Target */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          // Only allow action if not ready
                           if (item.status !== 'READY') {
                             updateItemStatus(item.id, 'READY');
                           }
                         }}
                         disabled={item.status === 'READY'}
-                        className={`h-8 px-3 rounded text-sm font-semibold transition-colors flex-shrink-0 ${
+                        className={`h-12 w-12 md:h-8 md:w-auto px-0 md:px-3 rounded-lg md:rounded text-sm font-bold transition-all flex items-center justify-center flex-shrink-0 ${
                           item.status === 'READY'
                             ? 'bg-transparent text-green-500 cursor-default'
-                            : 'bg-gray-600 hover:bg-green-600 text-white'
+                            : 'bg-gray-700 hover:bg-green-600 text-white border border-gray-600 hover:border-green-500' // Darker button for contrast
                         }`}
                       >
-                        {item.status === 'READY' ? '✓' : 'Done'}
+                        {item.status === 'READY' ? (
+                          // Large Check Icon
+                          <Check
+                            className="h-8 w-8 md:h-4 md:w-4"
+                            strokeWidth={3}
+                          />
+                        ) : (
+                          // Mobile: Empty Square / Desktop: 'Done'
+                          <>
+                            <span className="md:hidden h-6 w-6 border-2 border-gray-500 rounded-md"></span>
+                            <span className="hidden md:inline">Done</span>
+                          </>
+                        )}
                       </button>
                     </div>
                   ))}
@@ -610,8 +624,8 @@ export function KitchenDisplayBoard() {
 
                 {/* Order Special Instructions */}
                 {order.specialInstructions && (
-                  <div className="bg-yellow-900/30 border border-yellow-700/50 p-2 rounded mb-3">
-                    <p className="text-xs text-yellow-200 break-words">
+                  <div className="bg-yellow-900/30 border border-yellow-700/50 p-3 md:p-2 rounded mb-3">
+                    <p className="text-sm md:text-xs text-yellow-200 break-words">
                       <span className="font-bold">Note:</span>{' '}
                       {order.specialInstructions}
                     </p>
@@ -623,7 +637,7 @@ export function KitchenDisplayBoard() {
                   onClick={() =>
                     handleBulkItemUpdate(order.id, order.items, 'READY')
                   }
-                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white py-3 rounded-lg font-bold text-lg shadow-md transition-colors mt-auto"
+                  className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white h-14 md:h-auto md:py-3 rounded-lg font-bold text-2xl md:text-lg shadow-md transition-colors mt-auto uppercase tracking-wide"
                 >
                   BUMP
                 </button>
@@ -634,11 +648,11 @@ export function KitchenDisplayBoard() {
 
       {orders.length === 0 && !loading && (
         <div className="text-center py-12">
-          <ChefHat className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-xl font-medium text-gray-300 mb-2">
+          <ChefHat className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+          <h3 className="text-xl font-medium text-gray-500 mb-2">
             Kitchen is All Clear!
           </h3>
-          <p className="text-gray-400">No active orders to prepare</p>
+          <p className="text-gray-600">No active orders to prepare</p>
         </div>
       )}
     </div>

@@ -35,73 +35,101 @@ export function KitchenHeader({
     selectedCategories.length > 0 &&
     selectedCategories.length < categories.length;
 
+  // Calculate total active orders for mobile badge
+  const totalActive = counts.confirmed + counts.preparing;
+
   return (
-    <div className="mb-6">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
-        <div className="flex items-center space-x-4">
-          <div className="bg-gray-700 p-2 rounded-lg">
-            <ChefHat className="h-8 w-8 text-orange-500" />
+    <div className="mb-4 md:mb-6">
+      {/* MOBILE HEADER (Focus Mode) */}
+      <div className="md:hidden">
+        <div className="flex justify-between items-center bg-black p-4 border-b border-gray-800 sticky top-0 z-10">
+          <div className="text-white font-bold text-lg">
+            Orders: {totalActive}
           </div>
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">
-              Kitchen Display
-            </h1>
-            <div className="flex items-center space-x-2 text-sm text-gray-400">
-              {isFiltering ? (
-                <span className="flex items-center text-orange-400 font-medium bg-orange-400/10 px-2 py-0.5 rounded">
-                  <Filter className="h-3 w-3 mr-1" />
-                  Station Filter Active ({selectedCategories.length})
-                </span>
-              ) : (
-                <span>All Stations View</span>
-              )}
-            </div>
-          </div>
-        </div>
 
-        <div className="flex items-center space-x-6">
-          <KitchenClock className="text-right text-gray-300 font-mono text-xl" />
+          <KitchenClock className="text-white font-mono text-xl font-bold tracking-widest" />
 
-          {/* Settings Button */}
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className={`p-3 rounded-lg transition-colors border border-gray-600 ${
+            className={`p-2 rounded-lg transition-colors ${
               isFiltering
-                ? 'bg-orange-600 hover:bg-orange-700 text-white border-orange-500' // Highlight if active
-                : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                ? 'bg-orange-600 text-white'
+                : 'bg-gray-800 text-gray-400'
             }`}
-            title="Station Settings"
           >
             <Settings className="h-6 w-6" />
           </button>
         </div>
       </div>
 
-      {/* Summary Stats Cards */}
-      <div className="mt-4 grid grid-cols-3 gap-4">
-        <div className="bg-blue-900/40 border border-blue-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
-          <div className="text-3xl font-bold text-blue-400">
-            {counts.confirmed}
+      {/* DESKTOP HEADER (Dashboard Mode) */}
+      <div className="hidden md:block">
+        {/* Top Bar */}
+        <div className="flex justify-between items-center bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-700">
+          <div className="flex items-center space-x-4">
+            <div className="bg-gray-700 p-2 rounded-lg">
+              <ChefHat className="h-8 w-8 text-orange-500" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white tracking-tight">
+                Kitchen Display
+              </h1>
+              <div className="flex items-center space-x-2 text-sm text-gray-400">
+                {isFiltering ? (
+                  <span className="flex items-center text-orange-400 font-medium bg-orange-400/10 px-2 py-0.5 rounded">
+                    <Filter className="h-3 w-3 mr-1" />
+                    Station Filter Active ({selectedCategories.length})
+                  </span>
+                ) : (
+                  <span>All Stations View</span>
+                )}
+              </div>
+            </div>
           </div>
-          <div className="text-sm text-blue-200/70 font-medium uppercase tracking-wider mt-1">
-            New Orders
+
+          <div className="flex items-center space-x-6">
+            <KitchenClock className="text-right text-gray-300 font-mono text-xl" />
+
+            {/* Settings Button */}
+            <button
+              onClick={() => setIsSettingsOpen(true)}
+              className={`p-3 rounded-lg transition-colors border border-gray-600 ${
+                isFiltering
+                  ? 'bg-orange-600 hover:bg-orange-700 text-white border-orange-500' // Highlight if active
+                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+              }`}
+              title="Station Settings"
+            >
+              <Settings className="h-6 w-6" />
+            </button>
           </div>
         </div>
-        <div className="bg-orange-900/40 border border-orange-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
-          <div className="text-3xl font-bold text-orange-400">
-            {counts.preparing}
+
+        {/* Summary Stats Cards */}
+        <div className="mt-4 grid grid-cols-3 gap-4">
+          <div className="bg-blue-900/40 border border-blue-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
+            <div className="text-3xl font-bold text-blue-400">
+              {counts.confirmed}
+            </div>
+            <div className="text-sm text-blue-200/70 font-medium uppercase tracking-wider mt-1">
+              New Orders
+            </div>
           </div>
-          <div className="text-sm text-orange-200/70 font-medium uppercase tracking-wider mt-1">
-            In Progress
+          <div className="bg-orange-900/40 border border-orange-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
+            <div className="text-3xl font-bold text-orange-400">
+              {counts.preparing}
+            </div>
+            <div className="text-sm text-orange-200/70 font-medium uppercase tracking-wider mt-1">
+              In Progress
+            </div>
           </div>
-        </div>
-        <div className="bg-green-900/40 border border-green-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
-          <div className="text-3xl font-bold text-green-400">
-            {counts.ready}
-          </div>
-          <div className="text-sm text-green-200/70 font-medium uppercase tracking-wider mt-1">
-            Ready
+          <div className="bg-green-900/40 border border-green-800/50 p-4 rounded-lg text-center backdrop-blur-sm">
+            <div className="text-3xl font-bold text-green-400">
+              {counts.ready}
+            </div>
+            <div className="text-sm text-green-200/70 font-medium uppercase tracking-wider mt-1">
+              Ready
+            </div>
           </div>
         </div>
       </div>
