@@ -15,6 +15,7 @@ import {
 import Image from 'next/image';
 import { useCurrency } from '@/contexts/RestaurantContext';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 
 interface MenuCategory {
   id: string;
@@ -225,16 +226,6 @@ export default function MenuPage() {
               </button>
             ))}
           </div>
-
-          <button
-            onClick={() =>
-              setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
-            }
-            className="p-2 bg-blue-600 text-white rounded-xl shadow-sm hover:bg-blue-700 transition-colors active:scale-95 flex-shrink-0"
-            title={`Add ${viewMode === 'categories' ? 'Category' : 'Item'}`}
-          >
-            <Plus className="h-5 w-5" />
-          </button>
         </div>
 
         {error && (
@@ -535,6 +526,14 @@ export default function MenuPage() {
           />
         )}
       </div>
+
+      {/* Floating Action Button */}
+      <FloatingActionButton
+        onClick={() =>
+          setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
+        }
+        ariaLabel={viewMode === 'categories' ? 'Add Category' : 'Add Item'}
+      />
     </AccessControl>
   );
 }

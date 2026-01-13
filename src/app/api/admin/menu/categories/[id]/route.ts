@@ -52,11 +52,6 @@ export async function PATCH(
 
     const { name, description, displayOrder, isActive } = await request.json();
 
-    console.log('📝 Category Update Request:', {
-      categoryId,
-      requestBody: { name, description, displayOrder, isActive },
-    });
-
     // Verify category belongs to restaurant
     const existingCategory = await prisma.menuCategory.findUnique({
       where: { id: categoryId },
@@ -68,13 +63,6 @@ export async function PATCH(
         { status: 404 }
       );
     }
-
-    console.log('🔍 Existing Category State:', {
-      categoryId,
-      currentIsActive: existingCategory.isActive,
-      newIsActive: isActive,
-      willCascade: isActive === false && existingCategory.isActive === true,
-    });
 
     // Use transaction to update category and cascade to items if needed
     const result = await prisma.$transaction(async (tx) => {
@@ -92,26 +80,9 @@ export async function PATCH(
 
       // Cascade: If category is being deactivated, deactivate all its items
       if (isActive === false && existingCategory.isActive === true) {
-        console.log(
-          '🔄 CASCADE TRIGGERED: Deactivating all items in category',
-          categoryId
-        );
-
-        const updateResult = await tx.menuItem.updateMany({
+        await tx.menuItem.updateMany({
           where: { categoryId: categoryId },
           data: { isAvailable: false },
-        });
-
-        console.log('✅ CASCADE COMPLETE:', {
-          categoryId,
-          itemsUpdated: updateResult.count,
-        });
-      } else {
-        console.log('⏭️ CASCADE SKIPPED:', {
-          reason:
-            isActive === false
-              ? 'Category was already inactive'
-              : 'Category is being activated (no cascade)',
         });
       }
 
