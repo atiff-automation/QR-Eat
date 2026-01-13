@@ -56,9 +56,6 @@ export function KitchenHeader({
             </span>
             {isFiltering && (
               <div className="flex items-center gap-1 mt-1 overflow-x-auto max-w-[140px] scrollbar-hide">
-                {/* Filter Icon Indicator */}
-                <Filter className="h-3 w-3 text-orange-400 flex-shrink-0" />
-
                 {selectedCategories.map((catId) => {
                   const cat = categories.find((c) => c.id === catId);
                   if (!cat) return null;
