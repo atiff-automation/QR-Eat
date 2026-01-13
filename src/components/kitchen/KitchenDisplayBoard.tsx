@@ -523,7 +523,7 @@ export function KitchenDisplayBoard() {
                         ? `#${String(order.dailySeq).padStart(3, '0')}`
                         : order.orderNumber}
                     </h3>
-                    <p className="text-sm text-gray-400 font-medium">
+                    <p className="text-sm text-blue-300 font-medium tracking-wide">
                       Table {order.table.tableNumber}
                       {order.table.tableName && ` - ${order.table.tableName}`}
                     </p>
@@ -555,10 +555,10 @@ export function KitchenDisplayBoard() {
                           updateItemStatus(item.id, 'PREPARING');
                         }
                       }}
-                      className={`p-3 md:p-2 rounded flex justify-between items-center cursor-pointer transition-all active:scale-[0.98] ${
+                      className={`p-3 md:p-2 rounded border flex justify-between items-center cursor-pointer transition-all active:scale-[0.98] ${
                         item.status === 'READY'
-                          ? 'bg-gray-800/50 md:bg-gray-700/50 opacity-50'
-                          : 'bg-gray-800 md:bg-gray-700 hover:bg-gray-700 md:hover:bg-gray-600'
+                          ? 'bg-gray-800/50 border-transparent md:bg-gray-700/50 opacity-50'
+                          : 'bg-gray-800 border-gray-700/50 hover:bg-gray-700 hover:border-gray-600 md:bg-gray-700 md:hover:bg-gray-600'
                       }`}
                     >
                       <div className="flex-1 min-w-0 pr-3">

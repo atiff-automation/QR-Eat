@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Settings, X, Check, ChefHat, Filter } from 'lucide-react';
+import { Settings, X, ChefHat, Filter } from 'lucide-react';
 import { KitchenClock, LiveClock } from '@/components/ui/LiveClock';
 
 interface KitchenHeaderProps {
@@ -23,9 +23,6 @@ export function KitchenHeader({
   categories,
   selectedCategories,
   onToggleCategory,
-  onSelectAll,
-  onDeselectAll,
-  saving = false,
 }: KitchenHeaderProps) {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
@@ -42,20 +39,37 @@ export function KitchenHeader({
     <div className="mb-4 md:mb-6">
       {/* MOBILE HEADER (Focus Mode) */}
       <div className="md:hidden">
-        <div className="flex justify-between items-center bg-black p-2 border-b border-gray-800 sticky top-0 z-10 h-14">
-          <div className="text-white font-bold text-base flex items-center">
-            <span className="bg-gray-800 px-2 py-1 rounded text-sm mr-2">
+        <div className="flex justify-between items-center bg-black p-3 border-b border-gray-800 sticky top-0 z-10 h-16">
+          <div className="flex flex-col items-start justify-center min-w-[80px]">
+            <span
+              className={`px-3 py-1 rounded-lg text-sm font-bold shadow-sm ${
+                isFiltering ? 'mb-1' : ''
+              } ${
+                totalActive < 5
+                  ? 'bg-gray-800 text-green-400 border border-green-900/50'
+                  : totalActive < 10
+                    ? 'bg-gray-800 text-orange-400 border border-orange-900/50'
+                    : 'bg-red-900/30 text-red-400 border border-red-800/50'
+              }`}
+            >
               {totalActive} Active
             </span>
+            {isFiltering && (
+              <span className="flex items-center text-[10px] text-orange-400 font-medium pl-0.5 animate-pulse">
+                <Filter className="h-3 w-3 mr-1" />
+                {selectedCategories.length}{' '}
+                {selectedCategories.length === 1 ? 'Station' : 'Stations'}
+              </span>
+            )}
           </div>
 
           <div className="flex flex-col items-center">
             <LiveClock
-              className="text-white font-mono text-lg font-bold leading-none"
+              className="text-white font-mono text-2xl font-bold leading-none tracking-wide"
               showSeconds={false}
             />
             {/* Small Date */}
-            <div className="text-[10px] text-gray-500 font-medium leading-tight">
+            <div className="text-[11px] text-gray-500 font-medium leading-tight mt-0.5">
               {new Date().toLocaleDateString('en-GB', {
                 weekday: 'short',
                 day: 'numeric',
@@ -66,13 +80,13 @@ export function KitchenHeader({
 
           <button
             onClick={() => setIsSettingsOpen(true)}
-            className={`p-2 rounded-lg transition-colors ${
+            className={`p-2.5 rounded-xl transition-colors ${
               isFiltering
                 ? 'bg-orange-600 text-white'
-                : 'bg-gray-800 text-gray-400'
+                : 'bg-gray-800 text-gray-400 border border-gray-700'
             }`}
           >
-            <Settings className="h-5 w-5" />
+            <Settings className="h-6 w-6" />
           </button>
         </div>
       </div>
@@ -153,90 +167,63 @@ export function KitchenHeader({
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div
-            className="bg-gray-800 rounded-xl shadow-2xl max-w-md w-full border border-gray-700 flex flex-col max-h-[90vh]"
+            className="bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full border border-gray-800 flex flex-col max-h-[85vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex justify-between items-center p-6 border-b border-gray-700 bg-gray-800 rounded-t-xl sticky top-0">
-              <div>
-                <h2 className="text-xl font-bold text-white flex items-center">
-                  <Settings className="mr-2 h-5 w-5 text-gray-400" />
-                  Station Settings
-                </h2>
-                <p className="text-sm text-gray-400 mt-1">
-                  Filter orders by category for this device
-                </p>
-              </div>
+            <div className="flex justify-between items-center p-5 border-b border-gray-800 bg-gray-900 sticky top-0">
+              <h2 className="text-xl font-bold text-white">Station Filters</h2>
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700 rounded-lg"
+                className="text-gray-400 hover:text-white bg-gray-800 hover:bg-gray-700 p-2 rounded-full transition-colors"
               >
-                <X className="h-6 w-6" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 overflow-y-auto">
-              <div className="flex justify-between mb-4">
-                <button
-                  onClick={onSelectAll}
-                  className="text-sm text-blue-400 hover:text-blue-300 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-400/10 transition-colors"
-                >
-                  Select All
-                </button>
-                <button
-                  onClick={onDeselectAll}
-                  className="text-sm text-gray-400 hover:text-gray-200 font-medium px-3 py-1.5 rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  Clear All
-                </button>
-              </div>
-
+            <div className="p-5 overflow-y-auto">
               {categories.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  <Filter className="h-8 w-8 mx-auto mb-2 opacity-50" />
                   <p>No categories found</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {categories.map((category) => {
                     const isSelected = selectedCategories.includes(category.id);
                     return (
                       <label
                         key={category.id}
-                        className={`flex items-center p-4 rounded-xl cursor-pointer border transition-all duration-200 group ${
+                        className={`flex justify-between items-center p-4 rounded-xl cursor-pointer transition-colors ${
                           isSelected
-                            ? 'bg-blue-600/20 border-blue-500/50 hover:bg-blue-600/30'
-                            : 'bg-gray-700/50 border-transparent hover:bg-gray-700'
+                            ? 'bg-gray-800'
+                            : 'bg-gray-800/40 hover:bg-gray-800'
                         }`}
                       >
+                        <span
+                          className={`font-semibold text-lg ${isSelected ? 'text-white' : 'text-gray-400'}`}
+                        >
+                          {category.name}
+                        </span>
+
+                        {/* Custom Toggle Switch */}
                         <div
-                          className={`relative flex items-center justify-center h-6 w-6 rounded border mr-4 transition-colors ${
-                            isSelected
-                              ? 'bg-blue-500 border-blue-500'
-                              : 'bg-gray-800 border-gray-600 group-hover:border-gray-500'
+                          className={`relative w-12 h-7 rounded-full transition-colors duration-200 ${
+                            isSelected ? 'bg-green-500' : 'bg-gray-600'
                           }`}
                         >
-                          {isSelected && (
-                            <Check
-                              className="h-4 w-4 text-white"
-                              strokeWidth={3}
-                            />
-                          )}
+                          <div
+                            className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
+                              isSelected ? 'left-6' : 'left-1'
+                            }`}
+                          />
                           <input
                             type="checkbox"
-                            className="absolute opacity-0 w-full h-full cursor-pointer"
+                            className="hidden"
                             checked={isSelected}
                             onChange={() => onToggleCategory(category.id)}
                           />
                         </div>
-                        <span
-                          className={`font-medium text-lg ${
-                            isSelected ? 'text-white' : 'text-gray-300'
-                          }`}
-                        >
-                          {category.name}
-                        </span>
                       </label>
                     );
                   })}
@@ -245,18 +232,11 @@ export function KitchenHeader({
             </div>
 
             {/* Modal Footer */}
-            <div className="p-6 border-t border-gray-700 bg-gray-800/50 rounded-b-xl sticky bottom-0">
-              <div className="flex items-center justify-between text-sm text-gray-400 mb-4">
-                <span>Selections are saved to your account</span>
-                {saving && (
-                  <span className="text-blue-400 animate-pulse">Saving...</span>
-                )}
-              </div>
+            <div className="p-5 border-t border-gray-800 bg-gray-900 sticky bottom-0">
               <button
                 onClick={() => setIsSettingsOpen(false)}
-                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-blue-900/20 flex items-center justify-center"
+                className="w-full bg-white hover:bg-gray-200 text-black font-bold py-4 rounded-xl transition-colors text-lg"
               >
-                <Check className="mr-2 h-5 w-5" />
                 Done
               </button>
             </div>
