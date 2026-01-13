@@ -34,16 +34,13 @@ export async function processPayment(
     `/api/pos/payment/${data.orderId}`,
     data
   );
-  return ApiClient.post<PaymentProcessResult>(
-    `/api/pos/payment/${data.orderId}`,
-    {
-      paymentMethod: data.paymentMethod,
-      cashReceived: data.cashReceived,
-      externalTransactionId: data.externalTransactionId,
-      notes: data.notes,
-      payFullTable: data.payFullTable,
-    }
-  );
+  return ApiClient.post<PaymentProcessResult>(`pos/payment/${data.orderId}`, {
+    paymentMethod: data.paymentMethod,
+    cashReceived: data.cashReceived,
+    externalTransactionId: data.externalTransactionId,
+    notes: data.notes,
+    payFullTable: data.payFullTable,
+  });
 }
 
 /**
@@ -61,15 +58,12 @@ export async function processTablePayment(
     `/api/pos/payment/table/${tableId}`,
     data
   );
-  return ApiClient.post<PaymentProcessResult>(
-    `/api/pos/payment/table/${tableId}`,
-    {
-      paymentMethod: data.paymentMethod,
-      cashReceived: data.cashReceived,
-      externalTransactionId: data.externalTransactionId,
-      notes: data.notes,
-    }
-  );
+  return ApiClient.post<PaymentProcessResult>(`pos/payment/table/${tableId}`, {
+    paymentMethod: data.paymentMethod,
+    cashReceived: data.cashReceived,
+    externalTransactionId: data.externalTransactionId,
+    notes: data.notes,
+  });
 }
 
 /**
@@ -88,7 +82,7 @@ export async function fetchPendingOrders(
   page = 1,
   limit = 20
 ): Promise<PendingOrdersResponse> {
-  return ApiClient.get<PendingOrdersResponse>('/api/pos/orders/pending', {
+  return ApiClient.get<PendingOrdersResponse>('pos/orders/pending', {
     params: { page, limit },
   });
 }
@@ -103,5 +97,5 @@ export async function fetchPendingOrders(
  * - Request retry logic
  */
 export async function refreshOrder(orderId: string): Promise<unknown> {
-  return ApiClient.get(`/api/orders/${orderId}`);
+  return ApiClient.get(`orders/${orderId}`);
 }

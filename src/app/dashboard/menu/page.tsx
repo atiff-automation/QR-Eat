@@ -142,7 +142,7 @@ export default function MenuPage() {
 
   const toggleItemAvailability = async (item: MenuItem) => {
     try {
-      await ApiClient.patch(`/api/admin/menu/items/${item.id}`, {
+      await ApiClient.patch(`admin/menu/items/${item.id}`, {
         isAvailable: !item.isAvailable,
       });
 
@@ -162,7 +162,7 @@ export default function MenuPage() {
 
   const toggleCategoryStatus = async (category: MenuCategory) => {
     try {
-      await ApiClient.patch(`/api/admin/menu/categories/${category.id}`, {
+      await ApiClient.patch(`admin/menu/categories/${category.id}`, {
         isActive: !category.isActive,
       });
 
@@ -1031,7 +1031,7 @@ function EditItemModal({
         calories: formData.calories ? parseInt(formData.calories) : null,
       };
 
-      await ApiClient.patch(`/admin/menu/items/${item.id}`, payload);
+      await ApiClient.patch(`admin/menu/items/${item.id}`, payload);
 
       onSuccess();
     } catch (error) {
@@ -1380,7 +1380,7 @@ function EditCategoryModal({
     setError('');
 
     try {
-      await ApiClient.patch(`/admin/menu/categories/${category.id}`, formData);
+      await ApiClient.patch(`admin/menu/categories/${category.id}`, formData);
 
       onSuccess();
     } catch (error) {

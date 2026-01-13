@@ -8,8 +8,9 @@ export async function PATCH(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -37,7 +38,8 @@ export async function PATCH(
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
+    const hasMenuPermission =
+      authResult.user.currentRole?.permissions.menu?.includes('write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -50,7 +52,7 @@ export async function PATCH(
 
     // Verify category belongs to restaurant
     const existingCategory = await prisma.menuCategory.findUnique({
-      where: { id: categoryId }
+      where: { id: categoryId },
     });
 
     if (!existingCategory || existingCategory.restaurantId !== restaurantId) {
@@ -67,18 +69,22 @@ export async function PATCH(
         ...(description !== undefined && { description }),
         ...(displayOrder !== undefined && { displayOrder }),
         ...(isActive !== undefined && { isActive }),
-        updatedAt: new Date()
-      }
+        updatedAt: new Date(),
+      },
     });
 
     return NextResponse.json({
       success: true,
       category,
-      message: 'Category updated successfully'
+      message: 'Category updated successfully',
     });
-
   } catch (error) {
-    console.error('Failed to update category:', error);
+    console.error('Failed to update category:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      categoryId: (await params).id,
+      requestBody: { name, description, displayOrder, isActive },
+    });
     return NextResponse.json(
       { error: 'Failed to update category' },
       { status: 500 }
@@ -92,8 +98,9 @@ export async function DELETE(
 ) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -121,7 +128,8 @@ export async function DELETE(
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('delete');
+    const hasMenuPermission =
+      authResult.user.currentRole?.permissions.menu?.includes('delete');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -136,9 +144,9 @@ export async function DELETE(
       where: { id: categoryId },
       include: {
         _count: {
-          select: { menuItems: true }
-        }
-      }
+          select: { menuItems: true },
+        },
+      },
     });
 
     if (!existingCategory || existingCategory.restaurantId !== restaurantId) {
@@ -151,22 +159,28 @@ export async function DELETE(
     // Check if category has menu items
     if (existingCategory._count.menuItems > 0) {
       return NextResponse.json(
-        { error: 'Cannot delete category with existing menu items. Please move or delete items first.' },
+        {
+          error:
+            'Cannot delete category with existing menu items. Please move or delete items first.',
+        },
         { status: 400 }
       );
     }
 
     await prisma.menuCategory.delete({
-      where: { id: categoryId }
+      where: { id: categoryId },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Category deleted successfully'
+      message: 'Category deleted successfully',
     });
-
   } catch (error) {
-    console.error('Failed to delete category:', error);
+    console.error('Failed to delete category:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      categoryId: (await params).id,
+    });
     return NextResponse.json(
       { error: 'Failed to delete category' },
       { status: 500 }

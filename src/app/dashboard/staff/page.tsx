@@ -203,7 +203,7 @@ function StaffPageContent() {
       // Create or update staff member via API
       if (showEditModal && selectedStaff) {
         // Update existing staff member
-        await ApiClient.put(`/admin/staff/${selectedStaff.id}`, formData);
+        await ApiClient.put(`admin/staff/${selectedStaff.id}`, formData);
 
         await fetchStaff(); // Refresh the list
         setSuccess('Staff member updated successfully!');
@@ -306,7 +306,7 @@ function StaffPageContent() {
       )
     ) {
       try {
-        await ApiClient.delete(`/admin/staff/${member.id}`);
+        await ApiClient.delete(`admin/staff/${member.id}`);
 
         await fetchStaff(); // Refresh the list
         closeModals(); // Close the edit modal
@@ -343,7 +343,7 @@ function StaffPageContent() {
         )
       );
 
-      await ApiClient.put(`/admin/staff/${member.id}`, {
+      await ApiClient.put(`admin/staff/${member.id}`, {
         isActive: !member.isActive,
         roleId: member.role.id,
         firstName: member.firstName,
