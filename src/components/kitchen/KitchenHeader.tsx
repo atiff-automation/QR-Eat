@@ -55,11 +55,23 @@ export function KitchenHeader({
               {totalActive} Active
             </span>
             {isFiltering && (
-              <span className="flex items-center text-[10px] text-orange-400 font-medium pl-0.5 animate-pulse">
-                <Filter className="h-3 w-3 mr-1" />
-                {selectedCategories.length}{' '}
-                {selectedCategories.length === 1 ? 'Station' : 'Stations'}
-              </span>
+              <div className="flex items-center gap-1 mt-1 overflow-x-auto max-w-[140px] scrollbar-hide">
+                {/* Filter Icon Indicator */}
+                <Filter className="h-3 w-3 text-orange-400 flex-shrink-0" />
+
+                {selectedCategories.map((catId) => {
+                  const cat = categories.find((c) => c.id === catId);
+                  if (!cat) return null;
+                  return (
+                    <span
+                      key={catId}
+                      className="text-[10px] bg-gray-800 text-orange-300 px-1.5 py-0.5 rounded border border-gray-700 whitespace-nowrap"
+                    >
+                      {cat.name}
+                    </span>
+                  );
+                })}
+              </div>
             )}
           </div>
 
