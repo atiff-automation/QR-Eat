@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { CashPaymentFormProps } from '@/types/pos';
 import { formatCurrency } from '@/lib/utils/format';
 import { Loader2 } from 'lucide-react';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 
 const QUICK_AMOUNTS = [10, 20, 50, 100];
 
@@ -24,13 +25,12 @@ export function CashPaymentForm({
   isProcessing,
   currency = 'MYR',
 }: CashPaymentFormProps) {
-  const [cashReceived, setCashReceived] = useState<string>('');
+  const [cashReceived, setCashReceived] = useState<number>(0);
   const [error, setError] = useState<string>('');
   const formRef = useRef<HTMLFormElement>(null);
 
-  const cashReceivedNum = parseFloat(cashReceived) || 0;
-  const change = cashReceivedNum - totalAmount;
-  const isValid = cashReceivedNum >= totalAmount;
+  const change = cashReceived - totalAmount;
+  const isValid = cashReceived >= totalAmount;
 
   // Auto-scroll to bottom when change appears
   // Auto-scroll to bottom when component mounts OR when change appears
@@ -47,7 +47,7 @@ export function CashPaymentForm({
   }, [isValid, change]); // Keep dependencies to ensure it updates with change
 
   const handleQuickAmount = (amount: number) => {
-    setCashReceived(amount.toFixed(2));
+    setCashReceived(amount);
     setError('');
   };
 
@@ -55,7 +55,7 @@ export function CashPaymentForm({
     e.preventDefault();
     console.log('[CashPaymentForm] Submit triggered', {
       isValid,
-      cashReceivedNum,
+      cashReceived,
       totalAmount,
     });
 
@@ -66,7 +66,7 @@ export function CashPaymentForm({
     }
 
     console.log('[CashPaymentForm] Validation passed, calling onSubmit');
-    onSubmit({ cashReceived: cashReceivedNum });
+    onSubmit({ cashReceived });
   };
 
   return (
@@ -91,17 +91,13 @@ export function CashPaymentForm({
         >
           Cash Received
         </label>
-        <input
-          id="cashReceived"
-          type="number"
-          inputMode="decimal"
-          step="0.01"
-          min="0"
+        <CurrencyInput
           value={cashReceived}
-          onChange={(e) => {
-            setCashReceived(e.target.value);
+          onChange={(value) => {
+            setCashReceived(value);
             setError('');
           }}
+          currency={currency}
           className="w-full px-4 py-3 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           placeholder="0.00"
           disabled={isProcessing}

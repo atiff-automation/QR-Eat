@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/contexts/RestaurantContext';
+import { CurrencyInput } from '@/components/ui/CurrencyInput';
 
 interface MenuCategory {
   id: string;
@@ -552,10 +553,11 @@ function AddModal({
   onClose: () => void;
   onSuccess: (newItemCategoryId?: string) => void;
 }) {
+  const currency = useCurrency();
   const [formData, setFormData] = useState<{
     name: string;
     description: string;
-    price: string;
+    price: number;
     categoryId: string;
     preparationTime: number;
     calories: string;
@@ -567,7 +569,7 @@ function AddModal({
   }>({
     name: '',
     description: '',
-    price: '',
+    price: 0,
     categoryId: selectedCategory || '',
     preparationTime: 15,
     calories: '',
@@ -610,7 +612,7 @@ function AddModal({
       if (type === 'item') {
         requestData = {
           ...formData,
-          price: parseFloat(formData.price) || 0,
+          // price is already a number
           preparationTime: parseInt(formData.preparationTime.toString()) || 15,
           calories: formData.calories ? parseInt(formData.calories) : null,
         };
@@ -724,15 +726,14 @@ function AddModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-                      Price ($)
+                      Price ({currency})
                     </label>
-                    <input
-                      type="number"
-                      step="0.01"
+                    <CurrencyInput
                       value={formData.price}
-                      onChange={(e) =>
-                        setFormData({ ...formData, price: e.target.value })
+                      onChange={(value) =>
+                        setFormData({ ...formData, price: value })
                       }
+                      currency={currency}
                       className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                       placeholder="0.00"
                       required
@@ -1001,10 +1002,11 @@ function EditItemModal({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const currency = useCurrency();
   const [formData, setFormData] = useState({
     name: item.name,
     description: item.description || '',
-    price: item.price.toString(),
+    price: item.price,
     categoryId: item.category?.id || item.categoryId || '',
     preparationTime: item.preparationTime,
     calories: item.calories?.toString() || '',
@@ -1025,7 +1027,7 @@ function EditItemModal({
     try {
       const payload = {
         ...formData,
-        price: parseFloat(formData.price),
+        // price is already a number
         calories: formData.calories ? parseInt(formData.calories) : null,
       };
 
@@ -1112,15 +1114,14 @@ function EditItemModal({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-                  Price ($)
+                  Price ({currency})
                 </label>
-                <input
-                  type="number"
-                  step="0.01"
+                <CurrencyInput
                   value={formData.price}
-                  onChange={(e) =>
-                    setFormData({ ...formData, price: e.target.value })
+                  onChange={(value) =>
+                    setFormData({ ...formData, price: value })
                   }
+                  currency={currency}
                   className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
                   required
                 />

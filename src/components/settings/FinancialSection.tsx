@@ -48,17 +48,22 @@ export function FinancialSection({
   onUpdate,
 }: FinancialSectionProps) {
   // Convert decimal rates (0.06) to percentages (6) for display
-  const [formData, setFormData] = useState<FinancialSettings>({
+  // Use strings for rates to allow empty input state
+  const [formData, setFormData] = useState({
     ...initialData,
-    taxRate: initialData.taxRate * 100, // Convert 0.06 to 6
-    serviceChargeRate: initialData.serviceChargeRate * 100, // Convert 0.10 to 10
+    taxRate: (initialData.taxRate * 100).toString(),
+    serviceChargeRate: (initialData.serviceChargeRate * 100).toString(),
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const hasChanges =
-    JSON.stringify(formData) !==
+    JSON.stringify({
+      ...formData,
+      taxRate: parseFloat(formData.taxRate) || 0,
+      serviceChargeRate: parseFloat(formData.serviceChargeRate) || 0,
+    }) !==
     JSON.stringify({
       ...initialData,
       taxRate: initialData.taxRate * 100,
@@ -71,12 +76,15 @@ export function FinancialSection({
     setSuccess('');
 
     // Validation
-    if (formData.taxRate < 0 || formData.taxRate > 100) {
+    const taxRateVal = parseFloat(formData.taxRate) || 0;
+    const serviceChargeVal = parseFloat(formData.serviceChargeRate) || 0;
+
+    if (taxRateVal < 0 || taxRateVal > 100) {
       setError('Tax rate must be between 0 and 100');
       return;
     }
 
-    if (formData.serviceChargeRate < 0 || formData.serviceChargeRate > 100) {
+    if (serviceChargeVal < 0 || serviceChargeVal > 100) {
       setError('Service charge rate must be between 0 and 100');
       return;
     }
@@ -87,8 +95,8 @@ export function FinancialSection({
       // Convert percentage values to decimals for API
       const apiData = {
         currency: formData.currency,
-        taxRate: formData.taxRate / 100, // Convert 6 to 0.06
-        serviceChargeRate: formData.serviceChargeRate / 100, // Convert 10 to 0.10
+        taxRate: taxRateVal / 100,
+        serviceChargeRate: serviceChargeVal / 100,
         taxLabel: formData.taxLabel,
         serviceChargeLabel: formData.serviceChargeLabel,
       };
@@ -186,7 +194,7 @@ export function FinancialSection({
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                taxRate: parseFloat(e.target.value) || 0,
+                taxRate: e.target.value,
               }))
             }
             className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
@@ -232,7 +240,7 @@ export function FinancialSection({
             onChange={(e) =>
               setFormData((prev) => ({
                 ...prev,
-                serviceChargeRate: parseFloat(e.target.value) || 0,
+                serviceChargeRate: e.target.value,
               }))
             }
             className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
