@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Settings, X, Check, ChefHat, Filter } from 'lucide-react';
-import { KitchenClock } from '@/components/ui/LiveClock';
+import { KitchenClock, LiveClock } from '@/components/ui/LiveClock';
 
 interface KitchenHeaderProps {
   counts: {
@@ -42,12 +42,27 @@ export function KitchenHeader({
     <div className="mb-4 md:mb-6">
       {/* MOBILE HEADER (Focus Mode) */}
       <div className="md:hidden">
-        <div className="flex justify-between items-center bg-black p-4 border-b border-gray-800 sticky top-0 z-10">
-          <div className="text-white font-bold text-lg">
-            Orders: {totalActive}
+        <div className="flex justify-between items-center bg-black p-2 border-b border-gray-800 sticky top-0 z-10 h-14">
+          <div className="text-white font-bold text-base flex items-center">
+            <span className="bg-gray-800 px-2 py-1 rounded text-sm mr-2">
+              {totalActive} Active
+            </span>
           </div>
 
-          <KitchenClock className="text-white font-mono text-xl font-bold tracking-widest" />
+          <div className="flex flex-col items-center">
+            <LiveClock
+              className="text-white font-mono text-lg font-bold leading-none"
+              showSeconds={false}
+            />
+            {/* Small Date */}
+            <div className="text-[10px] text-gray-500 font-medium leading-tight">
+              {new Date().toLocaleDateString('en-GB', {
+                weekday: 'short',
+                day: 'numeric',
+                month: 'short',
+              })}
+            </div>
+          </div>
 
           <button
             onClick={() => setIsSettingsOpen(true)}
@@ -57,7 +72,7 @@ export function KitchenHeader({
                 : 'bg-gray-800 text-gray-400'
             }`}
           >
-            <Settings className="h-6 w-6" />
+            <Settings className="h-5 w-5" />
           </button>
         </div>
       </div>

@@ -547,10 +547,18 @@ export function KitchenDisplayBoard() {
                   {sortedItems.map((item) => (
                     <div
                       key={item.id}
-                      className={`p-3 md:p-2 rounded flex justify-between items-center ${
+                      onClick={() => {
+                        if (item.status !== 'READY') {
+                          updateItemStatus(item.id, 'READY');
+                        } else {
+                          // Allow toggling back to PREPARING if clicked again (Undo)
+                          updateItemStatus(item.id, 'PREPARING');
+                        }
+                      }}
+                      className={`p-3 md:p-2 rounded flex justify-between items-center cursor-pointer transition-all active:scale-[0.98] ${
                         item.status === 'READY'
-                          ? 'bg-gray-800/50 md:bg-gray-700/50 opacity-60'
-                          : 'bg-gray-800 md:bg-gray-700'
+                          ? 'bg-gray-800/50 md:bg-gray-700/50 opacity-50'
+                          : 'bg-gray-800 md:bg-gray-700 hover:bg-gray-700 md:hover:bg-gray-600'
                       }`}
                     >
                       <div className="flex-1 min-w-0 pr-3">
@@ -589,35 +597,10 @@ export function KitchenDisplayBoard() {
                         )}
                       </div>
 
-                      {/* Item Action Button - Large Touch Target */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (item.status !== 'READY') {
-                            updateItemStatus(item.id, 'READY');
-                          }
-                        }}
-                        disabled={item.status === 'READY'}
-                        className={`h-12 w-12 md:h-8 md:w-auto px-0 md:px-3 rounded-lg md:rounded text-sm font-bold transition-all flex items-center justify-center flex-shrink-0 ${
-                          item.status === 'READY'
-                            ? 'bg-transparent text-green-500 cursor-default'
-                            : 'bg-gray-700 hover:bg-green-600 text-white border border-gray-600 hover:border-green-500' // Darker button for contrast
-                        }`}
-                      >
-                        {item.status === 'READY' ? (
-                          // Large Check Icon
-                          <Check
-                            className="h-8 w-8 md:h-4 md:w-4"
-                            strokeWidth={3}
-                          />
-                        ) : (
-                          // Mobile: Empty Square / Desktop: 'Done'
-                          <>
-                            <span className="md:hidden h-6 w-6 border-2 border-gray-500 rounded-md"></span>
-                            <span className="hidden md:inline">Done</span>
-                          </>
-                        )}
-                      </button>
+                      {/* Desktop Only: Check Icon for clarity (Hidden on mobile per request "remove empty box") */}
+                      {item.status === 'READY' && (
+                        <Check className="text-green-500 h-6 w-6 ml-2" />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -632,14 +615,14 @@ export function KitchenDisplayBoard() {
                   </div>
                 )}
 
-                {/* Ticket Action Button (Bump) */}
+                {/* Ticket Action Button (Bump/Done) */}
                 <button
                   onClick={() =>
                     handleBulkItemUpdate(order.id, order.items, 'READY')
                   }
                   className="w-full bg-green-600 hover:bg-green-700 active:bg-green-800 text-white h-14 md:h-auto md:py-3 rounded-lg font-bold text-2xl md:text-lg shadow-md transition-colors mt-auto uppercase tracking-wide"
                 >
-                  BUMP
+                  DONE
                 </button>
               </div>
             );
