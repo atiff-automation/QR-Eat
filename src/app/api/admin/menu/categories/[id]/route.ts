@@ -64,20 +64,34 @@ export async function PATCH(
       );
     }
 
-    const category = await prisma.menuCategory.update({
-      where: { id: categoryId },
-      data: {
-        ...(name && { name }),
-        ...(description !== undefined && { description }),
-        ...(displayOrder !== undefined && { displayOrder }),
-        ...(isActive !== undefined && { isActive }),
-        updatedAt: new Date(),
-      },
+    // Use transaction to update category and cascade to items if needed
+    const result = await prisma.$transaction(async (tx) => {
+      // Update the category
+      const category = await tx.menuCategory.update({
+        where: { id: categoryId },
+        data: {
+          ...(name && { name }),
+          ...(description !== undefined && { description }),
+          ...(displayOrder !== undefined && { displayOrder }),
+          ...(isActive !== undefined && { isActive }),
+          updatedAt: new Date(),
+        },
+      });
+
+      // Cascade: If category is being deactivated, deactivate all its items
+      if (isActive === false && existingCategory.isActive === true) {
+        await tx.menuItem.updateMany({
+          where: { categoryId: categoryId },
+          data: { isAvailable: false },
+        });
+      }
+
+      return category;
     });
 
     return NextResponse.json({
       success: true,
-      category,
+      category: result,
       message: 'Category updated successfully',
     });
   } catch (error) {
