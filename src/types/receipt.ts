@@ -17,6 +17,7 @@ export interface ReceiptDisplayData {
     email?: string;
     taxLabel: string;
     serviceChargeLabel: string;
+    currency: string;
   };
   order: {
     orderNumber: string;

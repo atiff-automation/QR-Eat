@@ -46,6 +46,7 @@ export function Receipt({
       address: restaurantInfo.address,
       phone: restaurantInfo.phone,
       email: restaurantInfo.email,
+      currency: restaurantInfo.currency,
     },
     cashier: {
       firstName: cashierInfo.firstName,

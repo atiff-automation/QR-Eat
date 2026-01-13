@@ -167,6 +167,7 @@ export async function GET(
         email: firstPayment.order.restaurant.email || '',
         taxLabel: firstPayment.order.restaurant.taxLabel,
         serviceChargeLabel: firstPayment.order.restaurant.serviceChargeLabel,
+        currency: firstPayment.order.restaurant.currency,
       },
       order: {
         orderNumber: isTablePayment

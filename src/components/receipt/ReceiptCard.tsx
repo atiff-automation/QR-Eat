@@ -10,6 +10,7 @@
  */
 
 import { ReceiptDisplayData } from '@/types/receipt';
+import { formatCurrencySimple } from '@/lib/utils/currency-formatter';
 
 interface ReceiptCardProps {
   data: ReceiptDisplayData;
@@ -19,7 +20,7 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
   const { receiptNumber, restaurant, order, payment, cashier } = data;
 
   const formatCurrency = (amount: number) => {
-    return `RM ${amount.toFixed(2)}`;
+    return formatCurrencySimple(amount, restaurant.currency || 'MYR');
   };
 
   const formatDate = (date: Date) => {

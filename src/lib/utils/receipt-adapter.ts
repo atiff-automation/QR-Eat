@@ -27,6 +27,7 @@ export function adaptPublicToDisplay(
       taxLabel: data.restaurant.taxLabel || 'Tax',
       serviceChargeLabel:
         data.restaurant.serviceChargeLabel || 'Service Charge',
+      currency: data.restaurant.currency,
     },
     order: {
       orderNumber: data.order.orderNumber,
@@ -76,10 +77,8 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
       phone: restaurant.phone,
       email: restaurant.email,
       taxLabel: order.taxLabel || restaurant.taxLabel || 'Tax',
-      serviceChargeLabel:
-        order.serviceChargeLabel ||
-        restaurant.serviceChargeLabel ||
-        'Service Charge',
+      serviceChargeLabel: restaurant.serviceChargeLabel || 'Service Charge',
+      currency: restaurant.currency || 'MYR',
     },
     order: {
       orderNumber: order.orderNumber,

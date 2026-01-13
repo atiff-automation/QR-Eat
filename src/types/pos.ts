@@ -100,6 +100,7 @@ export interface ReceiptData {
     email: string;
     taxLabel?: string;
     serviceChargeLabel?: string;
+    currency?: string;
   };
   cashier: {
     firstName: string;
@@ -107,61 +108,7 @@ export interface ReceiptData {
   };
 }
 
-// ============================================================================
-// API Response Types
-// ============================================================================
-
-export interface PendingOrdersResponse {
-  success: boolean;
-  orders: OrderWithDetails[];
-  total: number;
-  hasMore: boolean;
-}
-
-export interface PaymentResponse {
-  success: boolean;
-  payment: Payment;
-  order: Pick<Order, 'id' | 'paymentStatus' | 'updatedAt'>;
-  message: string;
-}
-
-// NEW: Table Orders Response
-export interface TableOrdersResponse {
-  success: boolean;
-  orders: OrderWithDetails[];
-  tableTotal: number;
-  paidTotal: number;
-  tableId: string;
-  tableNumber: string;
-}
-
-// ============================================================================
-// Component Props Types
-// ============================================================================
-
-export interface PendingOrderCardProps {
-  order: OrderWithDetails;
-  onClick: () => void;
-}
-
-export interface PaymentInterfaceProps {
-  order: OrderWithDetails;
-  currency?: string;
-  onClose: () => void;
-  onPaymentComplete: () => void;
-}
-
-export interface PaymentMethodSelectorProps {
-  onSelect: (method: PaymentMethod) => void;
-}
-
-export interface CashPaymentFormProps {
-  totalAmount: number;
-  onSubmit: (data: { cashReceived: number }) => void;
-  onCancel: () => void;
-  isProcessing: boolean;
-  currency?: string;
-}
+// ...
 
 export interface ReceiptProps {
   order: OrderWithDetails;
@@ -172,6 +119,7 @@ export interface ReceiptProps {
     address: string;
     phone: string;
     email: string;
+    currency?: string;
   };
   cashierInfo: {
     firstName: string;
@@ -207,6 +155,7 @@ export interface PublicReceiptData {
     email: string;
     taxLabel?: string;
     serviceChargeLabel?: string;
+    currency: string;
   };
   order: {
     orderNumber: string;
