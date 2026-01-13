@@ -174,7 +174,10 @@ export function KitchenHeader({
 
       {/* Settings Modal */}
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setIsSettingsOpen(false)}
+        >
           <div
             className="bg-gray-900 rounded-2xl shadow-2xl max-w-sm w-full border border-gray-800 flex flex-col max-h-[85vh] overflow-hidden"
             onClick={(e) => e.stopPropagation()}
