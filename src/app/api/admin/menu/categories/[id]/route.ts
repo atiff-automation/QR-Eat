@@ -6,35 +6,19 @@ export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: categoryId } = await params;
+
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    const authResult = await AuthServiceV2.validateRequest(request);
+    if (!authResult.isAuthenticated || !authResult.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    // Get restaurant ID from RBAC payload
-    const restaurantId = authResult.user.currentRole?.restaurantId;
-
+    const restaurantId = authResult.user.restaurantId;
     if (!restaurantId) {
       return NextResponse.json(
-        { error: 'Restaurant access required' },
-        { status: 403 }
+        { error: 'Restaurant not found' },
+        { status: 404 }
       );
     }
 
@@ -47,7 +31,6 @@ export async function PATCH(
       );
     }
 
-    const { id: categoryId } = await params;
     const { name, description, displayOrder, isActive } = await request.json();
 
     // Verify category belongs to restaurant
@@ -82,8 +65,7 @@ export async function PATCH(
     console.error('Failed to update category:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      categoryId: (await params).id,
-      requestBody: { name, description, displayOrder, isActive },
+      categoryId,
     });
     return NextResponse.json(
       { error: 'Failed to update category' },
@@ -96,6 +78,8 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { id: categoryId } = await params;
+
   try {
     // Verify authentication using RBAC system
     const token =
@@ -137,8 +121,6 @@ export async function DELETE(
       );
     }
 
-    const { id: categoryId } = await params;
-
     // Verify category belongs to restaurant
     const existingCategory = await prisma.menuCategory.findUnique({
       where: { id: categoryId },
@@ -179,7 +161,7 @@ export async function DELETE(
     console.error('Failed to delete category:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
-      categoryId: (await params).id,
+      categoryId,
     });
     return NextResponse.json(
       { error: 'Failed to delete category' },
