@@ -6,7 +6,6 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import CredentialsModal from '@/components/CredentialsModal';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import {
-  Plus,
   Pencil,
   AlertTriangle,
   CheckCircle,
@@ -14,6 +13,7 @@ import {
   Search,
   RefreshCw,
 } from 'lucide-react';
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 
 interface StaffMember {
   id: string;
@@ -538,14 +538,9 @@ function StaffPageContent() {
       </div>
 
       {/* Floating Action Button (Mobile/Desktop) - Blue Circle with Plus */}
+      {/* Floating Action Button (Mobile/Desktop) - Standardized Component */}
       {canManageStaff && (
-        <button
-          onClick={openAddModal}
-          className="fixed bottom-6 right-6 h-14 w-14 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-full shadow-lg hover:shadow-xl flex items-center justify-center transition-all transform hover:scale-105 active:scale-95 z-20"
-          aria-label="Add Staff"
-        >
-          <Plus className="h-7 w-7" />
-        </button>
+        <FloatingActionButton onClick={openAddModal} ariaLabel="Add Staff" />
       )}
 
       {/* Add Staff Modal - Matches Edit Modal Style */}

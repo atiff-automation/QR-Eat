@@ -15,10 +15,11 @@ import { QRCodeDisplay } from '@/components/tables/QRCodeDisplay';
 import { TableTile } from '@/components/tables/TableTile';
 import { TableDetailModal } from '@/components/tables/TableDetailModal';
 import { PaymentInterface } from '@/components/pos/PaymentInterface';
-import { Plus, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import type { OrderWithDetails } from '@/types/pos';
 import { useCurrency } from '@/contexts/RestaurantContext';
+import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 
 interface Table {
   id: string;
@@ -257,37 +258,26 @@ function TablesContent() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <h1 className="text-2xl font-bold text-gray-900 tracking-tight">
-            Tables
-          </h1>
-          <PermissionGuard permission="tables:write">
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg transition-transform active:scale-95"
-            >
-              <Plus className="w-6 h-6" />
-            </button>
-          </PermissionGuard>
-        </div>
-
-        {/* Search Bar */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+      {/* Header & Search using Staff Page Style */}
+      <div className="px-5 pt-6 pb-2">
+        {/* Search Container */}
+        <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 mb-4 flex items-center">
+          {/* Search Icon */}
+          <div className="pl-2">
+            <Search className="text-gray-400 w-4 h-4" />
+          </div>
           <input
             type="text"
             placeholder="Search tables..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-gray-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-500 font-medium text-gray-900 transition-all placeholder:text-gray-500"
+            className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 text-gray-900 placeholder:text-gray-500 ml-2"
           />
         </div>
       </div>
 
       {/* Main Grid */}
-      <div className="p-4">
+      <div className="px-5 space-y-3">
         {error && (
           <div className="mb-4 bg-red-50 text-red-600 p-3 rounded-xl text-sm font-medium">
             {error}
@@ -361,6 +351,14 @@ function TablesContent() {
           onPaymentComplete={handlePaymentComplete}
         />
       )}
+
+      {/* Floating Action Button */}
+      <PermissionGuard permission="tables:write">
+        <FloatingActionButton
+          onClick={() => setShowAddModal(true)}
+          ariaLabel="Add Table"
+        />
+      </PermissionGuard>
     </div>
   );
 }
