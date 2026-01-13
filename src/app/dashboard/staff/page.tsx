@@ -47,6 +47,7 @@ interface StaffFormData {
   phone: string;
   roleId: string;
   isActive: boolean;
+  username: string;
 }
 
 function StaffPageContent() {
