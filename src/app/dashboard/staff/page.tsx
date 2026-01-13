@@ -73,6 +73,7 @@ function StaffPageContent() {
     phone: '',
     roleId: '',
     isActive: true,
+    username: '',
   });
 
   // Credentials modal state
@@ -140,6 +141,7 @@ function StaffPageContent() {
       phone: '',
       roleId: '',
       isActive: true,
+      username: '',
     });
   };
 
@@ -156,6 +158,7 @@ function StaffPageContent() {
       phone: member.phone || '',
       roleId: member.role.id,
       isActive: member.isActive,
+      username: member.username,
     });
     setSelectedStaff(member);
     setShowEditModal(true);
