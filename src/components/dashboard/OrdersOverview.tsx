@@ -10,6 +10,7 @@ import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { debug } from '@/lib/debug';
 import { useCurrency } from '@/contexts/RestaurantContext';
+import { ORDER_STATUS } from '@/lib/order-utils';
 
 // Constants
 const DEFAULT_ORDER_LIMIT = 50;
@@ -229,16 +230,19 @@ export function OrdersOverview() {
   // Sort orders
   const sortedOrders = useMemo(() => {
     const statusPriority: Record<string, number> = {
-      pending: 1,
-      confirmed: 2,
-      preparing: 3,
-      ready: 4,
+      [ORDER_STATUS.PENDING]: 1,
+      [ORDER_STATUS.CONFIRMED]: 2,
+      [ORDER_STATUS.PREPARING]: 3,
+      [ORDER_STATUS.READY]: 4,
     };
 
     return [...filteredOrders].sort((a, b) => {
-      const priorityDiff =
-        (statusPriority[a.status] || UNKNOWN_STATUS_PRIORITY) -
-        (statusPriority[b.status] || UNKNOWN_STATUS_PRIORITY);
+      // Use the constant values directly as they match the DB enum
+      const priorityA = statusPriority[a.status] || UNKNOWN_STATUS_PRIORITY;
+      const priorityB = statusPriority[b.status] || UNKNOWN_STATUS_PRIORITY;
+
+      const priorityDiff = priorityA - priorityB;
+
       if (priorityDiff !== 0) return priorityDiff;
       return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
     });
