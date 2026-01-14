@@ -1031,6 +1031,7 @@ async function main() {
         'tables:read',
         'tables:write',
         'tables:qr',
+        'tables:delete',
         'staff:read',
         'staff:write',
         'staff:invite',
