@@ -20,6 +20,10 @@ import { ApiClient, ApiClientError } from '@/lib/api-client';
 import type { OrderWithDetails } from '@/types/pos';
 import { useCurrency } from '@/contexts/RestaurantContext';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import {
+  canOpenTableModal,
+  getStaffModalBlockMessage,
+} from '@/lib/table-utils';
 
 interface Table {
   id: string;
@@ -344,6 +348,13 @@ function TablesContent() {
               key={table.id}
               table={table}
               onClick={() => {
+                // Block modal opening for INACTIVE tables
+                if (!canOpenTableModal(table.status)) {
+                  const message = getStaffModalBlockMessage(table.status);
+                  alert(message);
+                  return;
+                }
+
                 setSelectedTable(table);
                 setIsModalOpen(true);
               }}

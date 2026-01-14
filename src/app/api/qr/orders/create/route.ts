@@ -23,6 +23,10 @@ import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
+import {
+  canTableAcceptOrders,
+  getTableUnavailableMessage,
+} from '@/lib/table-utils';
 
 // ============================================================================
 // Validation Schema
@@ -90,7 +94,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 🐛 DEBUG: Log table status
     console.log('🔍 [QR ORDER CREATE] Table status check:', {
       tableId: table.id,
       tableNumber: table.tableNumber,
@@ -98,27 +101,11 @@ export async function POST(request: NextRequest) {
       statusType: typeof table.status,
     });
 
-    // ✅ STRICT VALIDATION: Prevent ordering from a RESERVED table
-    if (table.status === 'RESERVED') {
-      console.log('❌ [QR ORDER CREATE] Blocking RESERVED table');
-      return NextResponse.json(
-        {
-          error:
-            'Table is reserved. Please ask staff to check you in before ordering.',
-        },
-        { status: 400 }
-      );
-    }
-
-    // ✅ STRICT VALIDATION: Prevent ordering from an INACTIVE table
-    if (table.status === 'INACTIVE') {
-      console.log('❌ [QR ORDER CREATE] Blocking INACTIVE table');
-      return NextResponse.json(
-        {
-          error: 'This table is currently unavailable. Please contact staff.',
-        },
-        { status: 400 }
-      );
+    // ✅ STRICT VALIDATION: Prevent ordering from unavailable tables (RESERVED or INACTIVE)
+    if (!canTableAcceptOrders(table.status)) {
+      const { message } = getTableUnavailableMessage(table.status);
+      console.log(`❌ [QR ORDER CREATE] Blocking ${table.status} table`);
+      return NextResponse.json({ error: message }, { status: 400 });
     }
 
     console.log(

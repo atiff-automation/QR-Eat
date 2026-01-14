@@ -15,6 +15,10 @@ import { SearchBar } from '@/components/menu/SearchBar';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import {
+  canTableAcceptOrders,
+  getTableUnavailableMessage,
+} from '@/lib/table-utils';
 
 export default function QRMenuPage() {
   const params = useParams();
@@ -246,33 +250,58 @@ export default function QRMenuPage() {
 
   // All categories are now displayed - no filtering needed
 
-  // ✅ RESERVED TABLE SCREEN
-  if (table.status === 'RESERVED') {
+  // ✅ BLOCKED TABLE SCREEN (RESERVED or INACTIVE)
+  // Block customers from ordering on unavailable tables
+  if (!canTableAcceptOrders(table.status)) {
+    const { title, message, icon, color } = getTableUnavailableMessage(
+      table.status
+    );
+
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 p-6 text-center">
         <div className="bg-white rounded-2xl shadow-xl p-8 max-w-sm w-full space-y-6">
-          <div className="mx-auto w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center">
-            <svg
-              className="w-8 h-8 text-blue-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-              />
-            </svg>
+          {/* Icon */}
+          <div
+            className={`mx-auto w-16 h-16 ${color === 'blue' ? 'bg-blue-100' : 'bg-gray-100'} rounded-full flex items-center justify-center`}
+          >
+            {icon === 'lock' ? (
+              <svg
+                className={`w-8 h-8 ${color === 'blue' ? 'text-blue-600' : 'text-gray-600'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                />
+              </svg>
+            ) : (
+              <svg
+                className={`w-8 h-8 ${color === 'blue' ? 'text-blue-600' : 'text-gray-600'}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"
+                />
+              </svg>
+            )}
           </div>
+
+          {/* Message */}
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">Table Reserved</h1>
-            <p className="text-gray-600">
-              This table is currently reserved. Please contact a staff member to
-              check you in.
-            </p>
+            <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+            <p className="text-gray-600">{message}</p>
           </div>
+
+          {/* Footer */}
           <div className="pt-2 border-t border-gray-100">
             <p className="text-xs text-gray-400 font-medium uppercase tracking-wide">
               Table {table.tableNumber} • {table.restaurant.name}
