@@ -48,11 +48,11 @@ export function TableTile({
   if (isInactive) borderClass = 'border-gray-300 border-2';
 
   return (
-    <button
+    <div
       onClick={onClick}
       className={`
         group relative aspect-square w-full rounded-2xl p-4 flex flex-col justify-between
-        bg-white shadow-sm hover:shadow-md transition-all active:scale-95
+        bg-white shadow-sm hover:shadow-md transition-all active:scale-95 cursor-pointer
         ${borderClass}
         ${isInactive ? 'opacity-50 grayscale' : ''}
       `}
@@ -148,6 +148,6 @@ export function TableTile({
           )}
         </div>
       )}
-    </button>
+    </div>
   );
 }
