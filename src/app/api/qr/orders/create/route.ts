@@ -90,6 +90,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // 🐛 DEBUG: Log table status
+    console.log('🔍 [QR ORDER CREATE] Table status check:', {
+      tableId: table.id,
+      tableNumber: table.tableNumber,
+      status: table.status,
+      statusType: typeof table.status,
+    });
+
+    // ✅ STRICT VALIDATION: Prevent ordering from a RESERVED table
+    if (table.status === 'RESERVED') {
+      console.log('❌ [QR ORDER CREATE] Blocking RESERVED table');
+      return NextResponse.json(
+        {
+          error:
+            'Table is reserved. Please ask staff to check you in before ordering.',
+        },
+        { status: 400 }
+      );
+    }
+
+    // ✅ STRICT VALIDATION: Prevent ordering from an INACTIVE table
+    if (table.status === 'INACTIVE') {
+      console.log('❌ [QR ORDER CREATE] Blocking INACTIVE table');
+      return NextResponse.json(
+        {
+          error: 'This table is currently unavailable. Please contact staff.',
+        },
+        { status: 400 }
+      );
+    }
+
+    console.log(
+      '✅ [QR ORDER CREATE] Table status check passed, allowing order'
+    );
+
     // Fetch full menu items for calculation (need preparationTime)
     const menuItemIds = tableCart.items.map((item) => item.menuItemId);
     const menuItems = await prisma.menuItem.findMany({

@@ -43,6 +43,15 @@ export async function PATCH(
       );
     }
 
+    // 🐛 DEBUG: Log status update attempt
+    console.log('🔧 [TABLE STATUS] Update attempt:', {
+      tableId,
+      tableNumber: currentTable.tableNumber,
+      currentStatus: currentTable.status,
+      newStatus: status,
+      statusType: typeof status,
+    });
+
     // Update the table status
     const updatedTable = await prisma.table.update({
       where: { id: tableId },
@@ -50,6 +59,11 @@ export async function PATCH(
         status,
         updatedAt: new Date(),
       },
+    });
+
+    console.log('✅ [TABLE STATUS] Update successful:', {
+      tableId,
+      finalStatus: updatedTable.status,
     });
 
     // Log the status change
