@@ -20,7 +20,7 @@ import { Receipt } from './Receipt';
 import { X, CreditCard, Smartphone } from 'lucide-react';
 import type { Payment } from '@prisma/client';
 import type { PaymentInterfaceProps } from '@/types/pos';
-import { usePaymentMethods } from '@/contexts/RestaurantContext';
+import { usePaymentMethods } from '@/lib/hooks/queries/useRestaurantSettings';
 import { ApiClient } from '@/lib/api-client';
 
 export function PaymentInterface({

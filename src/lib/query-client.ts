@@ -138,6 +138,7 @@ export const queryKeys = {
     all: ['restaurants'] as const,
     byId: (id: string) => ['restaurants', id] as const,
     bySlug: (slug: string) => ['restaurants', 'slug', slug] as const,
+    settings: ['restaurants', 'settings'] as const,
   },
 } as const;
 

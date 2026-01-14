@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
@@ -18,7 +18,8 @@ import { PaymentInterface } from '@/components/pos/PaymentInterface';
 import { Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import type { OrderWithDetails } from '@/types/pos';
-import { useCurrency } from '@/contexts/RestaurantContext';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
+import { useTables } from '@/lib/hooks/queries/useTables';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import {
   canOpenTableModal,
@@ -39,10 +40,15 @@ interface Table {
 
 function TablesContent() {
   const { restaurantContext } = useRole();
-  const [tables, setTables] = useState<Table[]>([]);
+
+  // TanStack Query for data fetching
+  const {
+    data: tables = [],
+    isLoading: loading,
+    error: queryError,
+  } = useTables(restaurantContext?.id);
   const [filteredTables, setFilteredTables] = useState<Table[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const error = queryError?.message || '';
   const [showAddModal, setShowAddModal] = useState(false);
 
   // Interaction State
@@ -58,40 +64,13 @@ function TablesContent() {
   const currency = useCurrency(); // Get currency from context
   const queryClient = useQueryClient();
 
-  const fetchTables = useCallback(async () => {
-    try {
-      if (!restaurantContext?.id) {
-        setError('No restaurant selected');
-        setLoading(false);
-        return;
-      }
+  // No manual fetch function needed - TanStack Query handles this
 
-      const data = await ApiClient.get<{ tables: Table[] }>(
-        `/tables?restaurantId=${restaurantContext.id}`
-      );
-
-      setTables(data.tables);
-    } catch (error) {
-      console.error('Failed to fetch tables:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Network error. Please try again.'
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [restaurantContext?.id]);
-
-  // SSE Implementation
+  // SSE Implementation for real-time updates
   useEffect(() => {
     if (!restaurantContext?.id) return;
 
-    // Initial fetch
-    fetchTables();
-
-    // Setup SSE
-    // Setup SSE
+    // Setup SSE for real-time order updates
     console.log('[TablesPage] Setting up SSE connection...');
     const eventSource = new EventSource('/api/events/orders');
 
@@ -106,11 +85,8 @@ function TablesContent() {
             `[TablesPage] Real-time update: Table ${tableId} -> ${newStatus}`
           );
 
-          setTables((prev) =>
-            prev.map((t) =>
-              t.id === tableId ? { ...t, status: newStatus } : t
-            )
-          );
+          // Optimistic update handled by SSE - just invalidate cache
+          queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
 
           if (selectedTable?.id === tableId) {
             setSelectedTable((prev) =>
@@ -138,8 +114,8 @@ function TablesContent() {
             console.log(
               `[TablesPage] Payment completed for table ${tableId}, invalidating cache...`
             );
-            // 1. Refresh Table List (to show Status: Clean/Available)
-            fetchTables();
+            // Invalidate tables list to refresh
+            queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
 
             // 2. Remove Table Details Modal Orders (to prevent payment button flicker)
             queryClient.removeQueries({
@@ -152,14 +128,11 @@ function TablesContent() {
       }
     };
 
-    // Keep polling as backup (but less frequent) - 1 minute
-    const interval = setInterval(fetchTables, 60000);
-
+    // No polling needed - TanStack Query handles refetching
     return () => {
       eventSource.close();
-      clearInterval(interval);
     };
-  }, [restaurantContext?.id, fetchTables, selectedTable?.id, queryClient]);
+  }, [restaurantContext?.id, selectedTable?.id, queryClient]);
 
   // Filter Logic
   useEffect(() => {
@@ -181,7 +154,8 @@ function TablesContent() {
   const updateTableStatus = async (tableId: string, status: string) => {
     try {
       await ApiClient.patch(`/tables/${tableId}/status`, { status });
-      fetchTables(); // Refresh immediately
+      // Invalidate cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
       // Update local state optimistically for snappy feel
       if (selectedTable && selectedTable.id === tableId) {
         setSelectedTable({ ...selectedTable, status });
@@ -200,7 +174,8 @@ function TablesContent() {
         status: newStatus,
       });
 
-      fetchTables();
+      // Invalidate cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
 
       if (selectedTable?.id === table.id) {
         setSelectedTable({ ...selectedTable, status: newStatus });
@@ -230,7 +205,8 @@ function TablesContent() {
 
     try {
       await ApiClient.delete(`/tables/${table.id}`);
-      await fetchTables();
+      // Invalidate cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
       console.log(
         `Table "${table.tableName || table.tableNumber}" deleted successfully`
       );
@@ -251,13 +227,13 @@ function TablesContent() {
         `/tables/${tableId}/regenerate-qr`
       );
 
-      // Refresh tables to get the new token
+      // Invalidate cache to get fresh data with new token
+      queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
+
+      // Update selected table with the new data
       const data = await ApiClient.get<{ tables: Table[] }>(
         `/tables?restaurantId=${restaurantContext?.id}`
       );
-      setTables(data.tables);
-
-      // Update selected table with the new data
       const updatedTable = data.tables.find((t) => t.id === tableId);
       if (updatedTable) {
         setSelectedTable(updatedTable);
@@ -293,8 +269,8 @@ function TablesContent() {
     queryClient.removeQueries({
       queryKey: queryKeys.tables.orders(selectedOrders[0]?.tableId),
     });
-    // Also refresh the main table list
-    fetchTables();
+    // Refresh the main table list
+    queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
     setShowPaymentInterface(false);
     setSelectedOrders([]);
     setOriginalOrders([]);
@@ -380,7 +356,9 @@ function TablesContent() {
       {showAddModal && (
         <AddTableModal
           onClose={() => setShowAddModal(false)}
-          onSuccess={fetchTables}
+          onSuccess={() =>
+            queryClient.invalidateQueries({ queryKey: queryKeys.tables.all })
+          }
           restaurantContext={restaurantContext}
         />
       )}

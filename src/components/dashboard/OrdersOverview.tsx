@@ -9,7 +9,7 @@ import { ModifyOrderModal } from './modals/ModifyOrderModal';
 import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { debug } from '@/lib/debug';
-import { useCurrency } from '@/contexts/RestaurantContext';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import { ORDER_STATUS } from '@/lib/order-utils';
 
 // Constants

@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-01-14T16:12:25.524Z",
+  "description": "Pre-migration baseline - Manual state management with useState + useEffect",
+  "metrics": {
+    "estimatedAPICallsPerHour": 1000,
+    "estimatedCacheHitRate": 60,
+    "dataFetchingPattern": "Manual useState + useEffect + fetch functions",
+    "stateManagementApproach": "Local component state with manual refetch",
+    "pollingIntervals": ["60000ms (tables page)"],
+    "manualRefetchCount": 35
+  },
+  "codeStats": {
+    "useStateForData": 127,
+    "useEffectForFetching": 15,
+    "manualFetchFunctions": 20,
+    "contextFiles": 1
+  },
+  "files": [
+    {
+      "path": "src/app/dashboard/tables/page.tsx",
+      "pattern": "useState + useEffect + fetchTables + polling",
+      "linesOfCode": 577
+    },
+    {
+      "path": "src/app/dashboard/staff/page.tsx",
+      "pattern": "useState + useEffect + fetchStaff + fetchRoles",
+      "linesOfCode": 933
+    },
+    {
+      "path": "src/app/dashboard/menu/page.tsx",
+      "pattern": "useState + useEffect + fetchCategories + cache busting",
+      "linesOfCode": 1560
+    },
+    {
+      "path": "src/app/dashboard/settings/page.tsx",
+      "pattern": "useState + useEffect + fetchSettings + 7 manual refetch",
+      "linesOfCode": 0
+    },
+    {
+      "path": "src/contexts/RestaurantContext.tsx",
+      "pattern": "Custom context with manual state",
+      "linesOfCode": 127
+    }
+  ]
+}

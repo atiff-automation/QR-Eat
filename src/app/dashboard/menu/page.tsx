@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { AccessControl } from '@/components/dashboard/AccessControl';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
@@ -14,7 +14,14 @@ import {
   Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
-import { useCurrency } from '@/contexts/RestaurantContext';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
+import {
+  useMenuCategories,
+  useToggleItemStatus,
+  useToggleCategoryStatus,
+  useDeleteMenuItem,
+  useDeleteCategory,
+} from '@/lib/hooks/queries/useMenu';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 
@@ -62,10 +69,16 @@ interface MenuItemVariation {
 }
 
 export default function MenuPage() {
-  const [categories, setCategories] = useState<MenuCategory[]>([]);
+  // TanStack Query for data fetching
+  const {
+    data: categories = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useMenuCategories();
+  const error = queryError?.message || '';
+
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [viewMode, setViewMode] = useState<'categories' | 'items'>('items');
   const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(
     null
@@ -75,66 +88,21 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
-  const currency = useCurrency(); // Get currency from context
+  const currency = useCurrency();
 
-  useEffect(() => {
-    fetchCategories(true);
-  }, []);
+  // TanStack Query mutations
+  const toggleItemStatus = useToggleItemStatus();
+  const toggleCategoryStatusMutation = useToggleCategoryStatus();
+  const deleteMenuItemMutation = useDeleteMenuItem();
+  const deleteCategoryMutation = useDeleteCategory();
 
-  const fetchCategories = async (showLoading = false) => {
-    if (showLoading) setLoading(true);
-    else setRefreshing(true);
+  // No manual fetch needed - TanStack Query handles initial load
 
-    try {
-      // Add cache busting parameter to ensure fresh data
-      const timestamp = new Date().getTime();
-      const data = await ApiClient.get<{ categories: MenuCategory[] }>(
-        `/admin/menu/categories?_t=${timestamp}`
-      );
-
-      setCategories(data.categories);
-      setError('');
-      console.log(
-        'Categories refreshed:',
-        data.categories.length,
-        'categories loaded'
-      );
-      // Debug: Log all items and their imageUrl
-      data.categories.forEach((cat: MenuCategory) => {
-        cat.menuItems.forEach((item: MenuItem) => {
-          console.log(
-            'Item:',
-            item.name,
-            'imageUrl:',
-            item.imageUrl,
-            'hasImage:',
-            !!item.imageUrl
-          );
-        });
-      });
-      // Log the specific category you're looking for
-      const melayuCategory = data.categories.find(
-        (cat: MenuCategory) => cat.name.toLowerCase() === 'melayu'
-      );
-      if (melayuCategory) {
-        console.log(
-          'Melayu category found with',
-          melayuCategory.menuItems.length,
-          'items:',
-          melayuCategory.menuItems.map((item: MenuItem) => item.name)
-        );
-      }
-    } catch (error) {
-      console.error('Failed to fetch categories:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Network error. Please try again.');
-      }
-    } finally {
-      if (showLoading) setLoading(false);
-      else setRefreshing(false);
-    }
+  // Refresh handler for manual refresh button
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
   };
 
   const handleCategorySelect = (categoryId: string) => {
@@ -144,41 +112,39 @@ export default function MenuPage() {
 
   const toggleItemAvailability = async (item: MenuItem) => {
     try {
-      await ApiClient.patch(`admin/menu/items/${item.id}`, {
+      await toggleItemStatus.mutateAsync({
+        id: item.id,
         status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
       });
-
-      await fetchCategories(false);
       console.log(
         `${item.name} ${item.status === 'ACTIVE' ? 'disabled' : 'enabled'} successfully`
       );
     } catch (error) {
       console.error('Failed to toggle item availability:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Network error. Please try again.');
-      }
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
   const toggleCategoryStatus = async (category: MenuCategory) => {
     try {
-      await ApiClient.patch(`admin/menu/categories/${category.id}`, {
+      await toggleCategoryStatusMutation.mutateAsync({
+        id: category.id,
         status: category.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
       });
-
-      await fetchCategories(false);
       console.log(
         `${category.name} ${category.status === 'ACTIVE' ? 'disabled' : 'enabled'} successfully`
       );
     } catch (error) {
       console.error('Failed to toggle category status:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Network error. Please try again.');
-      }
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
     }
   };
 
@@ -192,17 +158,15 @@ export default function MenuPage() {
     }
 
     try {
-      await ApiClient.delete(`admin/menu/categories/${category.id}`);
-      await fetchCategories(false);
+      await deleteCategoryMutation.mutateAsync(category.id);
       console.log(`Category "${category.name}" deleted successfully`);
     } catch (error) {
       console.error('Failed to delete category:', error);
-      if (error instanceof ApiClientError) {
-        // Show the helpful error message from the API
-        alert(error.message);
-      } else {
-        setError('Failed to delete category. Please try again.');
-      }
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to delete category. Please try again.'
+      );
     }
   };
 
@@ -216,17 +180,15 @@ export default function MenuPage() {
     }
 
     try {
-      await ApiClient.delete(`admin/menu/items/${item.id}`);
-      await fetchCategories(false);
+      await deleteMenuItemMutation.mutateAsync(item.id);
       console.log(`Item "${item.name}" deleted successfully`);
     } catch (error) {
       console.error('Failed to delete item:', error);
-      if (error instanceof ApiClientError) {
-        // Show the helpful error message from the API
-        alert(error.message);
-      } else {
-        setError('Failed to delete item. Please try again.');
-      }
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to delete item. Please try again.'
+      );
     }
   };
 
@@ -387,7 +349,7 @@ export default function MenuPage() {
                 </select>
               </div>
               <button
-                onClick={() => fetchCategories(false)}
+                onClick={handleRefresh}
                 disabled={refreshing}
                 className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
                 title="Refresh"
@@ -540,7 +502,7 @@ export default function MenuPage() {
             onClose={() => setEditingItem(null)}
             onSuccess={async () => {
               setEditingItem(null);
-              await fetchCategories(false);
+              // TanStack Query will auto-refresh after mutation
             }}
           />
         )}
@@ -552,7 +514,7 @@ export default function MenuPage() {
             onClose={() => setEditingCategory(null)}
             onSuccess={async () => {
               setEditingCategory(null);
-              await fetchCategories(false);
+              // TanStack Query will auto-refresh after mutation
             }}
           />
         )}
@@ -572,7 +534,7 @@ export default function MenuPage() {
 
               // Force refresh categories data
               console.log('Refreshing categories after item creation...');
-              await fetchCategories(false);
+              // TanStack Query will auto-refresh after mutation
 
               // If a new item was created, handle navigation
               if (isItemCreation && newItemCategoryId) {
@@ -599,7 +561,7 @@ export default function MenuPage() {
               // Additional fallback refresh after 500ms
               setTimeout(async () => {
                 console.log('Fallback refresh...');
-                await fetchCategories(false);
+                // TanStack Query will auto-refresh after mutation
               }, 500);
             }}
           />

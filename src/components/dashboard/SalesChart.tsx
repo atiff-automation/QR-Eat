@@ -11,7 +11,7 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { useMemo } from 'react';
-import { useCurrency } from '@/contexts/RestaurantContext';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import { formatPrice } from '@/lib/qr-utils';
 
 interface SalesData {

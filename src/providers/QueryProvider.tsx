@@ -16,6 +16,7 @@
 import { QueryClientProvider } from '@tanstack/react-query';
 import { ReactNode, useEffect, useState } from 'react';
 import { queryClient } from '@/lib/query-client';
+import { setupQueryMonitoring } from '@/lib/monitoring/query-monitor';
 
 interface QueryProviderProps {
   children: ReactNode;
@@ -45,9 +46,13 @@ export function QueryProvider({ children }: QueryProviderProps) {
 
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
+      // Setup DevTools
       import('@tanstack/react-query-devtools').then((mod) => {
         setDevTools(() => mod.ReactQueryDevtools);
       });
+
+      // Setup Query Monitoring
+      setupQueryMonitoring(queryClient);
     }
   }, []);
 
