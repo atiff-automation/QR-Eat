@@ -188,6 +188,59 @@ function TablesContent() {
     }
   };
 
+  const toggleTableActive = async (table: Table) => {
+    try {
+      const newStatus = table.status === 'INACTIVE' ? 'AVAILABLE' : 'INACTIVE';
+
+      await ApiClient.patch(`/tables/${table.id}/status`, {
+        status: newStatus,
+      });
+
+      fetchTables();
+
+      if (selectedTable?.id === table.id) {
+        setSelectedTable({ ...selectedTable, status: newStatus });
+      }
+
+      console.log(
+        `Table ${table.tableNumber} ${newStatus === 'INACTIVE' ? 'deactivated' : 'activated'}`
+      );
+    } catch (error) {
+      console.error('Failed to toggle table status:', error);
+      if (error instanceof ApiClientError) {
+        alert(error.message);
+      } else {
+        alert('Failed to toggle table status');
+      }
+    }
+  };
+
+  const handleDeleteTable = async (table: Table) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${table.tableName || table.tableNumber}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await ApiClient.delete(`/tables/${table.id}`);
+      await fetchTables();
+      console.log(
+        `Table "${table.tableName || table.tableNumber}" deleted successfully`
+      );
+    } catch (error) {
+      console.error('Failed to delete table:', error);
+      if (error instanceof ApiClientError) {
+        // Show the helpful error message from the API
+        alert(error.message);
+      } else {
+        alert('Failed to delete table. Please try again.');
+      }
+    }
+  };
+
   const regenerateQRCode = async (tableId: string) => {
     try {
       await ApiClient.post<{ qrUrl: string }>(
@@ -293,6 +346,14 @@ function TablesContent() {
               onClick={() => {
                 setSelectedTable(table);
                 setIsModalOpen(true);
+              }}
+              onToggleActive={(table, e) => {
+                e.stopPropagation();
+                toggleTableActive(table);
+              }}
+              onDelete={(table, e) => {
+                e.stopPropagation();
+                handleDeleteTable(table);
               }}
             />
           ))}

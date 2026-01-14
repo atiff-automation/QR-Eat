@@ -1,19 +1,30 @@
 import React from 'react';
-import { Users, Utensils, Clock } from 'lucide-react';
+import { Users, Utensils, Clock, Trash2 } from 'lucide-react';
 
 export interface TableTileProps {
   table: {
     id: string;
     tableNumber: string;
+    tableName?: string;
     status: string;
     capacity: number;
     currentOrders?: number;
     lastOrderAt?: string;
   };
   onClick: () => void;
+  onToggleActive?: (
+    table: TableTileProps['table'],
+    e: React.MouseEvent
+  ) => void;
+  onDelete?: (table: TableTileProps['table'], e: React.MouseEvent) => void;
 }
 
-export function TableTile({ table, onClick }: TableTileProps) {
+export function TableTile({
+  table,
+  onClick,
+  onToggleActive,
+  onDelete,
+}: TableTileProps) {
   // calculate duration
   const getDuration = () => {
     if (!table.lastOrderAt) return null;
@@ -27,15 +38,14 @@ export function TableTile({ table, onClick }: TableTileProps) {
   const duration = getDuration();
 
   // Status visual logic
-  // "Available" = Clean, no border, no dot
-  // "Occupied" = Orange Border, Orange Pulse
-  // "Reserved" = Blue Border, Blue Dot
   const isOccupied = table.status === 'OCCUPIED';
   const isReserved = table.status === 'RESERVED';
+  const isInactive = table.status === 'INACTIVE';
 
   let borderClass = 'border-transparent';
   if (isOccupied) borderClass = 'border-amber-500 border-2';
   if (isReserved) borderClass = 'border-blue-500 border-2';
+  if (isInactive) borderClass = 'border-gray-300 border-2';
 
   return (
     <button
@@ -44,6 +54,7 @@ export function TableTile({ table, onClick }: TableTileProps) {
         group relative aspect-square w-full rounded-2xl p-4 flex flex-col justify-between
         bg-white shadow-sm hover:shadow-md transition-all active:scale-95
         ${borderClass}
+        ${isInactive ? 'opacity-50 grayscale' : ''}
       `}
     >
       {/* Top Right: Status Signal */}
@@ -57,7 +68,9 @@ export function TableTile({ table, onClick }: TableTileProps) {
         {isReserved && (
           <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500 ring-2 ring-blue-100"></span>
         )}
-        {/* Available has no dot */}
+        {isInactive && (
+          <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400 ring-2 ring-gray-200"></span>
+        )}
       </div>
 
       {/* Center: Hero Number */}
@@ -84,6 +97,10 @@ export function TableTile({ table, onClick }: TableTileProps) {
           <div className="flex items-center text-blue-600 font-bold text-xs bg-blue-50 px-3 py-1 rounded-full">
             <span className="mr-1">Reserved</span>
           </div>
+        ) : isInactive ? (
+          <div className="flex items-center text-gray-500 font-bold text-xs bg-gray-100 px-3 py-1 rounded-full">
+            <span>⊘ INACTIVE</span>
+          </div>
         ) : (
           <div className="flex items-center text-gray-400 font-bold text-xs group-hover:text-gray-600 transition-colors">
             <Users className="w-4 h-4 mr-1.5" />
@@ -91,6 +108,46 @@ export function TableTile({ table, onClick }: TableTileProps) {
           </div>
         )}
       </div>
+
+      {/* Action Buttons - Only show if handlers provided */}
+      {(onToggleActive || onDelete) && (
+        <div
+          className="flex items-center gap-1 mt-2 pt-2 border-t border-gray-100"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Toggle Active/Inactive */}
+          {onToggleActive && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleActive(table, e);
+              }}
+              className={`flex-1 p-1.5 rounded-lg transition-colors text-xs font-medium ${
+                isInactive
+                  ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                  : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+              }`}
+              title={isInactive ? 'Activate table' : 'Deactivate table'}
+            >
+              {isInactive ? '✓ Activate' : '⊘ Deactivate'}
+            </button>
+          )}
+
+          {/* Delete Button */}
+          {onDelete && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(table, e);
+              }}
+              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="Delete table"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
     </button>
   );
 }

@@ -66,6 +66,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ STRICT VALIDATION: Prevent ordering from an INACTIVE table
+    if (table.status === 'INACTIVE') {
+      return NextResponse.json(
+        {
+          error: 'This table is currently unavailable. Please contact staff.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Calculate order totals
     const totals = calculateOrderTotals(
       items,
