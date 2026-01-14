@@ -12,6 +12,7 @@ import {
   ChevronRight,
   Search,
   RefreshCw,
+  Trash2,
 } from 'lucide-react';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 
@@ -368,6 +369,32 @@ function StaffPageContent() {
     }
   };
 
+  const handleDeleteStaff = async (member: StaffMember) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${member.firstName} ${member.lastName}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await ApiClient.delete(`admin/staff/${member.id}`);
+      await fetchStaff();
+      console.log(
+        `Staff "${member.firstName} ${member.lastName}" deleted successfully`
+      );
+    } catch (error) {
+      console.error('Failed to delete staff:', error);
+      if (error instanceof ApiClientError) {
+        // Show the helpful error message from the API
+        alert(error.message);
+      } else {
+        alert('Failed to delete staff. Please try again.');
+      }
+    }
+  };
+
   // Filter staff based on selected role
   const filteredStaff =
     selectedRoleFilter === 'all'
@@ -532,6 +559,18 @@ function StaffPageContent() {
                   className="text-gray-400 hover:text-gray-600 p-1"
                 >
                   <Pencil className="h-4 w-4" />
+                </button>
+
+                {/* Delete Icon */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteStaff(member);
+                  }}
+                  className="text-gray-400 hover:text-red-600 p-1"
+                  title="Delete staff"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             </div>

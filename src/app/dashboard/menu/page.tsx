@@ -11,6 +11,7 @@ import {
   Edit2,
   Star,
   ChevronRight,
+  Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
 import { useCurrency } from '@/contexts/RestaurantContext';
@@ -181,6 +182,54 @@ export default function MenuPage() {
     }
   };
 
+  const handleDeleteCategory = async (category: MenuCategory) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${category.name}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await ApiClient.delete(`admin/menu/categories/${category.id}`);
+      await fetchCategories(false);
+      console.log(`Category "${category.name}" deleted successfully`);
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      if (error instanceof ApiClientError) {
+        // Show the helpful error message from the API
+        alert(error.message);
+      } else {
+        setError('Failed to delete category. Please try again.');
+      }
+    }
+  };
+
+  const handleDeleteItem = async (item: MenuItem) => {
+    if (
+      !confirm(
+        `Are you sure you want to delete "${item.name}"? This action cannot be undone.`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      await ApiClient.delete(`admin/menu/items/${item.id}`);
+      await fetchCategories(false);
+      console.log(`Item "${item.name}" deleted successfully`);
+    } catch (error) {
+      console.error('Failed to delete item:', error);
+      if (error instanceof ApiClientError) {
+        // Show the helpful error message from the API
+        alert(error.message);
+      } else {
+        setError('Failed to delete item. Please try again.');
+      }
+    }
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-MY', {
       style: 'currency',
@@ -296,6 +345,16 @@ export default function MenuPage() {
                             : 'bg-gray-300'
                         }`}
                       />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(category);
+                      }}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete category"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </button>
                     <ChevronRight
                       className="h-4 w-4 text-gray-300"
@@ -435,6 +494,16 @@ export default function MenuPage() {
                         title="Edit Item"
                       >
                         <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteItem(item);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Delete item"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
