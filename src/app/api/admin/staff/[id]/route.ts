@@ -1,19 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { UserType, AuthService } from '@/lib/auth';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission 
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
 } from '@/lib/tenant-context';
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'write');
 
-    const { firstName, lastName, email, username, phone, roleId, password, isActive } = await request.json();
+    const {
+      firstName,
+      lastName,
+      email,
+      username,
+      phone,
+      roleId,
+      password,
+      isActive,
+      status,
+    } = await request.json();
     const staffId = params.id;
 
     if (!firstName || !lastName || !email || !username || !roleId) {
@@ -28,16 +41,16 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     if (context!.userType === UserType.RESTAURANT_OWNER) {
       const ownerRestaurant = await prisma.restaurant.findFirst({
         where: { ownerId: context!.userId },
-        select: { id: true }
+        select: { id: true },
       });
-      
+
       if (!ownerRestaurant) {
         return NextResponse.json(
           { error: 'No restaurant found for owner' },
           { status: 404 }
         );
       }
-      
+
       restaurantId = ownerRestaurant.id;
     } else {
       restaurantId = context!.restaurantId!;
@@ -45,10 +58,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Check if staff exists and belongs to restaurant
     const existingStaff = await prisma.staff.findFirst({
-      where: { 
+      where: {
         id: staffId,
-        restaurantId 
-      }
+        restaurantId,
+      },
     });
 
     if (!existingStaff) {
@@ -60,10 +73,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Check if email already exists (excluding current staff)
     const existingEmail = await prisma.staff.findFirst({
-      where: { 
+      where: {
         email: email.toLowerCase(),
-        NOT: { id: staffId }
-      }
+        NOT: { id: staffId },
+      },
     });
 
     if (existingEmail) {
@@ -75,10 +88,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Check if username already exists (excluding current staff)
     const existingUsername = await prisma.staff.findFirst({
-      where: { 
+      where: {
         username,
-        NOT: { id: staffId }
-      }
+        NOT: { id: staffId },
+      },
     });
 
     if (existingUsername) {
@@ -90,7 +103,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
     // Verify role exists
     const role = await prisma.staffRole.findUnique({
-      where: { id: roleId }
+      where: { id: roleId },
     });
 
     if (!role) {
@@ -101,14 +114,15 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     }
 
     // Prepare update data
-    const updateData: any = {
+    const updateData: Record<string, unknown> = {
       email: email.toLowerCase(),
       username,
       firstName,
       lastName,
       phone: phone || null,
       roleId,
-      isActive: isActive ?? true
+      isActive: isActive ?? true,
+      ...(status && { status }),
     };
 
     // Hash new password if provided
@@ -122,19 +136,18 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
       data: updateData,
       include: {
         role: true,
-        restaurant: true
-      }
+        restaurant: true,
+      },
     });
 
     return NextResponse.json({
       success: true,
       staff,
-      message: 'Staff member updated successfully'
+      message: 'Staff member updated successfully',
     });
-
   } catch (error) {
     console.error('Failed to update staff:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -143,10 +156,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
@@ -157,7 +167,10 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const context = await getTenantContext(request);
     requireAuth(context);
@@ -170,16 +183,16 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
     if (context!.userType === UserType.RESTAURANT_OWNER) {
       const ownerRestaurant = await prisma.restaurant.findFirst({
         where: { ownerId: context!.userId },
-        select: { id: true }
+        select: { id: true },
       });
-      
+
       if (!ownerRestaurant) {
         return NextResponse.json(
           { error: 'No restaurant found for owner' },
           { status: 404 }
         );
       }
-      
+
       restaurantId = ownerRestaurant.id;
     } else {
       restaurantId = context!.restaurantId!;
@@ -187,10 +200,10 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
 
     // Check if staff exists and belongs to restaurant
     const existingStaff = await prisma.staff.findFirst({
-      where: { 
+      where: {
         id: staffId,
-        restaurantId 
-      }
+        restaurantId,
+      },
     });
 
     if (!existingStaff) {
@@ -200,19 +213,40 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
       );
     }
 
+    // Conditional delete: Check staff activity (orders taken + payments processed)
+    const [ordersTaken, paymentsProcessed] = await prisma.$transaction([
+      prisma.order.count({ where: { takenBy: staffId } }),
+      prisma.payment.count({ where: { processedByStaffId: staffId } }),
+    ]);
+
+    const totalActivity = ordersTaken + paymentsProcessed;
+
+    if (totalActivity > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete staff member. Has activity:`,
+          details: {
+            ordersTaken,
+            paymentsProcessed,
+          },
+          suggestion: 'Set staff to INACTIVE instead',
+        },
+        { status: 400 }
+      );
+    }
+
     // Delete staff member
     await prisma.staff.delete({
-      where: { id: staffId }
+      where: { id: staffId },
     });
 
     return NextResponse.json({
       success: true,
-      message: 'Staff member deleted successfully'
+      message: 'Staff member deleted successfully',
     });
-
   } catch (error) {
     console.error('Failed to delete staff:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -221,10 +255,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 

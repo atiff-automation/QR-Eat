@@ -22,7 +22,7 @@ interface MenuCategory {
   name: string;
   description?: string;
   displayOrder: number;
-  isActive: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
   menuItems: MenuItem[];
   _count: {
     menuItems: number;
@@ -39,7 +39,7 @@ interface MenuItem {
   calories?: number;
   allergens: string[];
   dietaryInfo: string[];
-  isAvailable: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
   isFeatured: boolean;
   displayOrder: number;
   categoryId?: string;
@@ -144,12 +144,12 @@ export default function MenuPage() {
   const toggleItemAvailability = async (item: MenuItem) => {
     try {
       await ApiClient.patch(`admin/menu/items/${item.id}`, {
-        isAvailable: !item.isAvailable,
+        status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
       });
 
       await fetchCategories(false);
       console.log(
-        `${item.name} ${item.isAvailable ? 'disabled' : 'enabled'} successfully`
+        `${item.name} ${item.status === 'ACTIVE' ? 'disabled' : 'enabled'} successfully`
       );
     } catch (error) {
       console.error('Failed to toggle item availability:', error);
@@ -164,12 +164,12 @@ export default function MenuPage() {
   const toggleCategoryStatus = async (category: MenuCategory) => {
     try {
       await ApiClient.patch(`admin/menu/categories/${category.id}`, {
-        isActive: !category.isActive,
+        status: category.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
       });
 
       await fetchCategories(false);
       console.log(
-        `${category.name} ${category.isActive ? 'disabled' : 'enabled'} successfully`
+        `${category.name} ${category.status === 'ACTIVE' ? 'disabled' : 'enabled'} successfully`
       );
     } catch (error) {
       console.error('Failed to toggle category status:', error);
@@ -250,7 +250,7 @@ export default function MenuPage() {
                     <h3 className="font-semibold text-gray-900">
                       {category.name}
                     </h3>
-                    {!category.isActive && (
+                    {category.status === 'INACTIVE' && (
                       <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-[10px] font-medium rounded-full">
                         Inactive
                       </span>
@@ -284,14 +284,16 @@ export default function MenuPage() {
                         toggleCategoryStatus(category);
                       }}
                       className={`p-2 rounded-lg transition-colors ${
-                        category.isActive
+                        category.status === 'ACTIVE'
                           ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
                           : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
                       }`}
                     >
                       <div
                         className={`w-2.5 h-2.5 rounded-full ${
-                          category.isActive ? 'bg-green-500' : 'bg-gray-300'
+                          category.status === 'ACTIVE'
+                            ? 'bg-green-500'
+                            : 'bg-gray-300'
                         }`}
                       />
                     </button>
@@ -348,7 +350,9 @@ export default function MenuPage() {
                   <div
                     key={item.id}
                     className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${
-                      !item.isAvailable ? 'grayscale opacity-60 bg-gray-50' : ''
+                      item.status === 'INACTIVE'
+                        ? 'grayscale opacity-60 bg-gray-50'
+                        : ''
                     }`}
                   >
                     {/* Item Image */}
@@ -359,7 +363,9 @@ export default function MenuPage() {
                           alt={item.name}
                           fill
                           className={`object-cover ${
-                            !item.isAvailable ? 'grayscale opacity-75' : ''
+                            item.status === 'INACTIVE'
+                              ? 'grayscale opacity-75'
+                              : ''
                           }`}
                         />
                       ) : (
@@ -397,24 +403,28 @@ export default function MenuPage() {
                       <button
                         onClick={() => toggleItemAvailability(item)}
                         className={`p-1.5 rounded-lg transition-colors ${
-                          item.isAvailable
+                          item.status === 'ACTIVE'
                             ? 'text-green-600 bg-green-50'
                             : 'text-gray-300 bg-gray-50'
                         }`}
                         title={
-                          item.isAvailable
+                          item.status === 'ACTIVE'
                             ? 'Mark Unavailable'
                             : 'Mark Available'
                         }
                       >
                         <div
                           className={`w-7 h-4 rounded-full relative transition-colors ${
-                            item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
+                            item.status === 'ACTIVE'
+                              ? 'bg-green-500'
+                              : 'bg-gray-300'
                           }`}
                         >
                           <div
                             className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${
-                              item.isAvailable ? 'left-[14px]' : 'left-0.5'
+                              item.status === 'ACTIVE'
+                                ? 'left-[14px]'
+                                : 'left-0.5'
                             }`}
                           />
                         </div>
@@ -1012,7 +1022,7 @@ function EditItemModal({
     imageUrl: item.imageUrl || '',
     allergens: item.allergens || [],
     dietaryInfo: item.dietaryInfo || [],
-    isAvailable: item.isAvailable,
+    status: item.status,
     isFeatured: item.isFeatured,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1310,9 +1320,12 @@ function EditItemModal({
               <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.isAvailable}
+                  checked={formData.status === 'ACTIVE'}
                   onChange={(e) =>
-                    setFormData({ ...formData, isAvailable: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      status: e.target.checked ? 'ACTIVE' : 'INACTIVE',
+                    })
                   }
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
@@ -1368,7 +1381,7 @@ function EditCategoryModal({
   const [formData, setFormData] = useState({
     name: category.name,
     description: category.description || '',
-    isActive: category.isActive,
+    status: category.status,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -1441,9 +1454,12 @@ function EditCategoryModal({
               <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={formData.isActive}
+                  checked={formData.status === 'ACTIVE'}
                   onChange={(e) =>
-                    setFormData({ ...formData, isActive: e.target.checked })
+                    setFormData({
+                      ...formData,
+                      status: e.target.checked ? 'ACTIVE' : 'INACTIVE',
+                    })
                   }
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />

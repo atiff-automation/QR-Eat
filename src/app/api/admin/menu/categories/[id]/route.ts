@@ -50,7 +50,8 @@ export async function PATCH(
       );
     }
 
-    const { name, description, displayOrder, isActive } = await request.json();
+    const { name, description, displayOrder, isActive, status } =
+      await request.json();
 
     // Verify category belongs to restaurant
     const existingCategory = await prisma.menuCategory.findUnique({
@@ -74,6 +75,7 @@ export async function PATCH(
           ...(description !== undefined && { description }),
           ...(displayOrder !== undefined && { displayOrder }),
           ...(isActive !== undefined && { isActive }),
+          ...(status && { status }),
           updatedAt: new Date(),
         },
       });
@@ -83,6 +85,14 @@ export async function PATCH(
         await tx.menuItem.updateMany({
           where: { categoryId: categoryId },
           data: { isAvailable: false },
+        });
+      }
+
+      // Cascade: If category status is set to INACTIVE, set all items to INACTIVE
+      if (status === 'INACTIVE' && existingCategory.status === 'ACTIVE') {
+        await tx.menuItem.updateMany({
+          where: { categoryId: categoryId },
+          data: { status: 'INACTIVE' },
         });
       }
 
@@ -172,16 +182,27 @@ export async function DELETE(
       );
     }
 
-    // Check if category has menu items
-    if (existingCategory._count.menuItems > 0) {
+    // Check if category or its items have orders (conditional delete)
+    const itemsWithOrders = await prisma.menuItem.findMany({
+      where: {
+        categoryId,
+        orderItems: { some: {} },
+      },
+      select: { id: true, name: true },
+    });
+
+    if (itemsWithOrders.length > 0) {
       return NextResponse.json(
         {
-          error:
-            'Cannot delete category with existing menu items. Please move or delete items first.',
+          error: `Cannot delete category. ${itemsWithOrders.length} item(s) have existing orders.`,
+          suggestion: 'Set category to INACTIVE instead',
+          itemsWithOrders: itemsWithOrders.map((i) => i.name),
         },
         { status: 400 }
       );
     }
+
+    // Safe to delete (cascade will delete items with no orders)
 
     await prisma.menuCategory.delete({
       where: { id: categoryId },

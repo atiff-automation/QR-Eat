@@ -22,7 +22,7 @@ interface StaffMember {
   firstName: string;
   lastName: string;
   phone?: string;
-  isActive: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
   lastLoginAt?: string;
   createdAt: string;
   role: {
@@ -46,7 +46,7 @@ interface StaffFormData {
   email: string;
   phone: string;
   roleId: string;
-  isActive: boolean;
+  status: 'ACTIVE' | 'INACTIVE';
   username: string;
 }
 
@@ -73,7 +73,7 @@ function StaffPageContent() {
     email: '',
     phone: '',
     roleId: '',
-    isActive: true,
+    status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
     username: '',
   });
 
@@ -141,7 +141,7 @@ function StaffPageContent() {
       email: '',
       phone: '',
       roleId: '',
-      isActive: true,
+      status: 'ACTIVE' as 'ACTIVE' | 'INACTIVE',
       username: '',
     });
   };
@@ -158,7 +158,7 @@ function StaffPageContent() {
       email: member.email,
       phone: member.phone || '',
       roleId: member.role.id,
-      isActive: member.isActive,
+      status: member.status,
       username: member.username,
     });
     setSelectedStaff(member);
@@ -343,12 +343,14 @@ function StaffPageContent() {
       // Optimistic update
       setStaff((prev) =>
         prev.map((s) =>
-          s.id === member.id ? { ...s, isActive: !s.isActive } : s
+          s.id === member.id
+            ? { ...s, status: s.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
+            : s
         )
       );
 
       await ApiClient.put(`admin/staff/${member.id}`, {
-        isActive: !member.isActive,
+        status: member.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
         roleId: member.role.id,
         firstName: member.firstName,
         lastName: member.lastName,
@@ -359,7 +361,7 @@ function StaffPageContent() {
       // Revert on failure
       setStaff((prev) =>
         prev.map((s) =>
-          s.id === member.id ? { ...s, isActive: !!member.isActive } : s
+          s.id === member.id ? { ...s, status: member.status } : s
         )
       );
       console.error('Failed to toggle status:', error);
@@ -478,7 +480,7 @@ function StaffPageContent() {
                 <div
                   className={`
                   h-12 w-12 rounded-xl flex items-center justify-center text-base font-bold flex-shrink-0
-                  ${member.isActive ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}
+                  ${member.status === 'ACTIVE' ? 'bg-blue-50 text-blue-600' : 'bg-gray-100 text-gray-500'}
                 `}
                 >
                   {member.firstName[0]}
@@ -509,7 +511,7 @@ function StaffPageContent() {
                     onClick={(e) => handleToggleStatus(member, e)}
                     className={`
                       relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
-                      ${member.isActive ? 'bg-green-500' : 'bg-gray-200'}
+                      ${member.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-200'}
                     `}
                     disabled={member.id === user?.id}
                   >
@@ -518,7 +520,7 @@ function StaffPageContent() {
                       aria-hidden="true"
                       className={`
                         pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                        ${member.isActive ? 'translate-x-5' : 'translate-x-0'}
+                        ${member.status === 'ACTIVE' ? 'translate-x-5' : 'translate-x-0'}
                       `}
                     />
                   </button>
@@ -813,12 +815,13 @@ function StaffPageContent() {
                     onClick={() =>
                       setFormData((prev) => ({
                         ...prev,
-                        isActive: !prev.isActive,
+                        status:
+                          prev.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
                       }))
                     }
                     className={`
                       relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none
-                      ${formData.isActive ? 'bg-green-500' : 'bg-gray-200'}
+                      ${formData.status === 'ACTIVE' ? 'bg-green-500' : 'bg-gray-200'}
                     `}
                   >
                     <span className="sr-only">Use setting</span>
@@ -826,7 +829,7 @@ function StaffPageContent() {
                       aria-hidden="true"
                       className={`
                         pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                        ${formData.isActive ? 'translate-x-5' : 'translate-x-0'}
+                        ${formData.status === 'ACTIVE' ? 'translate-x-5' : 'translate-x-0'}
                       `}
                     />
                   </button>

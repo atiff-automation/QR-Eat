@@ -243,11 +243,14 @@ export async function DELETE(
 
     const itemId = params.id;
 
-    // Verify item belongs to restaurant
+    // Verify item belongs to restaurant and check order count
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
       include: {
         category: true,
+        _count: {
+          select: { orderItems: true },
+        },
       },
     });
 
@@ -255,6 +258,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Menu item not found' },
         { status: 404 }
+      );
+    }
+
+    // Conditional delete: Check if item has orders
+    if (existingItem._count.orderItems > 0) {
+      return NextResponse.json(
+        {
+          error: `Cannot delete "${existingItem.name}". Item has ${existingItem._count.orderItems} existing order(s).`,
+          suggestion: 'Set item to INACTIVE instead',
+          orderCount: existingItem._count.orderItems,
+        },
+        { status: 400 }
       );
     }
 

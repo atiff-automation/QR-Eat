@@ -34,6 +34,7 @@ enum TableStatus {
   AVAILABLE
   OCCUPIED
   RESERVED
+  INACTIVE
 }
 
 enum CustomerSessionStatus {
@@ -48,6 +49,16 @@ enum OrderItemStatus {
   READY
   SERVED
   CANCELLED
+}
+
+enum MenuStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
 }
 
 // Platform Administration
@@ -280,41 +291,44 @@ model Table {
 }
 
 model MenuCategory {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   restaurantId String
   name         String
   description  String?
-  displayOrder Int      @default(0)
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  displayOrder Int        @default(0)
+  isActive     Boolean    @default(true)
+  status       MenuStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   menuItems  MenuItem[]
 
   @@index([restaurantId])
   @@index([isActive])
+  @@index([status])
   @@map("menu_categories")
 }
 
 model MenuItem {
-  id              String   @id @default(uuid())
+  id              String     @id @default(uuid())
   restaurantId    String
   categoryId      String
   name            String
   description     String?
-  price           Decimal  @db.Decimal(10, 2)
-  costPrice       Decimal? @db.Decimal(10, 2)
+  price           Decimal    @db.Decimal(10, 2)
+  costPrice       Decimal?   @db.Decimal(10, 2)
   imageUrl        String?
-  preparationTime Int      @default(0)
+  preparationTime Int        @default(0)
   calories        Int?
   allergens       String[]
   dietaryInfo     String[]
-  isAvailable     Boolean  @default(true)
-  isFeatured      Boolean  @default(false)
-  displayOrder    Int      @default(0)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  isAvailable     Boolean    @default(true)
+  status          MenuStatus @default(ACTIVE)
+  isFeatured      Boolean    @default(false)
+  displayOrder    Int        @default(0)
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
 
   restaurant        Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category          MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
@@ -326,6 +340,7 @@ model MenuItem {
   @@index([restaurantId])
   @@index([categoryId])
   @@index([isAvailable])
+  @@index([status])
   @@index([isFeatured])
   @@map("menu_items")
 }
@@ -471,35 +486,36 @@ model StaffRoleHierarchy {
 
 // Enhanced Staff Model with SaaS Features
 model Staff {
-  id                     String    @id @default(uuid())
+  id                     String       @id @default(uuid())
   restaurantId           String
   roleId                 String
-  email                  String    @unique
-  username               String    @unique
+  email                  String       @unique
+  username               String       @unique
   passwordHash           String
   firstName              String
   lastName               String
   phone                  String?
   employeeId             String? // Restaurant-specific employee ID
   hireDate               DateTime?
-  hourlyRate             Decimal?  @db.Decimal(8, 2)
-  isActive               Boolean   @default(true)
+  hourlyRate             Decimal?     @db.Decimal(8, 2)
+  isActive               Boolean      @default(true)
+  status                 StaffStatus  @default(ACTIVE)
   lastLoginAt            DateTime?
-  passwordChangedAt      DateTime  @default(now())
-  mustChangePassword     Boolean   @default(false)
-  failedLoginAttempts    Int       @default(0)
+  passwordChangedAt      DateTime     @default(now())
+  mustChangePassword     Boolean      @default(false)
+  failedLoginAttempts    Int          @default(0)
   lockedUntil            DateTime?
-  permissions            Json      @default("{}") // Additional custom permissions
-  preferences            Json      @default("{}") // User preferences (e.g. KDS station filters)
-  emailVerified          Boolean   @default(false)
+  permissions            Json         @default("{}") // Additional custom permissions
+  preferences            Json         @default("{}") // User preferences (e.g. KDS station filters)
+  emailVerified          Boolean      @default(false)
   emailVerificationToken String?
   passwordResetToken     String?
   passwordResetExpires   DateTime?
-  twoFactorEnabled       Boolean   @default(false)
+  twoFactorEnabled       Boolean      @default(false)
   twoFactorSecret        String?
-  backupCodes            String[]  @default([])
-  createdAt              DateTime  @default(now())
-  updatedAt              DateTime  @updatedAt
+  backupCodes            String[]     @default([])
+  createdAt              DateTime     @default(now())
+  updatedAt              DateTime     @updatedAt
 
   restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   role          StaffRole      @relation(fields: [roleId], references: [id])
@@ -512,6 +528,7 @@ model Staff {
   @@index([restaurantId])
   @@index([roleId])
   @@index([email])
+  @@index([status])
   @@map("staff")
 }
 
