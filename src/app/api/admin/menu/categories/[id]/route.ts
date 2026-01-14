@@ -96,6 +96,14 @@ export async function PATCH(
         });
       }
 
+      // Cascade: If category status is set to ACTIVE, set all items to ACTIVE
+      if (status === 'ACTIVE' && existingCategory.status === 'INACTIVE') {
+        await tx.menuItem.updateMany({
+          where: { categoryId: categoryId },
+          data: { status: 'ACTIVE' },
+        });
+      }
+
       return category;
     });
 

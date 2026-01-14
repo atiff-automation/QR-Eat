@@ -124,6 +124,7 @@ export async function PATCH(
       allergens,
       dietaryInfo,
       isAvailable,
+      status,
       isFeatured,
       displayOrder,
     } = updateData;
@@ -145,6 +146,7 @@ export async function PATCH(
       ...(allergens !== undefined && { allergens }),
       ...(dietaryInfo !== undefined && { dietaryInfo }),
       ...(isAvailable !== undefined && { isAvailable }),
+      ...(status && { status }),
       ...(isFeatured !== undefined && { isFeatured }),
       ...(displayOrder !== undefined && { displayOrder }),
       updatedAt: new Date(),

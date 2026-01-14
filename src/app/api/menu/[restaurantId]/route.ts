@@ -12,12 +12,12 @@ export async function GET(
     const categories = await prisma.menuCategory.findMany({
       where: {
         restaurantId,
-        isActive: true,
+        status: 'ACTIVE',
       },
       include: {
         menuItems: {
           where: {
-            isAvailable: true,
+            status: 'ACTIVE',
           },
           include: {
             variations: {
