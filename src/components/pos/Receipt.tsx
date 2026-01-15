@@ -20,6 +20,7 @@ import { adaptPosToDisplay } from '@/lib/utils/receipt-adapter';
 export function Receipt({
   order,
   payment,
+  currency,
   restaurantInfo,
   cashierInfo,
   onClose,
@@ -46,7 +47,7 @@ export function Receipt({
       address: restaurantInfo.address,
       phone: restaurantInfo.phone,
       email: restaurantInfo.email,
-      currency: restaurantInfo.currency,
+      currency: currency || restaurantInfo.currency || 'MYR',
     },
     cashier: {
       firstName: cashierInfo.firstName,
