@@ -132,10 +132,14 @@ export function OrdersOverview() {
 
       switch (data.type) {
         case 'order_status_changed':
+          const { orderId, newStatus } = data.data as {
+            orderId: string;
+            newStatus: string;
+          };
           setOrders((prevOrders) => {
             const updated = prevOrders.map((order) => {
-              if (order.id === (data.data.orderId as string)) {
-                return { ...order, status: data.data.newStatus as string };
+              if (order.id === orderId) {
+                return { ...order, status: newStatus };
               }
               return order;
             });
@@ -147,7 +151,10 @@ export function OrdersOverview() {
           break;
 
         case 'order_created':
-          debug.info('Order Created', 'Refreshing dashboard orders...');
+          debug.info('Order Created', 'New order received via SSE');
+          // For new orders, we usually fetch to get the full object with relations
+          // but we can prepend a placeholder if we have enough data,
+          // though fetchOrders() is usually safer for new records.
           fetchOrders();
           fetchStats();
           break;

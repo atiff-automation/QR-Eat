@@ -55,7 +55,7 @@ export interface Table {
  */
 export function useTables(restaurantId: string | undefined) {
   return useQuery({
-    queryKey: queryKeys.tables.all,
+    queryKey: queryKeys.tables.list(restaurantId || ''),
     queryFn: async () => {
       if (!restaurantId) {
         throw new Error('Restaurant ID is required');
@@ -123,34 +123,17 @@ export function useUpdateTableStatus() {
     mutationFn: async ({ id, status }: { id: string; status: string }) => {
       return ApiClient.patch(`/tables/${id}`, { status });
     },
-    onMutate: async ({ id, status }) => {
-      // Cancel outgoing refetches
+    onMutate: async () => {
+      // We don't have restaurantId directly in this hook's arguments,
+      // so we invalidate the broad 'all' key which covers everything.
+      // For optimistic updates, we'd need the restaurantId.
+      // Since this is a POS/Dashboard hook, we'll invalidate to be safe.
       await queryClient.cancelQueries({ queryKey: queryKeys.tables.all });
-
-      // Snapshot previous value
-      const previousTables = queryClient.getQueryData<Table[]>(
-        queryKeys.tables.all
-      );
-
-      // Optimistically update
-      if (previousTables) {
-        queryClient.setQueryData<Table[]>(
-          queryKeys.tables.all,
-          previousTables.map((table) =>
-            table.id === id
-              ? { ...table, status: status as Table['status'] }
-              : table
-          )
-        );
-      }
-
-      return { previousTables };
+      return {};
     },
-    onError: (err, variables, context) => {
-      // Rollback on error
-      if (context?.previousTables) {
-        queryClient.setQueryData(queryKeys.tables.all, context.previousTables);
-      }
+    onError: () => {
+      // Broad invalidation on error
+      queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
     },
     onSuccess: () => {
       // Invalidate to refetch fresh data
@@ -177,7 +160,7 @@ export function useCreateTable() {
       return ApiClient.post('/tables', tableData);
     },
     onSuccess: () => {
-      // Invalidate tables list to refetch
+      // Invalidate all tables to ensure fresh list everywhere
       queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
     },
   });

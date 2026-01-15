@@ -86,11 +86,25 @@ function TablesContent() {
         // Handle Table Status Changes
         if (data.type === 'table_status_changed') {
           const { tableId, newStatus } = data.data;
-          console.log(
-            `[TablesPage] Real-time update: Table ${tableId} -> ${newStatus}`
+          const rId = restaurantContext?.id || '';
+          console.log(`[SSE] Table ${tableId} changed to ${newStatus}`);
+
+          // Optimistic update: Update the restaurant-specific cache
+          queryClient.setQueryData<Table[]>(
+            queryKeys.tables.list(rId),
+            (oldTables) => {
+              if (!oldTables) return oldTables;
+              return oldTables.map((t) =>
+                t.id === tableId ? { ...t, status: newStatus } : t
+              );
+            }
           );
 
-          // Optimistic update handled by SSE - just invalidate cache
+          // Still invalidate to ensure eventual consistency
+          queryClient.invalidateQueries({
+            queryKey: queryKeys.tables.list(rId),
+          });
+          // Broad invalidation for secondary components if needed
           queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
 
           if (selectedTable?.id === tableId) {

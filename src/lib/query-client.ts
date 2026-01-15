@@ -117,10 +117,13 @@ export const queryKeys = {
 
   // Tables
   tables: {
-    all: ['tables'] as const,
-    byId: (id: string) => ['tables', id] as const,
-    available: ['tables', 'AVAILABLE'] as const,
-    orders: (tableId: string) => ['tables', tableId, 'orders'] as const, // NEW
+    list: (restaurantId: string) =>
+      ['tables', 'restaurant', restaurantId] as const,
+    all: ['tables'] as const, // kept for broadcast invalidations if needed
+    byId: (id: string) => ['tables', 'item', id] as const,
+    available: (restaurantId: string) =>
+      ['tables', 'restaurant', restaurantId, 'AVAILABLE'] as const,
+    orders: (tableId: string) => ['tables', tableId, 'orders'] as const,
   },
 
   // Reports & Analytics

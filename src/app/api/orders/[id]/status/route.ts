@@ -8,6 +8,7 @@ import {
 } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { OrderStatus } from '@prisma/client';
 
 export async function PATCH(
   request: NextRequest,
@@ -107,7 +108,7 @@ export async function PATCH(
 
     // Prepare update data
     const updateData: {
-      status: string;
+      status: OrderStatus;
       updatedAt: Date;
       confirmedAt?: Date;
       confirmedBy?: string;
@@ -116,7 +117,7 @@ export async function PATCH(
       servedBy?: string;
       estimatedReadyTime?: Date;
     } = {
-      status,
+      status: status as OrderStatus,
       updatedAt: new Date(),
     };
 
@@ -224,10 +225,15 @@ export async function PATCH(
     }
 
     // Auto-update table status based on order states
-    // This is non-blocking and will not affect the response
-    autoUpdateTableStatus(currentOrder.tableId).catch((error) => {
-      console.error('[OrderStatus] Failed to auto-update table status:', error);
-    });
+    // This is non-blocking and    // Also try to update table status automatically
+    try {
+      await autoUpdateTableStatus(currentOrder.tableId);
+    } catch (error) {
+      console.error(
+        `[OrderUpdate] Failed to auto-update table status for table ${currentOrder.tableId}:`,
+        error
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -267,7 +273,7 @@ export async function GET(
           },
         },
       },
-      orderBy: { createdAt: 'asc' as const },
+      orderBy: { changedAt: 'asc' as const },
     });
 
     // Get current order details

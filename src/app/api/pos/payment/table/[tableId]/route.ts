@@ -197,30 +197,41 @@ export async function POST(
       `[Table Payment API] Successfully processed ${result.length} payments`
     );
 
-    // Publish payment events
+    // Post-transaction updates (Events & Table Status)
     for (const payment of result) {
       const order = eligibleOrders.find((o) => o.id === payment.orderId);
       if (order) {
-        PostgresEventManager.publishPaymentCompleted({
-          orderId: order.id,
-          paymentId: payment.id,
-          restaurantId: restaurantId!,
-          paymentMethod: validatedData.paymentMethod,
-          amount: Number(order.totalAmount),
-          receiptNumber,
-          processedBy: userId!,
-          timestamp: Date.now(),
-        }).catch(console.error);
+        try {
+          await PostgresEventManager.publishPaymentCompleted({
+            orderId: order.id,
+            paymentId: payment.id,
+            restaurantId: restaurantId!,
+            paymentMethod: validatedData.paymentMethod,
+            amount: Number(order.totalAmount),
+            receiptNumber,
+            processedBy: context!.userId!,
+            timestamp: Date.now(),
+          });
+        } catch (error) {
+          console.error('Failed to publish payment completed event:', error);
+        }
       }
     }
 
-    // Update table status
-    autoUpdateTableStatus(tableId).catch(console.error);
+    // Update table status once
+    try {
+      await autoUpdateTableStatus(tableId);
+    } catch (error) {
+      console.error(
+        '[TablePayment] Failed to auto-update table status:',
+        error
+      );
+    }
 
     // Create combined payment object for receipt display
     // This includes all orders and their items
     const combinedPayment = {
-      ...result[0], // Base structure from first payment
+      ...result[0], // result is array of payments
       amount: totalAmount, // Combined total
       cashReceived: validatedData.cashReceived
         ? new Decimal(validatedData.cashReceived)

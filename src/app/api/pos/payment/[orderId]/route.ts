@@ -281,20 +281,28 @@ export async function POST(
 
       // Post-transaction updates (Events & Table Status)
       for (const res of result) {
-        PostgresEventManager.publishPaymentCompleted({
-          orderId: res.updatedOrder.id,
-          paymentId: res.payment.id,
-          restaurantId: order.restaurantId,
-          paymentMethod: validatedData.paymentMethod,
-          amount: Number(res.updatedOrder.totalAmount),
-          receiptNumber,
-          processedBy: context!.userId!,
-          timestamp: Date.now(),
-        }).catch(console.error);
+        try {
+          await PostgresEventManager.publishPaymentCompleted({
+            orderId: res.updatedOrder.id,
+            paymentId: res.payment.id,
+            restaurantId: order.restaurantId,
+            paymentMethod: validatedData.paymentMethod,
+            amount: Number(res.updatedOrder.totalAmount),
+            receiptNumber,
+            processedBy: context!.userId!,
+            timestamp: Date.now(),
+          });
+        } catch (error) {
+          console.error('Failed to publish payment completed event:', error);
+        }
       }
 
       // Update table status once
-      autoUpdateTableStatus(order.tableId).catch(console.error);
+      try {
+        await autoUpdateTableStatus(order.tableId);
+      } catch (error) {
+        console.error('[Payment] Failed to auto-update table status:', error);
+      }
 
       return NextResponse.json({
         success: true,
@@ -419,25 +427,29 @@ export async function POST(
         return { payment, updatedOrder };
       });
 
-      // Publish payment completed event (fire and forget)
-      PostgresEventManager.publishPaymentCompleted({
-        orderId: order.id,
-        paymentId: result.payment.id,
-        restaurantId: order.restaurantId,
-        paymentMethod: validatedData.paymentMethod,
-        amount: Number(order.totalAmount),
-        receiptNumber,
-        processedBy: context!.userId!,
-        timestamp: Date.now(),
-      }).catch((error) => {
+      // Publish payment completed event
+      try {
+        await PostgresEventManager.publishPaymentCompleted({
+          orderId: order.id,
+          paymentId: result.payment.id,
+          restaurantId: order.restaurantId,
+          paymentMethod: validatedData.paymentMethod,
+          amount: Number(order.totalAmount),
+          receiptNumber,
+          processedBy: context!.userId!,
+          timestamp: Date.now(),
+        });
+      } catch (error) {
         console.error('Failed to publish payment completed event:', error);
-      });
+      }
 
       // Auto-update table status after payment completion
       // This will clear the table to "available" if all orders are served
-      autoUpdateTableStatus(order.tableId).catch((error) => {
+      try {
+        await autoUpdateTableStatus(order.tableId);
+      } catch (error) {
         console.error('[Payment] Failed to auto-update table status:', error);
-      });
+      }
 
       return NextResponse.json({
         success: true,

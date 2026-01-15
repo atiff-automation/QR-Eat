@@ -319,13 +319,15 @@ export async function POST(request: NextRequest) {
     });
 
     // Ensure table status is consistent (safety check)
-    // This is a non-blocking operation - errors are logged but don't fail the request
-    autoUpdateTableStatus(tableId).catch((error) => {
+    // We await this to ensure the UI reflects the change immediately
+    try {
+      await autoUpdateTableStatus(tableId);
+    } catch (error) {
       console.error(
         `[OrderCreate] Failed to auto-update table status for table ${tableId}:`,
         error
       );
-    });
+    }
 
     return NextResponse.json({
       success: true,
