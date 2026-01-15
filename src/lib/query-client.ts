@@ -132,6 +132,14 @@ export const queryKeys = {
       ['reports', 'operational', params] as const,
     menu: (params?: Record<string, unknown>) =>
       ['reports', 'menu', params] as const,
+    financial: (params?: Record<string, unknown>) =>
+      ['reports', 'financial', params] as const,
+    customer: (params?: Record<string, unknown>) =>
+      ['reports', 'customer', params] as const,
+    comprehensive: (params?: Record<string, unknown>) =>
+      ['reports', 'comprehensive', params] as const,
+    byType: (type: string, params?: Record<string, unknown>) =>
+      ['reports', type, params] as const,
   },
 
   // Restaurants (for multi-tenant)
