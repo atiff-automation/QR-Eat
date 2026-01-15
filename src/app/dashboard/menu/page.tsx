@@ -24,6 +24,7 @@ import {
 } from '@/lib/hooks/queries/useMenu';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 interface MenuCategory {
   id: string;
@@ -88,6 +89,10 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    type: 'category' | 'item';
+    data: MenuCategory | MenuItem;
+  } | null>(null);
   const currency = useCurrency();
 
   // TanStack Query mutations
@@ -148,46 +153,37 @@ export default function MenuPage() {
     }
   };
 
-  const handleDeleteCategory = async (category: MenuCategory) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${category.name}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
-
-    try {
-      await deleteCategoryMutation.mutateAsync(category.id);
-      console.log(`Category "${category.name}" deleted successfully`);
-    } catch (error) {
-      console.error('Failed to delete category:', error);
-      alert(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Failed to delete category. Please try again.'
-      );
-    }
+  const handleDeleteCategory = (category: MenuCategory) => {
+    setDeleteConfirmation({ type: 'category', data: category });
   };
 
-  const handleDeleteItem = async (item: MenuItem) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${item.name}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const handleDeleteItem = (item: MenuItem) => {
+    setDeleteConfirmation({ type: 'item', data: item });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation) return;
 
     try {
-      await deleteMenuItemMutation.mutateAsync(item.id);
-      console.log(`Item "${item.name}" deleted successfully`);
+      if (deleteConfirmation.type === 'category') {
+        const category = deleteConfirmation.data as MenuCategory;
+        await deleteCategoryMutation.mutateAsync(category.id);
+        console.log(`Category "${category.name}" deleted successfully`);
+      } else {
+        const item = deleteConfirmation.data as MenuItem;
+        await deleteMenuItemMutation.mutateAsync(item.id);
+        console.log(`Item "${item.name}" deleted successfully`);
+      }
+      setDeleteConfirmation(null);
     } catch (error) {
-      console.error('Failed to delete item:', error);
+      console.error(`Failed to delete ${deleteConfirmation.type}:`, error);
+      // Keep modal open to show error, or close and show generic alert
+      // For now, we'll close and show alert as per existing pattern
+      setDeleteConfirmation(null);
       alert(
         error instanceof ApiClientError
           ? error.message
-          : 'Failed to delete item. Please try again.'
+          : `Failed to delete ${deleteConfirmation.type}. Please try again.`
       );
     }
   };
@@ -566,6 +562,24 @@ export default function MenuPage() {
             }}
           />
         )}
+
+        {/* Delete Confirmation Modal */}
+        <ConfirmationModal
+          isOpen={!!deleteConfirmation}
+          title={`Delete ${
+            deleteConfirmation?.type === 'category' ? 'Category' : 'Item'
+          }`}
+          message={`Are you sure you want to delete "${
+            deleteConfirmation?.data.name
+          }"? This action cannot be undone.`}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => setDeleteConfirmation(null)}
+          isLoading={
+            deleteCategoryMutation.isPending || deleteMenuItemMutation.isPending
+          }
+          variant="danger"
+          confirmText="Delete"
+        />
       </div>
 
       {/* Floating Action Button */}

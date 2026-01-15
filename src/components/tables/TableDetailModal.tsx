@@ -14,18 +14,10 @@ import { useTableOrders } from '@/lib/hooks/queries/useTableOrders';
 import { formatPrice } from '@/lib/qr-utils';
 import type { OrderWithDetails } from '@/types/pos';
 
+import type { Table } from '@/lib/hooks/queries/useTables';
+
 interface TableDetailModalProps {
-  table: {
-    id: string;
-    tableNumber: string;
-    tableName?: string;
-    status: string;
-    capacity: number;
-    currentOrders: number;
-    qrCodeToken: string;
-    locationDescription?: string;
-    lastOrderAt?: string;
-  } | null;
+  table: Table | null;
   isOpen: boolean;
   onClose: () => void;
   onUpdateStatus: (tableId: string, status: string) => Promise<void>;

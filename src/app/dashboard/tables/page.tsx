@@ -19,24 +19,15 @@ import { Search } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import type { OrderWithDetails } from '@/types/pos';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
-import { useTables } from '@/lib/hooks/queries/useTables';
+import { useTables, type Table } from '@/lib/hooks/queries/useTables';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import {
   canOpenTableModal,
   getStaffModalBlockMessage,
 } from '@/lib/table-utils';
 
-interface Table {
-  id: string;
-  tableNumber: string;
-  tableName?: string;
-  capacity: number;
-  status: string;
-  qrCodeToken: string;
-  locationDescription?: string;
-  currentOrders: number;
-  lastOrderAt?: string;
-}
+// Table interface imported from useTables hooks
 
 function TablesContent() {
   const { restaurantContext } = useRole();
@@ -56,6 +47,9 @@ function TablesContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [deleteConfirmation, setDeleteConfirmation] = useState<Table | null>(
+    null
+  );
 
   // Payment State
   const [selectedOrders, setSelectedOrders] = useState<OrderWithDetails[]>([]);
@@ -158,7 +152,10 @@ function TablesContent() {
       queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
       // Update local state optimistically for snappy feel
       if (selectedTable && selectedTable.id === tableId) {
-        setSelectedTable({ ...selectedTable, status });
+        setSelectedTable({
+          ...selectedTable,
+          status: status as Table['status'],
+        });
       }
     } catch (error) {
       console.error('Failed to update table status:', error);
@@ -194,24 +191,24 @@ function TablesContent() {
     }
   };
 
-  const handleDeleteTable = async (table: Table) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${table.tableName || table.tableNumber}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const handleDeleteTable = (table: Table) => {
+    setDeleteConfirmation(table);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation) return;
 
     try {
-      await ApiClient.delete(`/tables/${table.id}`);
+      await ApiClient.delete(`/tables/${deleteConfirmation.id}`);
       // Invalidate cache to trigger refetch
       queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
       console.log(
-        `Table "${table.tableName || table.tableNumber}" deleted successfully`
+        `Table "${deleteConfirmation.tableName || deleteConfirmation.tableNumber}" deleted successfully`
       );
+      setDeleteConfirmation(null);
     } catch (error) {
       console.error('Failed to delete table:', error);
+      setDeleteConfirmation(null);
       if (error instanceof ApiClientError) {
         // Show the helpful error message from the API
         alert(error.message);
@@ -409,6 +406,20 @@ function TablesContent() {
           ariaLabel="Add Table"
         />
       </PermissionGuard>
+
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deleteConfirmation}
+        title="Delete Table"
+        message={`Are you sure you want to delete "${
+          deleteConfirmation?.tableName || deleteConfirmation?.tableNumber
+        }"? This action cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmation(null)}
+        isLoading={false}
+        variant="danger"
+        confirmText="Delete Table"
+      />
     </div>
   );
 }

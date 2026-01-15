@@ -15,6 +15,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
 interface StaffMember {
   id: string;
@@ -95,8 +96,12 @@ function StaffPageContent() {
   // Check if user has permission to manage staff based on RBAC
   const canManageStaff = isOwner;
   // For viewing, we check if they have the 'staff:read' permission
+  // For viewing, we check if they have the 'staff:read' permission
   const canViewStaff =
     isOwner || user?.role?.permissions?.staff?.includes('read');
+
+  const [deleteConfirmation, setDeleteConfirmation] =
+    useState<StaffMember | null>(null);
 
   useEffect(() => {
     fetchStaff();
@@ -304,30 +309,6 @@ function StaffPageContent() {
     }
   };
 
-  const handleDelete = async (member: StaffMember) => {
-    if (
-      window.confirm(
-        `Are you sure you want to delete ${member.firstName} ${member.lastName}?`
-      )
-    ) {
-      try {
-        await ApiClient.delete(`admin/staff/${member.id}`);
-
-        await fetchStaff(); // Refresh the list
-        closeModals(); // Close the edit modal
-        setSuccess('Staff member deleted successfully!');
-        setTimeout(() => setSuccess(''), 3000);
-      } catch (error) {
-        console.error('Failed to delete staff member:', error);
-        if (error instanceof ApiClientError) {
-          setError(error.message);
-        } else {
-          setError('Failed to delete staff member');
-        }
-      }
-    }
-  };
-
   // Toggle Status Function
   const handleToggleStatus = async (
     member: StaffMember,
@@ -369,23 +350,25 @@ function StaffPageContent() {
     }
   };
 
-  const handleDeleteStaff = async (member: StaffMember) => {
-    if (
-      !confirm(
-        `Are you sure you want to delete "${member.firstName} ${member.lastName}"? This action cannot be undone.`
-      )
-    ) {
-      return;
-    }
+  const handleDeleteStaff = (member: StaffMember) => {
+    setDeleteConfirmation(member);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmation) return;
 
     try {
-      await ApiClient.delete(`admin/staff/${member.id}`);
+      await ApiClient.delete(`admin/staff/${deleteConfirmation.id}`);
       await fetchStaff();
       console.log(
-        `Staff "${member.firstName} ${member.lastName}" deleted successfully`
+        `Staff "${deleteConfirmation.firstName} ${deleteConfirmation.lastName}" deleted successfully`
       );
+      setDeleteConfirmation(null);
+      closeModals(); // Ensure edit modal is closed if it was open
     } catch (error) {
       console.error('Failed to delete staff:', error);
+      // Close modal before alert or keep open - standard is close for now
+      setDeleteConfirmation(null);
       if (error instanceof ApiClientError) {
         // Show the helpful error message from the API
         alert(error.message);
@@ -724,6 +707,18 @@ function StaffPageContent() {
         </div>
       )}
 
+      {/* Delete Confirmation Modal */}
+      <ConfirmationModal
+        isOpen={!!deleteConfirmation}
+        title="Delete Staff Member"
+        message={`Are you sure you want to delete "${deleteConfirmation?.firstName} ${deleteConfirmation?.lastName}"? This action cannot be undone.`}
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirmation(null)}
+        isLoading={false}
+        variant="danger"
+        confirmText="Delete Staff"
+      />
+
       {/* Edit Staff Modal - Menu Style */}
       {showEditModal && canManageStaff && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -893,7 +888,7 @@ function StaffPageContent() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => handleDelete(selectedStaff)}
+                        onClick={() => handleDeleteStaff(selectedStaff)}
                         className="flex-1 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-medium rounded-lg transition-all"
                       >
                         Delete

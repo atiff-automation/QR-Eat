@@ -1,16 +1,10 @@
 import React from 'react';
 import { Users, Utensils, Clock, Trash2 } from 'lucide-react';
 
+import { type Table } from '@/lib/hooks/queries/useTables';
+
 export interface TableTileProps {
-  table: {
-    id: string;
-    tableNumber: string;
-    tableName?: string;
-    status: string;
-    capacity: number;
-    currentOrders?: number;
-    lastOrderAt?: string;
-  };
+  table: Table;
   onClick: () => void;
   onToggleActive?: (
     table: TableTileProps['table'],
