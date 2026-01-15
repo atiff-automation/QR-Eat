@@ -29,24 +29,26 @@ export function PublicReceiptView({ receipt }: PublicReceiptViewProps) {
   const receiptDisplayData = adaptPublicToDisplay(receipt);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8 px-4">
-      {/* Action Buttons - Hide on print */}
-      <div className="max-w-md mx-auto mb-4 print:hidden">
-        <button
-          onClick={handlePrint}
-          className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm"
-        >
-          <Printer className="w-5 h-5" />
-          Print / Save as PDF
-        </button>
-        <p className="text-center text-sm text-gray-600 mt-2">
-          Use your browser&apos;s print dialog to save as PDF or print
-        </p>
+    <div className="min-h-screen bg-gray-50 pb-32">
+      {/* Shared Receipt Card */}
+      <div className="max-w-md mx-auto pt-8 px-4">
+        <ReceiptCard data={receiptDisplayData} />
       </div>
 
-      {/* Shared Receipt Card */}
-      <div className="max-w-md mx-auto">
-        <ReceiptCard data={receiptDisplayData} />
+      {/* Sticky Bottom Action Buttons - Hide on print */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-50 print:hidden">
+        <div className="max-w-md mx-auto">
+          <button
+            onClick={handlePrint}
+            className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm"
+          >
+            <Printer className="w-5 h-5" />
+            Print / Save as PDF
+          </button>
+          <p className="text-center text-sm text-gray-600 mt-2">
+            Use your browser&apos;s print dialog to save as PDF or print
+          </p>
+        </div>
       </div>
 
       {/* Print Styles */}
