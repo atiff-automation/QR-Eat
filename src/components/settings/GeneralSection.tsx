@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useUpdateRestaurantSettings } from '@/lib/hooks/queries/useRestaurantSettings';
 import { AlertTriangle, CheckCircle, Building2 } from 'lucide-react';
 
 interface GeneralInfo {
@@ -24,7 +24,7 @@ interface GeneralSectionProps {
 
 export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
   const [formData, setFormData] = useState<GeneralInfo>(initialData);
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading is derived from mutation
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -34,6 +34,8 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
   }, [initialData]);
 
   const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
+
+  const updateSettingsMutation = useUpdateRestaurantSettings();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,27 +48,28 @@ export function GeneralSection({ initialData, onUpdate }: GeneralSectionProps) {
       return;
     }
 
-    setIsLoading(true);
-
     try {
       // Remove name from update data
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { name, ...updateData } = formData;
-      await ApiClient.put('/settings/restaurant/general', updateData);
+
+      await updateSettingsMutation.mutateAsync(updateData);
+
       setSuccess('General information updated successfully!');
-      onUpdate();
+      if (onUpdate) onUpdate(); // Optional call if parent still needs it
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update general information:', error);
-      setError(
-        error instanceof ApiClientError
+      // TanStack Query wraps the error
+      const message =
+        error instanceof Error
           ? error.message
-          : 'Failed to update settings. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+          : 'Failed to update settings. Please try again.';
+      setError(message);
     }
   };
+
+  const isLoading = updateSettingsMutation.isPending;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">

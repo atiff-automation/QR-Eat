@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useUpdateRestaurantSettings } from '@/lib/hooks/queries/useRestaurantSettings';
 import {
   AlertTriangle,
   CheckCircle,
@@ -35,7 +35,7 @@ export function NotificationsSection({
   onUpdate,
 }: NotificationsSectionProps) {
   const [formData, setFormData] = useState<NotificationSettings>(initialData);
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading is derived from mutation
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -58,28 +58,31 @@ export function NotificationsSection({
 
   const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
 
+  const updateSettingsMutation = useUpdateRestaurantSettings();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setIsLoading(true);
+    // setIsLoading(true); // Derived from mutation
 
     try {
-      await ApiClient.put('/settings/restaurant/notifications', formData);
+      await updateSettingsMutation.mutateAsync(formData);
+
       setSuccess('Notification settings updated successfully!');
-      onUpdate();
+      if (onUpdate) onUpdate();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update notification settings:', error);
-      setError(
-        error instanceof ApiClientError
+      const message =
+        error instanceof Error
           ? error.message
-          : 'Failed to update settings. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+          : 'Failed to update settings. Please try again.';
+      setError(message);
     }
   };
+
+  const isLoading = updateSettingsMutation.isPending;
 
   const handleTestNotification = async () => {
     try {

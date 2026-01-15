@@ -6,7 +6,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useUpdateRestaurantSettings } from '@/lib/hooks/queries/useRestaurantSettings';
 import { TIMEZONE_DISPLAY_NAME } from '@/lib/constants';
 import {
   AlertTriangle,
@@ -139,7 +139,7 @@ export function OperatingHoursSection({
   const [expandedDay, setExpandedDay] = useState<(typeof DAYS)[number] | null>(
     null
   );
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading is derived from mutation
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -152,12 +152,14 @@ export function OperatingHoursSection({
     JSON.stringify(formData) !==
     JSON.stringify(normalizeOperatingHours(initialData));
 
+  const updateSettingsMutation = useUpdateRestaurantSettings();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
 
-    setIsLoading(true);
+    // setIsLoading(true); // Derived from mutation
 
     try {
       // Transform data to match backend schema
@@ -179,21 +181,22 @@ export function OperatingHoursSection({
       };
 
       // Send only operating hours - backend sets timezone
-      await ApiClient.put('/settings/restaurant/hours', payload);
+      await updateSettingsMutation.mutateAsync(payload);
+
       setSuccess('Operating hours updated successfully!');
-      onUpdate();
+      if (onUpdate) onUpdate();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update operating hours:', error);
-      setError(
-        error instanceof ApiClientError
+      const message =
+        error instanceof Error
           ? error.message
-          : 'Failed to update settings. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+          : 'Failed to update settings. Please try again.';
+      setError(message);
     }
   };
+
+  const isLoading = updateSettingsMutation.isPending;
 
   const addTimeSlot = (day: (typeof DAYS)[number]) => {
     setFormData((prev) => ({

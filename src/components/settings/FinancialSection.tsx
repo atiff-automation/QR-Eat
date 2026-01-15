@@ -6,7 +6,10 @@
 'use client';
 
 import { useState } from 'react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import {
+  useUpdateRestaurantSettings,
+  UpdateRestaurantSettingsPayload,
+} from '@/lib/hooks/queries/useRestaurantSettings';
 import { AlertTriangle, CheckCircle, DollarSign } from 'lucide-react';
 
 interface FinancialSettings {
@@ -54,7 +57,7 @@ export function FinancialSection({
     taxRate: (initialData.taxRate * 100).toString(),
     serviceChargeRate: (initialData.serviceChargeRate * 100).toString(),
   });
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading is derived from mutation
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -69,6 +72,8 @@ export function FinancialSection({
       taxRate: initialData.taxRate * 100,
       serviceChargeRate: initialData.serviceChargeRate * 100,
     });
+
+  const updateSettingsMutation = useUpdateRestaurantSettings();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,33 +94,35 @@ export function FinancialSection({
       return;
     }
 
-    setIsLoading(true);
-
     try {
       // Convert percentage values to decimals for API
-      const apiData = {
+      // Strictly typed payload using the new interface
+      const apiData: UpdateRestaurantSettingsPayload = {
         currency: formData.currency,
-        taxRate: taxRateVal / 100,
+        // Convert string to number for the API payload if needed, or keep as number if already parsed
+        // The form stores strings ('6.00'), so we parse to float then divide by 100
+        taxRate: taxRateVal / 100, // Sends number, which our updated hook payload accepts
         serviceChargeRate: serviceChargeVal / 100,
         taxLabel: formData.taxLabel,
         serviceChargeLabel: formData.serviceChargeLabel,
       };
 
-      await ApiClient.put('/settings/restaurant/financial', apiData);
+      await updateSettingsMutation.mutateAsync(apiData);
+
       setSuccess('Financial settings updated successfully!');
-      onUpdate();
+      if (onUpdate) onUpdate();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update financial settings:', error);
-      setError(
-        error instanceof ApiClientError
+      const message =
+        error instanceof Error
           ? error.message
-          : 'Failed to update settings. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+          : 'Failed to update settings. Please try again.';
+      setError(message);
     }
   };
+
+  const isLoading = updateSettingsMutation.isPending;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">

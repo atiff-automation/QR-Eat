@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AccessControl } from '@/components/dashboard/AccessControl';
 import { ImageUpload } from '@/components/ui/ImageUpload';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { ApiClientError } from '@/lib/api-client';
 import {
   Plus,
   RefreshCw,
@@ -21,6 +21,10 @@ import {
   useToggleCategoryStatus,
   useDeleteMenuItem,
   useDeleteCategory,
+  useCreateMenuItem,
+  useCreateCategory,
+  useUpdateMenuItem,
+  useUpdateCategory,
 } from '@/lib/hooks/queries/useMenu';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
@@ -655,54 +659,31 @@ function AddModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const createCategoryMutation = useCreateCategory();
+  const createItemMutation = useCreateMenuItem();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      const endpoint =
-        type === 'category'
-          ? '/api/admin/menu/categories'
-          : '/api/admin/menu/items';
+      let newItemCategoryId: string | undefined;
 
-      // Fix data types for menu items
-      let requestData:
-        | typeof formData
-        | {
-            name: string;
-            description: string;
-            price: number;
-            categoryId: string;
-            preparationTime: number;
-            calories: number | null;
-            imageUrl: string;
-            allergens: string[];
-            dietaryInfo: string[];
-            isAvailable: boolean;
-            isFeatured: boolean;
-          } = { ...formData };
-      if (type === 'item') {
-        requestData = {
+      if (type === 'category') {
+        const result = await createCategoryMutation.mutateAsync(formData);
+        newItemCategoryId = result.category?.id;
+      } else {
+        const itemData = {
           ...formData,
-          // price is already a number
           preparationTime: parseInt(formData.preparationTime.toString()) || 15,
-          calories: formData.calories ? parseInt(formData.calories) : null,
+          calories: formData.calories ? parseInt(formData.calories) : undefined,
         };
+        await createItemMutation.mutateAsync(itemData);
+        newItemCategoryId = formData.categoryId;
       }
 
-      console.log('Sending request to:', endpoint);
-      console.log('Form data being sent:', requestData);
-
-      const responseData = await ApiClient.post<{ category?: { id: string } }>(
-        endpoint,
-        requestData
-      );
-
-      // Pass the category ID back for items so we can navigate to it
-      const categoryId =
-        type === 'item' ? formData.categoryId : responseData.category?.id;
-      onSuccess(categoryId);
+      onSuccess(newItemCategoryId);
     } catch (error) {
       console.error(`Failed to create ${type}:`, error);
       if (error instanceof ApiClientError) {
@@ -711,7 +692,11 @@ function AddModal({
           console.error('Validation Details:', error.details);
         }
       } else {
-        setError('Network error. Please try again.');
+        setError(
+          error instanceof Error
+            ? error.message
+            : 'Network error. Please try again.'
+        );
       }
     } finally {
       setIsSubmitting(false);
@@ -1092,6 +1077,8 @@ function EditItemModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const updateItemMutation = useUpdateMenuItem();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -1099,12 +1086,12 @@ function EditItemModal({
 
     try {
       const payload = {
+        id: item.id, // ID is required for the hook
         ...formData,
-        // price is already a number
-        calories: formData.calories ? parseInt(formData.calories) : null,
+        calories: formData.calories ? parseInt(formData.calories) : undefined,
       };
 
-      await ApiClient.patch(`admin/menu/items/${item.id}`, payload);
+      await updateItemMutation.mutateAsync(payload);
 
       onSuccess();
     } catch (error) {
@@ -1450,13 +1437,18 @@ function EditCategoryModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const updateCategoryMutation = useUpdateCategory();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
     try {
-      await ApiClient.patch(`admin/menu/categories/${category.id}`, formData);
+      await updateCategoryMutation.mutateAsync({
+        id: category.id,
+        ...formData,
+      });
 
       onSuccess();
     } catch (error) {

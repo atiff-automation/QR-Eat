@@ -31,8 +31,8 @@ export interface RestaurantSettings {
   description: string | null;
   timezone: string;
   currency: string;
-  taxRate: string;
-  serviceChargeRate: string;
+  taxRate: string; // Decimal returned as string
+  serviceChargeRate: string; // Decimal returned as string
   taxLabel: string;
   serviceChargeLabel: string;
   operatingHours: Record<string, unknown>;
@@ -56,6 +56,7 @@ export interface RestaurantSettings {
     dateFormat: string;
     timeFormat: string;
     numberFormat: string;
+    language: string;
   };
 }
 
@@ -91,6 +92,28 @@ export function useRestaurantSettings() {
 }
 
 /**
+ * Payload for updating restaurant settings
+ * Allows numbers for rates which are strings in the fetch response
+ */
+export interface UpdateRestaurantSettingsPayload {
+  name?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  description?: string;
+  currency?: string;
+  taxRate?: number | string;
+  serviceChargeRate?: number | string;
+  taxLabel?: string;
+  serviceChargeLabel?: string;
+  operatingHours?: Record<string, unknown>;
+  notificationSettings?: RestaurantSettings['notificationSettings'];
+  receiptSettings?: RestaurantSettings['receiptSettings'];
+  paymentMethods?: RestaurantSettings['paymentMethods'];
+  systemPreferences?: RestaurantSettings['systemPreferences'];
+}
+
+/**
  * Update restaurant settings
  *
  * Features:
@@ -114,7 +137,7 @@ export function useUpdateRestaurantSettings() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (settings: Partial<RestaurantSettings>) => {
+    mutationFn: async (settings: UpdateRestaurantSettingsPayload) => {
       return ApiClient.put('/settings/restaurant', settings);
     },
     onMutate: async (newSettings) => {
@@ -129,10 +152,25 @@ export function useUpdateRestaurantSettings() {
       );
 
       // Optimistically update
+      // We need to handle the potential type mismatch for optimistic updates
+      // (API accepts numbers, but cache stores strings for Decimals)
       if (previousSettings) {
+        const optimisticUpdate = {
+          ...newSettings,
+        } as Partial<RestaurantSettings>;
+
+        // Convert numbers to strings for the cache to match Read shape
+        if (typeof newSettings.taxRate === 'number') {
+          optimisticUpdate.taxRate = newSettings.taxRate.toString();
+        }
+        if (typeof newSettings.serviceChargeRate === 'number') {
+          optimisticUpdate.serviceChargeRate =
+            newSettings.serviceChargeRate.toString();
+        }
+
         queryClient.setQueryData<RestaurantSettings>(
           queryKeys.restaurants.settings,
-          { ...previousSettings, ...newSettings }
+          { ...previousSettings, ...optimisticUpdate }
         );
       }
 

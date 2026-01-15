@@ -6,7 +6,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useUpdateRestaurantSettings } from '@/lib/hooks/queries/useRestaurantSettings';
 import { AlertTriangle, CheckCircle, Settings2 } from 'lucide-react';
 
 interface SystemPreferences {
@@ -27,34 +27,37 @@ export function SystemPreferencesSection({
   onUpdate,
 }: SystemPreferencesSectionProps) {
   const [formData, setFormData] = useState<SystemPreferences>(initialData);
-  const [isLoading, setIsLoading] = useState(false);
+  // isLoading is derived from mutation
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
   const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialData);
 
+  const updateSettingsMutation = useUpdateRestaurantSettings();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-    setIsLoading(true);
+    // setIsLoading(true); // Derived from mutation
 
     try {
-      await ApiClient.put('/settings/restaurant/system', formData);
+      await updateSettingsMutation.mutateAsync(formData);
+
       setSuccess('System preferences updated successfully!');
-      onUpdate();
+      if (onUpdate) onUpdate();
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to update system preferences:', error);
-      setError(
-        error instanceof ApiClientError
+      const message =
+        error instanceof Error
           ? error.message
-          : 'Failed to update settings. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
+          : 'Failed to update settings. Please try again.';
+      setError(message);
     }
   };
+
+  const isLoading = updateSettingsMutation.isPending;
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">

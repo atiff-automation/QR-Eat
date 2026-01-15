@@ -79,3 +79,49 @@ export async function GET(request: NextRequest) {
     );
   }
 }
+
+/**
+ * PUT /api/settings/restaurant
+ * Update restaurant settings (Partial update)
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    // 1. Authentication & Authorization
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'settings', 'update');
+
+    const restaurantId = context!.restaurantId!;
+    await requireRestaurantAccess(restaurantId, context!);
+
+    // 2. Parse body
+    const body = await request.json();
+
+    // 3. Update restaurant
+    const updatedRestaurant = await prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: {
+        ...body,
+        // Ensure we don't accidentally update ID or relationship fields if passed maliciously
+        id: undefined,
+        ownerId: undefined,
+        createdAt: undefined,
+        updatedAt: undefined,
+      },
+    });
+
+    return NextResponse.json({
+      success: true,
+      settings: updatedRestaurant,
+    });
+  } catch (error) {
+    console.error('Error updating restaurant settings:', error);
+    if (error instanceof Error && error.message.includes('Access denied')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

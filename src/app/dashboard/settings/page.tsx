@@ -5,9 +5,9 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { useRestaurantSettings } from '@/lib/hooks/queries/useRestaurantSettings';
 import {
   Building2,
   Clock,
@@ -122,46 +122,27 @@ const SECTIONS = [
 
 function SettingsContent() {
   const [activeSection, setActiveSection] = useState<SectionKey>('general');
-  const [settings, setSettings] = useState<SettingsData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const {
+    data: settings,
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useRestaurantSettings();
 
-  useEffect(() => {
-    fetchSettings();
-  }, []);
-
-  const fetchSettings = async () => {
-    try {
-      setLoading(true);
-      const data = await ApiClient.get<{ settings: SettingsData }>(
-        '/settings/restaurant'
-      );
-      setSettings(data.settings);
-    } catch (error) {
-      console.error('Failed to fetch settings:', error);
-      setError(
-        error instanceof ApiClientError
-          ? error.message
-          : 'Failed to load settings'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return <SettingsLoadingSkeleton />;
   }
 
-  if (error || !settings) {
+  if (isError || !settings) {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 max-w-md w-full text-center">
           <p className="text-red-600 mb-4">
-            {error || 'Failed to load settings'}
+            {error instanceof Error ? error.message : 'Failed to load settings'}
           </p>
           <button
-            onClick={fetchSettings}
+            onClick={() => refetch()}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium"
           >
             Retry
@@ -171,26 +152,77 @@ function SettingsContent() {
     );
   }
 
+  // Transform hook data to UI data safely
+  // This validates numbers and handles defaults
+  const uiSettings: SettingsData = {
+    id: settings.id,
+    name: settings.name,
+    address: settings.address,
+    phone: settings.phone,
+    email: settings.email,
+    description: settings.description || undefined,
+    timezone: settings.timezone,
+    currency: settings.currency,
+    taxRate: parseFloat(settings.taxRate) || 0,
+    serviceChargeRate: parseFloat(settings.serviceChargeRate) || 0,
+    taxLabel: settings.taxLabel,
+    serviceChargeLabel: settings.serviceChargeLabel,
+    // Cast nested objects as they might need deeper validation in a stricter setup
+    // but for now we assume the shape matches via the interface
+    // Check if operatingHours has keys, otherwise fallback to defaults
+    operatingHours:
+      settings.operatingHours && Object.keys(settings.operatingHours).length > 0
+        ? (settings.operatingHours as SettingsData['operatingHours'])
+        : undefined,
+    notificationSettings: {
+      orderAlerts: settings.notificationSettings?.orderAlerts ?? true,
+      soundEnabled: settings.notificationSettings?.soundEnabled ?? true,
+      soundType: (settings.notificationSettings?.soundType ??
+        'chime') as SettingsData['notificationSettings']['soundType'],
+      desktopNotifications:
+        settings.notificationSettings?.desktopNotifications ?? true,
+    },
+    receiptSettings: {
+      headerText: settings.receiptSettings?.headerText ?? '',
+      footerText: settings.receiptSettings?.footerText ?? '',
+      paperSize: (settings.receiptSettings?.paperSize ??
+        '80mm') as SettingsData['receiptSettings']['paperSize'],
+    },
+    paymentMethods: settings.paymentMethods || {
+      cash: true,
+      card: true,
+      ewallet: true,
+    },
+    systemPreferences: {
+      dateFormat: (settings.systemPreferences?.dateFormat ??
+        'DD/MM/YYYY') as SettingsData['systemPreferences']['dateFormat'],
+      timeFormat: (settings.systemPreferences?.timeFormat ??
+        '24h') as SettingsData['systemPreferences']['timeFormat'],
+      language: (settings.systemPreferences?.language ??
+        'en') as SettingsData['systemPreferences']['language'],
+    },
+  };
+
   const renderSection = () => {
     switch (activeSection) {
       case 'general':
         return (
           <GeneralSection
             initialData={{
-              name: settings.name,
-              address: settings.address,
-              phone: settings.phone,
-              email: settings.email,
-              description: settings.description,
+              name: uiSettings.name,
+              address: uiSettings.address,
+              phone: uiSettings.phone,
+              email: uiSettings.email,
+              description: uiSettings.description,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'hours':
         return (
           <OperatingHoursSection
             initialData={{
-              operatingHours: settings.operatingHours || {
+              operatingHours: uiSettings.operatingHours || {
                 monday: {
                   isOpen: true,
                   slots: [{ open: '09:00', close: '17:00' }],
@@ -218,73 +250,56 @@ function SettingsContent() {
                 sunday: { isOpen: false, slots: [] },
               },
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'financial':
         return (
           <FinancialSection
             initialData={{
-              currency: settings.currency,
-              taxRate: settings.taxRate,
-              serviceChargeRate: settings.serviceChargeRate,
-              taxLabel: settings.taxLabel,
-              serviceChargeLabel: settings.serviceChargeLabel,
+              currency: uiSettings.currency,
+              taxRate: uiSettings.taxRate,
+              serviceChargeRate: uiSettings.serviceChargeRate,
+              taxLabel: uiSettings.taxLabel,
+              serviceChargeLabel: uiSettings.serviceChargeLabel,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'notifications':
         return (
           <NotificationsSection
             initialData={{
-              notificationSettings: settings.notificationSettings || {
-                orderAlerts: true,
-                soundEnabled: true,
-                soundType: 'chime',
-                desktopNotifications: true,
-              },
+              notificationSettings: uiSettings.notificationSettings,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'payments':
         return (
           <PaymentMethodsSection
             initialData={{
-              paymentMethods: settings.paymentMethods || {
-                cash: true,
-                card: true,
-                ewallet: true,
-              },
+              paymentMethods: uiSettings.paymentMethods,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'receipt':
         return (
           <ReceiptSection
             initialData={{
-              receiptSettings: settings.receiptSettings || {
-                headerText: 'Welcome to Our Restaurant',
-                footerText: 'Thank you for your visit!',
-                paperSize: '80mm',
-              },
+              receiptSettings: uiSettings.receiptSettings,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       case 'system':
         return (
           <SystemPreferencesSection
             initialData={{
-              systemPreferences: settings.systemPreferences || {
-                dateFormat: 'DD/MM/YYYY',
-                timeFormat: '24h',
-                language: 'en',
-              },
+              systemPreferences: uiSettings.systemPreferences,
             }}
-            onUpdate={fetchSettings}
+            onUpdate={() => {}}
           />
         );
       default:

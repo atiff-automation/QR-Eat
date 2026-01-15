@@ -408,7 +408,10 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: async (categoryData: Partial<MenuCategory>) => {
-      return ApiClient.post('/admin/menu/categories', categoryData);
+      return ApiClient.post<{ category: MenuCategory }>(
+        '/admin/menu/categories',
+        categoryData
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories });
