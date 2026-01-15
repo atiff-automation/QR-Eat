@@ -71,6 +71,7 @@ export function useTables(restaurantId: string | undefined) {
     gcTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
+    refetchOnMount: true, // CRITICAL: Override global default (false) to ensure fresh data on nav
   });
 }
 
