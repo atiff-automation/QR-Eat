@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 import { useRole } from '@/components/rbac/RoleProvider';
 import CredentialsModal from '@/components/CredentialsModal';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { ApiClientError } from '@/lib/api-client';
 import {
   Pencil,
   AlertTriangle,
@@ -15,54 +15,32 @@ import {
   Trash2,
 } from 'lucide-react';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
+import {
+  useStaff,
+  useRoles,
+  useCreateStaff,
+  useUpdateStaff,
+  useDeleteStaff,
+  useToggleStaffStatus,
+  useResetStaffPassword,
+  type StaffMember,
+  type StaffFormData,
+} from '@/lib/hooks/queries/useStaff';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-
-interface StaffMember {
-  id: string;
-  email: string;
-  username: string;
-  firstName: string;
-  lastName: string;
-  phone?: string;
-  status: 'ACTIVE' | 'INACTIVE';
-  lastLoginAt?: string;
-  createdAt: string;
-  role: {
-    id: string;
-    name: string;
-    description: string;
-    permissions: Record<string, string[]>;
-  };
-  _count: {
-    orders: number;
-  };
-}
-
-interface Role {
-  id: string;
-  name: string;
-  description: string;
-  permissions: Record<string, string[]>;
-}
-
-interface StaffFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  roleId: string;
-  status: 'ACTIVE' | 'INACTIVE';
-  username: string;
-}
 
 function StaffPageContent() {
   const { user } = useRole();
   const isOwner = user?.userType === 'restaurant_owner';
-  const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const {
+    data: staff = [],
+    isLoading: loading,
+    error: queryError,
+    refetch,
+  } = useStaff();
+  const { data: roles = [] } = useRoles();
+  const error = queryError?.message || '';
   const [success, setSuccess] = useState('');
+  const [formError, setFormError] = useState('');
 
   // UX State
   const [selectedRoleFilter, setSelectedRoleFilter] = useState<string | 'all'>(
@@ -109,42 +87,14 @@ function StaffPageContent() {
     useState<StaffMember | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStaff();
-    fetchRoles();
-  }, []);
+  // Mutations
+  const createStaffMutation = useCreateStaff();
+  const updateStaffMutation = useUpdateStaff();
+  const deleteStaffMutation = useDeleteStaff();
+  const toggleStatusMutation = useToggleStaffStatus();
+  const resetPasswordMutation = useResetStaffPassword();
 
-  const fetchStaff = async () => {
-    try {
-      setLoading(true);
-      const data = await ApiClient.get<{ staff: StaffMember[] }>(
-        '/admin/staff'
-      );
-
-      setStaff(data.staff || []);
-    } catch (error) {
-      console.error('Failed to fetch staff:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Failed to load staff members');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchRoles = async () => {
-    try {
-      const data = await ApiClient.get<{ roles: Role[] }>('/admin/staff/roles');
-
-      setRoles(data.roles || []);
-    } catch (error) {
-      console.error('Failed to fetch roles:', error);
-      // Fallback to empty array if API fails
-      setRoles([]);
-    }
-  };
+  // No manual useEffect needed - TanStack Query handles fetching
 
   const resetForm = () => {
     setFormData({
@@ -182,7 +132,7 @@ function StaffPageContent() {
     setShowEditModal(false);
     setSelectedStaff(null);
     resetForm();
-    setError('');
+    setFormError('');
     setSuccess('');
   };
 
@@ -196,7 +146,7 @@ function StaffPageContent() {
     e.preventDefault();
 
     try {
-      setError('');
+      setFormError('');
 
       // Validation
       if (
@@ -205,34 +155,33 @@ function StaffPageContent() {
         !formData.email ||
         !formData.roleId
       ) {
-        setError('Please fill in all required fields');
+        setFormError('Please fill in all required fields');
         return;
       }
 
       // Find the selected role
       const selectedRole = roles.find((role) => role.id === formData.roleId);
       if (!selectedRole) {
-        setError('Invalid role selected');
+        setFormError('Invalid role selected');
         return;
       }
 
       // Create or update staff member via API
       if (showEditModal && selectedStaff) {
         // Update existing staff member
-        await ApiClient.put(`admin/staff/${selectedStaff.id}`, formData);
+        await updateStaffMutation.mutateAsync({
+          id: selectedStaff.id,
+          ...formData,
+        });
 
-        await fetchStaff(); // Refresh the list
+        // No need to fetchStaff(), generic cache invalidation handles it
         setSuccess('Staff member updated successfully!');
       } else {
         // Add new staff member
-        const data = await ApiClient.post<{
-          credentials?: { username: string; password: string };
-        }>('/admin/staff', formData);
+        const data = await createStaffMutation.mutateAsync(formData);
 
-        await fetchStaff(); // Refresh the list
-
-        // Show credentials modal
-        if (data.credentials) {
+        // Show credentials modal for new staff
+        if (data && data.credentials) {
           setNewStaffCredentials({
             username: data.credentials.username,
             password: data.credentials.password,
@@ -260,7 +209,11 @@ function StaffPageContent() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to save staff member:', error);
-      setError('Failed to save staff member');
+      if (error instanceof ApiClientError) {
+        setFormError(error.message);
+      } else {
+        setFormError('Failed to save staff member');
+      }
     }
   };
 
@@ -273,22 +226,16 @@ function StaffPageContent() {
     const member = resetPasswordConfirmation;
 
     try {
-      const data = await ApiClient.post<{
-        temporaryPassword?: string;
-        staffEmail: string;
-        staffName: string;
-      }>(`/owner/staff/${member.id}/reset-password`);
-
-      await fetchStaff(); // Refresh the list
+      const data = await resetPasswordMutation.mutateAsync(member.id);
 
       // Show the new temporary password
-      if (data.temporaryPassword) {
+      if (data && data.temporaryPassword) {
         setNewStaffCredentials({
           username: member.username,
           password: data.temporaryPassword,
         });
         setNewStaffName(data.staffName);
-        setNewStaffEmail(data.staffEmail); // Fix: Set the email state
+        setNewStaffEmail(data.staffEmail);
         setCredentialsModalDetails({
           title: 'Password Reset',
           description: (
@@ -308,11 +255,11 @@ function StaffPageContent() {
       setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to reset password:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-      } else {
-        setError('Failed to reset password');
-      }
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to reset password'
+      );
     } finally {
       setResetPasswordConfirmation(null);
     }
@@ -331,16 +278,9 @@ function StaffPageContent() {
     }
 
     try {
-      // Optimistic update
-      setStaff((prev) =>
-        prev.map((s) =>
-          s.id === member.id
-            ? { ...s, status: s.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE' }
-            : s
-        )
-      );
-
-      await ApiClient.put(`admin/staff/${member.id}`, {
+      // Optimistic update handled by useToggleStaffStatus hook
+      await toggleStatusMutation.mutateAsync({
+        id: member.id,
         status: member.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
         roleId: member.role.id,
         firstName: member.firstName,
@@ -349,13 +289,12 @@ function StaffPageContent() {
         username: member.username,
       });
     } catch (error) {
-      // Revert on failure
-      setStaff((prev) =>
-        prev.map((s) =>
-          s.id === member.id ? { ...s, status: member.status } : s
-        )
-      );
       console.error('Failed to toggle status:', error);
+      alert(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to toggle status'
+      );
     }
   };
 
@@ -367,13 +306,15 @@ function StaffPageContent() {
     if (!deleteConfirmation) return;
 
     try {
-      await ApiClient.delete(`admin/staff/${deleteConfirmation.id}`);
-      await fetchStaff();
+      await deleteStaffMutation.mutateAsync(deleteConfirmation.id);
+
       console.log(
         `Staff "${deleteConfirmation.firstName} ${deleteConfirmation.lastName}" deleted successfully`
       );
       setDeleteConfirmation(null);
       closeModals(); // Ensure edit modal is closed if it was open
+      setSuccess('Staff member deleted successfully!');
+      setTimeout(() => setSuccess(''), 3000);
     } catch (error) {
       console.error('Failed to delete staff:', error);
       if (error instanceof ApiClientError) {
@@ -388,8 +329,8 @@ function StaffPageContent() {
     if (member.id === user?.id) {
       return 'You cannot delete your own account.';
     }
-    if (member._count?.orders > 0) {
-      return `Cannot delete "${member.firstName} ${member.lastName}" because they have processed ${member._count.orders} order(s). Please deactivate them instead to preserve order history.`;
+    if ((member._count?.orders || 0) > 0) {
+      return `Cannot delete "${member.firstName} ${member.lastName}" because they have processed ${member._count?.orders || 0} order(s). Please deactivate them instead to preserve order history.`;
     }
     return null;
   };
@@ -452,7 +393,7 @@ function StaffPageContent() {
             </select>
           </div>
           <button
-            onClick={() => fetchStaff()}
+            onClick={() => refetch()}
             className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
             title="Refresh"
           >
@@ -602,6 +543,12 @@ function StaffPageContent() {
 
             <div className="overflow-y-auto p-5">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {formError && (
+                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    {formError}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
@@ -780,6 +727,12 @@ function StaffPageContent() {
 
             <div className="overflow-y-auto p-5">
               <form onSubmit={handleSubmit} className="space-y-4">
+                {formError && (
+                  <div className="p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    {formError}
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
