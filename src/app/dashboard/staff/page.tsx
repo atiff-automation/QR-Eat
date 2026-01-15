@@ -33,6 +33,9 @@ interface StaffMember {
     description: string;
     permissions: Record<string, string[]>;
   };
+  _count: {
+    orders: number;
+  };
 }
 
 interface Role {
@@ -378,6 +381,16 @@ function StaffPageContent() {
     }
   };
 
+  const getDeleteBlockReason = (member: StaffMember) => {
+    if (member.id === user?.id) {
+      return 'You cannot delete your own account.';
+    }
+    if (member._count?.orders > 0) {
+      return `Cannot delete "${member.firstName} ${member.lastName}" because they have processed ${member._count.orders} order(s). Please deactivate them instead to preserve order history.`;
+    }
+    return null;
+  };
+
   // Filter staff based on selected role
   const filteredStaff =
     selectedRoleFilter === 'all'
@@ -711,12 +724,20 @@ function StaffPageContent() {
       <ConfirmationModal
         isOpen={!!deleteConfirmation}
         title="Delete Staff Member"
-        message={`Are you sure you want to delete "${deleteConfirmation?.firstName} ${deleteConfirmation?.lastName}"? This action cannot be undone.`}
+        message={
+          deleteConfirmation
+            ? getDeleteBlockReason(deleteConfirmation) ||
+              `Are you sure you want to delete "${deleteConfirmation.firstName} ${deleteConfirmation.lastName}"? This action cannot be undone.`
+            : ''
+        }
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmation(null)}
         isLoading={false}
         variant="danger"
         confirmText="Delete Staff"
+        isBlocked={
+          !!deleteConfirmation && !!getDeleteBlockReason(deleteConfirmation)
+        }
       />
 
       {/* Edit Staff Modal - Menu Style */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle } from 'lucide-react';
+import { AlertTriangle, AlertCircle } from 'lucide-react';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -11,6 +11,7 @@ interface ConfirmationModalProps {
   variant?: 'danger' | 'warning' | 'info';
   confirmText?: string;
   cancelText?: string;
+  isBlocked?: boolean;
 }
 
 export function ConfirmationModal({
@@ -23,10 +24,18 @@ export function ConfirmationModal({
   variant = 'danger',
   confirmText = 'Delete',
   cancelText = 'Cancel',
+  isBlocked = false,
 }: ConfirmationModalProps) {
   if (!isOpen) return null;
 
   const getVariantStyles = () => {
+    if (isBlocked) {
+      return {
+        icon: 'text-gray-600 bg-gray-100',
+        button: 'hidden', // Hide confirm button when blocked
+      };
+    }
+
     switch (variant) {
       case 'danger':
         return {
@@ -59,7 +68,11 @@ export function ConfirmationModal({
         <div className="p-6">
           <div className="flex flex-col items-center text-center gap-4">
             <div className={`p-3 rounded-full ${styles.icon}`}>
-              <AlertTriangle className="w-6 h-6" />
+              {isBlocked ? (
+                <AlertCircle className="w-6 h-6" />
+              ) : (
+                <AlertTriangle className="w-6 h-6" />
+              )}
             </div>
 
             <div className="space-y-2">
@@ -71,28 +84,39 @@ export function ConfirmationModal({
           </div>
         </div>
 
-        <div className="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-2 gap-3">
-          <button
-            onClick={onCancel}
-            disabled={isLoading}
-            className="px-4 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={isLoading}
-            className={`px-4 py-2.5 rounded-xl font-medium transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${styles.button}`}
-          >
-            {isLoading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>Processing...</span>
-              </>
-            ) : (
-              confirmText
-            )}
-          </button>
+        <div className="p-4 bg-gray-50 border-t border-gray-100 grid grid-cols-1 gap-3">
+          {isBlocked ? (
+            <button
+              onClick={onCancel}
+              className="w-full px-4 py-2.5 rounded-xl bg-gray-900 text-white font-medium hover:bg-gray-800 transition-colors"
+            >
+              Close
+            </button>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 w-full">
+              <button
+                onClick={onCancel}
+                disabled={isLoading}
+                className="px-4 py-2.5 rounded-xl text-gray-700 font-medium hover:bg-gray-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {cancelText}
+              </button>
+              <button
+                onClick={onConfirm}
+                disabled={isLoading}
+                className={`px-4 py-2.5 rounded-xl font-medium transition-all active:scale-95 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${styles.button}`}
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>Processing...</span>
+                  </>
+                ) : (
+                  confirmText
+                )}
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>

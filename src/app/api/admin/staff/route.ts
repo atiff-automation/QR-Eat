@@ -39,6 +39,9 @@ export async function GET(request: NextRequest) {
       where: { restaurantId },
       include: {
         role: true,
+        _count: {
+          select: { orders: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });

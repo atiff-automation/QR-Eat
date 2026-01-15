@@ -566,12 +566,18 @@ export default function MenuPage() {
         {/* Delete Confirmation Modal */}
         <ConfirmationModal
           isOpen={!!deleteConfirmation}
-          title={`Delete ${
-            deleteConfirmation?.type === 'category' ? 'Category' : 'Item'
-          }`}
-          message={`Are you sure you want to delete "${
-            deleteConfirmation?.data.name
-          }"? This action cannot be undone.`}
+          title={
+            deleteConfirmation?.type === 'category'
+              ? 'Delete Category'
+              : 'Delete Item'
+          }
+          message={
+            deleteConfirmation?.type === 'category'
+              ? (deleteConfirmation.data as MenuCategory)._count.menuItems > 0
+                ? `Cannot delete "${deleteConfirmation.data.name}" because it contains ${(deleteConfirmation.data as MenuCategory)._count.menuItems} item(s). Please move or delete the items first.`
+                : `Are you sure you want to delete "${deleteConfirmation.data.name}"? This action cannot be undone.`
+              : `Are you sure you want to delete "${deleteConfirmation?.data.name}"? This action cannot be undone.`
+          }
           onConfirm={handleConfirmDelete}
           onCancel={() => setDeleteConfirmation(null)}
           isLoading={
@@ -579,6 +585,10 @@ export default function MenuPage() {
           }
           variant="danger"
           confirmText="Delete"
+          isBlocked={
+            deleteConfirmation?.type === 'category' &&
+            (deleteConfirmation.data as MenuCategory)._count.menuItems > 0
+          }
         />
       </div>
 

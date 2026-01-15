@@ -411,14 +411,21 @@ function TablesContent() {
       <ConfirmationModal
         isOpen={!!deleteConfirmation}
         title="Delete Table"
-        message={`Are you sure you want to delete "${
-          deleteConfirmation?.tableName || deleteConfirmation?.tableNumber
-        }"? This action cannot be undone.`}
+        message={
+          deleteConfirmation?.status === 'OCCUPIED'
+            ? `Cannot delete "${
+                deleteConfirmation.tableName || deleteConfirmation.tableNumber
+              }" because it is currently OCCUPIED. Please clear the table first.`
+            : `Are you sure you want to delete "${
+                deleteConfirmation?.tableName || deleteConfirmation?.tableNumber
+              }"? This action cannot be undone.`
+        }
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmation(null)}
         isLoading={false}
         variant="danger"
         confirmText="Delete Table"
+        isBlocked={deleteConfirmation?.status === 'OCCUPIED'}
       />
     </div>
   );
