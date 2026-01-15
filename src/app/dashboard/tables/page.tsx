@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
@@ -38,7 +38,14 @@ function TablesContent() {
     isLoading: loading,
     error: queryError,
   } = useTables(restaurantContext?.id);
-  const [filteredTables, setFilteredTables] = useState<Table[]>([]);
+  /* 
+    FIX: Removed local filteredTables state which caused infinite loops.
+    tables from useQuery is not referentially stable by default if strict mode is on 
+    or if invalidations happen frequently. 
+    By deriving filteredTables during render (via useMemo), we avoid 
+    the useEffect -> setState -> render loop.
+  */
+
   const error = queryError?.message || '';
   const [showAddModal, setShowAddModal] = useState(false);
 
@@ -132,21 +139,16 @@ function TablesContent() {
     };
   }, [restaurantContext?.id, selectedTable?.id, queryClient]);
 
-  // Filter Logic
-  useEffect(() => {
-    if (!searchQuery) {
-      setFilteredTables(tables);
-    } else {
-      const lowerQuery = searchQuery.toLowerCase();
-      setFilteredTables(
-        tables.filter(
-          (t) =>
-            t.tableNumber.toLowerCase().includes(lowerQuery) ||
-            t.tableName?.toLowerCase().includes(lowerQuery)
-        )
-      );
-    }
-  }, [searchQuery, tables]);
+  // Filter Logic - Memoized to prevent infinite loops
+  const filteredTables = useMemo(() => {
+    if (!searchQuery) return tables;
+    const lowerQuery = searchQuery.toLowerCase();
+    return tables.filter(
+      (t) =>
+        t.tableNumber.toLowerCase().includes(lowerQuery) ||
+        t.tableName?.toLowerCase().includes(lowerQuery)
+    );
+  }, [tables, searchQuery]);
 
   // Actions
   const updateTableStatus = async (tableId: string, status: string) => {
