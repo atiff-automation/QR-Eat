@@ -1,6 +1,6 @@
 /**
  * Comprehensive Test Suite for Role Management System
- * 
+ *
  * Tests all aspects of the RBAC implementation including:
  * - Permission management APIs
  * - Role template operations
@@ -10,32 +10,36 @@
  * - Analytics functionality
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
+import { prisma } from '@/lib/database';
+import { RBACMiddleware } from '@/middleware/rbac-middleware';
+import * as PermissionsRoute from '@/app/api/admin/permissions/route';
+import * as RoleTemplatesRoute from '@/app/api/admin/role-templates/route';
+import * as UsersRoute from '@/app/api/admin/users/route';
+import * as UsersBulkRoute from '@/app/api/admin/users/bulk/route';
+import * as AuditUserRolesRoute from '@/app/api/admin/audit/user-roles/route';
+import * as AnalyticsRolesRoute from '@/app/api/admin/analytics/roles/route';
 
 // Mock the Next.js request/response for testing
-const mockRequest = (method: string, body?: any, params?: any) => ({
+const mockRequest = (
+  method: string,
+  body?: unknown,
+  params?: { [key: string]: string }
+) => ({
   method,
   json: async () => body || {},
-  url: new URL('http://localhost:3000/api/test?' + new URLSearchParams(params || {})),
+  url: new URL(
+    'http://localhost:3000/api/test?' + new URLSearchParams(params || {})
+  ),
   headers: new Map([
     ['authorization', 'Bearer test-token'],
     ['content-type', 'application/json'],
-    ['user-agent', 'test-agent']
-  ])
+    ['user-agent', 'test-agent'],
+  ]),
 });
 
-const mockResponse = () => {
-  const res = {
-    status: 200,
-    headers: new Map(),
-    json: (data: any) => ({ status: res.status, data }),
-    setStatus: (status: number) => { res.status = status; return res; }
-  };
-  return res;
-};
-
 // Mock database operations
-jest.mock('@/lib/prisma', () => ({
+jest.mock('@/lib/database', () => ({
   prisma: {
     permission: {
       findMany: jest.fn(),
@@ -43,14 +47,14 @@ jest.mock('@/lib/prisma', () => ({
       create: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
-      count: jest.fn()
+      count: jest.fn(),
     },
     roleTemplate: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
-      delete: jest.fn()
+      delete: jest.fn(),
     },
     userRole: {
       findMany: jest.fn(),
@@ -61,35 +65,35 @@ jest.mock('@/lib/prisma', () => ({
       updateMany: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
-      groupBy: jest.fn()
+      groupBy: jest.fn(),
     },
     restaurant: {
       findMany: jest.fn(),
-      findUnique: jest.fn()
+      findUnique: jest.fn(),
     },
     platformAdmin: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
-      count: jest.fn()
+      count: jest.fn(),
     },
     restaurantOwner: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
-      count: jest.fn()
+      count: jest.fn(),
     },
     staff: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
-      count: jest.fn()
+      count: jest.fn(),
     },
     auditLog: {
       findMany: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
       count: jest.fn(),
-      groupBy: jest.fn()
-    }
-  }
+      groupBy: jest.fn(),
+    },
+  },
 }));
 
 // Mock RBAC middleware
@@ -104,11 +108,11 @@ jest.mock('@/middleware/rbac-middleware', () => ({
           firstName: 'Test',
           lastName: 'User',
           userType: 'platform_admin',
-          isActive: true
-        }
-      }
-    })
-  }
+          isActive: true,
+        },
+      },
+    }),
+  },
 }));
 
 // Mock audit logger
@@ -116,46 +120,45 @@ jest.mock('@/lib/rbac/audit-logger', () => ({
   AuditLogger: {
     logPermissionChange: jest.fn(),
     logUserRoleChange: jest.fn(),
-    logSecurityEvent: jest.fn()
-  }
+    logSecurityEvent: jest.fn(),
+  },
 }));
 
 // Mock permission manager
 jest.mock('@/lib/rbac/permissions', () => ({
   PermissionManager: {
-    getUserPermissions: jest.fn().mockResolvedValue(['users:read', 'users:write']),
+    getUserPermissions: jest
+      .fn()
+      .mockResolvedValue(['users:read', 'users:write']),
     clearUserCache: jest.fn(),
     getAllPermissions: jest.fn().mockResolvedValue([
       { permissionKey: 'users:read', category: 'users' },
-      { permissionKey: 'users:write', category: 'users' }
-    ])
-  }
+      { permissionKey: 'users:write', category: 'users' },
+    ]),
+  },
 }));
 
 describe('Role Management System Tests', () => {
-  
   describe('Permission Management API', () => {
-    
     it('should fetch all permissions successfully', async () => {
-      const { prisma } = require('@/lib/prisma');
       prisma.permission.findMany.mockResolvedValue([
         {
           id: '1',
           permissionKey: 'users:read',
           description: 'Read user data',
           category: 'users',
-          isActive: true
+          isActive: true,
         },
         {
           id: '2',
           permissionKey: 'users:write',
           description: 'Write user data',
           category: 'users',
-          isActive: true
-        }
+          isActive: true,
+        },
       ]);
 
-      const { GET } = require('@/app/api/admin/permissions/route');
+      const { GET } = PermissionsRoute;
       const request = mockRequest('GET');
       const response = await GET(request);
 
@@ -164,74 +167,72 @@ describe('Role Management System Tests', () => {
     });
 
     it('should create new permission successfully', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const newPermission = {
         permissionKey: 'analytics:read',
         description: 'Read analytics data',
-        category: 'analytics'
+        category: 'analytics',
       };
 
       prisma.permission.findFirst.mockResolvedValue(null); // No existing permission
       prisma.permission.create.mockResolvedValue({
         id: '3',
         ...newPermission,
-        isActive: true
+        isActive: true,
       });
 
-      const { POST } = require('@/app/api/admin/permissions/route');
+      const { POST } = PermissionsRoute;
       const request = mockRequest('POST', newPermission);
-      const response = await POST(request);
+      await POST(request);
 
       expect(prisma.permission.create).toHaveBeenCalledWith({
         data: {
           ...newPermission,
-          isActive: true
-        }
+          isActive: true,
+        },
       });
     });
 
     it('should prevent duplicate permission creation', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const duplicatePermission = {
         permissionKey: 'users:read',
         description: 'Read user data',
-        category: 'users'
+        category: 'users',
       };
 
       prisma.permission.findFirst.mockResolvedValue({
         id: '1',
-        permissionKey: 'users:read'
+        permissionKey: 'users:read',
       });
 
-      const { POST } = require('@/app/api/admin/permissions/route');
+      const { POST } = PermissionsRoute;
       const request = mockRequest('POST', duplicatePermission);
       const response = await POST(request);
 
       expect(response.status).toBe(409); // Conflict
     });
-
   });
 
   describe('Role Template Management', () => {
-
     it('should fetch role templates with statistics', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       prisma.roleTemplate.findMany.mockResolvedValue([
         {
           template: 'platform_admin',
           permissions: ['users:read', 'users:write'],
-          isActive: true
-        }
+          isActive: true,
+        },
       ]);
 
       prisma.userRole.groupBy.mockResolvedValue([
         {
           roleTemplate: 'platform_admin',
-          _count: 5
-        }
+          _count: 5,
+        },
       ]);
 
-      const { GET } = require('@/app/api/admin/role-templates/route');
+      const { GET } = RoleTemplatesRoute;
       const request = mockRequest('GET', null, { includeStats: 'true' });
       const response = await GET(request);
 
@@ -240,83 +241,81 @@ describe('Role Management System Tests', () => {
     });
 
     it('should create new role template', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const newTemplate = {
         template: 'custom_admin',
         permissions: ['users:read', 'analytics:read'],
-        description: 'Custom admin role'
+        description: 'Custom admin role',
       };
 
       prisma.roleTemplate.findFirst.mockResolvedValue(null);
       prisma.permission.findMany.mockResolvedValue([
         { permissionKey: 'users:read', isActive: true },
-        { permissionKey: 'analytics:read', isActive: true }
+        { permissionKey: 'analytics:read', isActive: true },
       ]);
       prisma.roleTemplate.create.mockResolvedValue({
         id: '1',
         ...newTemplate,
-        isActive: true
+        isActive: true,
       });
 
-      const { POST } = require('@/app/api/admin/role-templates/route');
+      const { POST } = RoleTemplatesRoute;
       const request = mockRequest('POST', newTemplate);
-      const response = await POST(request);
+      await POST(request);
 
       expect(prisma.roleTemplate.create).toHaveBeenCalled();
     });
-
   });
 
   describe('User Role Management', () => {
-
     it('should assign role to user successfully', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const roleAssignment = {
         userId: 'user-123',
         userType: 'staff',
         roleTemplate: 'kitchen_staff',
-        restaurantId: 'restaurant-456'
+        restaurantId: 'restaurant-456',
       };
 
       prisma.restaurant.findUnique.mockResolvedValue({
         id: 'restaurant-456',
-        isActive: true
+        isActive: true,
       });
       prisma.userRole.findFirst.mockResolvedValue(null); // No existing role
       prisma.userRole.create.mockResolvedValue({
         id: 'role-789',
         ...roleAssignment,
-        isActive: true
+        isActive: true,
       });
 
-      const { POST } = require('@/app/api/admin/users/route');
+      const { POST } = UsersRoute;
       const request = mockRequest('POST', roleAssignment);
-      const response = await POST(request);
+      await POST(request);
 
       expect(prisma.userRole.create).toHaveBeenCalledWith({
         data: {
           ...roleAssignment,
           customPermissions: [],
-          isActive: true
+          isActive: true,
         },
         include: {
           restaurant: {
             select: {
               id: true,
               name: true,
-              slug: true
-            }
-          }
-        }
+              slug: true,
+            },
+          },
+        },
       });
     });
 
     it('should update existing user role', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const roleUpdate = {
         roleId: 'role-789',
         roleTemplate: 'manager',
-        customPermissions: ['analytics:read']
+        customPermissions: ['analytics:read'],
       };
 
       prisma.userRole.findUnique.mockResolvedValue({
@@ -324,88 +323,101 @@ describe('Role Management System Tests', () => {
         userId: 'user-123',
         userType: 'staff',
         roleTemplate: 'kitchen_staff',
-        restaurantId: 'restaurant-456'
+        restaurantId: 'restaurant-456',
       });
 
       prisma.permission.findMany.mockResolvedValue([
-        { permissionKey: 'analytics:read', isActive: true }
+        { permissionKey: 'analytics:read', isActive: true },
       ]);
 
       prisma.userRole.update.mockResolvedValue({
         id: 'role-789',
         roleTemplate: 'manager',
-        customPermissions: ['analytics:read']
+        customPermissions: ['analytics:read'],
       });
 
-      const { PUT } = require('@/app/api/admin/users/route');
+      const { PUT } = UsersRoute;
       const request = mockRequest('PUT', roleUpdate);
-      const response = await PUT(request);
+      await PUT(request);
 
       expect(prisma.userRole.update).toHaveBeenCalled();
     });
 
     it('should delete user role with validation', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const roleDelete = { roleId: 'role-789' };
 
       prisma.userRole.findUnique.mockResolvedValue({
         id: 'role-789',
-        userId: 'user-123'
+        userId: 'user-123',
       });
 
       prisma.userRole.findMany.mockResolvedValue([
-        { id: 'role-456', userId: 'user-123' } // User has other roles
+        { id: 'role-456', userId: 'user-123' }, // User has other roles
       ]);
 
       prisma.userRole.delete.mockResolvedValue({
-        id: 'role-789'
+        id: 'role-789',
       });
 
-      const { DELETE } = require('@/app/api/admin/users/route');
+      const { DELETE } = UsersRoute;
       const request = mockRequest('DELETE', roleDelete);
-      const response = await DELETE(request);
+      await DELETE(request);
 
       expect(prisma.userRole.delete).toHaveBeenCalledWith({
-        where: { id: 'role-789' }
+        where: { id: 'role-789' },
       });
     });
-
   });
 
   describe('Bulk Operations', () => {
-
     it('should perform bulk role assignment', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const bulkOperation = {
         operation: 'assign',
         userIds: ['user-1', 'user-2', 'user-3'],
         userType: 'staff',
         roleTemplate: 'kitchen_staff',
-        restaurantId: 'restaurant-456'
+        restaurantId: 'restaurant-456',
       };
 
       // Mock user data
       prisma.platformAdmin.findMany.mockResolvedValue([]);
       prisma.restaurantOwner.findMany.mockResolvedValue([]);
       prisma.staff.findMany.mockResolvedValue([
-        { id: 'user-1', firstName: 'John', lastName: 'Doe', email: 'john@example.com' },
-        { id: 'user-2', firstName: 'Jane', lastName: 'Smith', email: 'jane@example.com' },
-        { id: 'user-3', firstName: 'Bob', lastName: 'Johnson', email: 'bob@example.com' }
+        {
+          id: 'user-1',
+          firstName: 'John',
+          lastName: 'Doe',
+          email: 'john@example.com',
+        },
+        {
+          id: 'user-2',
+          firstName: 'Jane',
+          lastName: 'Smith',
+          email: 'jane@example.com',
+        },
+        {
+          id: 'user-3',
+          firstName: 'Bob',
+          lastName: 'Johnson',
+          email: 'bob@example.com',
+        },
       ]);
 
       prisma.restaurant.findUnique.mockResolvedValue({
         id: 'restaurant-456',
-        isActive: true
+        isActive: true,
       });
 
       // Mock no existing roles
       prisma.userRole.findFirst.mockResolvedValue(null);
       prisma.userRole.create.mockResolvedValue({
         id: 'new-role',
-        ...bulkOperation
+        ...bulkOperation,
       });
 
-      const { POST } = require('@/app/api/admin/users/bulk/route');
+      const { POST } = UsersBulkRoute;
       const request = mockRequest('POST', bulkOperation);
       const response = await POST(request);
 
@@ -414,25 +426,25 @@ describe('Role Management System Tests', () => {
     });
 
     it('should handle bulk operation failures gracefully', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const bulkOperation = {
         operation: 'assign',
         userIds: ['user-1', 'user-2'],
         userType: 'staff',
         roleTemplate: 'kitchen_staff',
-        restaurantId: 'restaurant-456'
+        restaurantId: 'restaurant-456',
       };
 
       prisma.platformAdmin.findMany.mockResolvedValue([]);
       prisma.restaurantOwner.findMany.mockResolvedValue([]);
       prisma.staff.findMany.mockResolvedValue([
         { id: 'user-1', firstName: 'John', lastName: 'Doe' },
-        { id: 'user-2', firstName: 'Jane', lastName: 'Smith' }
+        { id: 'user-2', firstName: 'Jane', lastName: 'Smith' },
       ]);
 
       prisma.restaurant.findUnique.mockResolvedValue({
         id: 'restaurant-456',
-        isActive: true
+        isActive: true,
       });
 
       // Mock one success, one failure
@@ -442,26 +454,24 @@ describe('Role Management System Tests', () => {
 
       prisma.userRole.create.mockResolvedValue({ id: 'new-role' });
 
-      const { POST } = require('@/app/api/admin/users/bulk/route');
+      const { POST } = UsersBulkRoute;
       const request = mockRequest('POST', bulkOperation);
       const response = await POST(request);
 
       expect(response.data.summary.successful).toBe(1);
       expect(response.data.summary.failed).toBe(1);
     });
-
   });
 
   describe('Audit and Analytics', () => {
-
     it('should fetch user role audit history', async () => {
-      const { prisma } = require('@/lib/prisma');
-      
+      // import moved to top
+
       prisma.platformAdmin.findUnique.mockResolvedValue({
         id: 'user-123',
         email: 'test@example.com',
         firstName: 'Test',
-        lastName: 'User'
+        lastName: 'User',
       });
 
       prisma.auditLog.findMany.mockResolvedValue([
@@ -479,12 +489,12 @@ describe('Role Management System Tests', () => {
             id: 'admin-1',
             email: 'admin@example.com',
             firstName: 'Admin',
-            lastName: 'User'
-          }
-        }
+            lastName: 'User',
+          },
+        },
       ]);
 
-      const { GET } = require('@/app/api/admin/audit/user-roles/route');
+      const { GET } = AuditUserRolesRoute;
       const request = mockRequest('GET', null, { userId: 'user-123' });
       const response = await GET(request);
 
@@ -493,7 +503,7 @@ describe('Role Management System Tests', () => {
     });
 
     it('should generate role analytics successfully', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
 
       // Mock analytics data
       prisma.platformAdmin.count.mockResolvedValue(5);
@@ -505,49 +515,45 @@ describe('Role Management System Tests', () => {
       prisma.userRole.groupBy.mockResolvedValue([
         { roleTemplate: 'platform_admin', _count: 5 },
         { roleTemplate: 'restaurant_owner', _count: 10 },
-        { roleTemplate: 'kitchen_staff', _count:15 },
-        { roleTemplate: 'server', _count: 10 }
+        { roleTemplate: 'kitchen_staff', _count: 15 },
+        { roleTemplate: 'server', _count: 10 },
       ]);
 
       prisma.userRole.findMany.mockResolvedValue([
         {
           roleTemplate: 'kitchen_staff',
-          customPermissions: ['analytics:read']
-        }
+          customPermissions: ['analytics:read'],
+        },
       ]);
 
       prisma.roleTemplate.findMany.mockResolvedValue([
         {
           template: 'kitchen_staff',
-          permissions: ['orders:read', 'orders:write']
-        }
+          permissions: ['orders:read', 'orders:write'],
+        },
       ]);
 
-      const { GET } = require('@/app/api/admin/analytics/roles/route');
+      const { GET } = AnalyticsRolesRoute;
       const request = mockRequest('GET', null, { period: '30d' });
       const response = await GET(request);
 
       expect(response.status).toBe(200);
       expect(response.data.analytics.overview.totalUsers).toBe(40);
     });
-
   });
 
   describe('Security and Validation', () => {
-
     it('should enforce permission requirements', async () => {
-      const { RBACMiddleware } = require('@/middleware/rbac-middleware');
-      
       // Mock unauthorized access
       RBACMiddleware.protect.mockResolvedValueOnce({
         isAuthorized: false,
         response: {
           status: 403,
-          json: { error: 'Access denied' }
-        }
+          json: { error: 'Access denied' },
+        },
       });
 
-      const { GET } = require('@/app/api/admin/permissions/route');
+      const { GET } = PermissionsRoute;
       const request = mockRequest('GET');
       const response = await GET(request);
 
@@ -555,14 +561,14 @@ describe('Role Management System Tests', () => {
     });
 
     it('should validate input data properly', async () => {
-      const { prisma } = require('@/lib/prisma');
+      // import moved to top
       const invalidRoleAssignment = {
         userId: '', // Invalid: empty user ID
         userType: 'invalid_type', // Invalid: not in allowed types
-        roleTemplate: 'nonexistent_template' // Invalid: doesn't exist
+        roleTemplate: 'nonexistent_template', // Invalid: doesn't exist
       };
 
-      const { POST } = require('@/app/api/admin/users/route');
+      const { POST } = UsersRoute;
       const request = mockRequest('POST', invalidRoleAssignment);
       const response = await POST(request);
 
@@ -570,7 +576,6 @@ describe('Role Management System Tests', () => {
     });
 
     it('should handle restaurant context validation', async () => {
-      const { prisma } = require('@/lib/prisma');
       const roleAssignment = {
         userId: 'user-123',
         userType: 'staff',
@@ -578,7 +583,7 @@ describe('Role Management System Tests', () => {
         // Missing restaurantId for staff role
       };
 
-      const { POST } = require('@/app/api/admin/users/route');
+      const { POST } = UsersRoute;
       const request = mockRequest('POST', roleAssignment);
       const response = await POST(request);
 
@@ -587,34 +592,30 @@ describe('Role Management System Tests', () => {
     });
 
     it('should prevent deletion of last user role', async () => {
-      const { prisma } = require('@/lib/prisma');
-      
       prisma.userRole.findUnique.mockResolvedValue({
         id: 'role-789',
-        userId: 'user-123'
+        userId: 'user-123',
       });
 
       // Mock user has no other roles
       prisma.userRole.findMany.mockResolvedValue([]);
 
-      const { DELETE } = require('@/app/api/admin/users/route');
+      const { DELETE } = UsersRoute;
       const request = mockRequest('DELETE', { roleId: 'role-789' });
       const response = await DELETE(request);
 
       expect(response.status).toBe(409);
       expect(response.data.error).toContain('Cannot delete the only role');
     });
-
   });
 
   describe('Error Handling and Edge Cases', () => {
-
     it('should handle database connection errors', async () => {
-      const { prisma } = require('@/lib/prisma');
-      
-      prisma.permission.findMany.mockRejectedValue(new Error('Database connection failed'));
+      prisma.permission.findMany.mockRejectedValue(
+        new Error('Database connection failed')
+      );
 
-      const { GET } = require('@/app/api/admin/permissions/route');
+      const { GET } = PermissionsRoute;
       const request = mockRequest('GET');
       const response = await GET(request);
 
@@ -622,17 +623,15 @@ describe('Role Management System Tests', () => {
     });
 
     it('should handle rate limiting properly', async () => {
-      const { RBACMiddleware } = require('@/middleware/rbac-middleware');
-      
       RBACMiddleware.protect.mockResolvedValueOnce({
         isAuthorized: false,
         response: {
           status: 429,
-          json: { error: 'Rate limit exceeded' }
-        }
+          json: { error: 'Rate limit exceeded' },
+        },
       });
 
-      const { POST } = require('@/app/api/admin/users/bulk/route');
+      const { POST } = UsersBulkRoute;
       const request = mockRequest('POST', {});
       const response = await POST(request);
 
@@ -640,13 +639,13 @@ describe('Role Management System Tests', () => {
     });
 
     it('should validate bulk operation limits', async () => {
-      const { POST } = require('@/app/api/admin/users/bulk/route');
-      
+      const { POST } = UsersBulkRoute;
+
       const largeBulkOperation = {
         operation: 'assign',
         userIds: Array.from({ length: 100 }, (_, i) => `user-${i}`), // Over limit
         userType: 'staff',
-        roleTemplate: 'kitchen_staff'
+        roleTemplate: 'kitchen_staff',
       };
 
       const request = mockRequest('POST', largeBulkOperation);
@@ -655,74 +654,74 @@ describe('Role Management System Tests', () => {
       expect(response.status).toBe(400);
       expect(response.data.error).toContain('Maximum 50 users allowed');
     });
-
   });
-
 });
 
 // Integration Tests
 describe('Role Management Integration Tests', () => {
-
   it('should complete full role assignment workflow', async () => {
-    const { prisma } = require('@/lib/prisma');
+    // import moved to top
 
     // 1. Create permission
     const permissionData = {
       permissionKey: 'test:integration',
       description: 'Integration test permission',
-      category: 'test'
+      category: 'test',
     };
 
     prisma.permission.findFirst.mockResolvedValue(null);
     prisma.permission.create.mockResolvedValue({
       id: 'perm-1',
       ...permissionData,
-      isActive: true
+      isActive: true,
     });
 
     // 2. Create role template
     const templateData = {
       template: 'test_role',
       permissions: ['test:integration'],
-      description: 'Test role template'
+      description: 'Test role template',
     };
 
     prisma.roleTemplate.findFirst.mockResolvedValue(null);
     prisma.permission.findMany.mockResolvedValue([
-      { permissionKey: 'test:integration', isActive: true }
+      { permissionKey: 'test:integration', isActive: true },
     ]);
     prisma.roleTemplate.create.mockResolvedValue({
       id: 'template-1',
       ...templateData,
-      isActive: true
+      isActive: true,
     });
 
     // 3. Assign role to user
     const roleAssignment = {
       userId: 'test-user',
       userType: 'platform_admin',
-      roleTemplate: 'test_role'
+      roleTemplate: 'test_role',
     };
 
     prisma.userRole.findFirst.mockResolvedValue(null);
     prisma.userRole.create.mockResolvedValue({
       id: 'role-1',
       ...roleAssignment,
-      isActive: true
+      isActive: true,
     });
 
     // Execute workflow
-    const { POST: createPermission } = require('@/app/api/admin/permissions/route');
-    const { POST: createTemplate } = require('@/app/api/admin/role-templates/route');
-    const { POST: assignRole } = require('@/app/api/admin/users/route');
+    const { POST: createPermission } = PermissionsRoute;
+    const { POST: createTemplate } = RoleTemplatesRoute;
+    const { POST: assignRole } = UsersRoute;
 
-    const permissionResult = await createPermission(mockRequest('POST', permissionData));
-    const templateResult = await createTemplate(mockRequest('POST', templateData));
+    const permissionResult = await createPermission(
+      mockRequest('POST', permissionData)
+    );
+    const templateResult = await createTemplate(
+      mockRequest('POST', templateData)
+    );
     const roleResult = await assignRole(mockRequest('POST', roleAssignment));
 
     expect(permissionResult.status).toBe(201);
     expect(templateResult.status).toBe(201);
     expect(roleResult.status).toBe(201);
   });
-
 });

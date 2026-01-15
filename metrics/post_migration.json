@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-01-15T07:44:15.034Z",
+  "description": "Post-migration metrics - TanStack Query implementation",
+  "metrics": {
+    "estimatedAPICallsPerHour": 200,
+    "estimatedCacheHitRate": 85,
+    "dataFetchingPattern": "TanStack Query (useQuery/useMutation)",
+    "stateManagementApproach": "Server State (React Query) + Local UI State",
+    "pollingIntervals": ["Background revalidation (stale-while-revalidate)"],
+    "manualRefetchCount": 0
+  },
+  "codeStats": {
+    "useStateForData": 15,
+    "useEffectForFetching": 0,
+    "manualFetchFunctions": 0,
+    "contextFiles": 0
+  },
+  "files": [
+    {
+      "path": "src/app/dashboard/tables/page.tsx",
+      "pattern": "useTables hook",
+      "linesOfCode": 420
+    },
+    {
+      "path": "src/app/dashboard/staff/page.tsx",
+      "pattern": "useStaff + useRoles hooks",
+      "linesOfCode": 750
+    },
+    {
+      "path": "src/app/dashboard/menu/page.tsx",
+      "pattern": "useMenu hook",
+      "linesOfCode": 1200
+    },
+    {
+      "path": "src/app/dashboard/settings/page.tsx",
+      "pattern": "useRestaurantSettings hook",
+      "linesOfCode": 380
+    },
+    {
+      "path": "src/lib/hooks/queries/useRestaurantSettings.ts",
+      "pattern": "TanStack Query Hook Definition",
+      "linesOfCode": 248
+    }
+  ]
+}
