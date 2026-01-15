@@ -89,7 +89,7 @@ export async function PUT(request: NextRequest) {
     // 1. Authentication & Authorization
     const context = await getTenantContext(request);
     requireAuth(context);
-    requirePermission(context!, 'settings', 'update');
+    requirePermission(context!, 'settings', 'write');
 
     const restaurantId = context!.restaurantId!;
     await requireRestaurantAccess(restaurantId, context!);
