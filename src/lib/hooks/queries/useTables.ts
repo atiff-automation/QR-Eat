@@ -67,7 +67,7 @@ export function useTables(restaurantId: string | undefined) {
       return data.tables;
     },
     enabled: !!restaurantId, // Only run query if restaurantId exists
-    staleTime: 2 * 60 * 1000, // 2 minutes (tables change frequently)
+    staleTime: 0, // Always refetch on mount/focus for real-time accuracy
     gcTime: 5 * 60 * 1000, // 5 minutes
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,

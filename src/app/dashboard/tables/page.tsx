@@ -6,7 +6,7 @@
 
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
@@ -68,6 +68,11 @@ function TablesContent() {
   const [showPaymentInterface, setShowPaymentInterface] = useState(false);
   const currency = useCurrency(); // Get currency from context
   const queryClient = useQueryClient();
+  const selectedTableRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    selectedTableRef.current = selectedTable?.id || null;
+  }, [selectedTable?.id]);
 
   // No manual fetch function needed - TanStack Query handles this
 
@@ -107,23 +112,26 @@ function TablesContent() {
           // Broad invalidation for secondary components if needed
           queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
 
-          if (selectedTable?.id === tableId) {
+          if (selectedTableRef.current === tableId) {
             setSelectedTable((prev) =>
               prev ? { ...prev, status: newStatus } : null
             );
           }
         }
 
-        // Handle New Orders -> Trigger Immediate Refresh for Modal
+        // Handle New Orders -> Trigger Immediate Refresh for Modal & List
         if (data.type === 'order_created') {
           const { tableId } = data.data;
           if (tableId) {
             console.log(
               `[TablesPage] New order for table ${tableId}, invalidating cache...`
             );
+            // 1. Invalidate specific orders for modal
             queryClient.invalidateQueries({
               queryKey: queryKeys.tables.orders(tableId),
             });
+            // 2. Invalidate tables list to turn the border orange (Case 2 fix)
+            queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
           }
         }
         // Handle Payment Completion -> Trigger Immediate Refresh for Modal
@@ -147,11 +155,10 @@ function TablesContent() {
       }
     };
 
-    // No polling needed - TanStack Query handles refetching
     return () => {
       eventSource.close();
     };
-  }, [restaurantContext?.id, selectedTable?.id, queryClient]);
+  }, [restaurantContext?.id, queryClient]);
 
   // Filter Logic - Memoized to prevent infinite loops
   const filteredTables = useMemo(() => {
