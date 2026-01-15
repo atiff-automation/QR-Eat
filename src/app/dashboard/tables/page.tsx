@@ -47,9 +47,13 @@ function TablesContent() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showQRCodeModal, setShowQRCodeModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  /* Deletion State */
   const [deleteConfirmation, setDeleteConfirmation] = useState<Table | null>(
     null
   );
+  const [deletionError, setDeletionError] = useState<string | null>(null);
+
+  /* Modals State */
 
   // Payment State
   const [selectedOrders, setSelectedOrders] = useState<OrderWithDetails[]>([]);
@@ -208,12 +212,10 @@ function TablesContent() {
       setDeleteConfirmation(null);
     } catch (error) {
       console.error('Failed to delete table:', error);
-      setDeleteConfirmation(null);
       if (error instanceof ApiClientError) {
-        // Show the helpful error message from the API
-        alert(error.message);
+        setDeletionError(error.message);
       } else {
-        alert('Failed to delete table. Please try again.');
+        setDeletionError('Failed to delete table. Please try again.');
       }
     }
   };
@@ -412,20 +414,26 @@ function TablesContent() {
         isOpen={!!deleteConfirmation}
         title="Delete Table"
         message={
-          deleteConfirmation?.status === 'OCCUPIED'
-            ? `Cannot delete "${
-                deleteConfirmation.tableName || deleteConfirmation.tableNumber
-              }" because it is currently OCCUPIED. Please clear the table first.`
-            : `Are you sure you want to delete "${
-                deleteConfirmation?.tableName || deleteConfirmation?.tableNumber
-              }"? This action cannot be undone.`
+          deletionError
+            ? deletionError
+            : deleteConfirmation?.status === 'OCCUPIED'
+              ? `Cannot delete "${
+                  deleteConfirmation.tableName || deleteConfirmation.tableNumber
+                }" because it is currently OCCUPIED. Please clear the table first.`
+              : `Are you sure you want to delete "${
+                  deleteConfirmation?.tableName ||
+                  deleteConfirmation?.tableNumber
+                }"? This action cannot be undone.`
         }
         onConfirm={handleConfirmDelete}
-        onCancel={() => setDeleteConfirmation(null)}
+        onCancel={() => {
+          setDeleteConfirmation(null);
+          setDeletionError(null);
+        }}
         isLoading={false}
         variant="danger"
         confirmText="Delete Table"
-        isBlocked={deleteConfirmation?.status === 'OCCUPIED'}
+        isBlocked={!!deletionError || deleteConfirmation?.status === 'OCCUPIED'}
       />
     </div>
   );

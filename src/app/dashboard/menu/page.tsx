@@ -89,10 +89,14 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
+  /* Deletion State */
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     type: 'category' | 'item';
     data: MenuCategory | MenuItem;
   } | null>(null);
+  const [deletionError, setDeletionError] = useState<string | null>(null);
+
+  /* Data Mutations */
   const currency = useCurrency();
 
   // TanStack Query mutations
@@ -177,14 +181,13 @@ export default function MenuPage() {
       setDeleteConfirmation(null);
     } catch (error) {
       console.error(`Failed to delete ${deleteConfirmation.type}:`, error);
-      // Keep modal open to show error, or close and show generic alert
-      // For now, we'll close and show alert as per existing pattern
-      setDeleteConfirmation(null);
-      alert(
-        error instanceof ApiClientError
-          ? error.message
-          : `Failed to delete ${deleteConfirmation.type}. Please try again.`
-      );
+      if (error instanceof ApiClientError) {
+        setDeletionError(error.message);
+      } else {
+        setDeletionError(
+          `Failed to delete ${deleteConfirmation.type}. Please try again.`
+        );
+      }
     }
   };
 
@@ -572,22 +575,28 @@ export default function MenuPage() {
               : 'Delete Item'
           }
           message={
-            deleteConfirmation?.type === 'category'
-              ? (deleteConfirmation.data as MenuCategory)._count.menuItems > 0
-                ? `Cannot delete "${deleteConfirmation.data.name}" because it contains ${(deleteConfirmation.data as MenuCategory)._count.menuItems} item(s). Please move or delete the items first.`
-                : `Are you sure you want to delete "${deleteConfirmation.data.name}"? This action cannot be undone.`
-              : `Are you sure you want to delete "${deleteConfirmation?.data.name}"? This action cannot be undone.`
+            deletionError
+              ? deletionError
+              : deleteConfirmation?.type === 'category'
+                ? (deleteConfirmation.data as MenuCategory)._count.menuItems > 0
+                  ? `Cannot delete "${deleteConfirmation.data.name}" because it contains ${(deleteConfirmation.data as MenuCategory)._count.menuItems} item(s). Please move or delete the items first.`
+                  : `Are you sure you want to delete "${deleteConfirmation.data.name}"? This action cannot be undone.`
+                : `Are you sure you want to delete "${deleteConfirmation?.data.name}"? This action cannot be undone.`
           }
           onConfirm={handleConfirmDelete}
-          onCancel={() => setDeleteConfirmation(null)}
+          onCancel={() => {
+            setDeleteConfirmation(null);
+            setDeletionError(null);
+          }}
           isLoading={
             deleteCategoryMutation.isPending || deleteMenuItemMutation.isPending
           }
           variant="danger"
           confirmText="Delete"
           isBlocked={
-            deleteConfirmation?.type === 'category' &&
-            (deleteConfirmation.data as MenuCategory)._count.menuItems > 0
+            !!deletionError ||
+            (deleteConfirmation?.type === 'category' &&
+              (deleteConfirmation.data as MenuCategory)._count.menuItems > 0)
           }
         />
       </div>
