@@ -142,6 +142,16 @@ export const queryKeys = {
       ['reports', type, params] as const,
   },
 
+  // Analytics
+  analytics: {
+    revenue: (period: string, granularity: string) =>
+      ['analytics', 'revenue', period, granularity] as const,
+    orders: (period: string, granularity: string) =>
+      ['analytics', 'orders', period, granularity] as const,
+    popularItems: (period: string, limit: number) =>
+      ['analytics', 'popular-items', period, limit] as const,
+  },
+
   // Restaurants (for multi-tenant)
   restaurants: {
     all: ['restaurants'] as const,
