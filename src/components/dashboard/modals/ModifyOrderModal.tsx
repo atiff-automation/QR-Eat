@@ -300,7 +300,7 @@ export function ModifyOrderModal({
                 <div key={item.id} className="border rounded-lg p-3 bg-gray-50">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h4 className="font-medium">{item.menuItem.name}</h4>
+                      <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
                       <p className="text-sm text-gray-600">
                         {formatPrice(item.menuItem.price, currency)} each
                       </p>
@@ -338,7 +338,7 @@ export function ModifyOrderModal({
                         <Plus className="h-4 w-4" />
                       </button>
                     </div>
-                    <span className="font-semibold">
+                    <span className="font-semibold text-gray-900">
                       {formatPrice(item.totalAmount, currency)}
                     </span>
                   </div>
@@ -352,7 +352,7 @@ export function ModifyOrderModal({
             {/* Subtotal */}
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium">
+              <span className="font-medium text-gray-900">
                 {formatPrice(newSubtotal, currency)}
               </span>
             </div>
@@ -362,7 +362,7 @@ export function ModifyOrderModal({
               <span className="text-gray-600">
                 Tax ({(taxRate * 100).toFixed(1)}%):
               </span>
-              <span className="font-medium">
+              <span className="font-medium text-gray-900">
                 {formatPrice(newTax, currency)}
               </span>
             </div>
@@ -372,7 +372,7 @@ export function ModifyOrderModal({
               <span className="text-gray-600">
                 Service Charge ({(serviceChargeRate * 100).toFixed(1)}%):
               </span>
-              <span className="font-medium">
+              <span className="font-medium text-gray-900">
                 {formatPrice(newServiceCharge, currency)}
               </span>
             </div>
@@ -382,9 +382,9 @@ export function ModifyOrderModal({
 
             {/* New Total */}
             <div className="flex justify-between font-bold text-base">
-              <span>New Total:</span>
+              <span className="text-gray-900">New Total:</span>
               <span
-                className={newTotal < order.totalAmount ? 'text-red-600' : ''}
+                className={newTotal < order.totalAmount ? 'text-red-600' : 'text-gray-900'}
               >
                 {formatPrice(newTotal, currency)}
               </span>
@@ -399,9 +399,8 @@ export function ModifyOrderModal({
             {/* Difference */}
             {difference !== 0 && (
               <div
-                className={`flex justify-between text-sm font-medium ${
-                  difference < 0 ? 'text-red-600' : 'text-green-600'
-                }`}
+                className={`flex justify-between text-sm font-medium ${difference < 0 ? 'text-red-600' : 'text-green-600'
+                  }`}
               >
                 <span>Difference:</span>
                 <span>
