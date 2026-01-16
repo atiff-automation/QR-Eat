@@ -191,7 +191,7 @@ export function useUpdateMenuItem() {
       id,
       ...itemData
     }: Partial<MenuItem> & { id: string }) => {
-      return ApiClient.put(`/admin/menu/items/${id}`, itemData);
+      return ApiClient.patch(`/admin/menu/items/${id}`, itemData);
     },
     onMutate: async ({ id, ...updates }) => {
       // Cancel outgoing refetches
@@ -432,7 +432,7 @@ export function useUpdateCategory() {
       id,
       ...categoryData
     }: Partial<MenuCategory> & { id: string }) => {
-      return ApiClient.put(`/admin/menu/categories/${id}`, categoryData);
+      return ApiClient.patch(`/admin/menu/categories/${id}`, categoryData);
     },
     onMutate: async ({ id, ...updates }) => {
       await queryClient.cancelQueries({ queryKey: queryKeys.menu.categories });

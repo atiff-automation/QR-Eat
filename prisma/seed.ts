@@ -723,8 +723,10 @@ async function main() {
   const staffPassword = await bcrypt.hash('staff123', 12);
   const staff = await Promise.all([
     // Manager
-    prisma.staff.create({
-      data: {
+    prisma.staff.upsert({
+      where: { email: 'mario@marios-authentic.com' },
+      update: {},
+      create: {
         restaurantId: marioRestaurant.id,
         roleId: managerRole.id,
         email: 'mario@marios-authentic.com',
@@ -742,8 +744,10 @@ async function main() {
       },
     }),
     // Waiter
-    prisma.staff.create({
-      data: {
+    prisma.staff.upsert({
+      where: { email: 'luigi@marios-authentic.com' },
+      update: {},
+      create: {
         restaurantId: marioRestaurant.id,
         roleId: waiterRole.id,
         email: 'luigi@marios-authentic.com',
@@ -761,8 +765,10 @@ async function main() {
       },
     }),
     // Kitchen
-    prisma.staff.create({
-      data: {
+    prisma.staff.upsert({
+      where: { email: 'giuseppe@marios-authentic.com' },
+      update: {},
+      create: {
         restaurantId: marioRestaurant.id,
         roleId: kitchenRole.id,
         email: 'giuseppe@marios-authentic.com',
@@ -870,6 +876,7 @@ async function main() {
     { key: 'tables:read', description: 'View tables', category: 'tables' },
     { key: 'tables:write', description: 'Manage tables', category: 'tables' },
     { key: 'tables:qr', description: 'Generate QR codes', category: 'tables' },
+    { key: 'tables:delete', description: 'Delete tables', category: 'tables' },
 
     // Staff Management
     {
