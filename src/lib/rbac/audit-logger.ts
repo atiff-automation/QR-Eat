@@ -1,6 +1,6 @@
 /**
  * Comprehensive Audit Logging System for RBAC
- * 
+ *
  * This file implements comprehensive audit logging for all RBAC-related actions,
  * providing security monitoring and compliance capabilities.
  */
@@ -8,12 +8,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { SecurityUtils } from '../security';
-import {
-  UserRole,
-  RBACLogEntry,
-  RBAC_CONSTANTS,
-  RBACError
-} from './types';
+import { UserRole, RBACLogEntry, RBAC_CONSTANTS, RBACError } from './types';
 
 // Audit trail query options
 export interface AuditTrailOptions {
@@ -43,7 +38,7 @@ export interface AuditContext {
   userAgent?: string;
   sessionId?: string;
   restaurantId?: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export class AuditLogger {
@@ -70,11 +65,11 @@ export class AuditLogger {
             sessionId,
             userType: role.userType,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       // Silent fail for audit logging - should not break application flow
@@ -100,11 +95,11 @@ export class AuditLogger {
             email,
             reason,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log authentication failure:', error);
@@ -132,11 +127,11 @@ export class AuditLogger {
           metadata: {
             sessionId,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log role switch:', error);
@@ -164,11 +159,11 @@ export class AuditLogger {
             sessionId,
             attemptedAction: permission,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log permission denied:', error);
@@ -192,11 +187,11 @@ export class AuditLogger {
           metadata: {
             sessionId,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log logout:', error);
@@ -220,11 +215,11 @@ export class AuditLogger {
           metadata: {
             sessionId,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log token refresh:', error);
@@ -248,11 +243,11 @@ export class AuditLogger {
           metadata: {
             sessionId,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log session expiration:', error);
@@ -279,11 +274,11 @@ export class AuditLogger {
             targetUserId,
             roleDetails,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log user role change:', error);
@@ -311,11 +306,11 @@ export class AuditLogger {
             severity,
             description,
             timestamp: new Date().toISOString(),
-            ...context?.metadata
+            ...context?.metadata,
           },
           ipAddress: context?.ipAddress,
-          userAgent: context?.userAgent
-        }
+          userAgent: context?.userAgent,
+        },
       });
     } catch (error) {
       console.error('Failed to log security event:', error);
@@ -338,7 +333,7 @@ export class AuditLogger {
         limit = 100,
         offset = 0,
         restaurantId,
-        severity
+        severity,
       } = options;
 
       const logs = await prisma.rBACLog.findMany({
@@ -351,34 +346,34 @@ export class AuditLogger {
           ...(restaurantId && {
             metadata: {
               path: ['restaurantId'],
-              equals: restaurantId
-            }
+              equals: restaurantId,
+            },
           }),
           ...(severity && {
             metadata: {
               path: ['severity'],
-              equals: severity
-            }
-          })
+              equals: severity,
+            },
+          }),
         },
         orderBy: { createdAt: 'desc' },
         take: limit,
-        skip: offset
+        skip: offset,
       });
 
-      return logs.map(log => ({
+      return logs.map((log) => ({
         id: log.id,
         userId: log.userId,
         action: log.action,
-        resource: log.resource,
+        resource: log.resource || 'unknown',
         fromRole: log.fromRole || undefined,
         toRole: log.toRole || undefined,
-        metadata: log.metadata as Record<string, any>,
+        metadata: log.metadata as Record<string, unknown>,
         ipAddress: log.ipAddress || undefined,
         userAgent: log.userAgent || undefined,
-        createdAt: log.createdAt
+        createdAt: log.createdAt,
       }));
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get audit trail',
         'GET_AUDIT_TRAIL_FAILED',
@@ -399,31 +394,31 @@ export class AuditLogger {
         where: {
           metadata: {
             path: ['restaurantId'],
-            equals: restaurantId
+            equals: restaurantId,
           },
           ...(options.startDate && { createdAt: { gte: options.startDate } }),
           ...(options.endDate && { createdAt: { lte: options.endDate } }),
           ...(options.actions && { action: { in: options.actions } }),
-          ...(options.resources && { resource: { in: options.resources } })
+          ...(options.resources && { resource: { in: options.resources } }),
         },
         orderBy: { createdAt: 'desc' },
         take: options.limit || 100,
-        skip: options.offset || 0
+        skip: options.offset || 0,
       });
 
-      return logs.map(log => ({
+      return logs.map((log) => ({
         id: log.id,
         userId: log.userId,
         action: log.action,
-        resource: log.resource,
+        resource: log.resource || 'unknown',
         fromRole: log.fromRole || undefined,
         toRole: log.toRole || undefined,
-        metadata: log.metadata as Record<string, any>,
+        metadata: log.metadata as Record<string, unknown>,
         ipAddress: log.ipAddress || undefined,
         userAgent: log.userAgent || undefined,
-        createdAt: log.createdAt
+        createdAt: log.createdAt,
       }));
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get restaurant audit trail',
         'GET_RESTAURANT_AUDIT_TRAIL_FAILED',
@@ -447,9 +442,9 @@ export class AuditLogger {
         ...(restaurantId && {
           metadata: {
             path: ['restaurantId'],
-            equals: restaurantId
-          }
-        })
+            equals: restaurantId,
+          },
+        }),
       };
 
       // Get total count
@@ -459,11 +454,11 @@ export class AuditLogger {
       const actionGroups = await prisma.rBACLog.groupBy({
         by: ['action'],
         where: whereClause,
-        _count: true
+        _count: true,
       });
 
       const actionCounts: Record<string, number> = {};
-      actionGroups.forEach(group => {
+      actionGroups.forEach((group) => {
         actionCounts[group.action] = group._count;
       });
 
@@ -471,36 +466,36 @@ export class AuditLogger {
       const recentLogs = await prisma.rBACLog.findMany({
         where: whereClause,
         orderBy: { createdAt: 'desc' },
-        take: 10
+        take: 10,
       });
 
-      const recentActivity: RBACLogEntry[] = recentLogs.map(log => ({
+      const recentActivity: RBACLogEntry[] = recentLogs.map((log) => ({
         id: log.id,
         userId: log.userId,
         action: log.action,
-        resource: log.resource,
+        resource: log.resource || 'unknown',
         fromRole: log.fromRole || undefined,
         toRole: log.toRole || undefined,
-        metadata: log.metadata as Record<string, any>,
+        metadata: log.metadata as Record<string, unknown>,
         ipAddress: log.ipAddress || undefined,
         userAgent: log.userAgent || undefined,
-        createdAt: log.createdAt
+        createdAt: log.createdAt,
       }));
 
       // Count security events
       const securityEvents = await prisma.rBACLog.count({
         where: {
           ...whereClause,
-          action: 'SECURITY_EVENT'
-        }
+          action: 'SECURITY_EVENT',
+        },
       });
 
       // Count failed attempts
       const failedAttempts = await prisma.rBACLog.count({
         where: {
           ...whereClause,
-          action: { in: ['LOGIN_FAILED', 'PERMISSION_DENIED'] }
-        }
+          action: { in: ['LOGIN_FAILED', 'PERMISSION_DENIED'] },
+        },
       });
 
       return {
@@ -509,9 +504,9 @@ export class AuditLogger {
         severityCounts: {}, // TODO: Implement severity counting
         recentActivity,
         securityEvents,
-        failedAttempts
+        failedAttempts,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get audit summary',
         'GET_AUDIT_SUMMARY_FAILED',
@@ -531,13 +526,13 @@ export class AuditLogger {
       const result = await prisma.rBACLog.deleteMany({
         where: {
           createdAt: {
-            lt: cutoffDate
-          }
-        }
+            lt: cutoffDate,
+          },
+        },
       });
 
       return result.count;
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to cleanup old audit logs',
         'CLEANUP_AUDIT_LOGS_FAILED',
@@ -554,13 +549,13 @@ export class AuditLogger {
   ): Promise<string> {
     try {
       const logs = await this.getAuditTrail('', options);
-      
+
       if (options.format === 'csv') {
         return this.formatLogsAsCSV(logs);
       }
-      
+
       return JSON.stringify(logs, null, 2);
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to export audit logs',
         'EXPORT_AUDIT_LOGS_FAILED',
@@ -573,8 +568,18 @@ export class AuditLogger {
    * Format logs as CSV
    */
   private static formatLogsAsCSV(logs: RBACLogEntry[]): string {
-    const headers = ['ID', 'User ID', 'Action', 'Resource', 'From Role', 'To Role', 'IP Address', 'User Agent', 'Created At'];
-    const rows = logs.map(log => [
+    const headers = [
+      'ID',
+      'User ID',
+      'Action',
+      'Resource',
+      'From Role',
+      'To Role',
+      'IP Address',
+      'User Agent',
+      'Created At',
+    ];
+    const rows = logs.map((log) => [
       log.id,
       log.userId,
       log.action,
@@ -583,10 +588,10 @@ export class AuditLogger {
       log.toRole || '',
       log.ipAddress || '',
       log.userAgent || '',
-      log.createdAt.toISOString()
+      log.createdAt.toISOString(),
     ]);
 
-    return [headers, ...rows].map(row => row.join(',')).join('\n');
+    return [headers, ...rows].map((row) => row.join(',')).join('\n');
   }
 
   /**
@@ -599,7 +604,7 @@ export class AuditLogger {
 
     return {
       ipAddress: SecurityUtils.getClientIP(request),
-      userAgent: request.headers.get('user-agent') || undefined
+      userAgent: request.headers.get('user-agent') || undefined,
     };
   }
 
@@ -620,24 +625,25 @@ export class AuditLogger {
       const thisWeek = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
       const thisMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-      const [totalLogs, logsToday, logsThisWeek, logsThisMonth] = await Promise.all([
-        prisma.rBACLog.count(),
-        prisma.rBACLog.count({ where: { createdAt: { gte: today } } }),
-        prisma.rBACLog.count({ where: { createdAt: { gte: thisWeek } } }),
-        prisma.rBACLog.count({ where: { createdAt: { gte: thisMonth } } })
-      ]);
+      const [totalLogs, logsToday, logsThisWeek, logsThisMonth] =
+        await Promise.all([
+          prisma.rBACLog.count(),
+          prisma.rBACLog.count({ where: { createdAt: { gte: today } } }),
+          prisma.rBACLog.count({ where: { createdAt: { gte: thisWeek } } }),
+          prisma.rBACLog.count({ where: { createdAt: { gte: thisMonth } } }),
+        ]);
 
       // Get top actions
       const actionGroups = await prisma.rBACLog.groupBy({
         by: ['action'],
         _count: true,
         orderBy: { _count: { action: 'desc' } },
-        take: 10
+        take: 10,
       });
 
-      const topActions = actionGroups.map(group => ({
+      const topActions = actionGroups.map((group) => ({
         action: group.action,
-        count: group._count
+        count: group._count,
       }));
 
       // Get top users
@@ -645,12 +651,12 @@ export class AuditLogger {
         by: ['userId'],
         _count: true,
         orderBy: { _count: { userId: 'desc' } },
-        take: 10
+        take: 10,
       });
 
-      const topUsers = userGroups.map(group => ({
+      const topUsers = userGroups.map((group) => ({
         userId: group.userId,
-        count: group._count
+        count: group._count,
       }));
 
       return {
@@ -659,9 +665,9 @@ export class AuditLogger {
         logsThisWeek,
         logsThisMonth,
         topActions,
-        topUsers
+        topUsers,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to get audit statistics',
         'GET_AUDIT_STATISTICS_FAILED',
@@ -683,30 +689,33 @@ export class AuditLogger {
       let totalChecked = 0;
 
       // Check for logs with missing required fields
-      const logsWithMissingFields = await prisma.rBACLog.count({
-        where: {
-          OR: [
-            { userId: null },
-            { action: null },
-            { createdAt: null }
-          ]
-        }
-      });
+      // Note: userId, action, and createdAt are required in schema, so we skip null checks
+      // but we can check for other potential integrity issues if needed
+      const logsWithMissingFields = 0;
 
       totalChecked += logsWithMissingFields;
 
       if (logsWithMissingFields > 0) {
-        issues.push(`${logsWithMissingFields} logs have missing required fields`);
+        issues.push(
+          `${logsWithMissingFields} logs have missing required fields`
+        );
       }
 
       // Check for logs with invalid actions
-      const validActions = [...RBAC_CONSTANTS.AUDIT_ACTIONS, 'LOGIN_FAILED', 'SECURITY_EVENT', 'USER_ROLE_CREATE', 'USER_ROLE_UPDATE', 'USER_ROLE_DELETE'];
+      const validActions = [
+        ...RBAC_CONSTANTS.AUDIT_ACTIONS,
+        'LOGIN_FAILED',
+        'SECURITY_EVENT',
+        'USER_ROLE_CREATE',
+        'USER_ROLE_UPDATE',
+        'USER_ROLE_DELETE',
+      ];
       const logsWithInvalidActions = await prisma.rBACLog.count({
         where: {
           action: {
-            notIn: validActions
-          }
-        }
+            notIn: validActions,
+          },
+        },
       });
 
       totalChecked += logsWithInvalidActions;
@@ -718,9 +727,9 @@ export class AuditLogger {
       return {
         isValid: issues.length === 0,
         issues,
-        totalChecked
+        totalChecked,
       };
-    } catch (error) {
+    } catch {
       throw new RBACError(
         'Failed to validate audit integrity',
         'VALIDATE_AUDIT_INTEGRITY_FAILED',
