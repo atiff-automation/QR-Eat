@@ -6,7 +6,7 @@
  */
 
 import * as jwt from 'jsonwebtoken';
-import { createHash } from 'crypto';
+// crypto import removed for Edge compatibility
 import { prisma } from '@/lib/database';
 import {
   EnhancedJWTPayload,
@@ -19,6 +19,7 @@ import {
   SessionExpiredError,
   RBACError,
   isEnhancedJWTPayload,
+  UserType,
 } from './types';
 
 // JWT Configuration
@@ -41,8 +42,18 @@ export class EnhancedJWTService {
   /**
    * Hash session ID to match session-manager's storage format
    */
-  private static hashSessionId(sessionId: string): string {
-    return createHash('sha256').update(sessionId).digest('hex');
+  /**
+   * Hash session ID to match session-manager's storage format
+   * Uses Web Crypto API for Edge Runtime compatibility
+   */
+  private static async hashSessionId(sessionId: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(sessionId);
+    const hash = await crypto.subtle.digest('SHA-256', data);
+
+    return Array.from(new Uint8Array(hash))
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
   }
 
   /**
@@ -89,7 +100,7 @@ export class EnhancedJWTService {
 
       // Update existing session with token hash
       const tokenHash = await this.hashToken(token);
-      const hashedSessionId = this.hashSessionId(sessionId);
+      const hashedSessionId = await this.hashSessionId(sessionId);
 
       await prisma.userSession.update({
         where: { sessionId: hashedSessionId },
@@ -101,9 +112,10 @@ export class EnhancedJWTService {
 
       return token;
     } catch (error) {
-      console.error('JWT Generation Error:', error.message);
+      const err = error as Error;
+      console.error('JWT Generation Error:', err.message);
       throw new RBACError(
-        `Failed to generate JWT token: ${error.message}`,
+        `Failed to generate JWT token: ${err.message}`,
         'JWT_GENERATION_FAILED',
         500
       );
@@ -127,7 +139,9 @@ export class EnhancedJWTService {
       }
 
       // Verify JWT signature and decode
-      const decoded = jwt.verify(token, JWT_CONFIG.secret) as jwt.JwtPayload;
+      const decoded = jwt.verify(token, JWT_CONFIG.secret, {
+        algorithms: [JWT_CONFIG.algorithm],
+      }) as jwt.JwtPayload;
 
       // Debug: Log decoded payload structure
       if (process.env.NODE_ENV === 'development') {
@@ -164,7 +178,7 @@ export class EnhancedJWTService {
 
       // Verify session exists and is valid
       const tokenHash = await this.hashToken(token);
-      const hashedSessionId = this.hashSessionId(decoded.sessionId);
+      const hashedSessionId = await this.hashSessionId(decoded.sessionId);
       const session = await prisma.userSession.findFirst({
         where: {
           sessionId: hashedSessionId,
@@ -188,10 +202,11 @@ export class EnhancedJWTService {
       return decoded;
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
+        const err = error as Error;
         console.log('🚫 EnhancedJWTService.verifyToken: Caught error:', {
-          errorType: error.constructor.name,
-          message: error.message,
-          stack: error.stack?.split('\n').slice(0, 3),
+          errorType: err.constructor.name,
+          message: err.message,
+          stack: err.stack?.split('\n').slice(0, 3),
         });
       }
 
@@ -251,7 +266,7 @@ export class EnhancedJWTService {
    */
   static async invalidateSession(sessionId: string): Promise<void> {
     try {
-      const hashedSessionId = this.hashSessionId(sessionId);
+      const hashedSessionId = await this.hashSessionId(sessionId);
       await prisma.userSession.deleteMany({
         where: { sessionId: hashedSessionId },
       });
@@ -279,10 +294,12 @@ export class EnhancedJWTService {
   static validatePayload(payload: unknown): ValidationResult {
     const errors: string[] = [];
 
-    if (!payload) {
+    if (!payload || typeof payload !== 'object') {
       errors.push('Payload is required');
       return { isValid: false, errors };
     }
+
+    const p = payload as Record<string, unknown>;
 
     // Check required fields
     const requiredFields = [
@@ -301,31 +318,31 @@ export class EnhancedJWTService {
     ];
 
     for (const field of requiredFields) {
-      if (!payload[field]) {
+      if (!p[field]) {
         errors.push(`Missing required field: ${field}`);
       }
     }
 
     // Validate types
-    if (payload.userId && typeof payload.userId !== 'string') {
+    if (p.userId && typeof p.userId !== 'string') {
       errors.push('userId must be a string');
     }
 
-    if (payload.email && typeof payload.email !== 'string') {
+    if (p.email && typeof p.email !== 'string') {
       errors.push('email must be a string');
     }
 
-    if (payload.permissions && !Array.isArray(payload.permissions)) {
+    if (p.permissions && !Array.isArray(p.permissions)) {
       errors.push('permissions must be an array');
     }
 
-    if (payload.availableRoles && !Array.isArray(payload.availableRoles)) {
+    if (p.availableRoles && !Array.isArray(p.availableRoles)) {
       errors.push('availableRoles must be an array');
     }
 
     // Validate currentRole structure
-    if (payload.currentRole) {
-      const role = payload.currentRole;
+    if (p.currentRole && typeof p.currentRole === 'object') {
+      const role = p.currentRole as Record<string, unknown>;
       if (!role.id || !role.userType || !role.roleTemplate) {
         errors.push('currentRole must have id, userType, and roleTemplate');
       }
@@ -500,10 +517,7 @@ export class EnhancedJWTService {
         email: payload.email,
         firstName: payload.firstName,
         lastName: payload.lastName,
-        userType: payload.currentRole.userType as
-          | 'platform_admin'
-          | 'restaurant_owner'
-          | 'staff',
+        userType: payload.currentRole.userType as UserType,
         currentRole: {
           id: userRole.id,
           userType: userRole.userType as
@@ -608,7 +622,7 @@ export class EnhancedJWTService {
    */
   static async getSessionInfo(sessionId: string): Promise<UserSession | null> {
     try {
-      const hashedSessionId = this.hashSessionId(sessionId);
+      const hashedSessionId = await this.hashSessionId(sessionId);
       const session = await prisma.userSession.findFirst({
         where: { sessionId: hashedSessionId },
       });
