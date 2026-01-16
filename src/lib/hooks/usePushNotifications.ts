@@ -164,7 +164,8 @@ export function usePushNotifications() {
       // Subscribe to push manager
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as any,
       });
 
       // Send subscription to backend
