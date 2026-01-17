@@ -462,6 +462,11 @@ async function main() {
   const marioRestaurant = restaurants[0];
 
   // Create menu categories
+  // FIRST: Cleanup existing categories to prevent duplicates (idempotency)
+  await prisma.menuCategory.deleteMany({
+    where: { restaurantId: marioRestaurant.id },
+  });
+
   const categories = await Promise.all([
     prisma.menuCategory.create({
       data: {
