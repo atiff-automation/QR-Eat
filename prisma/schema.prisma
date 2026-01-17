@@ -613,6 +613,12 @@ model Order {
   specialInstructions String?
   estimatedReadyTime  DateTime?
 
+  // Financial Snapshots (Historical Data Integrity)
+  taxRateSnapshot            Decimal            @db.Decimal(5, 4)
+  serviceChargeRateSnapshot  Decimal            @db.Decimal(5, 4)
+  taxLabelSnapshot          String
+  serviceChargeLabelSnapshot String
+
   // Modification tracking
   hasModifications  Boolean   @default(false)
   lastModifiedAt    DateTime?

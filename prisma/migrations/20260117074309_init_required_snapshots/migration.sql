@@ -1,3 +1,24 @@
+-- CreateEnum
+CREATE TYPE "OrderStatus" AS ENUM ('PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'SERVED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "OrderPaymentStatus" AS ENUM ('PENDING', 'PAID', 'REFUNDED', 'FAILED');
+
+-- CreateEnum
+CREATE TYPE "TableStatus" AS ENUM ('AVAILABLE', 'OCCUPIED', 'RESERVED', 'INACTIVE');
+
+-- CreateEnum
+CREATE TYPE "CustomerSessionStatus" AS ENUM ('ACTIVE', 'ENDED', 'EXPIRED');
+
+-- CreateEnum
+CREATE TYPE "OrderItemStatus" AS ENUM ('PENDING', 'PREPARING', 'READY', 'SERVED', 'CANCELLED');
+
+-- CreateEnum
+CREATE TYPE "MenuStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
+-- CreateEnum
+CREATE TYPE "StaffStatus" AS ENUM ('ACTIVE', 'INACTIVE');
+
 -- CreateTable
 CREATE TABLE "platform_admins" (
     "id" TEXT NOT NULL,
@@ -117,8 +138,8 @@ CREATE TABLE "restaurants" (
     "address" TEXT NOT NULL,
     "phone" TEXT,
     "email" TEXT,
-    "timezone" TEXT NOT NULL DEFAULT 'UTC',
-    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "timezone" TEXT NOT NULL DEFAULT 'Asia/Kuala_Lumpur',
+    "currency" TEXT NOT NULL DEFAULT 'MYR',
     "taxRate" DECIMAL(5,4) NOT NULL DEFAULT 0.0000,
     "serviceChargeRate" DECIMAL(5,4) NOT NULL DEFAULT 0.0000,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
@@ -143,6 +164,12 @@ CREATE TABLE "restaurants" (
     "autoConfirmReservations" BOOLEAN NOT NULL DEFAULT false,
     "deliveryAvailable" BOOLEAN NOT NULL DEFAULT false,
     "takeoutAvailable" BOOLEAN NOT NULL DEFAULT true,
+    "taxLabel" TEXT NOT NULL DEFAULT 'SST (6%)',
+    "serviceChargeLabel" TEXT NOT NULL DEFAULT 'Service Charge (10%)',
+    "notificationSettings" JSONB NOT NULL DEFAULT '{"orderAlerts":true,"soundEnabled":true,"soundType":"chime","desktopNotifications":true}',
+    "receiptSettings" JSONB NOT NULL DEFAULT '{"headerText":"Thank you for dining with us!","footerText":"Please come again!","paperSize":"80mm"}',
+    "paymentMethods" JSONB NOT NULL DEFAULT '{"cash":true,"card":true,"ewallet":true}',
+    "systemPreferences" JSONB NOT NULL DEFAULT '{"dateFormat":"DD/MM/YYYY","timeFormat":"24h","numberFormat":"1,234.56"}',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -157,7 +184,7 @@ CREATE TABLE "tables" (
     "tableName" TEXT,
     "qrCodeToken" TEXT NOT NULL,
     "capacity" INTEGER NOT NULL DEFAULT 4,
-    "status" TEXT NOT NULL DEFAULT 'available',
+    "status" "TableStatus" NOT NULL DEFAULT 'AVAILABLE',
     "locationDescription" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -173,6 +200,7 @@ CREATE TABLE "menu_categories" (
     "description" TEXT,
     "displayOrder" INTEGER NOT NULL DEFAULT 0,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "status" "MenuStatus" NOT NULL DEFAULT 'ACTIVE',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -194,6 +222,7 @@ CREATE TABLE "menu_items" (
     "allergens" TEXT[],
     "dietaryInfo" TEXT[],
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
+    "status" "MenuStatus" NOT NULL DEFAULT 'ACTIVE',
     "isFeatured" BOOLEAN NOT NULL DEFAULT false,
     "displayOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -323,12 +352,14 @@ CREATE TABLE "staff" (
     "hireDate" TIMESTAMP(3),
     "hourlyRate" DECIMAL(8,2),
     "isActive" BOOLEAN NOT NULL DEFAULT true,
+    "status" "StaffStatus" NOT NULL DEFAULT 'ACTIVE',
     "lastLoginAt" TIMESTAMP(3),
     "passwordChangedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
     "failedLoginAttempts" INTEGER NOT NULL DEFAULT 0,
     "lockedUntil" TIMESTAMP(3),
     "permissions" JSONB NOT NULL DEFAULT '{}',
+    "preferences" JSONB NOT NULL DEFAULT '{}',
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
     "emailVerificationToken" TEXT,
     "passwordResetToken" TEXT,
@@ -369,15 +400,32 @@ CREATE TABLE "customer_sessions" (
     "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "endedAt" TIMESTAMP(3),
-    "status" TEXT NOT NULL DEFAULT 'active',
+    "status" "CustomerSessionStatus" NOT NULL DEFAULT 'ACTIVE',
 
     CONSTRAINT "customer_sessions_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cart_items" (
+    "id" TEXT NOT NULL,
+    "customerSessionId" TEXT NOT NULL,
+    "menuItemId" TEXT NOT NULL,
+    "variationId" TEXT,
+    "quantity" INTEGER NOT NULL DEFAULT 1,
+    "unitPrice" DECIMAL(10,2) NOT NULL,
+    "subtotal" DECIMAL(10,2) NOT NULL,
+    "specialInstructions" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cart_items_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
 CREATE TABLE "orders" (
     "id" TEXT NOT NULL,
     "orderNumber" TEXT NOT NULL,
+    "dailySeq" INTEGER DEFAULT 0,
     "restaurantId" TEXT NOT NULL,
     "tableId" TEXT NOT NULL,
     "customerSessionId" TEXT NOT NULL,
@@ -386,13 +434,21 @@ CREATE TABLE "orders" (
     "serviceCharge" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     "discountAmount" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     "totalAmount" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    "status" TEXT NOT NULL DEFAULT 'pending',
-    "paymentStatus" TEXT NOT NULL DEFAULT 'pending',
+    "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
+    "paymentStatus" "OrderPaymentStatus" NOT NULL DEFAULT 'PENDING',
     "takenBy" TEXT,
     "confirmedBy" TEXT,
     "servedBy" TEXT,
     "specialInstructions" TEXT,
     "estimatedReadyTime" TIMESTAMP(3),
+    "taxRateSnapshot" DECIMAL(5,4) NOT NULL,
+    "serviceChargeRateSnapshot" DECIMAL(5,4) NOT NULL,
+    "taxLabelSnapshot" TEXT NOT NULL,
+    "serviceChargeLabelSnapshot" TEXT NOT NULL,
+    "hasModifications" BOOLEAN NOT NULL DEFAULT false,
+    "lastModifiedAt" TIMESTAMP(3),
+    "modificationCount" INTEGER NOT NULL DEFAULT 0,
+    "version" INTEGER NOT NULL DEFAULT 1,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "confirmedAt" TIMESTAMP(3),
     "readyAt" TIMESTAMP(3),
@@ -411,7 +467,7 @@ CREATE TABLE "order_items" (
     "unitPrice" DECIMAL(10,2) NOT NULL,
     "totalAmount" DECIMAL(10,2) NOT NULL,
     "specialInstructions" TEXT,
-    "status" TEXT NOT NULL DEFAULT 'pending',
+    "status" "OrderItemStatus" NOT NULL DEFAULT 'PENDING',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -436,14 +492,14 @@ CREATE TABLE "payment_intents" (
     "id" TEXT NOT NULL,
     "orderId" TEXT NOT NULL,
     "amount" DECIMAL(10,2) NOT NULL,
-    "currency" TEXT NOT NULL DEFAULT 'USD',
+    "currency" TEXT NOT NULL DEFAULT 'MYR',
     "paymentMethodId" TEXT NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'pending',
     "reference" TEXT NOT NULL,
-    "clientSecret" TEXT,
     "transactionId" TEXT,
-    "finalAmount" DECIMAL(10,2),
-    "tip" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    "referenceNumber" TEXT,
+    "verifiedBy" TEXT,
+    "verifiedAt" TIMESTAMP(3),
     "metadata" JSONB NOT NULL DEFAULT '{}',
     "expiresAt" TIMESTAMP(3) NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -462,7 +518,16 @@ CREATE TABLE "payments" (
     "amount" DECIMAL(10,2) NOT NULL,
     "processingFee" DECIMAL(10,2) NOT NULL DEFAULT 0.00,
     "netAmount" DECIMAL(10,2) NOT NULL,
-    "status" TEXT NOT NULL DEFAULT 'pending',
+    "status" "OrderPaymentStatus" NOT NULL DEFAULT 'PENDING',
+    "cashReceived" DECIMAL(10,2),
+    "changeGiven" DECIMAL(10,2),
+    "receiptNumber" TEXT,
+    "dailySeq" INTEGER DEFAULT 0,
+    "processedBy" TEXT,
+    "processedByType" TEXT,
+    "processedByAdminId" TEXT,
+    "processedByOwnerId" TEXT,
+    "processedByStaffId" TEXT,
     "externalPaymentId" TEXT,
     "externalTransactionId" TEXT,
     "paymentMetadata" JSONB NOT NULL DEFAULT '{}',
@@ -525,6 +590,17 @@ CREATE TABLE "audit_logs" (
     "sessionId" TEXT,
 
     CONSTRAINT "audit_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "daily_sequences" (
+    "id" TEXT NOT NULL,
+    "restaurantId" TEXT NOT NULL,
+    "date" TEXT NOT NULL,
+    "orderCount" INTEGER NOT NULL DEFAULT 0,
+    "paymentCount" INTEGER NOT NULL DEFAULT 0,
+
+    CONSTRAINT "daily_sequences_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -623,6 +699,29 @@ CREATE TABLE "user_sessions" (
 );
 
 -- CreateTable
+CREATE TABLE "refresh_tokens" (
+    "id" TEXT NOT NULL,
+    "token" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "userType" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "adminId" TEXT,
+    "ownerId" TEXT,
+    "staffId" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "lastUsed" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "ipAddress" TEXT,
+    "userAgent" TEXT,
+    "deviceInfo" JSONB NOT NULL DEFAULT '{}',
+    "isRevoked" BOOLEAN NOT NULL DEFAULT false,
+    "revokedAt" TIMESTAMP(3),
+    "revokedReason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "refresh_tokens_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "rbac_logs" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
@@ -637,6 +736,94 @@ CREATE TABLE "rbac_logs" (
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "rbac_logs_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "cache_entries" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "value" JSONB NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "cache_entries_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "system_config" (
+    "id" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "iv" TEXT NOT NULL,
+    "tag" TEXT NOT NULL,
+    "description" TEXT,
+    "updatedBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "system_config_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "pending_events" (
+    "id" TEXT NOT NULL,
+    "eventType" VARCHAR(50) NOT NULL,
+    "eventData" JSONB NOT NULL,
+    "restaurantId" UUID NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "deliveredAt" TIMESTAMP(3),
+
+    CONSTRAINT "pending_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "order_modifications" (
+    "id" TEXT NOT NULL,
+    "orderId" TEXT NOT NULL,
+    "modifiedBy" TEXT,
+    "modifiedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "reason" TEXT NOT NULL,
+    "reasonNotes" TEXT,
+    "oldTotal" DECIMAL(10,2) NOT NULL,
+    "newTotal" DECIMAL(10,2) NOT NULL,
+    "customerNotified" BOOLEAN NOT NULL DEFAULT false,
+    "notifiedAt" TIMESTAMP(3),
+    "idempotencyKey" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "order_modifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "order_modification_items" (
+    "id" TEXT NOT NULL,
+    "modificationId" TEXT NOT NULL,
+    "orderItemId" TEXT,
+    "menuItemId" TEXT NOT NULL,
+    "action" TEXT NOT NULL,
+    "oldQuantity" INTEGER,
+    "newQuantity" INTEGER,
+    "oldPrice" DECIMAL(10,2),
+    "newPrice" DECIMAL(10,2),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "order_modification_items_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "push_subscriptions" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "userType" TEXT NOT NULL,
+    "restaurantId" TEXT NOT NULL,
+    "endpoint" TEXT NOT NULL,
+    "p256dh" TEXT NOT NULL,
+    "auth" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "push_subscriptions_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -688,6 +875,9 @@ CREATE INDEX "menu_categories_restaurantId_idx" ON "menu_categories"("restaurant
 CREATE INDEX "menu_categories_isActive_idx" ON "menu_categories"("isActive");
 
 -- CreateIndex
+CREATE INDEX "menu_categories_status_idx" ON "menu_categories"("status");
+
+-- CreateIndex
 CREATE INDEX "menu_items_restaurantId_idx" ON "menu_items"("restaurantId");
 
 -- CreateIndex
@@ -695,6 +885,9 @@ CREATE INDEX "menu_items_categoryId_idx" ON "menu_items"("categoryId");
 
 -- CreateIndex
 CREATE INDEX "menu_items_isAvailable_idx" ON "menu_items"("isAvailable");
+
+-- CreateIndex
+CREATE INDEX "menu_items_status_idx" ON "menu_items"("status");
 
 -- CreateIndex
 CREATE INDEX "menu_items_isFeatured_idx" ON "menu_items"("isFeatured");
@@ -766,10 +959,28 @@ CREATE INDEX "staff_roleId_idx" ON "staff"("roleId");
 CREATE INDEX "staff_email_idx" ON "staff"("email");
 
 -- CreateIndex
+CREATE INDEX "staff_status_idx" ON "staff"("status");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "staff_sessions_sessionToken_key" ON "staff_sessions"("sessionToken");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "customer_sessions_sessionToken_key" ON "customer_sessions"("sessionToken");
+
+-- CreateIndex
+CREATE INDEX "customer_sessions_tableId_idx" ON "customer_sessions"("tableId");
+
+-- CreateIndex
+CREATE INDEX "customer_sessions_status_idx" ON "customer_sessions"("status");
+
+-- CreateIndex
+CREATE INDEX "customer_sessions_tableId_status_idx" ON "customer_sessions"("tableId", "status");
+
+-- CreateIndex
+CREATE INDEX "cart_items_customerSessionId_idx" ON "cart_items"("customerSessionId");
+
+-- CreateIndex
+CREATE INDEX "cart_items_menuItemId_idx" ON "cart_items"("menuItemId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "orders_orderNumber_key" ON "orders"("orderNumber");
@@ -790,6 +1001,12 @@ CREATE INDEX "orders_paymentStatus_idx" ON "orders"("paymentStatus");
 CREATE INDEX "orders_createdAt_idx" ON "orders"("createdAt");
 
 -- CreateIndex
+CREATE INDEX "orders_hasModifications_idx" ON "orders"("hasModifications");
+
+-- CreateIndex
+CREATE INDEX "orders_version_idx" ON "orders"("version");
+
+-- CreateIndex
 CREATE INDEX "order_items_orderId_idx" ON "order_items"("orderId");
 
 -- CreateIndex
@@ -800,6 +1017,33 @@ CREATE INDEX "order_items_status_idx" ON "order_items"("status");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payment_intents_reference_key" ON "payment_intents"("reference");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_receiptNumber_key" ON "payments"("receiptNumber");
+
+-- CreateIndex
+CREATE INDEX "payments_processedBy_idx" ON "payments"("processedBy");
+
+-- CreateIndex
+CREATE INDEX "payments_processedByType_idx" ON "payments"("processedByType");
+
+-- CreateIndex
+CREATE INDEX "payments_processedByAdminId_idx" ON "payments"("processedByAdminId");
+
+-- CreateIndex
+CREATE INDEX "payments_processedByOwnerId_idx" ON "payments"("processedByOwnerId");
+
+-- CreateIndex
+CREATE INDEX "payments_processedByStaffId_idx" ON "payments"("processedByStaffId");
+
+-- CreateIndex
+CREATE INDEX "payments_receiptNumber_idx" ON "payments"("receiptNumber");
+
+-- CreateIndex
+CREATE INDEX "payments_status_idx" ON "payments"("status");
+
+-- CreateIndex
+CREATE INDEX "payments_createdAt_idx" ON "payments"("createdAt");
 
 -- CreateIndex
 CREATE INDEX "audit_logs_tableName_idx" ON "audit_logs"("tableName");
@@ -827,6 +1071,9 @@ CREATE INDEX "audit_logs_category_idx" ON "audit_logs"("category");
 
 -- CreateIndex
 CREATE INDEX "audit_logs_changedAt_idx" ON "audit_logs"("changedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "daily_sequences_restaurantId_date_key" ON "daily_sequences"("restaurantId", "date");
 
 -- CreateIndex
 CREATE INDEX "notifications_userId_idx" ON "notifications"("userId");
@@ -916,6 +1163,36 @@ CREATE INDEX "user_sessions_restaurantContextId_idx" ON "user_sessions"("restaur
 CREATE INDEX "user_sessions_expiresAt_idx" ON "user_sessions"("expiresAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_token_key" ON "refresh_tokens"("token");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_token_idx" ON "refresh_tokens"("token");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_userId_idx" ON "refresh_tokens"("userId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_userType_idx" ON "refresh_tokens"("userType");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_sessionId_idx" ON "refresh_tokens"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_adminId_idx" ON "refresh_tokens"("adminId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_ownerId_idx" ON "refresh_tokens"("ownerId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_staffId_idx" ON "refresh_tokens"("staffId");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_expiresAt_idx" ON "refresh_tokens"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_isRevoked_idx" ON "refresh_tokens"("isRevoked");
+
+-- CreateIndex
 CREATE INDEX "rbac_logs_userId_idx" ON "rbac_logs"("userId");
 
 -- CreateIndex
@@ -929,6 +1206,57 @@ CREATE INDEX "rbac_logs_sessionId_idx" ON "rbac_logs"("sessionId");
 
 -- CreateIndex
 CREATE INDEX "rbac_logs_createdAt_idx" ON "rbac_logs"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "cache_entries_key_key" ON "cache_entries"("key");
+
+-- CreateIndex
+CREATE INDEX "cache_entries_expiresAt_idx" ON "cache_entries"("expiresAt");
+
+-- CreateIndex
+CREATE INDEX "cache_entries_key_expiresAt_idx" ON "cache_entries"("key", "expiresAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "system_config_key_key" ON "system_config"("key");
+
+-- CreateIndex
+CREATE INDEX "system_config_key_idx" ON "system_config"("key");
+
+-- CreateIndex
+CREATE INDEX "idx_restaurant_pending" ON "pending_events"("restaurantId", "createdAt");
+
+-- CreateIndex
+CREATE INDEX "idx_cleanup" ON "pending_events"("createdAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "order_modifications_idempotencyKey_key" ON "order_modifications"("idempotencyKey");
+
+-- CreateIndex
+CREATE INDEX "order_modifications_orderId_idx" ON "order_modifications"("orderId");
+
+-- CreateIndex
+CREATE INDEX "order_modifications_modifiedAt_idx" ON "order_modifications"("modifiedAt");
+
+-- CreateIndex
+CREATE INDEX "order_modifications_idempotencyKey_idx" ON "order_modifications"("idempotencyKey");
+
+-- CreateIndex
+CREATE INDEX "order_modification_items_modificationId_idx" ON "order_modification_items"("modificationId");
+
+-- CreateIndex
+CREATE INDEX "order_modification_items_orderItemId_idx" ON "order_modification_items"("orderItemId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "push_subscriptions_endpoint_key" ON "push_subscriptions"("endpoint");
+
+-- CreateIndex
+CREATE INDEX "push_subscriptions_userId_userType_idx" ON "push_subscriptions"("userId", "userType");
+
+-- CreateIndex
+CREATE INDEX "push_subscriptions_restaurantId_idx" ON "push_subscriptions"("restaurantId");
+
+-- CreateIndex
+CREATE INDEX "push_subscriptions_endpoint_idx" ON "push_subscriptions"("endpoint");
 
 -- AddForeignKey
 ALTER TABLE "platform_admin_sessions" ADD CONSTRAINT "platform_admin_sessions_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "platform_admins"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -997,6 +1325,15 @@ ALTER TABLE "staff_sessions" ADD CONSTRAINT "staff_sessions_staffId_fkey" FOREIG
 ALTER TABLE "customer_sessions" ADD CONSTRAINT "customer_sessions_tableId_fkey" FOREIGN KEY ("tableId") REFERENCES "tables"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_customerSessionId_fkey" FOREIGN KEY ("customerSessionId") REFERENCES "customer_sessions"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "cart_items" ADD CONSTRAINT "cart_items_variationId_fkey" FOREIGN KEY ("variationId") REFERENCES "menu_item_variations"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "orders" ADD CONSTRAINT "orders_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1027,6 +1364,15 @@ ALTER TABLE "payment_intents" ADD CONSTRAINT "payment_intents_orderId_fkey" FORE
 ALTER TABLE "payments" ADD CONSTRAINT "payments_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_processedByAdminId_fkey" FOREIGN KEY ("processedByAdminId") REFERENCES "platform_admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_processedByOwnerId_fkey" FOREIGN KEY ("processedByOwnerId") REFERENCES "restaurant_owners"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "payments" ADD CONSTRAINT "payments_processedByStaffId_fkey" FOREIGN KEY ("processedByStaffId") REFERENCES "staff"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "platform_admins"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1034,6 +1380,9 @@ ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_ownerId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "audit_logs" ADD CONSTRAINT "audit_logs_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "staff"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "daily_sequences" ADD CONSTRAINT "daily_sequences_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "reservations" ADD CONSTRAINT "reservations_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1052,3 +1401,27 @@ ALTER TABLE "user_sessions" ADD CONSTRAINT "user_sessions_currentRoleId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "user_sessions" ADD CONSTRAINT "user_sessions_restaurantContextId_fkey" FOREIGN KEY ("restaurantContextId") REFERENCES "restaurants"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_adminId_fkey" FOREIGN KEY ("adminId") REFERENCES "platform_admins"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_ownerId_fkey" FOREIGN KEY ("ownerId") REFERENCES "restaurant_owners"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "refresh_tokens" ADD CONSTRAINT "refresh_tokens_staffId_fkey" FOREIGN KEY ("staffId") REFERENCES "staff"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_modifications" ADD CONSTRAINT "order_modifications_orderId_fkey" FOREIGN KEY ("orderId") REFERENCES "orders"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_modification_items" ADD CONSTRAINT "order_modification_items_modificationId_fkey" FOREIGN KEY ("modificationId") REFERENCES "order_modifications"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_modification_items" ADD CONSTRAINT "order_modification_items_orderItemId_fkey" FOREIGN KEY ("orderItemId") REFERENCES "order_items"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "order_modification_items" ADD CONSTRAINT "order_modification_items_menuItemId_fkey" FOREIGN KEY ("menuItemId") REFERENCES "menu_items"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "push_subscriptions" ADD CONSTRAINT "push_subscriptions_restaurantId_fkey" FOREIGN KEY ("restaurantId") REFERENCES "restaurants"("id") ON DELETE CASCADE ON UPDATE CASCADE;

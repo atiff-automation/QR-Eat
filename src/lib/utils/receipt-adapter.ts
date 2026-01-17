@@ -24,9 +24,12 @@ export function adaptPublicToDisplay(
       address: data.restaurant.address,
       phone: data.restaurant.phone,
       email: data.restaurant.email,
-      taxLabel: data.restaurant.taxLabel || 'Tax',
+      taxLabel:
+        data.order.taxLabelSnapshot || data.restaurant.taxLabel || 'Tax',
       serviceChargeLabel:
-        data.restaurant.serviceChargeLabel || 'Service Charge',
+        data.order.serviceChargeLabelSnapshot ||
+        data.restaurant.serviceChargeLabel ||
+        'Service Charge',
       currency: data.restaurant.currency,
     },
     order: {
@@ -76,8 +79,16 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
       address: restaurant.address,
       phone: restaurant.phone,
       email: restaurant.email,
-      taxLabel: order.taxLabel || restaurant.taxLabel || 'Tax',
-      serviceChargeLabel: restaurant.serviceChargeLabel || 'Service Charge',
+      taxLabel:
+        order.taxLabelSnapshot ||
+        order.restaurant?.taxLabel ||
+        restaurant.taxLabel ||
+        'Tax',
+      serviceChargeLabel:
+        order.serviceChargeLabelSnapshot ||
+        order.restaurant?.serviceChargeLabel ||
+        restaurant.serviceChargeLabel ||
+        'Service Charge',
       currency: restaurant.currency || 'MYR',
     },
     order: {

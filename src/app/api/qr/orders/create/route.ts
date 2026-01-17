@@ -77,6 +77,9 @@ export async function POST(request: NextRequest) {
             id: true,
             taxRate: true,
             serviceChargeRate: true,
+            // Select labels for snapshotting
+            taxLabel: true,
+            serviceChargeLabel: true,
             isActive: true,
           },
         },
@@ -228,6 +231,13 @@ export async function POST(request: NextRequest) {
         serviceCharge: totals.serviceCharge,
         discountAmount: 0,
         totalAmount: totals.totalAmount,
+
+        // Snapshot rates and labels for integrity
+        taxRateSnapshot: table.restaurant.taxRate,
+        serviceChargeRateSnapshot: table.restaurant.serviceChargeRate,
+        taxLabelSnapshot: table.restaurant.taxLabel,
+        serviceChargeLabelSnapshot: table.restaurant.serviceChargeLabel,
+
         status: 'PENDING',
         paymentStatus: 'PENDING',
         specialInstructions,
