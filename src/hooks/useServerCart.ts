@@ -11,14 +11,13 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Cart, MenuItem, MenuItemVariation } from '@/types/menu';
+import { Cart, MenuItem, VariationOption } from '@/types/menu';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { STORAGE_KEYS } from '@/lib/session-constants';
 
 interface ServerCartItem {
   id: string;
   menuItemId: string;
-  variationId: string | null;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -28,17 +27,14 @@ interface ServerCartItem {
     name: string;
     imageUrl: string | null;
   };
-  variation: {
-    id: string;
-    name: string;
-  } | null;
+  selectedOptions: VariationOption[];
 }
 
 interface ServerCart {
   items: ServerCartItem[];
   totalItems: number;
   totalAmount: number;
-  sessionId?: string; // Added for persistence
+  sessionId?: string;
 }
 
 export function useServerCart(
@@ -133,18 +129,7 @@ export function useServerCart(
           price: item.unitPrice,
         } as MenuItem,
         quantity: item.quantity,
-        selectedVariations: item.variation
-          ? [
-              {
-                variationId: item.variation.id,
-                variation: {
-                  id: item.variation.id,
-                  name: item.variation.name,
-                } as MenuItemVariation,
-                quantity: 1,
-              },
-            ]
-          : [],
+        selectedOptions: item.selectedOptions || [],
         specialInstructions: item.specialInstructions || undefined,
         unitPrice: item.unitPrice,
         totalPrice: item.subtotal,
@@ -171,11 +156,7 @@ export function useServerCart(
     async (
       menuItem: MenuItem,
       quantity: number = 1,
-      selectedVariations: Array<{
-        variationId: string;
-        variation: MenuItemVariation;
-        quantity: number;
-      }> = [],
+      selectedOptions: VariationOption[] = [],
       specialInstructions?: string
     ) => {
       if (!tableId) {
@@ -193,19 +174,16 @@ export function useServerCart(
       setError(null);
 
       try {
-        const variationId =
-          selectedVariations.length > 0
-            ? selectedVariations[0].variationId
-            : undefined;
+        const variationOptionIds = selectedOptions.map((o) => o.id);
 
         console.log('[addToCart] Calling API...');
         await ApiClient.post('/qr/cart/add', {
           tableId,
           sessionId: sessionId || undefined, // Pass session ID for persistence
           menuItemId: menuItem.id,
-          variationId,
+          variationOptionIds,
           quantity,
-          unitPrice: menuItem.price,
+          unitPrice: menuItem.price, // Optional, server calculates usually
           specialInstructions,
         });
 

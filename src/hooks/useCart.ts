@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { CartItem, Cart, MenuItem, MenuItemVariation } from '@/types/menu';
-import { calculateItemTotal } from '@/lib/qr-utils';
+import { CartItem, Cart, MenuItem, VariationOption } from '@/types/menu';
 
 export function useCart(taxRate: number, serviceChargeRate: number) {
   const [cart, setCart] = useState<Cart>({
@@ -34,11 +33,7 @@ export function useCart(taxRate: number, serviceChargeRate: number) {
     (
       menuItem: MenuItem,
       quantity: number = 1,
-      selectedVariations: Array<{
-        variationId: string;
-        variation: MenuItemVariation;
-        quantity: number;
-      }> = [],
+      selectedOptions: VariationOption[] = [],
       specialInstructions?: string
     ) => {
       setCart((prevCart) => {
@@ -47,24 +42,24 @@ export function useCart(taxRate: number, serviceChargeRate: number) {
           (item) =>
             item.menuItemId === menuItem.id &&
             item.specialInstructions === specialInstructions &&
-            JSON.stringify(item.selectedVariations) ===
-              JSON.stringify(selectedVariations)
+            JSON.stringify(item.selectedOptions.map((o) => o.id).sort()) ===
+              JSON.stringify(selectedOptions.map((o) => o.id).sort())
         );
 
         let newItems: CartItem[];
+
+        // Calculate unit price based on base price + sum of options
+        const optionsTotal = selectedOptions.reduce(
+          (sum, opt) => sum + opt.priceModifier,
+          0
+        );
+        const unitPrice = menuItem.price + optionsTotal;
 
         if (existingItemIndex >= 0) {
           // Update existing item quantity
           newItems = [...prevCart.items];
           const existingItem = newItems[existingItemIndex];
           const newQuantity = existingItem.quantity + quantity;
-          const unitPrice = calculateItemTotal(
-            menuItem.price,
-            selectedVariations.map((v) => ({
-              priceModifier: v.variation.priceModifier,
-              quantity: v.quantity,
-            }))
-          );
 
           newItems[existingItemIndex] = {
             ...existingItem,
@@ -73,20 +68,13 @@ export function useCart(taxRate: number, serviceChargeRate: number) {
           };
         } else {
           // Add new item
-          const unitPrice = calculateItemTotal(
-            menuItem.price,
-            selectedVariations.map((v) => ({
-              priceModifier: v.variation.priceModifier,
-              quantity: v.quantity,
-            }))
-          );
           const totalPrice = Math.round(unitPrice * quantity * 100) / 100;
 
           const newItem: CartItem = {
             menuItemId: menuItem.id,
             menuItem,
             quantity,
-            selectedVariations,
+            selectedOptions,
             specialInstructions,
             unitPrice: Math.round(unitPrice * 100) / 100,
             totalPrice,

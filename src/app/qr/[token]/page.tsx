@@ -368,6 +368,7 @@ export default function QRMenuPage() {
                 cart={cart}
                 onAddToCart={addToCart}
                 onModalStateChange={setIsAnyModalOpen}
+                currency={restaurantSettings?.currency || 'MYR'}
               />
             </div>
           </div>

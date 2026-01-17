@@ -30,6 +30,11 @@ interface ModifyOrderModalProps {
         name: string;
         price: number;
       };
+      selectedOptions?: Array<{
+        id: string;
+        name: string;
+        priceModifier: number;
+      }>;
     }>;
   };
   isOpen: boolean;
@@ -315,6 +320,18 @@ export function ModifyOrderModal({
                       <p className="text-sm text-gray-600">
                         {formatPrice(item.menuItem.price, currency)} each
                       </p>
+                      {/* Variations */}
+                      {item.selectedOptions &&
+                        item.selectedOptions.length > 0 && (
+                          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                            {item.selectedOptions.map((opt) => (
+                              <div key={opt.id}>
+                                + {opt.name} (
+                                {formatPrice(opt.priceModifier, currency)})
+                              </div>
+                            ))}
+                          </div>
+                        )}
                     </div>
                     <button
                       onClick={() => removeItem(item.id)}

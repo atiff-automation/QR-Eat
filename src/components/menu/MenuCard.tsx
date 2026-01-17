@@ -1,124 +1,172 @@
 'use client';
 
-import { useState } from 'react';
-import { MenuItem, MenuItemVariation } from '@/types/menu';
+import { useState, useMemo, useEffect } from 'react';
+import { MenuItem, VariationOption, VariationGroup } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { X, MessageSquare, ChefHat } from 'lucide-react';
-import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
+import { ChefHat } from 'lucide-react';
 import Image from 'next/image';
+import { BottomSheet } from '@/components/ui/BottomSheet';
+import { AccordionItem } from '@/components/ui/Accordion';
 
 interface MenuCardProps {
   item: MenuItem;
   onAddToCart: (
     item: MenuItem,
     quantity: number,
-    variations: Array<{
-      variationId: string;
-      variation: MenuItemVariation;
-      quantity: number;
-    }>,
+    selectedOptions: VariationOption[],
     instructions?: string
   ) => void;
   onModalStateChange?: (isOpen: boolean) => void;
-  cartQuantity?: number; // Total quantity of this item in cart
-  currency: string; // Phase 3 - Restaurant Settings
+  cartQuantity?: number;
+  currency: string;
 }
 
 export function MenuCard({
   item,
   onAddToCart,
-  onModalStateChange,
   cartQuantity = 0,
   currency,
+  onModalStateChange,
 }: MenuCardProps) {
   const [showModal, setShowModal] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariations, setSelectedVariations] = useState<
-    Record<string, MenuItemVariation>
+  const [selectedOptions, setSelectedOptions] = useState<
+    Record<string, VariationOption[]>
   >({});
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [showInstructions, setShowInstructions] = useState(false);
 
-  // Lock body scroll when modal is open to prevent browser UI auto-hiding
-  useBodyScrollLock(showModal);
+  // Reset state when modal opens
+  useEffect(() => {
+    onModalStateChange?.(showModal);
+    if (showModal) {
+      setQuantity(1);
+      setSelectedOptions({});
+      setSpecialInstructions('');
+    }
+  }, [showModal, onModalStateChange]);
 
-  // Handle modal close with animation
-  const handleClose = () => {
-    setIsClosing(true);
-    setTimeout(() => {
-      setShowModal(false);
-      setIsClosing(false);
-      onModalStateChange?.(false);
-    }, 300); // Match animation duration
-  };
-
-  const handleOpen = () => {
-    setShowModal(true);
-    onModalStateChange?.(true);
-  };
-
-  const handleVariationChange = (
-    variationType: string,
-    variation: MenuItemVariation
+  const handleOptionToggle = (
+    group: VariationGroup,
+    option: VariationOption
   ) => {
-    setSelectedVariations((prev) => ({
-      ...prev,
-      [variationType]: variation,
-    }));
+    setSelectedOptions((prev) => {
+      const currentSelections = prev[group.id] || [];
+      const isSelected = currentSelections.some((o) => o.id === option.id);
+
+      if (isSelected) {
+        // Remove option
+        return {
+          ...prev,
+          [group.id]: currentSelections.filter((o) => o.id !== option.id),
+        };
+      } else {
+        // Add option
+        // Check max selections
+        if (group.maxSelections === 1) {
+          // Single select: Replace existing
+          return {
+            ...prev,
+            [group.id]: [option],
+          };
+        } else {
+          // Multi select: Add if under limit
+          if (
+            group.maxSelections > 0 &&
+            currentSelections.length >= group.maxSelections
+          ) {
+            return prev; // Ignore if max reached
+          }
+          return {
+            ...prev,
+            [group.id]: [...currentSelections, option],
+          };
+        }
+      }
+    });
   };
+
+  const calculateTotalPrice = () => {
+    const basePrice = item.price;
+    const optionsPrice = Object.values(selectedOptions)
+      .flat()
+      .reduce((sum, opt) => sum + opt.priceModifier, 0);
+    return (basePrice + optionsPrice) * quantity;
+  };
+
+  const validationState = useMemo(() => {
+    const invalidGroups: string[] = [];
+
+    // Check nested variationGroups (phase 3 structure)
+    // Fallback to empty array if undefined
+    const groups = item.variationGroups || [];
+
+    for (const group of groups) {
+      const selections = selectedOptions[group.id] || [];
+      if (selections.length < group.minSelections) {
+        invalidGroups.push(group.id);
+      }
+    }
+    return invalidGroups;
+  }, [item.variationGroups, selectedOptions]);
+
+  const isValid = validationState.length === 0;
 
   const handleAddToCart = () => {
-    const variations = Object.values(selectedVariations).map((v) => ({
-      variationId: v.id,
-      variation: v,
-      quantity: 1,
-    }));
+    if (!isValid) return;
 
-    onAddToCart(item, quantity, variations, specialInstructions || undefined);
-
-    // Reset and close
-    setQuantity(1);
-    setSelectedVariations({});
-    setSpecialInstructions('');
-    setShowModal(false);
-    onModalStateChange?.(false);
-  };
-
-  const calculatePrice = () => {
-    const variationsTotal = Object.values(selectedVariations).reduce(
-      (sum: number, variation: MenuItemVariation) => {
-        return sum + (variation.priceModifier || 0);
-      },
-      0
+    const flattenedOptions = Object.values(selectedOptions).flat();
+    onAddToCart(
+      item,
+      quantity,
+      flattenedOptions,
+      specialInstructions || undefined
     );
-
-    return (item.price + variationsTotal) * quantity;
+    setShowModal(false);
   };
 
-  const requiredVariationTypes = [
-    ...new Set(
-      item.variations.filter((v) => v.isRequired).map((v) => v.variationType)
-    ),
-  ];
-  const canAddToCart = requiredVariationTypes.every(
-    (type) => selectedVariations[type]
+  const renderFooter = () => (
+    <div className="flex gap-4 items-center">
+      {/* Quantity */}
+      <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden h-12 shrink-0">
+        <button
+          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+          className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-r border-gray-200 text-xl font-bold"
+        >
+          −
+        </button>
+        <span className="w-12 text-center font-bold text-gray-900 text-lg">
+          {quantity}
+        </span>
+        <button
+          onClick={() => setQuantity(quantity + 1)}
+          className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200 text-xl font-bold"
+        >
+          +
+        </button>
+      </div>
+
+      {/* Add Button */}
+      <button
+        onClick={handleAddToCart}
+        disabled={!isValid}
+        className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center text-sm sm:text-base uppercase tracking-wide"
+      >
+        <span>Add • {formatPrice(calculateTotalPrice(), currency)}</span>
+      </button>
+    </div>
   );
 
   return (
     <>
-      {/* Simple Card - Just Image, Name, Price */}
       <div
-        onClick={handleOpen}
+        onClick={() => setShowModal(true)}
         className="bg-white rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow text-left w-full cursor-pointer relative"
       >
-        {/* Cart Quantity Badge - Minimal & Modern */}
         {cartQuantity > 0 && (
           <div className="absolute top-1.5 right-1.5 z-10 bg-orange-500 text-white text-[10px] font-bold rounded-md px-1.5 py-0.5 shadow-sm">
             {cartQuantity}
           </div>
         )}
-        {/* Image */}
         <div className="relative aspect-square">
           {item.imageUrl ? (
             <Image
@@ -130,26 +178,10 @@ export function MenuCard({
             />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
-              <div className="text-center text-gray-400">
-                <svg
-                  className="w-12 h-12 mx-auto"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-              </div>
+              <ChefHat className="w-12 h-12 text-gray-300" />
             </div>
           )}
         </div>
-
-        {/* Info - Name and Price */}
         <div className="p-3">
           <div className="flex items-center gap-1 mb-1">
             <h3 className="font-semibold text-gray-900 text-sm line-clamp-2 min-h-[2.5rem] flex-1">
@@ -165,207 +197,106 @@ export function MenuCard({
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {showModal && (
-        <div className="qr-modal-overlay z-50 flex items-center justify-center">
-          {/* Backdrop - Darker to focus on modal */}
-          <div
-            className={`absolute inset-0 ${isClosing ? 'animate-fade-out' : ''}`}
-            style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-            onClick={handleClose}
-          />
-
-          {/* Modal Content - Fullscreen on mobile, centered card on desktop */}
-          <div
-            className={`relative bg-white w-full h-full max-h-[90vh] sm:h-auto rounded-2xl sm:max-w-lg overflow-hidden flex flex-col ${
-              isClosing ? 'animate-slide-down' : 'animate-slide-up'
-            }`}
-          >
-            {/* Header with Image */}
-            <div className="relative shrink-0">
-              {item.imageUrl ? (
-                <div className="relative w-full h-56 sm:h-64">
-                  <Image
-                    src={item.imageUrl}
-                    alt={item.name}
-                    fill
-                    sizes="(max-width: 768px) 100vw, 512px"
-                    className="object-cover"
-                  />
-                </div>
-              ) : (
-                <div className="w-full h-56 sm:h-64 bg-gradient-to-br from-gray-100 to-gray-200" />
-              )}
-
-              {/* Close Button */}
-              <button
-                onClick={handleClose}
-                className="absolute right-4 p-2 bg-white/80 backdrop-blur-sm rounded-full shadow-lg hover:bg-white transition-colors z-10"
-                style={{ top: 'calc(env(safe-area-inset-top, 0px) + 1rem)' }}
-              >
-                <X className="h-5 w-5 text-gray-600" />
-              </button>
+      <BottomSheet
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={item.name}
+        footer={renderFooter()}
+      >
+        <div className="space-y-6 pb-4">
+          {/* Image Header within Modal */}
+          {item.imageUrl && (
+            <div className="relative w-full h-48 rounded-xl overflow-hidden shadow-sm">
+              <Image
+                src={item.imageUrl}
+                alt={item.name}
+                fill
+                className="object-cover"
+              />
             </div>
+          )}
 
-            {/* Scrollable Content */}
-            <div className="modal-scrollable flex-1 overflow-y-auto min-h-0 p-4 space-y-3">
-              {/* Name and Features */}
-              <div className="space-y-0.5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 pr-2">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-xl font-bold text-gray-900 leading-tight">
-                        {item.name}
-                      </h2>
-                      {item.isFeatured && (
-                        <ChefHat className="w-5 h-5 text-orange-500 flex-shrink-0" />
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-xl font-bold text-orange-600 whitespace-nowrap pt-0.5">
-                    {formatPrice(item.price, currency)}
-                  </div>
-                </div>
-              </div>
+          {/* Description */}
+          {item.description && (
+            <p className="text-gray-600 text-sm leading-relaxed">
+              {item.description}
+            </p>
+          )}
 
-              {/* Description */}
-              {item.description && (
-                <p className="text-sm text-gray-600 leading-relaxed">
-                  {item.description}
-                </p>
-              )}
+          {/* Variation Groups */}
+          <div className="space-y-3">
+            {item.variationGroups?.map((group) => {
+              const currentSelections = selectedOptions[group.id] || [];
+              const isSatisfied =
+                currentSelections.length >= group.minSelections;
+              const isError = validationState.includes(group.id);
 
-              {/* Variations */}
-              {item.variations.length > 0 && (
-                <div className="space-y-4 pt-1">
-                  {[
-                    ...new Set(item.variations.map((v) => v.variationType)),
-                  ].map((type) => {
-                    const typeVariations = item.variations.filter(
-                      (v) => v.variationType === type
-                    );
-                    const isRequired = typeVariations.some((v) => v.isRequired);
-
-                    return (
-                      <div key={type} className="space-y-2">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-bold text-gray-900 capitalize tracking-tight">
-                            {type}
-                          </h4>
-                          {isRequired && (
-                            <span className="text-[10px] font-bold text-white bg-orange-500 px-1.5 py-0.5 rounded uppercase">
-                              Required
+              return (
+                <AccordionItem
+                  key={group.id}
+                  title={group.name}
+                  subtitle={
+                    group.maxSelections === 1
+                      ? 'Select 1'
+                      : `Select up to ${group.maxSelections}`
+                  }
+                  isRequired={group.minSelections > 0}
+                  isCompleted={isSatisfied}
+                  error={
+                    isError
+                      ? `Please select at least ${group.minSelections}`
+                      : undefined
+                  }
+                  defaultOpen={group.minSelections > 0}
+                >
+                  <div className="space-y-2">
+                    {group.options.map((option) => {
+                      const isSelected = currentSelections.some(
+                        (o) => o.id === option.id
+                      );
+                      return (
+                        <button
+                          key={option.id}
+                          onClick={() => handleOptionToggle(group, option)}
+                          className={`
+                            w-full flex items-center justify-between p-3 rounded-lg border transition-all
+                            ${
+                              isSelected
+                                ? 'border-orange-500 bg-orange-50 text-orange-900 shadow-sm'
+                                : 'border-gray-100 hover:bg-gray-50 text-gray-700'
+                            }
+                          `}
+                        >
+                          <span className="font-medium">{option.name}</span>
+                          {option.priceModifier > 0 && (
+                            <span className="text-sm font-semibold text-orange-600">
+                              +{formatPrice(option.priceModifier, currency)}
                             </span>
                           )}
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {typeVariations.map((variation) => {
-                            const isSelected =
-                              selectedVariations[type]?.id === variation.id;
-                            return (
-                              <button
-                                key={variation.id}
-                                onClick={() =>
-                                  handleVariationChange(type, variation)
-                                }
-                                className={`flex items-center px-4 py-2 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${
-                                  isSelected
-                                    ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm'
-                                    : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-gray-100'
-                                }`}
-                              >
-                                <span className="flex-1">{variation.name}</span>
-                                {variation.priceModifier !== 0 && (
-                                  <span
-                                    className={`ml-2 text-xs font-bold ${isSelected ? 'text-orange-600' : 'text-gray-400'}`}
-                                  >
-                                    {variation.priceModifier > 0 ? '+' : ''}
-                                    {formatPrice(
-                                      variation.priceModifier,
-                                      currency
-                                    )}
-                                  </span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </AccordionItem>
+              );
+            })}
+          </div>
 
-              {/* Special Instructions - Collapsible */}
-              <div className="pt-1">
-                <button
-                  onClick={() => setShowInstructions(!showInstructions)}
-                  className="flex items-center text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-wider"
-                >
-                  <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
-                  <span>
-                    {showInstructions
-                      ? 'Hide Instructions'
-                      : 'Add Special Request'}
-                  </span>
-                </button>
-
-                {showInstructions && (
-                  <textarea
-                    value={specialInstructions}
-                    onChange={(e) => setSpecialInstructions(e.target.value)}
-                    className="w-full p-4 bg-gray-50 border-none rounded-2xl text-base focus:ring-2 focus:ring-blue-500 mt-3 transition-all placeholder-gray-400"
-                    rows={2}
-                    placeholder="Any allergies or special requests? We'll do our best!"
-                    autoFocus
-                  />
-                )}
-              </div>
-            </div>
-
-            {/* Footer - Quantity and Add to Cart - Sticky */}
-            <div
-              className="sticky bottom-0 p-3 pt-4 border-t border-gray-100 bg-white shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.03)]"
-              style={{
-                paddingBottom:
-                  'calc(env(safe-area-inset-bottom, 0px) + 0.75rem)',
-              }}
-            >
-              {/* Quantity Selector - Compact Modern Design */}
-              <div className="flex items-center justify-center mb-4">
-                <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden h-9">
-                  <button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-r border-gray-200"
-                  >
-                    <span className="text-xl">−</span>
-                  </button>
-                  <span className="w-10 text-center font-bold text-gray-900 text-base">
-                    {quantity}
-                  </span>
-                  <button
-                    onClick={() => setQuantity(quantity + 1)}
-                    className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200"
-                  >
-                    <span className="text-xl">+</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Add to Cart Button - Clean Action */}
-              <button
-                onClick={handleAddToCart}
-                disabled={!canAddToCart}
-                className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center"
-              >
-                <span className="uppercase">
-                  Add to Cart - {formatPrice(calculatePrice(), currency)}
-                </span>
-              </button>
-            </div>
+          {/* Special Instructions */}
+          <div className="pt-2">
+            <label className="block text-sm font-bold text-gray-900 mb-2">
+              Special Instructions
+            </label>
+            <textarea
+              value={specialInstructions}
+              onChange={(e) => setSpecialInstructions(e.target.value)}
+              placeholder="Any allergies or special requests?"
+              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder-gray-400 text-sm"
+              rows={3}
+            />
           </div>
         </div>
-      )}
+      </BottomSheet>
     </>
   );
 }

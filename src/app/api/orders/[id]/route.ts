@@ -49,14 +49,10 @@ export async function GET(
                 preparationTime: true,
               },
             },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    name: true,
-                    variationType: true,
-                  },
-                },
+            selectedOptions: {
+              select: {
+                name: true,
+                priceModifier: true,
               },
             },
           },
@@ -241,14 +237,10 @@ export async function PATCH(
                   preparationTime: true,
                 },
               },
-              variations: {
-                include: {
-                  variation: {
-                    select: {
-                      name: true,
-                      variationType: true,
-                    },
-                  },
+              selectedOptions: {
+                select: {
+                  name: true,
+                  priceModifier: true,
                 },
               },
             },

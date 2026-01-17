@@ -255,7 +255,7 @@ export async function POST(request: NextRequest) {
     console.error('Create menu item error:', error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: (error as z.ZodError).errors },
+        { error: 'Invalid data', details: error.errors },
         { status: 400 }
       );
     }

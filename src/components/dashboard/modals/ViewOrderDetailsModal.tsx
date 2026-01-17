@@ -225,6 +225,25 @@ export function ViewOrderDetailsModal({
                             Qty: {item.quantity} ×{' '}
                             {formatPrice(item.unitPrice, currency)}
                           </p>
+                          {/* Variations */}
+                          {item.selectedOptions &&
+                            item.selectedOptions.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                {item.selectedOptions.map(
+                                  (opt: {
+                                    id: string;
+                                    name: string;
+                                    priceModifier: number;
+                                  }) => (
+                                    <div key={opt.id}>
+                                      + {opt.name} (
+                                      {formatPrice(opt.priceModifier, currency)}
+                                      )
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            )}
                         </div>
                         <p className="font-semibold text-gray-900">
                           {formatPrice(item.totalAmount, currency)}

@@ -36,13 +36,10 @@ interface KitchenOrder {
       preparationTime: number;
       categoryId: string;
     };
-    variations: {
+    selectedOptions: {
       id: string;
-      quantity: number;
-      variation: {
-        name: string;
-        variationType: string;
-      };
+      name: string;
+      priceModifier: number;
     }[];
   }[];
 }
@@ -577,13 +574,12 @@ export function KitchenDisplayBoard() {
                           </span>
                         </div>
 
-                        {/* Variations */}
-                        {item.variations.length > 0 && (
+                        {/* Variations (Selected Options) */}
+                        {item.selectedOptions.length > 0 && (
                           <div className="text-sm md:text-xs text-gray-400 ml-1 mt-1">
-                            {item.variations.map((v) => (
-                              <span key={v.id} className="block">
-                                + {v.quantity > 1 ? `${v.quantity}x ` : ''}
-                                {v.variation.name}
+                            {item.selectedOptions.map((opt) => (
+                              <span key={opt.id} className="block">
+                                + {opt.name}
                               </span>
                             ))}
                           </div>

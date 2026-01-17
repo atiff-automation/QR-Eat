@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo } from 'react';
-import { MenuCategory, MenuItem, MenuItemVariation, Cart } from '@/types/menu';
+import { MenuCategory, MenuItem, VariationOption, Cart } from '@/types/menu';
 import { Search, X } from 'lucide-react';
 import { MenuCard } from './MenuCard';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
@@ -12,14 +12,11 @@ interface SearchBarProps {
   onAddToCart: (
     item: MenuItem,
     quantity: number,
-    variations: Array<{
-      variationId: string;
-      variation: MenuItemVariation;
-      quantity: number;
-    }>,
+    selectedOptions: VariationOption[],
     instructions?: string
   ) => void;
   onModalStateChange: (isOpen: boolean) => void;
+  currency: string;
 }
 
 export function SearchBar({
@@ -27,6 +24,7 @@ export function SearchBar({
   cart,
   onAddToCart,
   onModalStateChange,
+  currency,
 }: SearchBarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -146,6 +144,7 @@ export function SearchBar({
                         onAddToCart={onAddToCart}
                         onModalStateChange={onModalStateChange}
                         cartQuantity={cartQuantity}
+                        currency={currency}
                       />
                     );
                   })}

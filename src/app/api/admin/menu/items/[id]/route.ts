@@ -138,22 +138,17 @@ export async function PATCH(
     }
 
     // Build Prisma Update Data
-    if (
-      updateData.imageUrl !== undefined &&
-      existingItem.imageUrl !== updateData.imageUrl
-    ) {
-      await deleteImageFile(existingItem.imageUrl);
-    }
+    // Destructure variationGroups out to avoid type mismatch with Prisma input
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { variationGroups: _variationGroups, ...scalarData } = updateData;
 
-    // Build Prisma Update Data
     const itemData: Prisma.MenuItemUpdateInput = {
-      ...updateData,
-      variationGroups: undefined, // Handle separately
+      ...scalarData,
       updatedAt: new Date(),
     };
 
     // Explicitly delete undefined fields to avoid Prisma errors (Zod parses as undefined)
-    Object.keys(itemData).forEach(
+    (Object.keys(itemData) as Array<keyof Prisma.MenuItemUpdateInput>).forEach(
       (key) => itemData[key] === undefined && delete itemData[key]
     );
 
@@ -197,7 +192,7 @@ export async function PATCH(
     console.error('Update menu item error:', error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: (error as z.ZodError).errors },
+        { error: 'Invalid data', details: error.errors },
         { status: 400 }
       );
     }
