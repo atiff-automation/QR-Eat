@@ -1134,6 +1134,19 @@ async function main() {
   console.log('✅ Created role-permission mappings:', rolePermissions.length);
 
   // Create initial user roles for existing users
+  // Cleanup existing roles first (Idempotency)
+  await prisma.userRole.deleteMany({
+    where: {
+      userId: {
+        in: [
+          platformAdmin.id,
+          ...restaurantOwners.map((o) => o.id),
+          ...staff.map((s) => s.id),
+        ],
+      },
+    },
+  });
+
   const platformAdminRole = await prisma.userRole.create({
     data: {
       userId: platformAdmin.id,
