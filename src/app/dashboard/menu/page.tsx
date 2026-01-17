@@ -25,53 +25,14 @@ import {
   useCreateCategory,
   useUpdateMenuItem,
   useUpdateCategory,
+  MenuItem,
+  MenuCategory,
+  VariationGroup,
 } from '@/lib/hooks/queries/useMenu';
+import { VariationManager } from '@/components/menu/VariationManager';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
-
-interface MenuCategory {
-  id: string;
-  name: string;
-  description?: string;
-  displayOrder: number;
-  status: 'ACTIVE' | 'INACTIVE';
-  menuItems: MenuItem[];
-  _count: {
-    menuItems: number;
-  };
-}
-
-interface MenuItem {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  imageUrl?: string;
-  preparationTime: number;
-  calories?: number;
-  allergens: string[];
-  dietaryInfo: string[];
-  status: 'ACTIVE' | 'INACTIVE';
-  isFeatured: boolean;
-  displayOrder: number;
-  categoryId?: string;
-  category?: {
-    id: string;
-    name: string;
-  };
-  variations: MenuItemVariation[];
-}
-
-interface MenuItemVariation {
-  id: string;
-  name: string;
-  priceModifier: number;
-  variationType: string;
-  isRequired: boolean;
-  maxSelections?: number;
-  displayOrder: number;
-}
 
 export default function MenuPage() {
   // TanStack Query for data fetching
@@ -641,6 +602,7 @@ function AddModal({
     imageUrl: string;
     allergens: string[];
     dietaryInfo: string[];
+    variationGroups: VariationGroup[];
     isAvailable: boolean;
     isFeatured: boolean;
   }>({
@@ -653,6 +615,7 @@ function AddModal({
     imageUrl: '',
     allergens: [],
     dietaryInfo: [],
+    variationGroups: [],
     isAvailable: true,
     isFeatured: false,
   });
@@ -684,17 +647,17 @@ function AddModal({
       }
 
       onSuccess(newItemCategoryId);
-    } catch (error) {
-      console.error(`Failed to create ${type}:`, error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
-        if (error.details) {
-          console.error('Validation Details:', error.details);
+    } catch (err) {
+      console.error(`Failed to create ${type}:`, err);
+      if (err instanceof ApiClientError) {
+        setError(err.message);
+        if (err.details) {
+          console.error('Validation Details:', err.details);
         }
       } else {
         setError(
-          error instanceof Error
-            ? error.message
+          err instanceof Error
+            ? err.message
             : 'Network error. Please try again.'
         );
       }
@@ -1023,6 +986,23 @@ function AddModal({
                     </span>
                   </label>
                 </div>
+
+                {/* Variations Manager */}
+                <div className="border-t border-gray-100 pt-4">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-4">
+                    Variations & Add-ons
+                  </h4>
+                  <VariationManager
+                    value={formData.variationGroups}
+                    onChange={(groups) =>
+                      setFormData({
+                        ...formData,
+                        variationGroups: groups,
+                      })
+                    }
+                    currencySymbol={currency}
+                  />
+                </div>
               </>
             )}
 
@@ -1073,6 +1053,7 @@ function EditItemModal({
     dietaryInfo: item.dietaryInfo || [],
     status: item.status,
     isFeatured: item.isFeatured,
+    variationGroups: item.variationGroups || [],
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -1094,10 +1075,10 @@ function EditItemModal({
       await updateItemMutation.mutateAsync(payload);
 
       onSuccess();
-    } catch (error) {
-      console.error('Failed to update item:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
+    } catch (err) {
+      console.error('Failed to update item:', err);
+      if (err instanceof ApiClientError) {
+        setError(err.message);
       } else {
         setError('Network error. Please try again.');
       }
@@ -1399,6 +1380,23 @@ function EditItemModal({
               </label>
             </div>
 
+            {/* Variations Manager */}
+            <div className="border-t border-gray-100 pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">
+                Variations & Add-ons
+              </h4>
+              <VariationManager
+                value={formData.variationGroups}
+                onChange={(groups) =>
+                  setFormData({
+                    ...formData,
+                    variationGroups: groups,
+                  })
+                }
+                currencySymbol={currency}
+              />
+            </div>
+
             {error && (
               <div className="text-red-500 text-xs font-medium bg-red-50 p-2 rounded-lg">
                 {error}
@@ -1451,10 +1449,10 @@ function EditCategoryModal({
       });
 
       onSuccess();
-    } catch (error) {
-      console.error('Failed to update category:', error);
-      if (error instanceof ApiClientError) {
-        setError(error.message);
+    } catch (err) {
+      console.error('Failed to update category:', err);
+      if (err instanceof ApiClientError) {
+        setError(err.message);
       } else {
         setError('Network error. Please try again.');
       }

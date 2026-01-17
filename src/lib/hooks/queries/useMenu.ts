@@ -19,16 +19,26 @@ import { ApiClient } from '@/lib/api-client';
 import { queryKeys } from '@/lib/query-client';
 
 /**
- * Menu Item Variation Interface
+ * Variation Option Interface
  */
-export interface MenuItemVariation {
+export interface VariationOption {
   id: string;
   name: string;
   priceModifier: number;
-  variationType: string;
-  isRequired: boolean;
-  maxSelections?: number;
+  isAvailable: boolean;
   displayOrder: number;
+}
+
+/**
+ * Variation Group Interface
+ */
+export interface VariationGroup {
+  id: string;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  displayOrder: number;
+  options: VariationOption[];
 }
 
 /**
@@ -52,7 +62,7 @@ export interface MenuItem {
     id: string;
     name: string;
   };
-  variations: MenuItemVariation[];
+  variationGroups: VariationGroup[];
 }
 
 /**
