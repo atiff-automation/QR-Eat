@@ -120,8 +120,17 @@ export function ModifyOrderModal({
   const newServiceCharge = newSubtotal * serviceChargeRate;
   const newTotal = newSubtotal + newTax + newServiceCharge;
 
+  // Calculate what the original total SHOULD be based on the derived rates
+  // This ensures we comparing "apples to apples" when calculating the difference
+  const recalculatedOriginalTax = originalSubtotal * taxRate;
+  const recalculatedOriginalService = originalSubtotal * serviceChargeRate;
+  const recalculatedOriginalTotal =
+    originalSubtotal + recalculatedOriginalTax + recalculatedOriginalService;
+
   // Calculate difference
-  const difference = newTotal - originalTotal;
+  // We compare against recalculatedOriginalTotal to ensure that if no changes are made,
+  // the difference is exactly 0 (ignoring any storage discrepancies in order.totalAmount)
+  const difference = newTotal - recalculatedOriginalTotal;
 
   const refundNeeded = calculateRefundNeeded(order, newTotal);
   const hasChanges = JSON.stringify(items) !== JSON.stringify(order.items);
@@ -300,7 +309,9 @@ export function ModifyOrderModal({
                 <div key={item.id} className="border rounded-lg p-3 bg-gray-50">
                   <div className="flex justify-between items-start mb-2">
                     <div>
-                      <h4 className="font-medium text-gray-900">{item.menuItem.name}</h4>
+                      <h4 className="font-medium text-gray-900">
+                        {item.menuItem.name}
+                      </h4>
                       <p className="text-sm text-gray-600">
                         {formatPrice(item.menuItem.price, currency)} each
                       </p>
@@ -384,7 +395,11 @@ export function ModifyOrderModal({
             <div className="flex justify-between font-bold text-base">
               <span className="text-gray-900">New Total:</span>
               <span
-                className={newTotal < order.totalAmount ? 'text-red-600' : 'text-gray-900'}
+                className={
+                  newTotal < order.totalAmount
+                    ? 'text-red-600'
+                    : 'text-gray-900'
+                }
               >
                 {formatPrice(newTotal, currency)}
               </span>
@@ -397,10 +412,11 @@ export function ModifyOrderModal({
             </div>
 
             {/* Difference */}
-            {difference !== 0 && (
+            {Math.abs(difference) > 0.005 && (
               <div
-                className={`flex justify-between text-sm font-medium ${difference < 0 ? 'text-red-600' : 'text-green-600'
-                  }`}
+                className={`flex justify-between text-sm font-medium ${
+                  difference < 0 ? 'text-red-600' : 'text-green-600'
+                }`}
               >
                 <span>Difference:</span>
                 <span>
