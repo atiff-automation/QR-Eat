@@ -34,6 +34,24 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 
+// Helper to validate variation groups
+const validateVariations = (groups: VariationGroup[]): string | null => {
+  for (const group of groups) {
+    if (group.name.trim() === '') {
+      return 'All variation groups must have a name.';
+    }
+    if (group.maxSelections > 0 && group.minSelections > group.maxSelections) {
+      return `Header "${group.name}": Min selections cannot exceed Max selections.`;
+    }
+    for (const option of group.options) {
+      if (option.name.trim() === '') {
+        return `Group "${group.name}": All options must have a name.`;
+      }
+    }
+  }
+  return null;
+};
+
 export default function MenuPage() {
   // TanStack Query for data fetching
   const {
@@ -637,6 +655,12 @@ function AddModal({
         const result = await createCategoryMutation.mutateAsync(formData);
         newItemCategoryId = result.category?.id;
       } else {
+        // Validate Variations
+        const validationError = validateVariations(formData.variationGroups);
+        if (validationError) {
+          throw new ApiClientError(validationError, 400);
+        }
+
         const itemData = {
           ...formData,
           preparationTime: parseInt(formData.preparationTime.toString()) || 15,
@@ -1066,6 +1090,12 @@ function EditItemModal({
     setError('');
 
     try {
+      // Validate Variations
+      const validationError = validateVariations(formData.variationGroups);
+      if (validationError) {
+        throw new ApiClientError(validationError, 400);
+      }
+
       const payload = {
         id: item.id, // ID is required for the hook
         ...formData,
