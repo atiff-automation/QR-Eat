@@ -52,19 +52,13 @@ export interface OrderItem {
     description?: string;
     preparationTime: number;
   };
-  variations: OrderItemVariation[];
+  selectedOptions: OrderItemOption[];
 }
 
-export interface OrderItemVariation {
+export interface OrderItemOption {
   id: string;
-  variationId: string;
-  quantity: number;
-  unitPrice: number;
-  totalAmount: number;
-  variation: {
-    name: string;
-    variationType: string;
-  };
+  name: string;
+  priceModifier: number;
 }
 
 export interface CreateOrderRequest {

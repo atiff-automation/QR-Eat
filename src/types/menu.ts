@@ -21,16 +21,23 @@ export interface MenuItem {
   isAvailable: boolean;
   isFeatured: boolean;
   displayOrder: number;
-  variations: MenuItemVariation[];
+  variationGroups: VariationGroup[];
 }
 
-export interface MenuItemVariation {
+export interface VariationGroup {
+  id: string;
+  name: string;
+  minSelections: number;
+  maxSelections: number;
+  displayOrder: number;
+  options: VariationOption[];
+}
+
+export interface VariationOption {
   id: string;
   name: string;
   priceModifier: number;
-  variationType: string;
-  isRequired: boolean;
-  maxSelections: number;
+  isAvailable: boolean;
   displayOrder: number;
 }
 
@@ -39,11 +46,7 @@ export interface CartItem {
   menuItemId: string;
   menuItem: MenuItem;
   quantity: number;
-  selectedVariations: Array<{
-    variationId: string;
-    variation: MenuItemVariation;
-    quantity: number;
-  }>;
+  selectedOptions: VariationOption[];
   specialInstructions?: string;
   unitPrice: number;
   totalPrice: number;

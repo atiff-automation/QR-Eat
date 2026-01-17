@@ -46,10 +46,10 @@ export interface OrderWithDetails extends Order {
   taxLabel?: string;
   serviceChargeLabel?: string;
   // Snapshots (Explicit for type safety)
-  taxRateSnapshot?: Decimal;
-  serviceChargeRateSnapshot?: Decimal;
-  taxLabelSnapshot?: string;
-  serviceChargeLabelSnapshot?: string;
+  taxRateSnapshot: Decimal;
+  serviceChargeRateSnapshot: Decimal;
+  taxLabelSnapshot: string;
+  serviceChargeLabelSnapshot: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   metadata?: any;
 }

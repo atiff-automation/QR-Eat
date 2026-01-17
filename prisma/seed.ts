@@ -598,6 +598,37 @@ async function main() {
         isAvailable: true,
         isFeatured: true,
         displayOrder: 1,
+        variationGroups: {
+          create: [
+            {
+              name: 'Size',
+              minSelections: 1,
+              maxSelections: 1,
+              displayOrder: 1,
+              options: {
+                create: [
+                  { name: 'Regular', priceModifier: 0, displayOrder: 1 },
+                  { name: 'Large', priceModifier: 4, displayOrder: 2 },
+                  { name: 'Family', priceModifier: 8, displayOrder: 3 },
+                ],
+              },
+            },
+            {
+              name: 'Extra Toppings',
+              minSelections: 0,
+              maxSelections: 5,
+              displayOrder: 2,
+              options: {
+                create: [
+                  { name: 'Extra Cheese', priceModifier: 2, displayOrder: 1 },
+                  { name: 'Pepperoni', priceModifier: 3, displayOrder: 2 },
+                  { name: 'Mushrooms', priceModifier: 2, displayOrder: 3 },
+                  { name: 'Olives', priceModifier: 1.5, displayOrder: 4 },
+                ],
+              },
+            },
+          ],
+        },
       },
     }),
     prisma.menuItem.create({

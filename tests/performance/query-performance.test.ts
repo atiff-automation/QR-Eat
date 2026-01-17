@@ -10,7 +10,7 @@
  * Run: npm test -- tests/performance/query-performance.test.ts
  */
 
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, OrderStatus, OrderPaymentStatus } from '@prisma/client';
 import { performance } from 'perf_hooks';
 
 const prisma = new PrismaClient();
@@ -172,19 +172,19 @@ describe('Query Performance Tests', () => {
         tableId: table.id,
         sessionToken: `perf-session-${Date.now()}`,
         expiresAt: new Date(Date.now() + 3600000), // 1 hour
-        status: 'active',
+        status: 'ACTIVE',
       },
     });
 
     // Create orders with various statuses
-    const orderStatuses = [
-      'pending',
-      'confirmed',
-      'preparing',
-      'ready',
-      'served',
+    const orderStatuses: OrderStatus[] = [
+      'PENDING',
+      'CONFIRMED',
+      'PREPARING',
+      'READY',
+      'SERVED',
     ];
-    const paymentStatuses = ['pending', 'paid', 'failed'];
+    const paymentStatuses: OrderPaymentStatus[] = ['PENDING', 'PAID', 'FAILED'];
 
     const orders = await Promise.all(
       Array.from({ length: 15 }, async (_, i) => {
@@ -198,6 +198,10 @@ describe('Query Performance Tests', () => {
             paymentStatus: paymentStatuses[i % paymentStatuses.length],
             totalAmount: 100.0 + i,
             takenBy: staff.id,
+            taxRateSnapshot: 0,
+            serviceChargeRateSnapshot: 0,
+            taxLabelSnapshot: 'Tax',
+            serviceChargeLabelSnapshot: 'Service',
           },
         });
       })
@@ -256,7 +260,7 @@ describe('Query Performance Tests', () => {
           return await prisma.order.findMany({
             where: {
               restaurantId: testData.restaurantId,
-              status: 'pending',
+              status: 'PENDING',
             },
             orderBy: { createdAt: 'desc' },
             take: 50,
@@ -273,7 +277,7 @@ describe('Query Performance Tests', () => {
           return await prisma.order.findMany({
             where: {
               restaurantId: testData.restaurantId,
-              paymentStatus: 'paid',
+              paymentStatus: 'PAID',
             },
             orderBy: { createdAt: 'desc' },
             take: 50,
@@ -409,7 +413,7 @@ describe('Query Performance Tests', () => {
           return await prisma.customerSession.findFirst({
             where: {
               tableId: testData.tableId,
-              status: 'active',
+              status: 'ACTIVE',
             },
             orderBy: { startedAt: 'desc' },
           });
@@ -424,7 +428,7 @@ describe('Query Performance Tests', () => {
       const query = `
         SELECT * FROM orders
         WHERE restaurant_id = '${testData.restaurantId}'
-          AND status = 'pending'
+          AND status = 'PENDING'
         ORDER BY created_at DESC
         LIMIT 50
       `;

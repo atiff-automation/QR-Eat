@@ -333,7 +333,7 @@ model MenuItem {
   restaurant        Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category          MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems        OrderItem[]
-  variations        MenuItemVariation[]
+  variationGroups   VariationGroup[]        // New relation
   cartItems         CartItem[]
   modificationItems OrderModificationItem[] // New relation
 
@@ -345,43 +345,82 @@ model MenuItem {
   @@map("menu_items")
 }
 
-model MenuItemVariation {
+model VariationGroup {
   id            String   @id @default(uuid())
   menuItemId    String
   name          String
-  priceModifier Decimal  @default(0.00) @db.Decimal(10, 2)
-  variationType String
-  isRequired    Boolean  @default(false)
-  maxSelections Int      @default(1)
+  minSelections Int      @default(0)
+  maxSelections Int      @default(1) // 0 = unlimited
   displayOrder  Int      @default(0)
   createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  menuItem            MenuItem             @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  orderItemVariations OrderItemVariation[]
-  cartItems           CartItem[]
+  menuItem MenuItem          @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  options  VariationOption[]
 
   @@index([menuItemId])
-  @@index([variationType])
-  @@map("menu_item_variations")
+  @@map("variation_groups")
+}
+
+model VariationOption {
+  id               String   @id @default(uuid())
+  variationGroupId String
+  name             String
+  priceModifier    Decimal  @default(0.00) @db.Decimal(10, 2)
+  isAvailable      Boolean  @default(true)
+  displayOrder     Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  variationGroup  VariationGroup   @relation(fields: [variationGroupId], references: [id], onDelete: Cascade)
+  cartItemOptions CartItemOption[]
+
+  @@index([variationGroupId])
+  @@map("variation_options")
+}
+
+model CartItemOption {
+  id                String @id @default(uuid())
+  cartItemId        String
+  variationOptionId String
+
+  cartItem        CartItem        @relation(fields: [cartItemId], references: [id], onDelete: Cascade)
+  variationOption VariationOption @relation(fields: [variationOptionId], references: [id], onDelete: Cascade)
+
+  @@index([cartItemId])
+  @@index([variationOptionId])
+  @@map("cart_item_options")
+}
+
+model OrderItemOption {
+  id            String  @id @default(uuid())
+  orderItemId   String
+  name          String
+  priceModifier Decimal @db.Decimal(10, 2)
+
+  orderItem OrderItem @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+
+  @@index([orderItemId])
+  @@map("order_item_options")
 }
 
 // Transaction Fee Tracking
 model TransactionFee {
-  id               String    @id @default(uuid())
-  restaurantId     String
-  orderId          String    @unique
-  subscriptionId   String
-  orderAmount      Decimal   @db.Decimal(10, 2)
-  feeRate          Decimal   @db.Decimal(5, 4)
-  feeAmount        Decimal   @db.Decimal(10, 2)
-  stripeFee        Decimal   @default(0.00) @db.Decimal(10, 2)
-  netFee           Decimal   @db.Decimal(10, 2)
-  currency         String    @default("USD")
-  processedAt      DateTime  @default(now())
-  payoutStatus     String    @default("pending") // 'pending', 'paid', 'failed'
-  payoutDate       DateTime?
+  id             String  @id @default(uuid())
+  restaurantId   String
+  orderId        String  @unique
+  subscriptionId String
+  orderAmount    Decimal @db.Decimal(10, 2)
+  feeRate        Decimal @db.Decimal(5, 4)
+  feeAmount      Decimal @db.Decimal(10, 2)
+  stripeFee      Decimal @default(0.00) @db.Decimal(10, 2)
+  netFee         Decimal @db.Decimal(10, 2)
+  currency       String  @default("USD")
+  processedAt    DateTime @default(now())
+  payoutStatus   String   @default("pending") // 'pending', 'paid', 'failed'
+  payoutDate     DateTime?
   stripeTransferId String?
-  createdAt        DateTime  @default(now())
+  createdAt      DateTime @default(now())
 
   restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -576,7 +615,6 @@ model CartItem {
   id                  String   @id @default(uuid())
   customerSessionId   String
   menuItemId          String
-  variationId         String?
   quantity            Int      @default(1)
   unitPrice           Decimal  @db.Decimal(10, 2)
   subtotal            Decimal  @db.Decimal(10, 2)
@@ -584,9 +622,9 @@ model CartItem {
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
 
-  customerSession CustomerSession    @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
-  menuItem        MenuItem           @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  variation       MenuItemVariation? @relation(fields: [variationId], references: [id], onDelete: SetNull)
+  customerSession CustomerSession  @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  menuItem        MenuItem         @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  selectedOptions CartItemOption[]
 
   @@index([customerSessionId])
   @@index([menuItemId])
@@ -614,9 +652,9 @@ model Order {
   estimatedReadyTime  DateTime?
 
   // Financial Snapshots (Historical Data Integrity)
-  taxRateSnapshot            Decimal            @db.Decimal(5, 4)
-  serviceChargeRateSnapshot  Decimal            @db.Decimal(5, 4)
-  taxLabelSnapshot          String
+  taxRateSnapshot            Decimal @db.Decimal(5, 4)
+  serviceChargeRateSnapshot  Decimal @db.Decimal(5, 4)
+  taxLabelSnapshot           String
   serviceChargeLabelSnapshot String
 
   // Modification tracking
@@ -665,28 +703,13 @@ model OrderItem {
 
   order             Order                   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   menuItem          MenuItem                @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
-  variations        OrderItemVariation[]
+  selectedOptions   OrderItemOption[]
   modificationItems OrderModificationItem[] // New relation
 
   @@index([orderId])
   @@index([menuItemId])
   @@index([status])
   @@map("order_items")
-}
-
-model OrderItemVariation {
-  id          String   @id @default(uuid())
-  orderItemId String
-  variationId String
-  quantity    Int      @default(1)
-  unitPrice   Decimal  @db.Decimal(10, 2)
-  totalAmount Decimal  @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-
-  orderItem OrderItem         @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
-  variation MenuItemVariation @relation(fields: [variationId], references: [id], onDelete: Cascade)
-
-  @@map("order_item_variations")
 }
 
 model PaymentIntent {

@@ -53,7 +53,10 @@ export async function PATCH(
           where: { id: orderId },
           include: {
             items: {
-              include: { menuItem: true },
+              include: {
+                menuItem: true,
+                selectedOptions: true, // Include options for context
+              },
             },
           },
         });
@@ -103,7 +106,9 @@ export async function PATCH(
           // Already processed, return cached result
           const cachedOrder = await tx.order.findUnique({
             where: { id: orderId },
-            include: { items: { include: { menuItem: true } } },
+            include: {
+              items: { include: { menuItem: true, selectedOptions: true } },
+            },
           });
 
           return {
@@ -143,6 +148,7 @@ export async function PATCH(
               );
             }
 
+            // Trusting existing unitPrice (which includes options)
             const newTotal = Number(item.unitPrice) * change.newQuantity;
 
             await tx.orderItem.update({
@@ -168,7 +174,7 @@ export async function PATCH(
         // 7. Recalculate order totals
         const updatedItems = await tx.orderItem.findMany({
           where: { orderId },
-          include: { menuItem: true },
+          include: { menuItem: true, selectedOptions: true },
         });
 
         if (updatedItems.length === 0) {

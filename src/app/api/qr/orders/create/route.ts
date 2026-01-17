@@ -139,58 +139,44 @@ export async function POST(request: NextRequest) {
     const menuItemsMap = new Map(menuItems.map((item) => [item.id, item]));
 
     // Convert cart items to CartItem format for calculation
-    const orderItems: import('@/types/menu').CartItem[] = tableCart.items.map(
-      (item) => {
-        const menuItem = menuItemsMap.get(item.menuItemId);
-        if (!menuItem) {
-          throw new Error(`Menu item ${item.menuItemId} not found`);
-        }
-
-        return {
-          id: item.id,
-          menuItemId: item.menuItemId,
-          menuItem: {
-            id: menuItem.id,
-            name: menuItem.name,
-            price: Number(menuItem.price),
-            preparationTime: menuItem.preparationTime,
-            imageUrl: menuItem.imageUrl ?? undefined,
-            description: menuItem.description ?? undefined,
-            allergens: menuItem.allergens,
-            dietaryInfo: menuItem.dietaryInfo,
-            isAvailable: menuItem.isAvailable,
-            isFeatured: menuItem.isFeatured,
-            displayOrder: menuItem.displayOrder,
-            costPrice: menuItem.costPrice
-              ? Number(menuItem.costPrice)
-              : undefined,
-            calories: menuItem.calories ?? undefined,
-            variations: [], // Not needed for calculations
-          },
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          totalPrice: item.subtotal,
-          specialInstructions: item.specialInstructions || undefined,
-          selectedVariations: item.variation
-            ? [
-                {
-                  variationId: item.variation.id,
-                  quantity: 1,
-                  variation: {
-                    id: item.variation.id,
-                    name: item.variation.name,
-                    priceModifier: 0,
-                    variationType: '',
-                    isRequired: false,
-                    maxSelections: 1,
-                    displayOrder: 0,
-                  },
-                },
-              ]
-            : [],
-        };
+    // We cast to any here because table-session returns a subset of VariationOption
+    // but strict typing isn't needed for calculation, which uses .totalPrice
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const orderItems: any[] = tableCart.items.map((item) => {
+      const menuItem = menuItemsMap.get(item.menuItemId);
+      if (!menuItem) {
+        throw new Error(`Menu item ${item.menuItemId} not found`);
       }
-    );
+
+      return {
+        id: item.id,
+        menuItemId: item.menuItemId,
+        menuItem: {
+          id: menuItem.id,
+          name: menuItem.name,
+          price: Number(menuItem.price),
+          preparationTime: menuItem.preparationTime,
+          imageUrl: menuItem.imageUrl ?? undefined,
+          description: menuItem.description ?? undefined,
+          allergens: menuItem.allergens,
+          dietaryInfo: menuItem.dietaryInfo,
+          isAvailable: menuItem.isAvailable,
+          isFeatured: menuItem.isFeatured,
+          displayOrder: menuItem.displayOrder,
+          costPrice: menuItem.costPrice
+            ? Number(menuItem.costPrice)
+            : undefined,
+          calories: menuItem.calories ?? undefined,
+          variationGroups: [], // Not needed for calculation
+        },
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.subtotal,
+        specialInstructions: item.specialInstructions || undefined,
+        // Map table-session options to the structure expected by types (roughly)
+        selectedOptions: item.selectedOptions,
+      };
+    });
 
     // Calculate order totals
     const totals = calculateOrderTotals(
@@ -260,16 +246,14 @@ export async function POST(request: NextRequest) {
           },
         });
 
-        // Create order item variations if cart item has variation
-        if (cartItem.variation) {
-          await prisma.orderItemVariation.create({
-            data: {
+        // Create order item options snapshots
+        if (cartItem.selectedOptions && cartItem.selectedOptions.length > 0) {
+          await prisma.orderItemOption.createMany({
+            data: cartItem.selectedOptions.map((opt) => ({
               orderItemId: orderItem.id,
-              variationId: cartItem.variation.id,
-              quantity: 1,
-              unitPrice: 0, // Price already included in unitPrice
-              totalAmount: 0,
-            },
+              name: opt.name,
+              priceModifier: opt.priceModifier,
+            })),
           });
         }
 

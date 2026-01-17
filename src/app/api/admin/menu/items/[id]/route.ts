@@ -1,53 +1,91 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
+import { z } from 'zod';
 
-// Utility function to delete image file
+// ============================================================================
+// Internal Utilities
+// ============================================================================
+
 async function deleteImageFile(imageUrl: string | null): Promise<void> {
   if (!imageUrl) return;
-
   try {
-    // Extract filename from URL (handles both /uploads/menu-images/file.jpg and /api/uploads/file.jpg)
     const filename = imageUrl.split('/').pop();
     if (!filename) return;
-
-    // Determine the upload directory using base directory approach
     const UPLOAD_BASE_DIR = process.env.UPLOAD_BASE_DIR
       ? process.env.UPLOAD_BASE_DIR
       : join(process.cwd(), 'public', 'uploads');
-
     const UPLOAD_DIR = join(UPLOAD_BASE_DIR, 'menu-images');
     const filepath = join(UPLOAD_DIR, filename);
-
     await unlink(filepath);
     console.log('🗑️ [IMAGE CLEANUP] Deleted old image:', filename);
   } catch (error) {
-    // File might not exist or already deleted - log but don't throw
     console.warn('⚠️ [IMAGE CLEANUP] Failed to delete image file:', error);
   }
 }
 
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+const VariationOptionSchema = z.object({
+  name: z.string().min(1),
+  priceModifier: z.number().min(0).default(0),
+  isAvailable: z.boolean().default(true),
+  displayOrder: z.number().int().default(0),
+});
+
+const VariationGroupSchema = z.object({
+  name: z.string().min(1),
+  minSelections: z.number().int().min(0).default(0),
+  maxSelections: z.number().int().min(0).default(1),
+  displayOrder: z.number().int().default(0),
+  options: z.array(VariationOptionSchema).default([]),
+});
+
+const UpdateMenuItemSchema = z.object({
+  categoryId: z.string().uuid().optional(),
+  name: z.string().min(1).max(100).optional(),
+  description: z.string().max(500).optional(),
+  price: z.number().min(0).optional(),
+  imageUrl: z.string().optional().or(z.literal('')),
+  preparationTime: z.number().int().min(0).optional(),
+  calories: z.number().int().optional(),
+  allergens: z.array(z.string()).optional(),
+  dietaryInfo: z.array(z.string()).optional(),
+  isAvailable: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  displayOrder: z.number().int().optional(),
+  // Complete replacement of variation groups
+  variationGroups: z.array(VariationGroupSchema).optional(),
+});
+
+// ============================================================================
+// PATCH Handler
+// ============================================================================
+
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication using RBAC system
+    const { id: itemId } = await params;
+
+    // Auth Check
     const token =
       request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
 
-    if (!token) {
+    if (!token)
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
-    }
 
     const authResult = await AuthServiceV2.validateToken(token);
-
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -55,165 +93,144 @@ export async function PATCH(
       );
     }
 
-    // Get restaurant ID from RBAC payload
-    const restaurantId = authResult.user.currentRole?.restaurantId;
-
-    if (!restaurantId) {
-      return NextResponse.json(
-        { error: 'Restaurant access required' },
-        { status: 403 }
-      );
-    }
-
-    // Check if user has menu write permission
-    // Permissions are stored at user.permissions, not user.currentRole.permissions
+    // Permission Check
     const permissions = authResult.user.permissions || [];
-    const hasMenuPermission = permissions.includes('menu:write');
-
-    if (!hasMenuPermission) {
+    if (!permissions.includes('menu:write')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    const itemId = params.id;
-    const updateData = await request.json();
+    const { currentRole } = authResult.user;
+    if (!currentRole?.restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant context required' },
+        { status: 403 }
+      );
+    }
 
-    // Verify item belongs to restaurant
+    const body = await request.json();
+    const updateData = UpdateMenuItemSchema.parse(body);
+
+    // Verify item ownership
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
-      include: {
-        category: true,
-      },
+      include: { category: true },
     });
 
-    if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
+    if (
+      !existingItem ||
+      existingItem.category.restaurantId !== currentRole.restaurantId
+    ) {
       return NextResponse.json(
         { error: 'Menu item not found' },
         { status: 404 }
       );
     }
 
-    // If categoryId is being changed, verify new category belongs to restaurant
+    // Handle Image Delete
     if (
-      updateData.categoryId &&
-      updateData.categoryId !== existingItem.categoryId
+      updateData.imageUrl !== undefined &&
+      existingItem.imageUrl !== updateData.imageUrl
     ) {
-      const newCategory = await prisma.menuCategory.findUnique({
-        where: { id: updateData.categoryId },
-      });
-
-      if (!newCategory || newCategory.restaurantId !== restaurantId) {
-        return NextResponse.json(
-          { error: 'Invalid category' },
-          { status: 400 }
-        );
-      }
-    }
-
-    // Clean update data - restaurantId is not included in updates
-    const {
-      categoryId,
-      name,
-      description,
-      price,
-      imageUrl,
-      preparationTime,
-      calories,
-      allergens,
-      dietaryInfo,
-      isAvailable,
-      status,
-      isFeatured,
-      displayOrder,
-    } = updateData;
-
-    // 🗑️ Delete old image if imageUrl is being changed or removed
-    if (imageUrl !== undefined && existingItem.imageUrl !== imageUrl) {
       await deleteImageFile(existingItem.imageUrl);
     }
 
-    // Build update data object
-    const updatePayload = {
-      ...(categoryId && { categoryId }),
-      ...(name && { name }),
-      ...(description !== undefined && { description }),
-      ...(price !== undefined && { price: parseFloat(price) }),
-      ...(imageUrl !== undefined && { imageUrl }),
-      ...(preparationTime !== undefined && { preparationTime }),
-      ...(calories !== undefined && { calories }),
-      ...(allergens !== undefined && { allergens }),
-      ...(dietaryInfo !== undefined && { dietaryInfo }),
-      ...(isAvailable !== undefined && { isAvailable }),
-      ...(status && { status }),
-      ...(isFeatured !== undefined && { isFeatured }),
-      ...(displayOrder !== undefined && { displayOrder }),
+    // Build Prisma Update Data
+    if (
+      updateData.imageUrl !== undefined &&
+      existingItem.imageUrl !== updateData.imageUrl
+    ) {
+      await deleteImageFile(existingItem.imageUrl);
+    }
+
+    // Build Prisma Update Data
+    const itemData: Prisma.MenuItemUpdateInput = {
+      ...updateData,
+      variationGroups: undefined, // Handle separately
       updatedAt: new Date(),
     };
 
-    const item = await prisma.menuItem.update({
-      where: { id: itemId },
-      data: updatePayload,
-      include: {
-        category: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        variations: true,
-      },
-    });
+    // Explicitly delete undefined fields to avoid Prisma errors (Zod parses as undefined)
+    Object.keys(itemData).forEach(
+      (key) => itemData[key] === undefined && delete itemData[key]
+    );
 
-    // 🔍 DEBUG: Log successful update
-    console.log('✅ [MENU UPDATE] Update successful:', {
-      id: item.id,
-      name: item.name,
-      restaurantId: item.restaurantId,
-      imageUrl: item.imageUrl,
+    // Handle Variation Groups Strategy: Replace All
+    // If variationGroups is provided (even empty array), we replace.
+    if (updateData.variationGroups) {
+      itemData.variationGroups = {
+        deleteMany: {}, // Clear existing
+        create: updateData.variationGroups.map((group) => ({
+          name: group.name,
+          minSelections: group.minSelections,
+          maxSelections: group.maxSelections,
+          displayOrder: group.displayOrder,
+          options: {
+            create: group.options.map((opt) => ({
+              name: opt.name,
+              priceModifier: opt.priceModifier,
+              isAvailable: opt.isAvailable,
+              displayOrder: opt.displayOrder,
+            })),
+          },
+        })),
+      };
+    }
+
+    const updatedItem = await prisma.menuItem.update({
+      where: { id: itemId },
+      data: itemData,
+      include: {
+        category: { select: { id: true, name: true } },
+        variationGroups: { include: { options: true } },
+      },
     });
 
     return NextResponse.json({
       success: true,
-      item,
+      item: updatedItem,
       message: 'Menu item updated successfully',
     });
-  } catch (error: unknown) {
-    console.error('Failed to update menu item:', error);
-
+  } catch (error) {
+    console.error('Update menu item error:', error);
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: 'Invalid data', details: (error as z.ZodError).errors },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
-      {
-        error: 'Failed to update menu item',
-        details:
-          process.env.NODE_ENV === 'development'
-            ? (error as Error)?.message
-            : undefined,
-      },
+      { error: 'Failed to update menu item' },
       { status: 500 }
     );
   }
 }
 
+// ============================================================================
+// DELETE Handler
+// ============================================================================
+
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication using RBAC system
+    const { id: itemId } = await params;
+
+    // Auth Check
     const token =
       request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
 
-    if (!token) {
+    if (!token)
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
-    }
 
     const authResult = await AuthServiceV2.validateToken(token);
-
     if (!authResult.isValid || !authResult.user) {
       return NextResponse.json(
         { error: 'Authentication required' },
@@ -221,68 +238,55 @@ export async function DELETE(
       );
     }
 
-    // Get restaurant ID from RBAC payload
-    const restaurantId = authResult.user.currentRole?.restaurantId;
-
-    if (!restaurantId) {
-      return NextResponse.json(
-        { error: 'Restaurant access required' },
-        { status: 403 }
-      );
-    }
-
-    // Check if user has menu delete permission
-    // Permissions are stored at user.permissions, not user.currentRole.permissions
     const permissions = authResult.user.permissions || [];
-    const hasMenuPermission = permissions.includes('menu:delete');
-
-    if (!hasMenuPermission) {
+    if (!permissions.includes('menu:delete')) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
         { status: 403 }
       );
     }
 
-    const itemId = params.id;
+    const { currentRole } = authResult.user;
+    if (!currentRole?.restaurantId) {
+      return NextResponse.json(
+        { error: 'Restaurant context required' },
+        { status: 403 }
+      );
+    }
 
-    // Verify item belongs to restaurant and check order count
+    // Ownership & Constraint Check
     const existingItem = await prisma.menuItem.findUnique({
       where: { id: itemId },
       include: {
         category: true,
-        _count: {
-          select: { orderItems: true },
-        },
+        _count: { select: { orderItems: true } },
       },
     });
 
-    if (!existingItem || existingItem.category.restaurantId !== restaurantId) {
+    if (
+      !existingItem ||
+      existingItem.category.restaurantId !== currentRole.restaurantId
+    ) {
       return NextResponse.json(
         { error: 'Menu item not found' },
         { status: 404 }
       );
     }
 
-    // Conditional delete: Check if item has orders
     if (existingItem._count.orderItems > 0) {
       return NextResponse.json(
         {
-          error: `Cannot delete "${existingItem.name}". Item has ${existingItem._count.orderItems} existing order(s).`,
-          suggestion: 'Set item to INACTIVE instead',
-          orderCount: existingItem._count.orderItems,
+          error: `Cannot delete item. It has ${existingItem._count.orderItems} associated order(s).`,
+          suggestion: 'Archive the item instead.',
         },
         { status: 400 }
       );
     }
 
-    // 🗑️ Delete associated image file
+    // Cleanup Image
     await deleteImageFile(existingItem.imageUrl);
 
-    // Delete variations first, then the item
-    await prisma.menuItemVariation.deleteMany({
-      where: { menuItemId: itemId },
-    });
-
+    // Delete Item (Cascade deletes variations)
     await prisma.menuItem.delete({
       where: { id: itemId },
     });
@@ -292,7 +296,7 @@ export async function DELETE(
       message: 'Menu item deleted successfully',
     });
   } catch (error) {
-    console.error('Failed to delete menu item:', error);
+    console.error('Delete menu item error:', error);
     return NextResponse.json(
       { error: 'Failed to delete menu item' },
       { status: 500 }

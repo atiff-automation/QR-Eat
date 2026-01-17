@@ -216,15 +216,11 @@ export const ORDER_WITH_DETAILS_INCLUDE = {
           categoryId: true,
         },
       },
-      variations: {
-        include: {
-          variation: {
-            select: {
-              name: true,
-              priceModifier: true,
-              variationType: true,
-            },
-          },
+      selectedOptions: {
+        select: {
+          id: true,
+          name: true,
+          priceModifier: true,
         },
       },
     },

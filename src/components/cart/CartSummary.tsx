@@ -3,6 +3,7 @@
 import { Cart, CartItem } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
 import { ShoppingBag, Trash2, Coins, Ticket, Info } from 'lucide-react';
+import Image from 'next/image';
 import { useBodyScrollLock } from '@/hooks/useBodyScrollLock';
 
 interface CartSummaryProps {
@@ -108,10 +109,11 @@ export function CartSummary({
             {/* Left: Image */}
             {item.menuItem.imageUrl ? (
               <div className="relative w-16 h-16 shrink-0">
-                <img
+                <Image
                   src={item.menuItem.imageUrl}
                   alt={item.menuItem.name}
-                  className="w-full h-full object-cover rounded-md"
+                  fill
+                  className="object-cover rounded-md"
                 />
               </div>
             ) : (
@@ -131,11 +133,9 @@ export function CartSummary({
                 {formatPrice(item.unitPrice, currency)}
               </div>
 
-              {item.selectedVariations.length > 0 && (
+              {item.selectedOptions.length > 0 && (
                 <div className="text-xs text-gray-400 mb-0.5">
-                  {item.selectedVariations
-                    .map((v) => v.variation.name)
-                    .join(', ')}
+                  {item.selectedOptions.map((opt) => opt.name).join(', ')}
                 </div>
               )}
               {item.specialInstructions && (

@@ -21,7 +21,7 @@ const AddToCartSchema = z.object({
   tableId: z.string().uuid('Invalid table ID format'),
   sessionId: z.string().uuid('Invalid session ID format').optional(),
   menuItemId: z.string().uuid('Invalid menu item ID format'),
-  variationId: z.string().uuid('Invalid variation ID format').optional(),
+  variationOptionIds: z.array(z.string().uuid()).optional().default([]),
   quantity: z
     .number()
     .int()
@@ -50,10 +50,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AddToCartSchema.parse(body);
 
-    // SECURITY: Verify price from database (prevent client price manipulation)
+    // SECURITY: Limit check is handled in table-session
+    // AVAILABILITY: Check menu item availability first
     const menuItem = await prisma.menuItem.findUnique({
       where: { id: validatedData.menuItemId },
-      select: { price: true, isAvailable: true },
+      select: { isAvailable: true },
     });
 
     if (!menuItem) {
@@ -70,19 +71,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify unit price matches database price
-    const dbPrice = Number(menuItem.price);
-    if (Math.abs(validatedData.unitPrice - dbPrice) > 0.01) {
-      return NextResponse.json(
-        {
-          error: 'Price mismatch detected. Please refresh and try again.',
-          expectedPrice: dbPrice,
-        },
-        { status: 400 }
-      );
-    }
-
-    // Add item to cart with verified price
+    // Add item to cart
+    // Logic for price calculation and option validation is now centralized in addToTableCart
     const cartItem = await addToTableCart(validatedData);
 
     return NextResponse.json({

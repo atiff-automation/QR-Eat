@@ -8,7 +8,7 @@ export async function GET(
   try {
     const { restaurantId } = await params;
 
-    // Get menu categories with items and variations
+    // Get menu categories with items and nested variation groups
     const categories = await prisma.menuCategory.findMany({
       where: {
         restaurantId,
@@ -20,10 +20,15 @@ export async function GET(
             status: 'ACTIVE',
           },
           include: {
-            variations: {
-              orderBy: {
-                displayOrder: 'asc',
+            // New Schema: structured groups
+            variationGroups: {
+              include: {
+                options: {
+                  where: { isAvailable: true },
+                  orderBy: { displayOrder: 'asc' },
+                },
               },
+              orderBy: { displayOrder: 'asc' },
             },
           },
           orderBy: {
@@ -60,14 +65,20 @@ export async function GET(
         isAvailable: item.isAvailable,
         isFeatured: item.isFeatured,
         displayOrder: item.displayOrder,
-        variations: item.variations.map((variation) => ({
-          id: variation.id,
-          name: variation.name,
-          priceModifier: parseFloat(variation.priceModifier.toString()),
-          variationType: variation.variationType,
-          isRequired: variation.isRequired,
-          maxSelections: variation.maxSelections,
-          displayOrder: variation.displayOrder,
+        // Map groups and options
+        variationGroups: item.variationGroups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          minSelections: group.minSelections,
+          maxSelections: group.maxSelections,
+          displayOrder: group.displayOrder,
+          options: group.options.map((opt) => ({
+            id: opt.id,
+            name: opt.name,
+            priceModifier: parseFloat(opt.priceModifier.toString()),
+            isAvailable: opt.isAvailable,
+            displayOrder: opt.displayOrder,
+          })),
         })),
       })),
     }));
