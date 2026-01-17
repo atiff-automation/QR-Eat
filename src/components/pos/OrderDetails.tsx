@@ -87,6 +87,21 @@ export function OrderDetails({
                   {formatCurrency(Number(item.unitPrice), currency)} ×{' '}
                   {item.quantity}
                 </p>
+                {/* Variations / Selected Options */}
+                {item.selectedOptions && item.selectedOptions.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-0.5 space-y-0.5">
+                    {item.selectedOptions.map((opt) => (
+                      <div key={opt.id}>
+                        + {opt.name}{' '}
+                        {Number(opt.priceModifier) > 0 &&
+                          `(${formatCurrency(
+                            Number(opt.priceModifier),
+                            currency
+                          )})`}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {item.specialInstructions && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Note: {item.specialInstructions}

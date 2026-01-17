@@ -93,9 +93,22 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
         <div className="mb-4 pb-4 border-b border-dashed border-gray-300 space-y-2">
           {order.items.map((item, index) => (
             <div key={index} className="flex justify-between items-start">
-              <span className="text-black flex-1 pr-4">
-                {item.name} <span className="text-xs">x{item.quantity}</span>
-              </span>
+              <div className="flex-1 pr-4">
+                <span className="text-black block">
+                  {item.name} <span className="text-xs">x{item.quantity}</span>
+                </span>
+                {item.selectedOptions && item.selectedOptions.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-0.5 pl-2">
+                    {item.selectedOptions.map((opt, i) => (
+                      <div key={i}>
+                        + {opt.name}{' '}
+                        {opt.priceModifier > 0 &&
+                          `(${formatCurrency(opt.priceModifier)})`}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <span className="text-black whitespace-nowrap">
                 {formatCurrency(item.totalAmount)}
               </span>

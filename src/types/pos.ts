@@ -62,12 +62,10 @@ export interface OrderItemWithDetails {
   totalAmount: Decimal;
   specialInstructions: string | null;
   menuItem: Pick<MenuItem, 'name' | 'price' | 'preparationTime'>;
-  variations?: {
-    variation: {
-      name: string;
-      priceModifier: Decimal;
-      variationType: string;
-    };
+  selectedOptions?: {
+    id: string;
+    name: string;
+    priceModifier: Decimal;
   }[];
 }
 
