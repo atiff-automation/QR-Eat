@@ -130,7 +130,7 @@ export function CartSummary({
                 </h3>
               </div>
               <div className="text-sm text-gray-500 mb-1">
-                {formatPrice(item.unitPrice, currency)}
+                {formatPrice(item.totalPrice, currency)}
               </div>
 
               {item.selectedOptions.length > 0 && (
