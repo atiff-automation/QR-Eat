@@ -172,6 +172,10 @@ export interface PublicReceiptData {
       quantity: number;
       unitPrice: number;
       totalAmount: number;
+      selectedOptions?: {
+        name: string;
+        priceModifier: number;
+      }[];
     }[];
     subtotalAmount: number;
     taxAmount: number;

@@ -44,10 +44,10 @@ export function adaptPublicToDisplay(
         name: item.name,
         quantity: item.quantity,
         totalAmount: Number(item.totalAmount),
-        // PublicReceiptData doesn't explicitly have selectedOptions in the interface yet usually,
-        // but if it did, we'd map it here. For now, assuming PublicReceiptData might need update or we skip.
-        // Checking PublicReceiptData in pos.ts, it DOES NOT have selectedOptions yet.
-        // I need to check pos.ts again for PublicReceiptData.
+        selectedOptions: item.selectedOptions?.map((opt) => ({
+          name: opt.name,
+          priceModifier: Number(opt.priceModifier),
+        })),
       })),
       subtotalAmount: Number(data.order.subtotalAmount),
       taxAmount: Number(data.order.taxAmount),

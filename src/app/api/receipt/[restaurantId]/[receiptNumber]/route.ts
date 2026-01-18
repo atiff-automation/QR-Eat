@@ -65,6 +65,7 @@ export async function GET(
             items: {
               include: {
                 menuItem: true,
+                selectedOptions: true,
               },
             },
             table: true,
@@ -129,6 +130,10 @@ export async function GET(
         quantity: item.quantity,
         unitPrice: Number(item.unitPrice),
         totalAmount: Number(item.totalAmount),
+        selectedOptions: item.selectedOptions.map((opt) => ({
+          name: opt.name,
+          priceModifier: Number(opt.priceModifier),
+        })),
       }))
     );
 
