@@ -1,6 +1,7 @@
 /**
  * Test the fixed timezone-agnostic date comparison
  */
+export { };
 
 // Test with various order dates
 const testCases = [

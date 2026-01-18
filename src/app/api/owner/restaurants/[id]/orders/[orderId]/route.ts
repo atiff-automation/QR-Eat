@@ -60,22 +60,13 @@ export async function GET(
                 description: true,
               },
             },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    name: true,
-                    priceModifier: true,
-                  },
-                },
-              },
-            },
+            selectedOptions: true,
           },
         },
         table: {
           select: {
-            number: true,
-            name: true,
+            tableNumber: true,
+            tableName: true,
           },
         },
         customerSession: {
@@ -114,16 +105,16 @@ export async function GET(
       servedAt: order.servedAt?.toISOString(),
       table: order.table
         ? {
-            number: order.table.number,
-            name: order.table.name,
-          }
+          number: order.table.tableNumber,
+          name: order.table.tableName,
+        }
         : null,
       customer: order.customerSession
         ? {
-            name: order.customerSession.customerName,
-            phone: order.customerSession.customerPhone,
-            email: order.customerSession.customerEmail,
-          }
+          name: order.customerSession.customerName,
+          phone: order.customerSession.customerPhone,
+          email: order.customerSession.customerEmail,
+        }
         : null,
       orderItems: order.items.map((item) => ({
         id: item.id,
@@ -137,15 +128,10 @@ export async function GET(
           price: Number(item.menuItem.price),
           description: item.menuItem.description,
         },
-        variations: item.variations.map((variation) => ({
-          id: variation.id,
-          quantity: variation.quantity,
-          unitPrice: Number(variation.unitPrice),
-          totalAmount: Number(variation.totalAmount),
-          variation: {
-            name: variation.variation.name,
-            priceModifier: Number(variation.variation.priceModifier),
-          },
+        selectedOptions: item.selectedOptions.map((opt) => ({
+          id: opt.id,
+          name: opt.name,
+          priceModifier: Number(opt.priceModifier),
         })),
       })),
     };

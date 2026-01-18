@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
     const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -45,15 +45,20 @@ export async function GET(request: NextRequest) {
       }
       restaurantFilter = { restaurantId };
     }
-    
+
     const categories = await prisma.menuCategory.findMany({
       where: restaurantFilter,
       include: {
         menuItems: {
           orderBy: { displayOrder: 'asc' },
           include: {
-            variations: {
-              orderBy: { displayOrder: 'asc' }
+            variationGroups: {
+              orderBy: { displayOrder: 'asc' },
+              include: {
+                options: {
+                  orderBy: { displayOrder: 'asc' }
+                }
+              }
             }
           }
         },
@@ -73,7 +78,7 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Failed to fetch categories:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -100,7 +105,7 @@ export async function POST(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
     const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
@@ -155,7 +160,7 @@ export async function POST(request: NextRequest) {
       }
       restaurantFilter = { restaurantId };
     }
-    
+
     if (!finalDisplayOrder) {
       const lastCategory = await prisma.menuCategory.findFirst({
         where: restaurantFilter,
@@ -182,7 +187,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Failed to create category:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(

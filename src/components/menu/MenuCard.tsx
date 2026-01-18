@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { MenuItem, VariationOption, VariationGroup } from '@/types/menu';
 import { formatPrice } from '@/lib/qr-utils';
-import { ChefHat } from 'lucide-react';
+import { ChefHat, MessageSquare } from 'lucide-react';
 import Image from 'next/image';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 import { AccordionItem } from '@/components/ui/Accordion';
@@ -34,6 +34,7 @@ export function MenuCard({
     Record<string, VariationOption[]>
   >({});
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [showInstructions, setShowInstructions] = useState(false);
 
   // Reset state when modal opens
   useEffect(() => {
@@ -42,6 +43,7 @@ export function MenuCard({
       setQuantity(1);
       setSelectedOptions({});
       setSpecialInstructions('');
+      setShowInstructions(false);
     }
   }, [showModal, onModalStateChange]);
 
@@ -125,33 +127,35 @@ export function MenuCard({
   };
 
   const renderFooter = () => (
-    <div className="flex gap-4 items-center">
-      {/* Quantity */}
-      <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden h-12 shrink-0">
-        <button
-          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-          className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-r border-gray-200 text-xl font-bold"
-        >
-          −
-        </button>
-        <span className="w-12 text-center font-bold text-gray-900 text-lg">
-          {quantity}
-        </span>
-        <button
-          onClick={() => setQuantity(quantity + 1)}
-          className="w-12 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200 text-xl font-bold"
-        >
-          +
-        </button>
+    <div className="space-y-4">
+      {/* Quantity Row */}
+      <div className="flex items-center justify-center">
+        <div className="flex items-center bg-gray-50 border border-gray-200 rounded-lg overflow-hidden h-9">
+          <button
+            onClick={() => setQuantity(Math.max(1, quantity - 1))}
+            className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-r border-gray-200"
+          >
+            <span className="text-xl">−</span>
+          </button>
+          <span className="w-10 text-center font-bold text-gray-900 text-base">
+            {quantity}
+          </span>
+          <button
+            onClick={() => setQuantity(quantity + 1)}
+            className="w-10 h-full flex items-center justify-center text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors border-l border-gray-200"
+          >
+            <span className="text-xl">+</span>
+          </button>
+        </div>
       </div>
 
-      {/* Add Button */}
+      {/* Add Button Row */}
       <button
         onClick={handleAddToCart}
         disabled={!isValid}
-        className="flex-1 bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center text-sm sm:text-base uppercase tracking-wide"
+        className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.98] disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-bold h-12 rounded-lg shadow-md transition-all flex items-center justify-center text-sm sm:text-base uppercase tracking-wide"
       >
-        <span>Add • {formatPrice(calculateTotalPrice(), currency)}</span>
+        <span>Add to Cart - {formatPrice(calculateTotalPrice(), currency)}</span>
       </button>
     </div>
   );
@@ -200,100 +204,129 @@ export function MenuCard({
       <BottomSheet
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={item.name}
+        showCloseButtonOverlay
+        noPadding
+        hideDragHandle
         footer={renderFooter()}
       >
-        <div className="space-y-6 pb-4">
-          {/* Image Header within Modal */}
-          {item.imageUrl && (
-            <div className="relative w-full h-48 rounded-xl overflow-hidden shadow-sm">
+        <div className="flex flex-col h-full">
+          {/* Header Image - Full Width */}
+          <div className="relative w-full aspect-[4/3] sm:aspect-video bg-gray-100 shrink-0">
+            {item.imageUrl ? (
               <Image
                 src={item.imageUrl}
                 alt={item.name}
                 fill
+                priority
                 className="object-cover"
               />
-            </div>
-          )}
-
-          {/* Description */}
-          {item.description && (
-            <p className="text-gray-600 text-sm leading-relaxed">
-              {item.description}
-            </p>
-          )}
-
-          {/* Variation Groups */}
-          <div className="space-y-3">
-            {item.variationGroups?.map((group) => {
-              const currentSelections = selectedOptions[group.id] || [];
-              const isSatisfied =
-                currentSelections.length >= group.minSelections;
-              const isError = validationState.includes(group.id);
-
-              return (
-                <AccordionItem
-                  key={group.id}
-                  title={group.name}
-                  subtitle={
-                    group.maxSelections === 1
-                      ? 'Select 1'
-                      : `Select up to ${group.maxSelections}`
-                  }
-                  isRequired={group.minSelections > 0}
-                  isCompleted={isSatisfied}
-                  error={
-                    isError
-                      ? `Please select at least ${group.minSelections}`
-                      : undefined
-                  }
-                  defaultOpen={group.minSelections > 0}
-                >
-                  <div className="space-y-2">
-                    {group.options.map((option) => {
-                      const isSelected = currentSelections.some(
-                        (o) => o.id === option.id
-                      );
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => handleOptionToggle(group, option)}
-                          className={`
-                            w-full flex items-center justify-between p-3 rounded-lg border transition-all
-                            ${
-                              isSelected
-                                ? 'border-orange-500 bg-orange-50 text-orange-900 shadow-sm'
-                                : 'border-gray-100 hover:bg-gray-50 text-gray-700'
-                            }
-                          `}
-                        >
-                          <span className="font-medium">{option.name}</span>
-                          {option.priceModifier > 0 && (
-                            <span className="text-sm font-semibold text-orange-600">
-                              +{formatPrice(option.priceModifier, currency)}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </AccordionItem>
-              );
-            })}
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-gray-300 bg-gray-50">
+                <ChefHat className="w-16 h-16" />
+              </div>
+            )}
           </div>
 
-          {/* Special Instructions */}
-          <div className="pt-2">
-            <label className="block text-sm font-bold text-gray-900 mb-2">
-              Special Instructions
-            </label>
-            <textarea
-              value={specialInstructions}
-              onChange={(e) => setSpecialInstructions(e.target.value)}
-              placeholder="Any allergies or special requests?"
-              className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none transition-all placeholder-gray-400 text-sm"
-              rows={3}
-            />
+          {/* Content Wrapper */}
+          <div className="p-4 space-y-4">
+            {/* Title and Price */}
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-bold text-gray-900 leading-tight">
+                  {item.name}
+                </h2>
+                {item.isFeatured && (
+                  <ChefHat className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                )}
+              </div>
+              <div className="text-xl font-bold text-orange-600 whitespace-nowrap">
+                {formatPrice(item.price, currency)}
+              </div>
+            </div>
+
+            {/* Description */}
+            {item.description && (
+              <p className="text-sm text-gray-600 leading-relaxed">
+                {item.description}
+              </p>
+            )}
+
+            {/* Variation Groups */}
+            <div className="space-y-4">
+              {item.variationGroups?.map((group) => {
+                const currentSelections = selectedOptions[group.id] || [];
+                const isSatisfied =
+                  currentSelections.length >= group.minSelections;
+                const isError = validationState.includes(group.id);
+
+                return (
+                  <div key={group.id} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-gray-900 capitalize tracking-tight">
+                        {group.name}
+                      </h4>
+                      {group.minSelections > 0 && !isSatisfied && (
+                        <span className="text-[10px] font-bold text-white bg-orange-500 px-1.5 py-0.5 rounded uppercase">
+                          Required
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {group.options.map((option) => {
+                        const isSelected = currentSelections.some(
+                          (o) => o.id === option.id
+                        );
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => handleOptionToggle(group, option)}
+                            className={`flex items-center px-4 py-2 rounded-xl border-2 transition-all duration-200 text-sm font-medium ${isSelected
+                              ? 'border-orange-500 bg-orange-50 text-orange-700 shadow-sm'
+                              : 'border-gray-100 bg-gray-50 text-gray-600 hover:border-gray-200 hover:bg-gray-100'
+                              }`}
+                          >
+                            <span className="flex-1">{option.name}</span>
+                            {option.priceModifier > 0 && (
+                              <span
+                                className={`ml-2 text-xs font-bold ${isSelected ? 'text-orange-600' : 'text-gray-400'}`}
+                              >
+                                +{formatPrice(option.priceModifier, currency)}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Special Instructions - Collapsible */}
+            <div className="pt-1">
+              <button
+                onClick={() => setShowInstructions(!showInstructions)}
+                className="flex items-center text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors uppercase tracking-wider"
+              >
+                <MessageSquare className="w-3.5 h-3.5 mr-1.5" />
+                <span>
+                  {showInstructions
+                    ? 'Hide Instructions'
+                    : 'Add Special Request'}
+                </span>
+              </button>
+
+              {showInstructions && (
+                <textarea
+                  value={specialInstructions}
+                  onChange={(e) => setSpecialInstructions(e.target.value)}
+                  className="w-full p-4 bg-gray-50 border border-gray-100 rounded-2xl text-base focus:ring-2 focus:ring-blue-500 mt-3 transition-all placeholder-gray-400"
+                  rows={2}
+                  placeholder="Any allergies or special requests? We'll do our best!"
+                  autoFocus
+                />
+              )}
+            </div>
           </div>
         </div>
       </BottomSheet>

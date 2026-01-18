@@ -1,6 +1,7 @@
 /**
  * Test local timezone date comparison
  */
+export { };
 
 // Test with various order dates
 const testCases = [

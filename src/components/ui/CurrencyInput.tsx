@@ -76,7 +76,7 @@ export function CurrencyInput({
         inputMode="numeric"
         value={value === 0 ? '' : formatValue(value)}
         onChange={handleChange}
-        className={className}
+        className={`w-full ${className}`}
         placeholder={placeholder}
         disabled={disabled}
         required={required}

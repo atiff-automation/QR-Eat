@@ -1,10 +1,8 @@
+/// <reference lib="webworker" />
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist } from 'serwist';
+import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'serwist';
 
 // This declares the value of `injectionPoint` to TypeScript.
-// `injectionPoint` is the string that will be replaced by the
-// actual precache manifest. By default, this string is set to
-// `"self.__SW_MANIFEST"`.
 declare global {
   interface WorkerGlobalScope extends SerwistGlobalConfig {
     __SW_MANIFEST: (PrecacheEntry | string)[] | undefined;
@@ -19,76 +17,56 @@ const serwist = new Serwist({
   clientsClaim: true,
   navigationPreload: true,
   runtimeCaching: [
-    // 1. NEVER CACHE: Auth endpoints (verified pattern: /api/auth/*)
+    // 1. NEVER CACHE: Auth endpoints
     {
-      urlPattern: /^https?:\/\/.*\/api\/auth\/.*/,
-      handler: 'NetworkOnly',
+      matcher: /^https?:\/\/.*\/api\/auth\/.*/,
+      handler: new NetworkOnly(),
     },
 
-    // 2. NEVER CACHE: Payment endpoints (verified pattern: /api/*/pay*)
+    // 2. NEVER CACHE: Payment endpoints
     {
-      urlPattern: /^https?:\/\/.*\/api\/.*\/pay.*/,
-      handler: 'NetworkOnly',
+      matcher: /^https?:\/\/.*\/api\/.*\/pay.*/,
+      handler: new NetworkOnly(),
     },
 
-    // 3. NEVER CACHE: Mutation endpoints (verified: create/modify/update/delete/status)
+    // 3. NEVER CACHE: Mutation endpoints
     {
-      urlPattern:
+      matcher:
         /^https?:\/\/.*\/api\/.*(create|modify|update|delete|status).*/,
-      handler: 'NetworkOnly',
+      handler: new NetworkOnly(),
     },
 
     // 4. Static Assets - Cache First (30 days)
     {
-      urlPattern: /^https?.*\.(js|css|woff|woff2|ttf|eot)$/,
-      handler: 'CacheFirst',
-      options: {
+      matcher: /^https?.*\.(js|css|woff|woff2|ttf|eot)$/,
+      handler: new CacheFirst({
         cacheName: 'static-resources',
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 30 * 24 * 60 * 60,
-        },
-      },
+      }),
     },
 
     // 5. Images - Cache First (7 days)
     {
-      urlPattern: /^https?.*\.(png|jpg|jpeg|svg|gif|webp|ico)$/,
-      handler: 'CacheFirst',
-      options: {
+      matcher: /^https?.*\.(png|jpg|jpeg|svg|gif|webp|ico)$/,
+      handler: new CacheFirst({
         cacheName: 'image-cache',
-        expiration: {
-          maxEntries: 200,
-          maxAgeSeconds: 7 * 24 * 60 * 60,
-        },
-      },
+      }),
     },
 
     // 6. Menu & Restaurant Data - Stale While Revalidate (1 hour)
     {
-      urlPattern: /^https?:\/\/.*\/api\/(menu|restaurants|tables)\/[^/]+$/,
-      handler: 'StaleWhileRevalidate',
-      options: {
+      matcher: /^https?:\/\/.*\/api\/(menu|restaurants|tables)\/[^/]+$/,
+      handler: new StaleWhileRevalidate({
         cacheName: 'menu-cache',
-        expiration: {
-          maxEntries: 50,
-          maxAgeSeconds: 60 * 60,
-        },
-      },
+      }),
     },
 
     // 7. Order List/Stats - Network First (5 min cache fallback)
     {
-      urlPattern: /^https?:\/\/.*\/api\/orders\/(list|stats|live)$/,
-      handler: 'NetworkFirst',
-      options: {
+      matcher: /^https?:\/\/.*\/api\/orders\/(list|stats|live)$/,
+      handler: new NetworkFirst({
         cacheName: 'orders-cache',
         networkTimeoutSeconds: 5,
-        expiration: {
-          maxEntries: 100,
-          maxAgeSeconds: 5 * 60,
-        },
-      },
+      }),
     },
   ],
   // Fallback to offline page for navigation requests
@@ -123,7 +101,7 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 /**
  * Handle incoming push notifications
  */
-self.addEventListener('push', (event) => {
+self.addEventListener('push', (event: PushEvent) => {
   console.log('[SW] Push event received');
 
   let notificationData = {
@@ -132,6 +110,7 @@ self.addEventListener('push', (event) => {
     icon: '/icons/icon-192x192.png',
     badge: '/icons/badge-72x72.png',
     data: {},
+    sound: undefined as string | undefined,
   };
 
   // Parse push event data
@@ -152,17 +131,15 @@ self.addEventListener('push', (event) => {
       vibrate: [200, 100, 200],
       data: notificationData.data,
       requireInteraction: false,
-      // Note: sound property only works on Android
-      // iOS does not support custom notification sounds
       ...(notificationData.sound && { sound: notificationData.sound }),
-    })
+    } as NotificationOptions)
   );
 });
 
 /**
  * Handle notification clicks
  */
-self.addEventListener('notificationclick', (event) => {
+self.addEventListener('notificationclick', (event: NotificationEvent) => {
   console.log('[SW] Notification click received');
 
   event.notification.close();
@@ -170,44 +147,39 @@ self.addEventListener('notificationclick', (event) => {
   const urlToOpen = event.notification.data?.url || '/dashboard/orders';
 
   event.waitUntil(
-    clients
+    self.clients
       .matchAll({ type: 'window', includeUncontrolled: true })
       .then((clientList) => {
         // Try to focus existing window
         for (const client of clientList) {
           if (client.url.includes(urlToOpen) && 'focus' in client) {
-            return client.focus();
+            return (client as WindowClient).focus();
           }
         }
         // Open new window if no matching window found
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
+        if (self.clients.openWindow) {
+          return self.clients.openWindow(urlToOpen);
         }
       })
   );
 });
 
 /**
- * Handle push subscription changes (CRITICAL for subscription renewals)
- * Browsers periodically renew subscriptions - this ensures we stay subscribed
+ * Handle push subscription changes
  */
-self.addEventListener('pushsubscriptionchange', (event) => {
+self.addEventListener('pushsubscriptionchange', (event: any) => {
   console.log('[SW] Push subscription change detected');
 
   event.waitUntil(
     (async () => {
       try {
-        // Get VAPID public key from environment
-        // Note: In production, this should be injected during build
         const vapidPublicKey = 'NEXT_PUBLIC_VAPID_PUBLIC_KEY_PLACEHOLDER';
 
-        // Subscribe to new push manager
         const newSubscription = await self.registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey),
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as any,
         });
 
-        // Send new subscription to backend
         await fetch('/api/push/update-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

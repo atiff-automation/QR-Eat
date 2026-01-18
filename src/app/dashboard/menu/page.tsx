@@ -209,11 +209,10 @@ export default function MenuPage() {
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${
-                  viewMode === mode
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-500 hover:text-gray-700'
-                }`}
+                className={`flex-1 py-1.5 text-xs sm:text-sm font-medium rounded-lg transition-all ${viewMode === mode
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+                  }`}
               >
                 {mode.charAt(0).toUpperCase() + mode.slice(1)}
               </button>
@@ -276,18 +275,16 @@ export default function MenuPage() {
                         e.stopPropagation();
                         toggleCategoryStatus(category);
                       }}
-                      className={`p-2 rounded-lg transition-colors ${
-                        category.status === 'ACTIVE'
-                          ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
-                          : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
-                      }`}
+                      className={`p-2 rounded-lg transition-colors ${category.status === 'ACTIVE'
+                        ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
+                        : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
+                        }`}
                     >
                       <div
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          category.status === 'ACTIVE'
-                            ? 'bg-green-500'
-                            : 'bg-gray-300'
-                        }`}
+                        className={`w-2.5 h-2.5 rounded-full ${category.status === 'ACTIVE'
+                          ? 'bg-green-500'
+                          : 'bg-gray-300'
+                          }`}
                       />
                     </button>
                     <button
@@ -352,11 +349,10 @@ export default function MenuPage() {
                 .map((item) => (
                   <div
                     key={item.id}
-                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${
-                      item.status === 'INACTIVE'
-                        ? 'grayscale opacity-60 bg-gray-50'
-                        : ''
-                    }`}
+                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${item.status === 'INACTIVE'
+                      ? 'grayscale opacity-60 bg-gray-50'
+                      : ''
+                      }`}
                   >
                     {/* Item Image */}
                     <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
@@ -365,11 +361,10 @@ export default function MenuPage() {
                           src={item.imageUrl}
                           alt={item.name}
                           fill
-                          className={`object-cover ${
-                            item.status === 'INACTIVE'
-                              ? 'grayscale opacity-75'
-                              : ''
-                          }`}
+                          className={`object-cover ${item.status === 'INACTIVE'
+                            ? 'grayscale opacity-75'
+                            : ''
+                            }`}
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-gray-400">
@@ -405,11 +400,10 @@ export default function MenuPage() {
                     <div className="flex flex-col items-center justify-center gap-2 pl-2 border-l border-gray-100 self-stretch">
                       <button
                         onClick={() => toggleItemAvailability(item)}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          item.status === 'ACTIVE'
-                            ? 'text-green-600 bg-green-50'
-                            : 'text-gray-300 bg-gray-50'
-                        }`}
+                        className={`p-1.5 rounded-lg transition-colors ${item.status === 'ACTIVE'
+                          ? 'text-green-600 bg-green-50'
+                          : 'text-gray-300 bg-gray-50'
+                          }`}
                         title={
                           item.status === 'ACTIVE'
                             ? 'Mark Unavailable'
@@ -417,18 +411,16 @@ export default function MenuPage() {
                         }
                       >
                         <div
-                          className={`w-7 h-4 rounded-full relative transition-colors ${
-                            item.status === 'ACTIVE'
-                              ? 'bg-green-500'
-                              : 'bg-gray-300'
-                          }`}
+                          className={`w-7 h-4 rounded-full relative transition-colors ${item.status === 'ACTIVE'
+                            ? 'bg-green-500'
+                            : 'bg-gray-300'
+                            }`}
                         >
                           <div
-                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${
-                              item.status === 'ACTIVE'
-                                ? 'left-[14px]'
-                                : 'left-0.5'
-                            }`}
+                            className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${item.status === 'ACTIVE'
+                              ? 'left-[14px]'
+                              : 'left-0.5'
+                              }`}
                           />
                         </div>
                       </button>
@@ -663,6 +655,16 @@ function AddModal({
 
         const itemData = {
           ...formData,
+          price: parseFloat(formData.price.toString()) || 0,
+          variationGroups: formData.variationGroups.map((group) => ({
+            ...group,
+            options: group.options.map((option) => ({
+              ...option,
+              priceModifier: parseFloat(option.priceModifier.toString()) || 0,
+              displayOrder:
+                parseInt(option.displayOrder?.toString() || '0') || 0,
+            })),
+          })),
           preparationTime: parseInt(formData.preparationTime.toString()) || 15,
           calories: formData.calories ? parseInt(formData.calories) : undefined,
         };
@@ -1099,6 +1101,17 @@ function EditItemModal({
       const payload = {
         id: item.id, // ID is required for the hook
         ...formData,
+        price: parseFloat(formData.price.toString()) || 0,
+        preparationTime: parseInt(formData.preparationTime.toString()) || 0,
+        variationGroups: formData.variationGroups.map((group) => ({
+          ...group,
+          options: group.options.map((option) => ({
+            ...option,
+            priceModifier: parseFloat(option.priceModifier.toString()) || 0,
+            displayOrder:
+              parseInt(option.displayOrder?.toString() || '0') || 0,
+          })),
+        })),
         calories: formData.calories ? parseInt(formData.calories) : undefined,
       };
 

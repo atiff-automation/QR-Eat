@@ -38,16 +38,7 @@ export async function GET(
                 imageUrl: true,
               },
             },
-            variations: {
-              include: {
-                variation: {
-                  select: {
-                    id: true,
-                    name: true,
-                  },
-                },
-              },
-            },
+            selectedOptions: true,
           },
         },
         customerSession: {

@@ -51,6 +51,7 @@ export async function GET(
             },
             selectedOptions: {
               select: {
+                id: true,
                 name: true,
                 priceModifier: true,
               },
@@ -239,6 +240,7 @@ export async function PATCH(
               },
               selectedOptions: {
                 select: {
+                  id: true,
                   name: true,
                   priceModifier: true,
                 },

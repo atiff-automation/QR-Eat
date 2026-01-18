@@ -230,12 +230,15 @@ export function ViewOrderDetailsModal({
                             item.selectedOptions.length > 0 && (
                               <div className="text-xs text-gray-500 mt-1 space-y-0.5">
                                 {item.selectedOptions.map(
-                                  (opt: {
-                                    id: string;
-                                    name: string;
-                                    priceModifier: number;
-                                  }) => (
-                                    <div key={opt.id}>
+                                  (
+                                    opt: {
+                                      id: string;
+                                      name: string;
+                                      priceModifier: number;
+                                    },
+                                    index: number
+                                  ) => (
+                                    <div key={opt.id || index}>
                                       + {opt.name} (
                                       {formatPrice(opt.priceModifier, currency)}
                                       )

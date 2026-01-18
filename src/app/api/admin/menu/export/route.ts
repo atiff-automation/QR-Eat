@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
     const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -62,8 +62,13 @@ export async function GET(request: NextRequest) {
             name: true
           }
         },
-        variations: {
-          orderBy: { displayOrder: 'asc' }
+        variationGroups: {
+          orderBy: { displayOrder: 'asc' },
+          include: {
+            options: {
+              orderBy: { displayOrder: 'asc' }
+            }
+          }
         }
       },
       orderBy: [
@@ -77,7 +82,7 @@ export async function GET(request: NextRequest) {
       const csvHeaders = [
         'ID',
         'Name',
-        'Description', 
+        'Description',
         'Category',
         'Price',
         'Preparation Time (min)',
@@ -87,7 +92,7 @@ export async function GET(request: NextRequest) {
         'Available',
         'Featured',
         'Display Order',
-        'Variations Count'
+        'Variation Groups Count'
       ];
 
       const csvRows = menuItems.map(item => [
@@ -103,7 +108,7 @@ export async function GET(request: NextRequest) {
         item.isAvailable ? 'Yes' : 'No',
         item.isFeatured ? 'Yes' : 'No',
         item.displayOrder,
-        item.variations.length
+        item.variationGroups.length
       ]);
 
       const csvContent = [
@@ -149,14 +154,19 @@ export async function GET(request: NextRequest) {
         isAvailable: item.isAvailable,
         isFeatured: item.isFeatured,
         displayOrder: item.displayOrder,
-        variations: item.variations.map(variation => ({
-          id: variation.id,
-          name: variation.name,
-          priceModifier: variation.priceModifier,
-          variationType: variation.variationType,
-          isRequired: variation.isRequired,
-          maxSelections: variation.maxSelections,
-          displayOrder: variation.displayOrder
+        variationGroups: item.variationGroups.map(group => ({
+          id: group.id,
+          name: group.name,
+          minSelections: group.minSelections,
+          maxSelections: group.maxSelections,
+          displayOrder: group.displayOrder,
+          options: group.options.map(opt => ({
+            id: opt.id,
+            name: opt.name,
+            priceModifier: opt.priceModifier,
+            displayOrder: opt.displayOrder,
+            isAvailable: opt.isAvailable
+          }))
         })),
         createdAt: item.createdAt,
         updatedAt: item.updatedAt

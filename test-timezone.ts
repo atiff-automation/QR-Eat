@@ -1,6 +1,7 @@
 /**
  * Test timezone handling
  */
+export { };
 
 // Simulate order from database (stored in UTC)
 const orderCreatedAt = '2026-01-03T06:00:00.000Z'; // 6 AM UTC = 2 PM GMT+8

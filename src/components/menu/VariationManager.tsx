@@ -48,15 +48,16 @@ export function VariationManager({
 
   const addOption = (groupIndex: number) => {
     const group = value[groupIndex];
+    const options = group.options || [];
     const newOption: VariationOption = {
       id: uuidv4(),
       name: '',
       priceModifier: 0,
       isAvailable: true,
-      displayOrder: group.options.length,
+      displayOrder: options.length,
     };
     updateGroup(groupIndex, {
-      options: [...group.options, newOption],
+      options: [...options, newOption],
     });
   };
 
@@ -66,34 +67,36 @@ export function VariationManager({
     updates: Partial<VariationOption>
   ) => {
     const group = value[groupIndex];
-    const newOptions = [...group.options];
+    const options = group.options || [];
+    const newOptions = [...options];
     newOptions[optionIndex] = { ...newOptions[optionIndex], ...updates };
     updateGroup(groupIndex, { options: newOptions });
   };
 
   const removeOption = (groupIndex: number, optionIndex: number) => {
     const group = value[groupIndex];
-    const newOptions = group.options.filter((_, i) => i !== optionIndex);
+    const options = group.options || [];
+    const newOptions = options.filter((_, i) => i !== optionIndex);
     updateGroup(groupIndex, { options: newOptions });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {value.map((group, groupIndex) => (
         <div
           key={group.id}
-          className="border border-gray-200 rounded-lg p-4 bg-gray-50/50 space-y-4"
+          className="border border-gray-200 rounded-lg p-3 bg-gray-50/50 space-y-3"
         >
-          {/* Group Header */}
-          <div className="flex items-start gap-4">
-            <div className="mt-3 text-gray-400 cursor-move">
-              <GripVertical size={20} />
+          {/* Group Header - Dense Grid */}
+          <div className="flex items-start gap-2">
+            <div className="mt-2 text-gray-400 cursor-move shrink-0">
+              <GripVertical size={18} />
             </div>
 
-            <div className="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4">
-              {/* Group Name */}
-              <div className="md:col-span-6">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+            <div className="flex-1 space-y-3">
+              {/* Row 1: Group Name */}
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
                   Group Name
                 </label>
                 <input
@@ -103,92 +106,96 @@ export function VariationManager({
                     updateGroup(groupIndex, { name: e.target.value })
                   }
                   placeholder="e.g. Size, Toppings"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 bg-white"
                 />
               </div>
 
-              {/* Min Selections */}
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Min Select
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={group.minSelections}
-                  onChange={(e) =>
-                    updateGroup(groupIndex, {
-                      minSelections: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
-                />
-              </div>
-
-              {/* Max Selections */}
-              <div className="md:col-span-3">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Max Select
-                </label>
-                <input
-                  type="number"
-                  min={0}
-                  value={group.maxSelections}
-                  onChange={(e) =>
-                    updateGroup(groupIndex, {
-                      maxSelections: parseInt(e.target.value) || 0,
-                    })
-                  }
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500"
-                />
+              {/* Row 2: Select Limits */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    Min Select
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={group.minSelections}
+                    onChange={(e) =>
+                      updateGroup(groupIndex, {
+                        minSelections: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                    Max Select
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={group.maxSelections}
+                    onChange={(e) =>
+                      updateGroup(groupIndex, {
+                        maxSelections: parseInt(e.target.value) || 0,
+                      })
+                    }
+                    className="w-full px-2.5 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-brand-500 focus:border-brand-500 bg-white"
+                  />
+                </div>
               </div>
             </div>
 
             <button
+              type="button"
               onClick={() => removeGroup(groupIndex)}
-              className="mt-7 text-gray-400 hover:text-red-500 transition-colors"
+              className="mt-6 p-1 text-gray-400 hover:text-red-500 transition-colors shrink-0"
             >
-              <Trash2 size={20} />
+              <Trash2 size={18} />
             </button>
           </div>
 
           {/* Validation Warning */}
           {group.maxSelections > 0 &&
             group.minSelections > group.maxSelections && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 p-2 rounded">
-                <AlertCircle size={16} />
+              <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 px-2 py-1.5 rounded">
+                <AlertCircle size={14} />
                 <span>Min selections cannot exceed Max selections</span>
               </div>
             )}
 
-          {/* Options List */}
-          <div className="ml-8 space-y-2 border-l-2 border-gray-200 pl-4 py-2">
+          {/* Options List - Removed left indentation to save space */}
+          <div className="pt-2 border-t border-gray-200">
             <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-500 uppercase tracking-wider">
+              <h4 className="text-[11px] font-bold text-gray-400 uppercase tracking-widest">
                 Options
               </h4>
               <Button
+                type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => addOption(groupIndex)}
-                className="text-brand-600 hover:text-brand-700"
+                className="text-brand-600 hover:text-brand-700 h-7 text-xs px-2"
               >
-                <Plus size={16} className="mr-1" /> Add Option
+                <Plus size={14} className="mr-1" /> Add Option
               </Button>
             </div>
 
-            {group.options.length === 0 ? (
-              <div className="text-sm text-gray-400 italic py-2">
+            {(!group.options || group.options.length === 0) ? (
+              <div className="text-xs text-gray-400 italic py-1 text-center">
                 No options added yet.
               </div>
             ) : (
-              <div className="space-y-3">
-                {group.options.map((option, optIndex) => (
+              <div className="space-y-2">
+                {(group.options || []).map((option, optIndex) => (
                   <div
-                    key={option.id} // Use ID for key
-                    className="flex items-center gap-3 bg-white p-2 rounded border border-gray-100 shadow-sm"
+                    key={option.id}
+                    className="flex items-center gap-2 bg-white p-1.5 rounded border border-gray-100 shadow-sm"
                   >
-                    <GripVertical size={16} className="text-gray-300" />
+                    <div className="text-gray-300 cursor-move shrink-0">
+                      <GripVertical size={14} />
+                    </div>
 
                     <input
                       type="text"
@@ -198,11 +205,12 @@ export function VariationManager({
                           name: e.target.value,
                         })
                       }
-                      placeholder="Option Name (e.g. Small)"
-                      className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-brand-500 focus:border-brand-500"
+                      placeholder="e.g. Small"
+                      className="flex-1 min-w-0 px-2 py-1 text-sm border border-gray-300 rounded focus:ring-brand-500 focus:border-brand-500"
                     />
 
-                    <div className="w-32">
+                    {/* Price Input - Compact and width-limited */}
+                    <div className="w-[5.5rem] shrink-0">
                       <CurrencyInput
                         value={option.priceModifier}
                         onChange={(val) =>
@@ -212,14 +220,16 @@ export function VariationManager({
                         }
                         currency={currencySymbol}
                         placeholder="0.00"
+                        className="w-full py-1 px-2 text-sm border border-gray-300 rounded focus:ring-brand-500 focus:border-brand-500 text-right bg-white"
                       />
                     </div>
 
                     <button
+                      type="button"
                       onClick={() => removeOption(groupIndex, optIndex)}
-                      className="text-gray-300 hover:text-red-500"
+                      className="p-1 text-gray-300 hover:text-red-500 shrink-0"
                     >
-                      <Trash2 size={16} />
+                      <Trash2 size={14} />
                     </button>
                   </div>
                 ))}
@@ -230,6 +240,7 @@ export function VariationManager({
       ))}
 
       <Button
+        type="button"
         variant="outline"
         onClick={addGroup}
         className="w-full border-dashed border-2 py-6 text-gray-500 hover:border-brand-500 hover:text-brand-500"

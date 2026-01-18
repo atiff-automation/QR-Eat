@@ -32,7 +32,11 @@ export async function GET(request: NextRequest) {
       authResult.user.currentRole &&
       authResult.user.currentRole.userType === 'staff'
     ) {
-      restaurantId = authResult.user.currentRole.restaurantId;
+      const staffRestaurantId = authResult.user.currentRole.restaurantId;
+      if (!staffRestaurantId) {
+        return NextResponse.json({ error: 'Restaurant context missing' }, { status: 400 });
+      }
+      restaurantId = staffRestaurantId;
     } else {
       // For admin/owner, require restaurantId parameter
       const url = new URL(request.url);
