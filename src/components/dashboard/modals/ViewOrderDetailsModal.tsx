@@ -41,19 +41,15 @@ export function ViewOrderDetailsModal({
         const data: any = await ApiClient.get(`/orders/${orderId}`);
         setOrder(data.order);
 
-        // Fetch restaurant settings for labels
-        try {
-          const settingsData = await ApiClient.get<{
-            settings: { taxLabel?: string; serviceChargeLabel?: string };
-          }>('/settings/restaurant');
-          setTaxLabel(settingsData.settings.taxLabel || 'Tax');
-          setServiceChargeLabel(
-            settingsData.settings.serviceChargeLabel || 'Service Charge'
-          );
-        } catch (err) {
-          console.error('Failed to fetch restaurant settings:', err);
-          // Use defaults if settings fetch fails
-        }
+        // Use snapshot labels from order, with fallbacks to legacy fields or defaults
+        setTaxLabel(
+          data.order.taxLabelSnapshot || data.order.taxLabel || 'Tax'
+        );
+        setServiceChargeLabel(
+          data.order.serviceChargeLabelSnapshot ||
+            data.order.serviceChargeLabel ||
+            'Service Charge'
+        );
       } catch (err) {
         console.error('Failed to fetch order:', err);
         setError('Failed to load order details. Please try again.');

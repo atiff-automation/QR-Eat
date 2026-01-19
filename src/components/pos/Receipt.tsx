@@ -48,6 +48,15 @@ export function Receipt({
       phone: restaurantInfo.phone,
       email: restaurantInfo.email,
       currency: currency || restaurantInfo.currency || 'MYR',
+      // Map snapshot labels for ReceiptCard
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      taxLabel:
+        (order as any).taxLabelSnapshot || (order as any).taxLabel || 'Tax',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      serviceChargeLabel:
+        (order as any).serviceChargeLabelSnapshot ||
+        (order as any).serviceChargeLabel ||
+        'Service Charge',
     },
     cashier: {
       firstName: cashierInfo.firstName,

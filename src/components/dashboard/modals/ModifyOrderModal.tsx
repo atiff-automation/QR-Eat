@@ -36,6 +36,14 @@ interface ModifyOrderModalProps {
         priceModifier: number;
       }>;
     }>;
+    // Snapshot fields
+    taxLabelSnapshot?: string;
+    serviceChargeLabelSnapshot?: string;
+    taxRateSnapshot?: string | number;
+    serviceChargeRateSnapshot?: string | number;
+    // Legacy fields for fallback
+    taxLabel?: string;
+    serviceChargeLabel?: string;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -95,21 +103,41 @@ export function ModifyOrderModal({
     totalAmount: order.totalAmount,
   });
 
+  // Determine labels from order snapshot or fallback to defaults
+  const taxLabel = order.taxLabelSnapshot || order.taxLabel || 'Tax';
+  const serviceChargeLabel =
+    order.serviceChargeLabelSnapshot ||
+    order.serviceChargeLabel ||
+    'Service Charge';
+
   // Convert Prisma Decimal to number and calculate rates from original order
   const originalSubtotal = Number(order.subtotalAmount);
-  const originalTax = Number(order.taxAmount);
-  const originalService = Number(order.serviceCharge);
+  // Unused variables for calculation but kept for debug if needed:
+  // const originalTax = Number(order.taxAmount);
+  // const originalService = Number(order.serviceCharge);
   const originalTotal = Number(order.totalAmount);
 
-  const taxRate = originalSubtotal > 0 ? originalTax / originalSubtotal : 0;
+  // Use snapshot rates if available, otherwise fallback to calculation
+  const snapshotTaxRate = order.taxRateSnapshot;
+  const snapshotServiceRate = order.serviceChargeRateSnapshot;
+
+  const taxRate =
+    snapshotTaxRate !== undefined
+      ? Number(snapshotTaxRate)
+      : originalSubtotal > 0
+        ? Number(order.taxAmount) / originalSubtotal
+        : 0;
+
   const serviceChargeRate =
-    originalSubtotal > 0 ? originalService / originalSubtotal : 0;
+    snapshotServiceRate !== undefined
+      ? Number(snapshotServiceRate)
+      : originalSubtotal > 0
+        ? Number(order.serviceCharge) / originalSubtotal
+        : 0;
 
   // DEBUG: Log calculated values
   console.log('🔍 Calculation Debug:', {
     originalSubtotal,
-    originalTax,
-    originalService,
     originalTotal,
     newSubtotal,
     taxRate,
@@ -388,7 +416,7 @@ export function ModifyOrderModal({
             {/* Tax */}
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">
-                Tax ({(taxRate * 100).toFixed(1)}%):
+                {taxLabel} ({(taxRate * 100).toFixed(1)}%):
               </span>
               <span className="font-medium text-gray-900">
                 {formatPrice(newTax, currency)}
@@ -398,7 +426,7 @@ export function ModifyOrderModal({
             {/* Service Charge */}
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">
-                Service Charge ({(serviceChargeRate * 100).toFixed(1)}%):
+                {serviceChargeLabel} ({(serviceChargeRate * 100).toFixed(1)}%):
               </span>
               <span className="font-medium text-gray-900">
                 {formatPrice(newServiceCharge, currency)}

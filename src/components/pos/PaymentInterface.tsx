@@ -105,7 +105,10 @@ export function PaymentInterface({
     if (relatedOrders.length > 0) {
       return relatedOrders
         .filter((o) => o.status !== 'CANCELLED')
-        .reduce((sum, o) => sum + Number(o.totalAmount), 0);
+        .reduce(
+          (sum: number, o: OrderWithDetails) => sum + Number(o.totalAmount),
+          0
+        );
     }
     return order.status !== 'CANCELLED' ? Number(order.totalAmount) : 0;
   };
@@ -121,22 +124,25 @@ export function PaymentInterface({
         orderNumber: validOrders.map((o) => o.orderNumber).join(', '),
         totalAmount: totalAmount as unknown as typeof order.totalAmount,
         subtotalAmount: validOrders.reduce(
-          (sum, o) => sum + Number(o.subtotalAmount),
+          (sum: number, o: OrderWithDetails) => sum + Number(o.subtotalAmount),
           0
         ) as unknown as typeof order.subtotalAmount,
         taxAmount: validOrders.reduce(
-          (sum, o) => sum + Number(o.taxAmount || 0),
+          (sum: number, o: OrderWithDetails) => sum + Number(o.taxAmount || 0),
           0
         ) as unknown as typeof order.taxAmount,
         serviceCharge: validOrders.reduce(
-          (sum, o) => sum + Number(o.serviceCharge || 0),
+          (sum: number, o: OrderWithDetails) =>
+            sum + Number(o.serviceCharge || 0),
           0
         ) as unknown as typeof order.serviceCharge,
         items: validOrders.flatMap((o) => o.items || []),
         // Preserve tax and service charge labels from restaurant or order
-        taxLabel: order.restaurant?.taxLabel || order.taxLabel,
+        taxLabel: order.taxLabelSnapshot || order.taxLabel || 'Tax',
         serviceChargeLabel:
-          order.restaurant?.serviceChargeLabel || order.serviceChargeLabel,
+          order.serviceChargeLabelSnapshot ||
+          order.serviceChargeLabel ||
+          'Service Charge',
       } as OrderWithDetails)
     : order;
 

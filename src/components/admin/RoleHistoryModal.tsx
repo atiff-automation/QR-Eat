@@ -39,6 +39,12 @@ interface User {
   userType: 'platform_admin' | 'restaurant_owner' | 'staff';
 }
 
+interface RoleAuditSnapshot {
+  roleTemplate?: string;
+  customPermissions?: string[];
+  [key: string]: unknown;
+}
+
 interface RoleHistoryEntry {
   id: string;
   userId: string;
@@ -61,8 +67,8 @@ interface RoleHistoryEntry {
       slug: string;
     };
     changes?: {
-      before?: unknown;
-      after?: unknown;
+      before?: Partial<RoleAuditSnapshot>;
+      after?: Partial<RoleAuditSnapshot>;
     };
     customPermissions?: string[];
     reason?: string;
@@ -177,21 +183,27 @@ export function RoleHistoryModal({
       case 'UPDATE':
         if (details.changes) {
           const changes = [];
-          if (details.changes.roleTemplate) {
-            const before = details.changes.before as
-              | { roleTemplate?: string }
-              | undefined;
-            const after = details.changes.after as
-              | { roleTemplate?: string }
-              | undefined;
+          const before = details.changes.before || {};
+          const after = details.changes.after || {};
+
+          // Check for role template changes
+          if (before.roleTemplate !== after.roleTemplate) {
             changes.push(
-              `role template from ${before?.roleTemplate} to ${after?.roleTemplate}`
+              `role template from ${before.roleTemplate} to ${after.roleTemplate}`
             );
           }
-          if (details.changes.customPermissions) {
+
+          // Check for custom permission changes
+          if (
+            JSON.stringify(before.customPermissions) !==
+            JSON.stringify(after.customPermissions)
+          ) {
             changes.push('custom permissions');
           }
-          return `Updated ${changes.join(' and ')}`;
+
+          if (changes.length > 0) {
+            return `Updated ${changes.join(' and ')}`;
+          }
         }
         return 'Updated role';
       case 'DELETE':
@@ -206,7 +218,7 @@ export function RoleHistoryModal({
   };
 
   const getSeverityBadge = (severity: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: 'bg-gray-100 text-gray-800',
       medium: 'bg-yellow-100 text-yellow-800',
       high: 'bg-red-100 text-red-800',

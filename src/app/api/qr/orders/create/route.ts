@@ -331,8 +331,17 @@ export async function POST(request: NextRequest) {
         dailySeq: order.dailySeq ?? undefined,
         status: order.status,
         paymentStatus: order.paymentStatus,
+        subtotalAmount: Number(order.subtotalAmount),
+        taxAmount: Number(order.taxAmount),
+        serviceCharge: Number(order.serviceCharge),
         totalAmount: order.totalAmount,
         estimatedReadyTime: order.estimatedReadyTime,
+        sessionToken: tableCart.sessionId,
+        // Return snapshots for immediate display
+        taxLabelSnapshot: order.taxLabelSnapshot,
+        serviceChargeLabelSnapshot: order.serviceChargeLabelSnapshot,
+        taxRateSnapshot: Number(order.taxRateSnapshot),
+        serviceChargeRateSnapshot: Number(order.serviceChargeRateSnapshot),
       },
       message:
         'Order submitted successfully! Please pay at the counter when ready.',

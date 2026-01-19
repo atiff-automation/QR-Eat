@@ -30,6 +30,12 @@ export async function GET(
           select: {
             tableNumber: true,
             tableName: true,
+            restaurant: {
+              select: {
+                taxLabel: true,
+                serviceChargeLabel: true,
+              },
+            },
           },
         },
         customerSession: {

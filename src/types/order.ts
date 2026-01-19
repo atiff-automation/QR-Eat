@@ -36,7 +36,31 @@ export interface Order {
     tableNumber: string;
     tableName?: string;
   };
+  // Snapshot fields
+  taxLabelSnapshot?: string;
+  serviceChargeLabelSnapshot?: string;
+  taxRateSnapshot?: string | number;
+  serviceChargeRateSnapshot?: string | number;
   items: OrderItem[];
+}
+
+export interface OrderResponse {
+  id: string;
+  orderNumber: string;
+  dailySeq?: number;
+  status: string;
+  paymentStatus: string;
+  subtotalAmount: number;
+  taxAmount: number;
+  serviceCharge: number;
+  totalAmount: number;
+  estimatedReadyTime?: string;
+  sessionToken: string;
+  // Snapshot fields
+  taxLabelSnapshot?: string;
+  serviceChargeLabelSnapshot?: string;
+  taxRateSnapshot?: string | number;
+  serviceChargeRateSnapshot?: string | number;
 }
 
 export interface OrderItem {
@@ -77,15 +101,4 @@ export interface OrderStatusUpdate {
   status: string;
   estimatedReadyTime?: string;
   notes?: string;
-}
-
-export interface OrderResponse {
-  id: string;
-  orderNumber: string;
-  dailySeq?: number;
-  status: string;
-  paymentStatus: string;
-  totalAmount: number;
-  estimatedReadyTime?: string;
-  sessionToken: string;
 }

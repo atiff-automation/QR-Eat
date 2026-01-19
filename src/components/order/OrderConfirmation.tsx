@@ -45,12 +45,36 @@ export function OrderConfirmation({
         </div>
 
         {/* Total Amount */}
-        <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-200">
-          <p className="text-xs text-gray-600 mb-1">Total Amount</p>
-          <p className="text-3xl font-bold text-orange-600">
-            {formatPrice(order.totalAmount, currency)}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
+        <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 space-y-2">
+          {/* Subtotal */}
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>Subtotal</span>
+            <span>{formatPrice(order.subtotalAmount, currency)}</span>
+          </div>
+
+          {/* Tax */}
+          <div className="flex justify-between text-sm text-gray-600">
+            <span>{order.taxLabelSnapshot || 'Tax'}</span>
+            <span>{formatPrice(order.taxAmount, currency)}</span>
+          </div>
+
+          {/* Service Charge */}
+          <div className="flex justify-between text-sm text-gray-600 border-b border-gray-200 pb-2">
+            <span>{order.serviceChargeLabelSnapshot || 'Service Charge'}</span>
+            <span>{formatPrice(order.serviceCharge, currency)}</span>
+          </div>
+
+          {/* Total Amount */}
+          <div className="flex justify-between items-center pt-1">
+            <span className="text-sm font-semibold text-gray-900">
+              Total Amount
+            </span>
+            <span className="text-3xl font-bold text-orange-600">
+              {formatPrice(order.totalAmount, currency)}
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2 text-center">
             Pay at the counter when ready
           </p>
         </div>

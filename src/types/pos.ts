@@ -114,6 +114,14 @@ export interface ReceiptData {
 
 // ...
 
+export interface PaymentInterfaceProps {
+  order: OrderWithDetails;
+  relatedOrders?: OrderWithDetails[];
+  currency?: string;
+  onClose: () => void;
+  onPaymentComplete: () => void;
+}
+
 export interface ReceiptProps {
   order: OrderWithDetails;
   payment: Payment;
