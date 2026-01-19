@@ -138,8 +138,10 @@ export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
   const baseDomain = parts.slice(1).join('.');
 
   // Check if this is a main domain
+  // STRICT MATCH: Only consider it a main domain if the FULL HOST matches one of the main domains
+  // This fixes the bug where *.tabtep.app was being treated as a main domain
   const isMainDomain = SUBDOMAIN_CONFIG.MAIN_DOMAINS.some(
-    (domain) => host === domain || baseDomain === domain.split(':')[0]
+    (domain) => host === domain
   );
 
   return {

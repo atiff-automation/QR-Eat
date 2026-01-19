@@ -467,7 +467,7 @@ export function LiveOrderBoard({
                   {order.timeRemaining !== null && ' remaining'}
                 </div>
                 <div className="text-gray-600">
-                  ${order.totalAmount.toFixed(2)}
+                  ${Number(order.totalAmount).toFixed(2)}
                 </div>
               </div>
 
