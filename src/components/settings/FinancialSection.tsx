@@ -208,6 +208,9 @@ export function FinancialSection({
             placeholder="6.00"
             disabled={isLoading}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Rounds down to nearest cent.
+          </p>
         </div>
 
         <div>
@@ -254,6 +257,9 @@ export function FinancialSection({
             placeholder="10.00"
             disabled={isLoading}
           />
+          <p className="text-xs text-gray-500 mt-1">
+            Rounds down to nearest cent.
+          </p>
         </div>
 
         <div className="pt-2">
