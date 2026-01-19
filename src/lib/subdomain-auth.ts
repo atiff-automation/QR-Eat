@@ -404,8 +404,22 @@ export function handlePostLoginRedirect(
 
   // Validate subdomain access if needed
   if (authContext.isSubdomain) {
+    // If context doesn't have restaurantId (client-side), try to get from login response
+    // The login API returns 'tenant' object for subdomain logins
+    const responseTenant =
+      (loginResponse.tenant as Record<string, unknown>) ||
+      (loginResponse.restaurant as Record<string, unknown>);
+
+    // Create a temporary context with the resolved restaurant ID
+    const effectiveContext = {
+      ...authContext,
+      restaurantId: authContext.restaurantId || (responseTenant?.id as string),
+      restaurantName:
+        authContext.restaurantName || (responseTenant?.name as string),
+    };
+
     const validation = validateSubdomainAccess(
-      authContext,
+      effectiveContext,
       userType,
       user?.restaurantId as string | undefined,
       user?.ownerId as string | undefined

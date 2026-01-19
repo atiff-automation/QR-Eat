@@ -453,6 +453,7 @@ export function shouldHandleSubdomain(request: NextRequest): boolean {
     '/sitemap.xml',
     '/health',
     '/ping',
+    '/sw.js',
   ];
 
   if (skipPaths.some((path) => pathname.startsWith(path))) {
