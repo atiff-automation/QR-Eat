@@ -211,9 +211,16 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           }`}
         >
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
-            <span className="text-lg font-semibold text-gray-900">
-              {restaurantContext?.name || 'Menu'}
-            </span>
+            <div className="flex flex-col">
+              <span className="text-lg font-semibold text-gray-900">
+                {restaurantContext?.name || 'Menu'}
+              </span>
+              {restaurantContext?.slug && (
+                <span className="text-xs text-gray-500 font-mono break-all">
+                  {restaurantContext.slug}
+                </span>
+              )}
+            </div>
             <button
               onClick={() => setIsSidebarOpen(false)}
               className="text-gray-400 hover:text-gray-600"
@@ -287,7 +294,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
                 {restaurantContext?.name || 'Dashboard'}
               </h1>
               {restaurantContext?.slug && (
-                <p className="text-xs text-gray-500 mt-0.5 mb-2 truncate font-mono">
+                <p className="text-xs text-gray-500 mt-0.5 mb-2 break-all font-mono">
                   {restaurantContext.slug}
                 </p>
               )}
