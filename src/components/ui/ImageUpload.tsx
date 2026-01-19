@@ -2,6 +2,7 @@
 
 import { useState, useRef, DragEvent, ChangeEvent } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import imageCompression from 'browser-image-compression';
 
 interface ImageUploadProps {
   value?: string;
@@ -10,7 +11,12 @@ interface ImageUploadProps {
   disabled?: boolean;
 }
 
-export function ImageUpload({ value, onChange, className = '', disabled = false }: ImageUploadProps) {
+export function ImageUpload({
+  value,
+  onChange,
+  className = '',
+  disabled = false,
+}: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,25 +64,44 @@ export function ImageUpload({ value, onChange, className = '', disabled = false 
       return;
     }
 
-    // Validate file size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('File size must be less than 5MB.');
+    // Validate file size (10MB limit for initial selection, we will compress it down)
+    // We allow larger initial files now because we are compressing them
+    if (file.size > 10 * 1024 * 1024) {
+      setError('File size must be less than 10MB.');
       setIsUploading(false);
       return;
     }
 
     try {
+      // Compress image
+      const options = {
+        maxSizeMB: 0.2, // 200KB
+        maxWidthOrHeight: 1024,
+        useWebWorker: true,
+        fileType: 'image/webp',
+      };
+
+      const compressedFile = await imageCompression(file, options);
+
+      // Create FormData with the compressed file
       const formData = new FormData();
-      formData.append('image', file);
+      // Keep original name but ensure correct extension
+      const originalName = file.name.split('.')[0];
+      const newName = `${originalName}.webp`;
+      formData.append('image', compressedFile, newName);
 
       // Use ApiClient.request directly for FormData
-      const response = await ApiClient['request']<{ imageUrl: string }>('/api/upload/image', {
-        method: 'POST',
-        body: formData,
-      });
+      const response = await ApiClient['request']<{ imageUrl: string }>(
+        '/api/upload/image',
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
 
       onChange(response.imageUrl);
     } catch (error) {
+      console.error('Upload/Compression error:', error);
       if (error instanceof ApiClientError) {
         setError(error.message || 'Upload failed');
       } else {
@@ -169,7 +194,9 @@ export function ImageUpload({ value, onChange, className = '', disabled = false 
             <div className="text-gray-400 text-4xl">📷</div>
             <div>
               <p className="text-gray-600 font-medium">
-                {dragActive ? 'Drop image here' : 'Click to upload or drag and drop'}
+                {dragActive
+                  ? 'Drop image here'
+                  : 'Click to upload or drag and drop'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
                 JPEG, PNG, or WebP • Max 5MB • Recommended: 800x600px
@@ -187,7 +214,6 @@ export function ImageUpload({ value, onChange, className = '', disabled = false 
       )}
 
       {/* Guidelines */}
-
     </div>
   );
 }
