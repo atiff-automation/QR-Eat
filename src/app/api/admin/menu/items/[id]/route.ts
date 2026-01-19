@@ -130,6 +130,18 @@ export async function PATCH(
       );
     }
 
+    // Constraint Check: Cannot activate item if category is inactive
+    if (
+      (updateData.status === 'ACTIVE' || updateData.isAvailable === true) &&
+      (existingItem.category.status === 'INACTIVE' ||
+        !existingItem.category.isActive)
+    ) {
+      return NextResponse.json(
+        { error: 'Cannot activate item because its category is inactive' },
+        { status: 400 }
+      );
+    }
+
     // Handle Image Delete
     if (
       updateData.imageUrl !== undefined &&
