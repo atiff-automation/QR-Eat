@@ -57,6 +57,7 @@ const UpdateMenuItemSchema = z.object({
   allergens: z.array(z.string()).optional(),
   dietaryInfo: z.array(z.string()).optional(),
   isAvailable: z.boolean().optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE']).optional(),
   isFeatured: z.boolean().optional(),
   displayOrder: z.number().int().optional(),
   // Complete replacement of variation groups

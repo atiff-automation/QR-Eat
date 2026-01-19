@@ -1,6 +1,6 @@
 /**
  * User Role Manager Component
- * 
+ *
  * Comprehensive user role management interface for platform administrators.
  * Includes user listing, role assignment, role history, and bulk operations.
  */
@@ -11,29 +11,24 @@ import { useState, useEffect } from 'react';
 import {
   Users,
   Search,
-  Filter,
   UserCheck,
   UserX,
   Shield,
   Building2,
   Mail,
   Phone,
-  Plus,
   Edit,
   Trash2,
   History,
   Download,
-  Upload,
-  MoreVertical,
   Eye,
   Settings,
   UserPlus,
   Clock,
-  Activity
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { PermissionGuard } from '@/components/rbac/PermissionGuard';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { ApiClient } from '@/lib/api-client';
 import { RoleAssignmentModal } from './RoleAssignmentModal';
 import { RoleHistoryModal } from './RoleHistoryModal';
 import { BulkRoleOperationsModal } from './BulkRoleOperationsModal';
@@ -103,8 +98,10 @@ interface UserStats {
 }
 
 export function UserRoleManager() {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { hasPermission } = useRole();
   const [users, setUsers] = useState<User[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([]);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -117,6 +114,7 @@ export function UserRoleManager() {
   const [includeInactive, setIncludeInactive] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [showUserModal, setShowUserModal] = useState(false);
   const [showRoleModal, setShowRoleModal] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
@@ -125,6 +123,7 @@ export function UserRoleManager() {
   useEffect(() => {
     fetchUsers();
     fetchRoleTemplates();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [includeRoles, includeInactive, userTypeFilter, currentPage]);
 
   const fetchUsers = async () => {
@@ -170,17 +169,20 @@ export function UserRoleManager() {
     fetchUsers();
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = !searchTerm || 
+  const filteredUsers = users.filter((user) => {
+    const matchesSearch =
+      !searchTerm ||
       user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesUserType = userTypeFilter === 'all' || user.userType === userTypeFilter;
-    const matchesStatus = statusFilter === 'all' || 
-                         (statusFilter === 'ACTIVE' && user.isActive) ||
-                         (statusFilter === 'inactive' && !user.isActive);
-    
+
+    const matchesUserType =
+      userTypeFilter === 'all' || user.userType === userTypeFilter;
+    const matchesStatus =
+      statusFilter === 'all' ||
+      (statusFilter === 'ACTIVE' && user.isActive) ||
+      (statusFilter === 'inactive' && !user.isActive);
+
     return matchesSearch && matchesUserType && matchesStatus;
   });
 
@@ -211,17 +213,19 @@ export function UserRoleManager() {
   };
 
   const getRoleTemplateBadge = (template: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       platform_admin: 'bg-purple-100 text-purple-800',
       restaurant_owner: 'bg-blue-100 text-blue-800',
       manager: 'bg-indigo-100 text-indigo-800',
       kitchen_staff: 'bg-orange-100 text-orange-800',
     };
-    
+
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-        colors[template] || 'bg-gray-100 text-gray-800'
-      }`}>
+      <span
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          colors[template] || 'bg-gray-100 text-gray-800'
+        }`}
+      >
         {template.replace('_', ' ')}
       </span>
     );
@@ -231,13 +235,13 @@ export function UserRoleManager() {
     if (checked) {
       setSelectedUsers([...selectedUsers, userId]);
     } else {
-      setSelectedUsers(selectedUsers.filter(id => id !== userId));
+      setSelectedUsers(selectedUsers.filter((id) => id !== userId));
     }
   };
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedUsers(filteredUsers.map(user => user.id));
+      setSelectedUsers(filteredUsers.map((user) => user.id));
     } else {
       setSelectedUsers([]);
     }
@@ -264,57 +268,69 @@ export function UserRoleManager() {
               <Users className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Total Users</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.total}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <Shield className="h-8 w-8 text-purple-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Admins</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.platformAdmins}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.platformAdmins}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <Building2 className="h-8 w-8 text-blue-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Owners</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.restaurantOwners}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.restaurantOwners}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <Users className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Staff</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.staff}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.staff}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <UserCheck className="h-8 w-8 text-green-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.active}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.active}
+                </p>
               </div>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-lg shadow p-6">
             <div className="flex items-center">
               <UserX className="h-8 w-8 text-red-600" />
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Inactive</p>
-                <p className="text-2xl font-bold text-gray-900">{userStats.inactive}</p>
+                <p className="text-2xl font-bold text-gray-900">
+                  {userStats.inactive}
+                </p>
               </div>
             </div>
           </div>
@@ -336,7 +352,7 @@ export function UserRoleManager() {
                 className="pl-10 pr-4 py-2 w-64 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
+
             <select
               value={userTypeFilter}
               onChange={(e) => setUserTypeFilter(e.target.value)}
@@ -347,7 +363,7 @@ export function UserRoleManager() {
               <option value="restaurant_owner">Restaurant Owners</option>
               <option value="staff">Staff</option>
             </select>
-            
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -358,7 +374,7 @@ export function UserRoleManager() {
               <option value="inactive">Inactive</option>
             </select>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
             <div className="flex items-center space-x-4">
               <label className="flex items-center">
@@ -368,9 +384,11 @@ export function UserRoleManager() {
                   onChange={(e) => setIncludeRoles(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="ml-2 text-sm text-gray-700">Include Roles</span>
+                <span className="ml-2 text-sm text-gray-700">
+                  Include Roles
+                </span>
               </label>
-              
+
               <label className="flex items-center">
                 <input
                   type="checkbox"
@@ -378,10 +396,12 @@ export function UserRoleManager() {
                   onChange={(e) => setIncludeInactive(e.target.checked)}
                   className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                 />
-                <span className="ml-2 text-sm text-gray-700">Include Inactive</span>
+                <span className="ml-2 text-sm text-gray-700">
+                  Include Inactive
+                </span>
               </label>
             </div>
-            
+
             <PermissionGuard permission="users:write">
               <div className="flex space-x-2">
                 <button
@@ -391,7 +411,7 @@ export function UserRoleManager() {
                   <UserPlus className="h-4 w-4 mr-2" />
                   Assign Role
                 </button>
-                
+
                 {selectedUsers.length > 0 && (
                   <button
                     onClick={() => setShowBulkModal(true)}
@@ -401,9 +421,11 @@ export function UserRoleManager() {
                     Bulk Actions ({selectedUsers.length})
                   </button>
                 )}
-                
+
                 <button
-                  onClick={() => window.open('/api/admin/users/export', '_blank')}
+                  onClick={() =>
+                    window.open('/api/admin/users/export', '_blank')
+                  }
                   className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                 >
                   <Download className="h-4 w-4 mr-2" />
@@ -424,7 +446,10 @@ export function UserRoleManager() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <input
                     type="checkbox"
-                    checked={selectedUsers.length === filteredUsers.length && filteredUsers.length > 0}
+                    checked={
+                      selectedUsers.length === filteredUsers.length &&
+                      filteredUsers.length > 0
+                    }
                     onChange={(e) => handleSelectAll(e.target.checked)}
                     className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                   />
@@ -453,7 +478,9 @@ export function UserRoleManager() {
                     <input
                       type="checkbox"
                       checked={selectedUsers.includes(user.id)}
-                      onChange={(e) => handleSelectUser(user.id, e.target.checked)}
+                      onChange={(e) =>
+                        handleSelectUser(user.id, e.target.checked)
+                      }
                       className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
                     />
                   </td>
@@ -461,7 +488,8 @@ export function UserRoleManager() {
                     <div className="flex items-center">
                       <div className="h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
                         <span className="text-sm font-medium text-white">
-                          {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                          {user.firstName.charAt(0)}
+                          {user.lastName.charAt(0)}
                         </span>
                       </div>
                       <div className="ml-4">
@@ -489,20 +517,22 @@ export function UserRoleManager() {
                           {getUserTypeLabel(user.userType)}
                         </span>
                       </div>
-                      {includeRoles && user.rbacData && user.rbacData.roles.length > 0 && (
-                        <div className="space-y-1">
-                          {user.rbacData.roles.slice(0, 2).map((role) => (
-                            <div key={role.id}>
-                              {getRoleTemplateBadge(role.roleTemplate)}
-                            </div>
-                          ))}
-                          {user.rbacData.roles.length > 2 && (
-                            <div className="text-xs text-gray-500">
-                              +{user.rbacData.roles.length - 2} more roles
-                            </div>
-                          )}
-                        </div>
-                      )}
+                      {includeRoles &&
+                        user.rbacData &&
+                        user.rbacData.roles.length > 0 && (
+                          <div className="space-y-1">
+                            {user.rbacData.roles.slice(0, 2).map((role) => (
+                              <div key={role.id}>
+                                {getRoleTemplateBadge(role.roleTemplate)}
+                              </div>
+                            ))}
+                            {user.rbacData.roles.length > 2 && (
+                              <div className="text-xs text-gray-500">
+                                +{user.rbacData.roles.length - 2} more roles
+                              </div>
+                            )}
+                          </div>
+                        )}
                       {includeRoles && user.rbacData && (
                         <div className="text-xs text-gray-500">
                           {user.rbacData.permissionCount} permissions
@@ -512,16 +542,19 @@ export function UserRoleManager() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">
-                      {user.userType === 'restaurant_owner' && user.restaurants ? (
+                      {user.userType === 'restaurant_owner' &&
+                      user.restaurants ? (
                         <div className="space-y-1">
-                          {user.restaurants.slice(0, 2).map((restaurant, index) => (
-                            <div key={index} className="flex items-center">
-                              <Building2 className="h-3 w-3 text-blue-600 mr-1" />
-                              <span className="text-blue-600 hover:underline cursor-pointer">
-                                {restaurant.name}
-                              </span>
-                            </div>
-                          ))}
+                          {user.restaurants
+                            .slice(0, 2)
+                            .map((restaurant, index) => (
+                              <div key={index} className="flex items-center">
+                                <Building2 className="h-3 w-3 text-blue-600 mr-1" />
+                                <span className="text-blue-600 hover:underline cursor-pointer">
+                                  {restaurant.name}
+                                </span>
+                              </div>
+                            ))}
                           {user.restaurants.length > 2 && (
                             <div className="text-xs text-gray-500">
                               +{user.restaurants.length - 2} more
@@ -547,11 +580,13 @@ export function UserRoleManager() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="space-y-2">
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                        user.isActive
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          user.isActive
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
                         {user.isActive ? (
                           <>
                             <UserCheck className="h-3 w-3 mr-1" />
@@ -566,10 +601,10 @@ export function UserRoleManager() {
                       </span>
                       <div className="text-xs text-gray-500 flex items-center">
                         <Clock className="h-3 w-3 mr-1" />
-                        Last login: {user.lastLoginAt 
+                        Last login:{' '}
+                        {user.lastLoginAt
                           ? new Date(user.lastLoginAt).toLocaleDateString()
-                          : 'Never'
-                        }
+                          : 'Never'}
                       </div>
                     </div>
                   </td>
@@ -584,7 +619,7 @@ export function UserRoleManager() {
                       >
                         <Eye className="h-4 w-4" />
                       </button>
-                      
+
                       <PermissionGuard permission="users:write">
                         <button
                           onClick={() => {
@@ -596,7 +631,7 @@ export function UserRoleManager() {
                           <Edit className="h-4 w-4" />
                         </button>
                       </PermissionGuard>
-                      
+
                       <button
                         onClick={() => {
                           setSelectedUser(user);
@@ -606,11 +641,15 @@ export function UserRoleManager() {
                       >
                         <History className="h-4 w-4" />
                       </button>
-                      
+
                       <PermissionGuard permission="users:delete">
                         <button
                           onClick={() => {
-                            if (confirm('Are you sure you want to remove this user\'s roles?')) {
+                            if (
+                              confirm(
+                                "Are you sure you want to remove this user's roles?"
+                              )
+                            ) {
                               // handleDeleteUserRoles(user.id);
                             }
                           }}
@@ -660,11 +699,16 @@ export function UserRoleManager() {
           <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
             <div>
               <p className="text-sm text-gray-700">
-                Showing <span className="font-medium">{(currentPage - 1) * usersPerPage + 1}</span> to{' '}
+                Showing{' '}
+                <span className="font-medium">
+                  {(currentPage - 1) * usersPerPage + 1}
+                </span>{' '}
+                to{' '}
                 <span className="font-medium">
                   {Math.min(currentPage * usersPerPage, filteredUsers.length)}
                 </span>{' '}
-                of <span className="font-medium">{filteredUsers.length}</span> results
+                of <span className="font-medium">{filteredUsers.length}</span>{' '}
+                results
               </p>
             </div>
             <div>

@@ -1,6 +1,6 @@
 /**
  * Role History Modal Component
- * 
+ *
  * Displays the complete history of role changes for a user, including:
  * - Role assignments and removals
  * - Permission changes
@@ -14,12 +14,8 @@ import { useState, useEffect } from 'react';
 import {
   X,
   History,
-  Calendar,
   User,
-  Shield,
-  Building2,
   Plus,
-  Minus,
   Edit,
   Trash2,
   AlertCircle,
@@ -31,10 +27,9 @@ import {
   ChevronDown,
   ChevronUp,
   Activity,
-  Settings
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { ApiClient } from '@/lib/api-client';
 
 interface User {
   id: string;
@@ -66,8 +61,8 @@ interface RoleHistoryEntry {
       slug: string;
     };
     changes?: {
-      before?: any;
-      after?: any;
+      before?: unknown;
+      after?: unknown;
     };
     customPermissions?: string[];
     reason?: string;
@@ -87,7 +82,11 @@ interface RoleHistoryModalProps {
   user: User | null;
 }
 
-export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProps) {
+export function RoleHistoryModal({
+  isOpen,
+  onClose,
+  user,
+}: RoleHistoryModalProps) {
   const { hasPermission } = useRole();
   const [history, setHistory] = useState<RoleHistoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -96,9 +95,11 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [dateRange, setDateRange] = useState<{ start: string; end: string }>({
     start: '',
-    end: ''
+    end: '',
   });
-  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(new Set());
+  const [expandedEntries, setExpandedEntries] = useState<Set<string>>(
+    new Set()
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [entriesPerPage] = useState(10);
 
@@ -106,6 +107,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
     if (isOpen && user) {
       fetchRoleHistory();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, user]);
 
   const fetchRoleHistory = async () => {
@@ -119,7 +121,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
         ...(severityFilter !== 'all' && { severity: severityFilter }),
         ...(dateRange.start && { startDate: dateRange.start }),
         ...(dateRange.end && { endDate: dateRange.end }),
-        ...(searchTerm && { search: searchTerm })
+        ...(searchTerm && { search: searchTerm }),
       });
 
       const data = await ApiClient.get<{
@@ -149,7 +151,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
     setExpandedEntries(newExpanded);
   };
 
-  const getActionIcon = (action: string, actionType: string) => {
+  const getActionIcon = (action: string) => {
     switch (action) {
       case 'CREATE':
         return <Plus className="h-4 w-4 text-green-600" />;
@@ -168,7 +170,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
 
   const getActionDescription = (entry: RoleHistoryEntry) => {
     const { action, details } = entry;
-    
+
     switch (action) {
       case 'CREATE':
         return `Assigned ${details.roleTemplate?.replace('_', ' ')} role${details.restaurant ? ` for ${details.restaurant.name}` : ''}`;
@@ -176,7 +178,15 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
         if (details.changes) {
           const changes = [];
           if (details.changes.roleTemplate) {
-            changes.push(`role template from ${details.changes.before?.roleTemplate} to ${details.changes.after?.roleTemplate}`);
+            const before = details.changes.before as
+              | { roleTemplate?: string }
+              | undefined;
+            const after = details.changes.after as
+              | { roleTemplate?: string }
+              | undefined;
+            changes.push(
+              `role template from ${before?.roleTemplate} to ${after?.roleTemplate}`
+            );
           }
           if (details.changes.customPermissions) {
             changes.push('custom permissions');
@@ -199,11 +209,13 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
     const colors = {
       low: 'bg-gray-100 text-gray-800',
       medium: 'bg-yellow-100 text-yellow-800',
-      high: 'bg-red-100 text-red-800'
+      high: 'bg-red-100 text-red-800',
     };
 
     return (
-      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colors[severity] || colors.low}`}>
+      <span
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${colors[severity] || colors.low}`}
+      >
         {severity}
       </span>
     );
@@ -219,7 +231,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
         ...(actionFilter !== 'all' && { action: actionFilter }),
         ...(severityFilter !== 'all' && { severity: severityFilter }),
         ...(dateRange.start && { startDate: dateRange.start }),
-        ...(dateRange.end && { endDate: dateRange.end })
+        ...(dateRange.end && { endDate: dateRange.end }),
       });
 
       window.open(`/api/admin/audit/user-roles/export?${params}`, '_blank');
@@ -228,7 +240,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
     }
   };
 
-  const filteredHistory = history.filter(entry => {
+  const filteredHistory = history.filter((entry) => {
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
       return (
@@ -254,7 +266,10 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={onClose}
+        ></div>
 
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
           {/* Header */}
@@ -282,7 +297,9 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
           <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Search</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Search
+                </label>
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <input
@@ -297,7 +314,9 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Action</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Action
+                </label>
                 <select
                   value={actionFilter}
                   onChange={(e) => setActionFilter(e.target.value)}
@@ -313,7 +332,9 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Severity</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Severity
+                </label>
                 <select
                   value={severityFilter}
                   onChange={(e) => setSeverityFilter(e.target.value)}
@@ -349,20 +370,28 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
             {/* Date Range */}
             <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
                 <input
                   type="date"
                   value={dateRange.start}
-                  onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
+                  onChange={(e) =>
+                    setDateRange({ ...dateRange, start: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
                 <input
                   type="date"
                   value={dateRange.end}
-                  onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
+                  onChange={(e) =>
+                    setDateRange({ ...dateRange, end: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 text-sm"
                 />
               </div>
@@ -386,7 +415,7 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
                     <div className="p-4 bg-white">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center space-x-3">
-                          {getActionIcon(entry.action, entry.actionType)}
+                          {getActionIcon(entry.action)}
                           <div>
                             <div className="text-sm font-medium text-gray-900">
                               {getActionDescription(entry)}
@@ -395,7 +424,8 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
                               <Clock className="h-3 w-3 mr-1" />
                               {new Date(entry.timestamp).toLocaleString()}
                               <User className="h-3 w-3 ml-3 mr-1" />
-                              {entry.performedBy.firstName} {entry.performedBy.lastName}
+                              {entry.performedBy.firstName}{' '}
+                              {entry.performedBy.lastName}
                             </div>
                           </div>
                         </div>
@@ -418,20 +448,38 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
                         <div className="mt-4 pt-4 border-t border-gray-200">
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                             <div>
-                              <h5 className="font-medium text-gray-900 mb-2">Details</h5>
+                              <h5 className="font-medium text-gray-900 mb-2">
+                                Details
+                              </h5>
                               <div className="space-y-1 text-gray-600">
                                 {entry.details.roleTemplate && (
-                                  <div>Role Template: {entry.details.roleTemplate.replace('_', ' ')}</div>
+                                  <div>
+                                    Role Template:{' '}
+                                    {entry.details.roleTemplate.replace(
+                                      '_',
+                                      ' '
+                                    )}
+                                  </div>
                                 )}
                                 {entry.details.userType && (
-                                  <div>User Type: {entry.details.userType.replace('_', ' ')}</div>
+                                  <div>
+                                    User Type:{' '}
+                                    {entry.details.userType.replace('_', ' ')}
+                                  </div>
                                 )}
                                 {entry.details.restaurant && (
-                                  <div>Restaurant: {entry.details.restaurant.name}</div>
+                                  <div>
+                                    Restaurant: {entry.details.restaurant.name}
+                                  </div>
                                 )}
-                                {entry.details.customPermissions && entry.details.customPermissions.length > 0 && (
-                                  <div>Custom Permissions: {entry.details.customPermissions.length}</div>
-                                )}
+                                {entry.details.customPermissions &&
+                                  entry.details.customPermissions.length >
+                                    0 && (
+                                    <div>
+                                      Custom Permissions:{' '}
+                                      {entry.details.customPermissions.length}
+                                    </div>
+                                  )}
                                 {entry.details.reason && (
                                   <div>Reason: {entry.details.reason}</div>
                                 )}
@@ -439,23 +487,38 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
                             </div>
 
                             <div>
-                              <h5 className="font-medium text-gray-900 mb-2">Metadata</h5>
+                              <h5 className="font-medium text-gray-900 mb-2">
+                                Metadata
+                              </h5>
                               <div className="space-y-1 text-xs text-gray-500">
                                 <div>IP: {entry.metadata.ipAddress}</div>
                                 <div>Source: {entry.metadata.source}</div>
                                 {entry.metadata.sessionId && (
-                                  <div>Session: {entry.metadata.sessionId.substring(0, 8)}...</div>
+                                  <div>
+                                    Session:{' '}
+                                    {entry.metadata.sessionId.substring(0, 8)}
+                                    ...
+                                  </div>
                                 )}
-                                <div>User Agent: {entry.metadata.userAgent.substring(0, 50)}...</div>
+                                <div>
+                                  User Agent:{' '}
+                                  {entry.metadata.userAgent.substring(0, 50)}...
+                                </div>
                               </div>
                             </div>
 
                             {entry.details.changes && (
                               <div className="md:col-span-2">
-                                <h5 className="font-medium text-gray-900 mb-2">Changes</h5>
+                                <h5 className="font-medium text-gray-900 mb-2">
+                                  Changes
+                                </h5>
                                 <div className="bg-gray-50 p-3 rounded-md">
                                   <pre className="text-xs text-gray-600 whitespace-pre-wrap">
-                                    {JSON.stringify(entry.details.changes, null, 2)}
+                                    {JSON.stringify(
+                                      entry.details.changes,
+                                      null,
+                                      2
+                                    )}
                                   </pre>
                                 </div>
                               </div>
@@ -484,8 +547,11 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-700">
                   Showing {(currentPage - 1) * entriesPerPage + 1} to{' '}
-                  {Math.min(currentPage * entriesPerPage, filteredHistory.length)} of{' '}
-                  {filteredHistory.length} entries
+                  {Math.min(
+                    currentPage * entriesPerPage,
+                    filteredHistory.length
+                  )}{' '}
+                  of {filteredHistory.length} entries
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
@@ -499,7 +565,9 @@ export function RoleHistoryModal({ isOpen, onClose, user }: RoleHistoryModalProp
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    onClick={() =>
+                      setCurrentPage(Math.min(totalPages, currentPage + 1))
+                    }
                     disabled={currentPage === totalPages}
                     className="px-3 py-1 border border-gray-300 text-sm rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >

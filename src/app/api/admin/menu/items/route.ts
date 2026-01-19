@@ -36,6 +36,7 @@ const CreateMenuItemSchema = z.object({
   allergens: z.array(z.string()).default([]),
   dietaryInfo: z.array(z.string()).default([]),
   isAvailable: z.boolean().default(true),
+  status: z.enum(['ACTIVE', 'INACTIVE']).default('ACTIVE'),
   isFeatured: z.boolean().default(false),
   variationGroups: z.array(VariationGroupSchema).default([]),
 });

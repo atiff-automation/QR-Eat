@@ -4,15 +4,23 @@ export interface ValidationResult {
 }
 
 export interface FieldValidation {
-  value: any;
+  value: unknown;
   required?: boolean;
-  type?: 'string' | 'number' | 'email' | 'phone' | 'url' | 'boolean' | 'array' | 'object';
+  type?:
+    | 'string'
+    | 'number'
+    | 'email'
+    | 'phone'
+    | 'url'
+    | 'boolean'
+    | 'array'
+    | 'object';
   minLength?: number;
   maxLength?: number;
   min?: number;
   max?: number;
   pattern?: RegExp;
-  customValidator?: (value: any) => string | null;
+  customValidator?: (value: unknown) => string | null;
 }
 
 export class Validator {
@@ -27,12 +35,22 @@ export class Validator {
 
     return {
       isValid: this.errors.length === 0,
-      errors: this.errors
+      errors: this.errors,
     };
   }
 
   private validateField(fieldName: string, validation: FieldValidation): void {
-    const { value, required, type, minLength, maxLength, min, max, pattern, customValidator } = validation;
+    const {
+      value,
+      required,
+      type,
+      minLength,
+      maxLength,
+      min,
+      max,
+      pattern,
+      customValidator,
+    } = validation;
 
     // Check required
     if (required && (value === undefined || value === null || value === '')) {
@@ -54,10 +72,16 @@ export class Validator {
     // String-specific validations
     if (type === 'string' && typeof value === 'string') {
       if (minLength !== undefined && value.length < minLength) {
-        this.addError(fieldName, `must be at least ${minLength} characters long`);
+        this.addError(
+          fieldName,
+          `must be at least ${minLength} characters long`
+        );
       }
       if (maxLength !== undefined && value.length > maxLength) {
-        this.addError(fieldName, `must be at most ${maxLength} characters long`);
+        this.addError(
+          fieldName,
+          `must be at most ${maxLength} characters long`
+        );
       }
       if (pattern && !pattern.test(value)) {
         this.addError(fieldName, 'format is invalid');
@@ -93,7 +117,7 @@ export class Validator {
     }
   }
 
-  private validateType(value: any, type: string): boolean {
+  private validateType(value: unknown, type: string): boolean {
     switch (type) {
       case 'string':
         return typeof value === 'string';
@@ -104,7 +128,9 @@ export class Validator {
       case 'array':
         return Array.isArray(value);
       case 'object':
-        return typeof value === 'object' && value !== null && !Array.isArray(value);
+        return (
+          typeof value === 'object' && value !== null && !Array.isArray(value)
+        );
       case 'email':
         return typeof value === 'string' && this.isValidEmail(value);
       case 'phone':
@@ -143,63 +169,140 @@ export class Validator {
 
 // Common validation patterns
 export const ValidationPatterns = {
-  PASSWORD: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+  PASSWORD:
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
   SLUG: /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
   CURRENCY: /^[A-Z]{3}$/,
   TIMEZONE: /^[A-Za-z_\/]+$/,
   HEX_COLOR: /^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/,
-  UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+  UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
 };
 
 // Pre-defined validation schemas
 export const ValidationSchemas = {
   createRestaurant: {
-    name: { value: '', required: true, type: 'string' as const, minLength: 2, maxLength: 100 },
-    slug: { value: '', required: true, type: 'string' as const, minLength: 2, maxLength: 50, pattern: ValidationPatterns.SLUG },
-    address: { value: '', required: true, type: 'string' as const, minLength: 5, maxLength: 200 },
+    name: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 2,
+      maxLength: 100,
+    },
+    slug: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 2,
+      maxLength: 50,
+      pattern: ValidationPatterns.SLUG,
+    },
+    address: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 5,
+      maxLength: 200,
+    },
     phone: { value: '', required: false, type: 'phone' as const },
     email: { value: '', required: false, type: 'email' as const },
-    currency: { value: '', required: true, type: 'string' as const, pattern: ValidationPatterns.CURRENCY },
-    timezone: { value: '', required: true, type: 'string' as const }
+    currency: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      pattern: ValidationPatterns.CURRENCY,
+    },
+    timezone: { value: '', required: true, type: 'string' as const },
   },
 
   createMenuItem: {
-    name: { value: '', required: true, type: 'string' as const, minLength: 2, maxLength: 100 },
-    description: { value: '', required: false, type: 'string' as const, maxLength: 500 },
+    name: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 2,
+      maxLength: 100,
+    },
+    description: {
+      value: '',
+      required: false,
+      type: 'string' as const,
+      maxLength: 500,
+    },
     price: { value: 0, required: true, type: 'number' as const, min: 0 },
-    categoryId: { value: '', required: true, type: 'string' as const, pattern: ValidationPatterns.UUID },
-    preparationTime: { value: 0, required: false, type: 'number' as const, min: 0, max: 180 },
+    categoryId: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      pattern: ValidationPatterns.UUID,
+    },
+    preparationTime: {
+      value: 0,
+      required: false,
+      type: 'number' as const,
+      min: 0,
+      max: 180,
+    },
     calories: { value: 0, required: false, type: 'number' as const, min: 0 },
     allergens: { value: [], required: false, type: 'array' as const },
-    dietaryInfo: { value: [], required: false, type: 'array' as const }
+    dietaryInfo: { value: [], required: false, type: 'array' as const },
   },
 
   createOrder: {
-    tableId: { value: '', required: true, type: 'string' as const, pattern: ValidationPatterns.UUID },
+    tableId: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      pattern: ValidationPatterns.UUID,
+    },
     items: { value: [], required: true, type: 'array' as const, minLength: 1 },
-    customerName: { value: '', required: false, type: 'string' as const, maxLength: 100 },
+    customerName: {
+      value: '',
+      required: false,
+      type: 'string' as const,
+      maxLength: 100,
+    },
     customerEmail: { value: '', required: false, type: 'email' as const },
     customerPhone: { value: '', required: false, type: 'phone' as const },
-    specialInstructions: { value: '', required: false, type: 'string' as const, maxLength: 500 }
+    specialInstructions: {
+      value: '',
+      required: false,
+      type: 'string' as const,
+      maxLength: 500,
+    },
   },
 
   updateUserProfile: {
-    firstName: { value: '', required: true, type: 'string' as const, minLength: 1, maxLength: 50 },
-    lastName: { value: '', required: true, type: 'string' as const, minLength: 1, maxLength: 50 },
+    firstName: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 1,
+      maxLength: 50,
+    },
+    lastName: {
+      value: '',
+      required: true,
+      type: 'string' as const,
+      minLength: 1,
+      maxLength: 50,
+    },
     email: { value: '', required: true, type: 'email' as const },
-    phone: { value: '', required: false, type: 'phone' as const }
-  }
+    phone: { value: '', required: false, type: 'phone' as const },
+  },
 };
 
 // Utility function for API route validation
-export function validateApiInput(data: any, schema: Record<string, Omit<FieldValidation, 'value'>>): ValidationResult {
+export function validateApiInput(
+  data: Record<string, unknown>,
+  schema: Record<string, Omit<FieldValidation, 'value'>>
+): ValidationResult {
   const validator = new Validator();
-  
+
   const validationFields: Record<string, FieldValidation> = {};
   for (const [fieldName, fieldSchema] of Object.entries(schema)) {
     validationFields[fieldName] = {
       ...fieldSchema,
-      value: data[fieldName]
+      value: data[fieldName],
     };
   }
 
@@ -208,27 +311,27 @@ export function validateApiInput(data: any, schema: Record<string, Omit<FieldVal
 
 // Sanitization utilities
 export class Sanitizer {
-  static sanitizeString(value: any): string {
+  static sanitizeString(value: unknown): string {
     if (typeof value !== 'string') return '';
     return value.trim().replace(/\s+/g, ' ');
   }
 
-  static sanitizeEmail(value: any): string {
+  static sanitizeEmail(value: unknown): string {
     if (typeof value !== 'string') return '';
     return value.trim().toLowerCase();
   }
 
-  static sanitizePhone(value: any): string {
+  static sanitizePhone(value: unknown): string {
     if (typeof value !== 'string') return '';
     return value.replace(/[\s\-\(\)]/g, '');
   }
 
-  static sanitizeNumber(value: any): number | null {
+  static sanitizeNumber(value: unknown): number | null {
     const num = Number(value);
     return isNaN(num) ? null : num;
   }
 
-  static sanitizeBoolean(value: any): boolean {
+  static sanitizeBoolean(value: unknown): boolean {
     if (typeof value === 'boolean') return value;
     if (typeof value === 'string') {
       return value.toLowerCase() === 'true' || value === '1';
@@ -236,7 +339,7 @@ export class Sanitizer {
     return Boolean(value);
   }
 
-  static sanitizeArray(value: any): any[] {
+  static sanitizeArray(value: unknown): unknown[] {
     if (Array.isArray(value)) return value;
     if (typeof value === 'string') {
       try {
@@ -258,25 +361,23 @@ export class SecurityValidator {
       /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
       /javascript:/gi,
       /on\w+\s*=/gi,
-      /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi
+      /<iframe\b[^<]*(?:(?!<\/iframe>)<[^<]*)*<\/iframe>/gi,
     ];
-    
-    return !dangerousPatterns.some(pattern => pattern.test(value));
+
+    return !dangerousPatterns.some((pattern) => pattern.test(value));
   }
 
   static isSafePath(path: string): boolean {
     // Prevent path traversal attacks
-    const dangerousPatterns = [
-      /\.\./,
-      /\/\//,
-      /\\\\?/,
-      /[<>:"|?*]/
-    ];
-    
-    return !dangerousPatterns.some(pattern => pattern.test(path));
+    const dangerousPatterns = [/\.\./, /\/\//, /\\\\?/, /[<>:"|?*]/];
+
+    return !dangerousPatterns.some((pattern) => pattern.test(path));
   }
 
-  static isValidFileExtension(filename: string, allowedExtensions: string[]): boolean {
+  static isValidFileExtension(
+    filename: string,
+    allowedExtensions: string[]
+  ): boolean {
     const extension = filename.split('.').pop()?.toLowerCase();
     return extension ? allowedExtensions.includes(extension) : false;
   }

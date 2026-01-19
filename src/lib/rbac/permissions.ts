@@ -1,6 +1,6 @@
 /**
  * Permission Management System for RBAC
- * 
+ *
  * This file implements the permission computation and validation logic
  * for the enhanced RBAC system.
  */
@@ -8,13 +8,11 @@
 import { prisma } from '@/lib/database';
 import {
   Permission,
-  UserRole,
   PermissionCheck,
-  RoleTemplate,
   RBAC_CONSTANTS,
   RBACError,
   PermissionDeniedError,
-  isValidRoleTemplate
+  isValidRoleTemplate,
 } from './types';
 
 // Permission cache for better performance
@@ -25,7 +23,7 @@ interface PermissionCache {
 
 const cache: PermissionCache = {
   templatePermissions: new Map(),
-  userPermissions: new Map()
+  userPermissions: new Map(),
 };
 
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
@@ -49,27 +47,31 @@ export class PermissionManager {
           restaurant: {
             select: {
               id: true,
-              isActive: true
-            }
-          }
-        }
+              isActive: true,
+            },
+          },
+        },
       });
 
       // Filter out roles for inactive restaurants
-      const activeRoles = userRoles.filter(role => 
-        !role.restaurantId || role.restaurant?.isActive
+      const activeRoles = userRoles.filter(
+        (role) => !role.restaurantId || role.restaurant?.isActive
       );
 
       const permissions = new Set<string>();
 
       for (const role of activeRoles) {
         // Add template permissions
-        const templatePermissions = await this.getTemplatePermissions(role.roleTemplate);
-        templatePermissions.forEach(p => permissions.add(p));
+        const templatePermissions = await this.getTemplatePermissions(
+          role.roleTemplate
+        );
+        templatePermissions.forEach((p) => permissions.add(p));
 
         // Add custom permissions
         if (role.customPermissions && Array.isArray(role.customPermissions)) {
-          (role.customPermissions as string[]).forEach(p => permissions.add(p));
+          (role.customPermissions as string[]).forEach((p) =>
+            permissions.add(p)
+          );
         }
       }
 
@@ -78,11 +80,12 @@ export class PermissionManager {
       // Cache the result
       cache.userPermissions.set(userId, {
         permissions: result,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       });
 
       return result;
     } catch (error) {
+      // eslint-disable-line @typescript-eslint/no-unused-vars
       throw new RBACError(
         'Failed to compute user permissions',
         'PERMISSION_COMPUTATION_FAILED',
@@ -112,14 +115,14 @@ export class PermissionManager {
 
       const rolePermissions = await prisma.rolePermission.findMany({
         where: { roleTemplate: template },
-        include: { 
-          permission: true
-        }
+        include: {
+          permission: true,
+        },
       });
 
       const permissions = rolePermissions
-        .filter(rp => rp.permission.isActive)
-        .map(rp => rp.permission.permissionKey);
+        .filter((rp) => rp.permission.isActive)
+        .map((rp) => rp.permission.permissionKey);
 
       // Cache the result
       cache.templatePermissions.set(template, permissions);
@@ -140,15 +143,21 @@ export class PermissionManager {
   /**
    * Check if user has a specific permission
    */
-  static hasPermission(userPermissions: string[], requiredPermission: string): boolean {
+  static hasPermission(
+    userPermissions: string[],
+    requiredPermission: string
+  ): boolean {
     return userPermissions.includes(requiredPermission);
   }
 
   /**
    * Check if user has any of the required permissions
    */
-  static hasAnyPermission(userPermissions: string[], requiredPermissions: string[]): boolean {
-    return requiredPermissions.some(permission => 
+  static hasAnyPermission(
+    userPermissions: string[],
+    requiredPermissions: string[]
+  ): boolean {
+    return requiredPermissions.some((permission) =>
       userPermissions.includes(permission)
     );
   }
@@ -156,8 +165,11 @@ export class PermissionManager {
   /**
    * Check if user has all required permissions
    */
-  static hasAllPermissions(userPermissions: string[], requiredPermissions: string[]): boolean {
-    return requiredPermissions.every(permission => 
+  static hasAllPermissions(
+    userPermissions: string[],
+    requiredPermissions: string[]
+  ): boolean {
+    return requiredPermissions.every((permission) =>
       userPermissions.includes(permission)
     );
   }
@@ -166,8 +178,8 @@ export class PermissionManager {
    * Check if user can access a resource with specific action
    */
   static canAccessResource(
-    userPermissions: string[], 
-    resource: string, 
+    userPermissions: string[],
+    resource: string,
     action: string
   ): boolean {
     const permissionKey = `${resource}:${action}`;
@@ -178,10 +190,10 @@ export class PermissionManager {
    * Get user's permissions for a specific category
    */
   static getPermissionsByCategory(
-    userPermissions: string[], 
+    userPermissions: string[],
     category: string
   ): string[] {
-    return userPermissions.filter(permission => 
+    return userPermissions.filter((permission) =>
       permission.startsWith(`${category}:`)
     );
   }
@@ -193,20 +205,18 @@ export class PermissionManager {
     try {
       const permissions = await prisma.permission.findMany({
         where: { isActive: true },
-        orderBy: [
-          { category: 'asc' },
-          { permissionKey: 'asc' }
-        ]
+        orderBy: [{ category: 'asc' }, { permissionKey: 'asc' }],
       });
 
-      return permissions.map(p => ({
+      return permissions.map((p) => ({
         id: p.id,
         permissionKey: p.permissionKey,
         description: p.description,
         category: p.category,
-        isActive: p.isActive
+        isActive: p.isActive,
       }));
     } catch (error) {
+      // eslint-disable-line @typescript-eslint/no-unused-vars
       throw new RBACError(
         'Failed to get all permissions',
         'GET_PERMISSIONS_FAILED',
@@ -218,9 +228,15 @@ export class PermissionManager {
   /**
    * Get permissions by category
    */
-  static async getPermissionsByCategoryStatic(category: string): Promise<Permission[]> {
+  static async getPermissionsByCategoryStatic(
+    category: string
+  ): Promise<Permission[]> {
     try {
-      if (!RBAC_CONSTANTS.PERMISSION_CATEGORIES.includes(category as any)) {
+      if (
+        !RBAC_CONSTANTS.PERMISSION_CATEGORIES.includes(
+          category as (typeof RBAC_CONSTANTS.PERMISSION_CATEGORIES)[number]
+        )
+      ) {
         throw new RBACError(
           `Invalid permission category: ${category}`,
           'INVALID_PERMISSION_CATEGORY',
@@ -229,19 +245,19 @@ export class PermissionManager {
       }
 
       const permissions = await prisma.permission.findMany({
-        where: { 
+        where: {
           category,
-          isActive: true 
+          isActive: true,
         },
-        orderBy: { permissionKey: 'asc' }
+        orderBy: { permissionKey: 'asc' },
       });
 
-      return permissions.map(p => ({
+      return permissions.map((p) => ({
         id: p.id,
         permissionKey: p.permissionKey,
         description: p.description,
         category: p.category,
-        isActive: p.isActive
+        isActive: p.isActive,
       }));
     } catch (error) {
       if (error instanceof RBACError) {
@@ -259,16 +275,16 @@ export class PermissionManager {
    * Add custom permission to user role
    */
   static async addCustomPermission(
-    roleId: string, 
+    roleId: string,
     permission: string
   ): Promise<void> {
     try {
       // Validate permission exists
       const permissionExists = await prisma.permission.findFirst({
-        where: { 
+        where: {
           permissionKey: permission,
-          isActive: true 
-        }
+          isActive: true,
+        },
       });
 
       if (!permissionExists) {
@@ -281,28 +297,24 @@ export class PermissionManager {
 
       // Get current role
       const role = await prisma.userRole.findUnique({
-        where: { id: roleId }
+        where: { id: roleId },
       });
 
       if (!role) {
-        throw new RBACError(
-          `Role not found: ${roleId}`,
-          'ROLE_NOT_FOUND',
-          404
-        );
+        throw new RBACError(`Role not found: ${roleId}`, 'ROLE_NOT_FOUND', 404);
       }
 
       // Add permission to custom permissions
-      const currentPermissions = role.customPermissions as string[] || [];
+      const currentPermissions = (role.customPermissions as string[]) || [];
       if (!currentPermissions.includes(permission)) {
         currentPermissions.push(permission);
-        
+
         await prisma.userRole.update({
           where: { id: roleId },
           data: {
             customPermissions: currentPermissions,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
 
         // Clear cache for this user
@@ -324,33 +336,31 @@ export class PermissionManager {
    * Remove custom permission from user role
    */
   static async removeCustomPermission(
-    roleId: string, 
+    roleId: string,
     permission: string
   ): Promise<void> {
     try {
       const role = await prisma.userRole.findUnique({
-        where: { id: roleId }
+        where: { id: roleId },
       });
 
       if (!role) {
-        throw new RBACError(
-          `Role not found: ${roleId}`,
-          'ROLE_NOT_FOUND',
-          404
-        );
+        throw new RBACError(`Role not found: ${roleId}`, 'ROLE_NOT_FOUND', 404);
       }
 
       // Remove permission from custom permissions
-      const currentPermissions = role.customPermissions as string[] || [];
-      const updatedPermissions = currentPermissions.filter(p => p !== permission);
-      
+      const currentPermissions = (role.customPermissions as string[]) || [];
+      const updatedPermissions = currentPermissions.filter(
+        (p) => p !== permission
+      );
+
       if (updatedPermissions.length !== currentPermissions.length) {
         await prisma.userRole.update({
           where: { id: roleId },
           data: {
             customPermissions: updatedPermissions,
-            updatedAt: new Date()
-          }
+            updatedAt: new Date(),
+          },
         });
 
         // Clear cache for this user
@@ -401,7 +411,7 @@ export class PermissionManager {
     return {
       templateCache: cache.templatePermissions.size,
       userCache: cache.userPermissions.size,
-      cacheHits: 0 // TODO: Implement cache hit tracking
+      cacheHits: 0, // TODO: Implement cache hit tracking
     };
   }
 }
@@ -417,15 +427,25 @@ export class PermissionChecker implements PermissionCheck {
   }
 
   hasAnyPermission(permissions: string[]): boolean {
-    return PermissionManager.hasAnyPermission(this.userPermissions, permissions);
+    return PermissionManager.hasAnyPermission(
+      this.userPermissions,
+      permissions
+    );
   }
 
   hasAllPermissions(permissions: string[]): boolean {
-    return PermissionManager.hasAllPermissions(this.userPermissions, permissions);
+    return PermissionManager.hasAllPermissions(
+      this.userPermissions,
+      permissions
+    );
   }
 
   canAccessResource(resource: string, action: string): boolean {
-    return PermissionManager.canAccessResource(this.userPermissions, resource, action);
+    return PermissionManager.canAccessResource(
+      this.userPermissions,
+      resource,
+      action
+    );
   }
 
   /**
@@ -451,7 +471,7 @@ export class PermissionChecker implements PermissionCheck {
    */
   assertAllPermissions(permissions: string[]): void {
     if (!this.hasAllPermissions(permissions)) {
-      const missing = permissions.filter(p => !this.hasPermission(p));
+      const missing = permissions.filter((p) => !this.hasPermission(p));
       throw new PermissionDeniedError(missing.join(', '));
     }
   }
@@ -473,7 +493,10 @@ export const PermissionUtils = {
   /**
    * Parse permission key into resource and action
    */
-  parsePermissionKey(permissionKey: string): { resource: string; action: string } {
+  parsePermissionKey(permissionKey: string): {
+    resource: string;
+    action: string;
+  } {
     const [resource, action] = permissionKey.split(':');
     return { resource, action };
   },
@@ -498,7 +521,7 @@ export const PermissionUtils = {
    */
   getResourcesFromPermissions(permissions: string[]): string[] {
     const resources = new Set<string>();
-    permissions.forEach(permission => {
+    permissions.forEach((permission) => {
       const { resource } = this.parsePermissionKey(permission);
       resources.add(resource);
     });
@@ -510,12 +533,14 @@ export const PermissionUtils = {
    */
   getActionsForResource(permissions: string[], resource: string): string[] {
     return permissions
-      .filter(permission => permission.startsWith(`${resource}:`))
-      .map(permission => this.parsePermissionKey(permission).action);
-  }
+      .filter((permission) => permission.startsWith(`${resource}:`))
+      .map((permission) => this.parsePermissionKey(permission).action);
+  },
 };
 
 // Export for use in middleware and API routes
-export const createPermissionChecker = (permissions: string[]): PermissionChecker => {
+export const createPermissionChecker = (
+  permissions: string[]
+): PermissionChecker => {
   return new PermissionChecker(permissions);
 };
