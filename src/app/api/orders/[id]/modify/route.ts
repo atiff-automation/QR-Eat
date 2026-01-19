@@ -184,24 +184,22 @@ export async function PATCH(
         }
 
         // Calculate tax and service charge rates from original order
-        // This preserves the rates that were in effect when the order was placed
-        const originalSubtotal = Number(order.subtotalAmount);
+        // STRICT MODE: Use snapshots only. Do not guess.
         let taxRate = 0;
         let serviceChargeRate = 0;
 
-        if (originalSubtotal > 0 && !isNaN(originalSubtotal)) {
-          const calculatedTaxRate = Number(order.taxAmount) / originalSubtotal;
-          const calculatedServiceRate =
-            Number(order.serviceCharge) / originalSubtotal;
-
-          taxRate =
-            !isNaN(calculatedTaxRate) && isFinite(calculatedTaxRate)
-              ? calculatedTaxRate
-              : 0;
-          serviceChargeRate =
-            !isNaN(calculatedServiceRate) && isFinite(calculatedServiceRate)
-              ? calculatedServiceRate
-              : 0;
+        if (
+          order.taxRateSnapshot !== null &&
+          order.serviceChargeRateSnapshot !== null
+        ) {
+          taxRate = Number(order.taxRateSnapshot);
+          serviceChargeRate = Number(order.serviceChargeRateSnapshot);
+        } else {
+          // STRICT LEGACY POLICY: If snapshots are missing on a fresh system, something is wrong.
+          // We intentionally fail here to prevent "Guess Mode" financial errors.
+          throw new Error(
+            `Modification Failed: Order ${order.orderNumber} is missing tax/service rate snapshots. Cannot safely recalculate totals.`
+          );
         }
 
         const totals = calculateOrderTotals(

@@ -8,6 +8,7 @@ import {
   generateIdempotencyKey,
   calculateRefundNeeded,
 } from '@/lib/order-modification-utils';
+import Decimal from 'decimal.js'; // Ensure exact parity with backend
 
 interface ModifyOrderModalProps {
   order: {
@@ -89,11 +90,13 @@ export function ModifyOrderModal({
   }, [order.items]);
 
   // Calculate new totals with tax and service charge
-  // Convert to Number to prevent string concatenation
-  const newSubtotal = items.reduce(
-    (sum, item) => sum + Number(item.totalAmount),
-    0
+  // Calculate new totals with tax and service charge
+  // Use Decimal for precision to match backend exactly
+  const newSubtotalDecimal = items.reduce(
+    (sum, item) => sum.plus(new Decimal(item.totalAmount)),
+    new Decimal(0)
   );
+  const newSubtotal = newSubtotalDecimal.toNumber();
 
   // DEBUG: Log order values
   console.log('🔍 Order Debug:', {
@@ -117,23 +120,25 @@ export function ModifyOrderModal({
   // const originalService = Number(order.serviceCharge);
   const originalTotal = Number(order.totalAmount);
 
-  // Use snapshot rates if available, otherwise fallback to calculation
-  const snapshotTaxRate = order.taxRateSnapshot;
-  const snapshotServiceRate = order.serviceChargeRateSnapshot;
-
+  // Determine rates from snapshots ONLY. No guessing.
   const taxRate =
-    snapshotTaxRate !== undefined
-      ? Number(snapshotTaxRate)
-      : originalSubtotal > 0
-        ? Number(order.taxAmount) / originalSubtotal
-        : 0;
+    order.taxRateSnapshot !== undefined && order.taxRateSnapshot !== null
+      ? Number(order.taxRateSnapshot)
+      : 0;
 
   const serviceChargeRate =
-    snapshotServiceRate !== undefined
-      ? Number(snapshotServiceRate)
-      : originalSubtotal > 0
-        ? Number(order.serviceCharge) / originalSubtotal
-        : 0;
+    order.serviceChargeRateSnapshot !== undefined &&
+    order.serviceChargeRateSnapshot !== null
+      ? Number(order.serviceChargeRateSnapshot)
+      : 0;
+
+  // Safety check: specific legacy error if snapshots missing for a non-zero order
+  const missingSnapshots =
+    originalSubtotal > 0 &&
+    (order.taxRateSnapshot === null ||
+      order.taxRateSnapshot === undefined ||
+      order.serviceChargeRateSnapshot === null ||
+      order.serviceChargeRateSnapshot === undefined);
 
   // DEBUG: Log calculated values
   console.log('🔍 Calculation Debug:', {
@@ -148,10 +153,22 @@ export function ModifyOrderModal({
       newSubtotal + newSubtotal * taxRate + newSubtotal * serviceChargeRate,
   });
 
-  // Apply rates to new subtotal
-  const newTax = newSubtotal * taxRate;
-  const newServiceCharge = newSubtotal * serviceChargeRate;
-  const newTotal = newSubtotal + newTax + newServiceCharge;
+  // Apply rates to new subtotal using strict FLOOR logic (Decimal.js)
+  const newTaxDecimal = newSubtotalDecimal
+    .times(taxRate)
+    .toDecimalPlaces(2, Decimal.ROUND_FLOOR);
+
+  const newServiceChargeDecimal = newSubtotalDecimal
+    .times(serviceChargeRate)
+    .toDecimalPlaces(2, Decimal.ROUND_FLOOR);
+
+  const newTotalDecimal = newSubtotalDecimal
+    .plus(newTaxDecimal)
+    .plus(newServiceChargeDecimal);
+
+  const newTax = newTaxDecimal.toNumber();
+  const newServiceCharge = newServiceChargeDecimal.toNumber();
+  const newTotal = newTotalDecimal.toNumber();
 
   // Calculate what the original total SHOULD be based on the derived rates
   // This ensures we comparing "apples to apples" when calculating the difference
@@ -296,219 +313,238 @@ export function ModifyOrderModal({
 
         {/* Content */}
         <div className="p-4 space-y-4">
-          {/* Reason Selection */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Reason for modification
-            </label>
-            <select
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              disabled={loading}
-            >
-              <option value="out_of_stock">Out of Stock</option>
-              <option value="customer_request">Customer Request</option>
-              <option value="kitchen_error">Kitchen Error</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-
-          {/* Optional Notes */}
-          {reason === 'other' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Please explain
-              </label>
-              <textarea
-                value={reasonNotes}
-                onChange={(e) => setReasonNotes(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={2}
-                maxLength={500}
-                placeholder="Enter reason for modification..."
-                disabled={loading}
-              />
+          {missingSnapshots ? (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+              <p className="text-sm text-red-600 font-medium">
+                Modification Unavailable
+              </p>
+              <p className="text-sm text-red-500 mt-1">
+                This order is missing historical tax rate data (Snapshots).
+                Modifying it could cause billing errors. Please recreate the
+                order.
+              </p>
             </div>
-          )}
+          ) : (
+            <>
+              {/* Reason Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Reason for modification
+                </label>
+                <select
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  disabled={loading}
+                >
+                  <option value="out_of_stock">Out of Stock</option>
+                  <option value="customer_request">Customer Request</option>
+                  <option value="kitchen_error">Kitchen Error</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
 
-          {/* Items List */}
-          <div>
-            <h3 className="text-sm font-medium text-gray-700 mb-2">
-              Order Items
-            </h3>
-            <div className="space-y-2">
-              {items.map((item) => (
-                <div key={item.id} className="border rounded-lg p-3 bg-gray-50">
-                  <div className="flex justify-between items-start mb-2">
-                    <div>
-                      <h4 className="font-medium text-gray-900">
-                        {item.menuItem.name}
-                      </h4>
-                      <p className="text-sm text-gray-600">
-                        {formatPrice(item.menuItem.price, currency)} each
-                      </p>
-                      {/* Variations */}
-                      {item.selectedOptions &&
-                        item.selectedOptions.length > 0 && (
-                          <div className="text-xs text-gray-500 mt-1 space-y-0.5">
-                            {item.selectedOptions.map((opt) => (
-                              <div key={opt.id}>
-                                + {opt.name} (
-                                {formatPrice(opt.priceModifier, currency)})
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                    </div>
-                    <button
-                      onClick={() => removeItem(item.id)}
-                      className="text-red-600 hover:bg-red-50 p-1.5 rounded transition-colors"
-                      disabled={loading || items.length <= 1}
-                      title={
-                        items.length <= 1
-                          ? 'Cannot remove last item'
-                          : 'Remove item'
-                      }
+              {/* Optional Notes */}
+              {reason === 'other' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Please explain
+                  </label>
+                  <textarea
+                    value={reasonNotes}
+                    onChange={(e) => setReasonNotes(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    rows={2}
+                    maxLength={500}
+                    placeholder="Enter reason for modification..."
+                    disabled={loading}
+                  />
+                </div>
+              )}
+
+              {/* Items List */}
+              <div>
+                <h3 className="text-sm font-medium text-gray-700 mb-2">
+                  Order Items
+                </h3>
+                <div className="space-y-2">
+                  {items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="border rounded-lg p-3 bg-gray-50"
                     >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <button
-                        onClick={() => updateQuantity(item.id, -1)}
-                        className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                        disabled={loading || item.quantity <= 1}
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="h-4 w-4 text-gray-700" />
-                      </button>
-                      <span className="w-8 text-center font-semibold text-gray-900 text-base">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => updateQuantity(item.id, 1)}
-                        className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-                        disabled={loading || item.quantity >= 99}
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="h-4 w-4 text-gray-700" />
-                      </button>
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-medium text-gray-900">
+                            {item.menuItem.name}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            {formatPrice(item.menuItem.price, currency)} each
+                          </p>
+                          {/* Variations */}
+                          {item.selectedOptions &&
+                            item.selectedOptions.length > 0 && (
+                              <div className="text-xs text-gray-500 mt-1 space-y-0.5">
+                                {item.selectedOptions.map((opt) => (
+                                  <div key={opt.id}>
+                                    + {opt.name} (
+                                    {formatPrice(opt.priceModifier, currency)})
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                        <button
+                          onClick={() => removeItem(item.id)}
+                          className="text-red-600 hover:bg-red-50 p-1.5 rounded transition-colors"
+                          disabled={loading || items.length <= 1}
+                          title={
+                            items.length <= 1
+                              ? 'Cannot remove last item'
+                              : 'Remove item'
+                          }
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => updateQuantity(item.id, -1)}
+                            className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            disabled={loading || item.quantity <= 1}
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus className="h-4 w-4 text-gray-700" />
+                          </button>
+                          <span className="w-8 text-center font-semibold text-gray-900 text-base">
+                            {item.quantity}
+                          </span>
+                          <button
+                            onClick={() => updateQuantity(item.id, 1)}
+                            className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+                            disabled={loading || item.quantity >= 99}
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="h-4 w-4 text-gray-700" />
+                          </button>
+                        </div>
+                        <span className="font-semibold text-gray-900">
+                          {formatPrice(item.totalAmount, currency)}
+                        </span>
+                      </div>
                     </div>
-                    <span className="font-semibold text-gray-900">
-                      {formatPrice(item.totalAmount, currency)}
+                  ))}
+                </div>
+              </div>
+
+              {/* Itemized Breakdown */}
+              <div className="border-t pt-3 space-y-2">
+                {/* Subtotal */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">Subtotal:</span>
+                  <span className="font-medium text-gray-900">
+                    {formatPrice(newSubtotal, currency)}
+                  </span>
+                </div>
+
+                {/* Tax */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {taxLabel} ({(taxRate * 100).toFixed(1)}%):
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {formatPrice(newTax, currency)}
+                  </span>
+                </div>
+
+                {/* Service Charge */}
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600">
+                    {serviceChargeLabel} ({(serviceChargeRate * 100).toFixed(1)}
+                    %):
+                  </span>
+                  <span className="font-medium text-gray-900">
+                    {formatPrice(newServiceCharge, currency)}
+                  </span>
+                </div>
+
+                {/* Divider */}
+                <div className="border-t border-gray-300 my-2"></div>
+
+                {/* New Total */}
+                <div className="flex justify-between font-bold text-base">
+                  <span className="text-gray-900">New Total:</span>
+                  <span
+                    className={
+                      newTotal < order.totalAmount
+                        ? 'text-red-600'
+                        : 'text-gray-900'
+                    }
+                  >
+                    {formatPrice(newTotal, currency)}
+                  </span>
+                </div>
+
+                {/* Original Total */}
+                <div className="flex justify-between text-sm text-gray-600 mt-3">
+                  <span>Original Total:</span>
+                  <span>{formatPrice(order.totalAmount, currency)}</span>
+                </div>
+
+                {/* Difference */}
+                {Math.abs(difference) > 0.005 && (
+                  <div
+                    className={`flex justify-between text-sm font-medium ${
+                      difference < 0 ? 'text-red-600' : 'text-green-600'
+                    }`}
+                  >
+                    <span>Difference:</span>
+                    <span>
+                      {difference < 0 ? '-' : '+'}
+                      {formatPrice(Math.abs(difference), currency)}
                     </span>
                   </div>
+                )}
+              </div>
+
+              {/* Refund Warning */}
+              {refundNeeded && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                    <div className="text-sm text-yellow-800">
+                      <p className="font-medium">Refund Required</p>
+                      <p>
+                        Order is already paid. Manual refund of $
+                        {refundNeeded.toFixed(2)} needed.
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              ))}
-            </div>
-          </div>
+              )}
 
-          {/* Itemized Breakdown */}
-          <div className="border-t pt-3 space-y-2">
-            {/* Subtotal */}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Subtotal:</span>
-              <span className="font-medium text-gray-900">
-                {formatPrice(newSubtotal, currency)}
-              </span>
-            </div>
-
-            {/* Tax */}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">
-                {taxLabel} ({(taxRate * 100).toFixed(1)}%):
-              </span>
-              <span className="font-medium text-gray-900">
-                {formatPrice(newTax, currency)}
-              </span>
-            </div>
-
-            {/* Service Charge */}
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">
-                {serviceChargeLabel} ({(serviceChargeRate * 100).toFixed(1)}%):
-              </span>
-              <span className="font-medium text-gray-900">
-                {formatPrice(newServiceCharge, currency)}
-              </span>
-            </div>
-
-            {/* Divider */}
-            <div className="border-t border-gray-300 my-2"></div>
-
-            {/* New Total */}
-            <div className="flex justify-between font-bold text-base">
-              <span className="text-gray-900">New Total:</span>
-              <span
-                className={
-                  newTotal < order.totalAmount
-                    ? 'text-red-600'
-                    : 'text-gray-900'
-                }
-              >
-                {formatPrice(newTotal, currency)}
-              </span>
-            </div>
-
-            {/* Original Total */}
-            <div className="flex justify-between text-sm text-gray-600 mt-3">
-              <span>Original Total:</span>
-              <span>{formatPrice(order.totalAmount, currency)}</span>
-            </div>
-
-            {/* Difference */}
-            {Math.abs(difference) > 0.005 && (
-              <div
-                className={`flex justify-between text-sm font-medium ${
-                  difference < 0 ? 'text-red-600' : 'text-green-600'
-                }`}
-              >
-                <span>Difference:</span>
-                <span>
-                  {difference < 0 ? '-' : '+'}
-                  {formatPrice(Math.abs(difference), currency)}
+              {/* Customer Notification */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={customerNotified}
+                  onChange={(e) => setCustomerNotified(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  disabled={loading}
+                />
+                <span className="text-sm text-gray-700">
+                  Customer has been notified
                 </span>
-              </div>
-            )}
-          </div>
+              </label>
 
-          {/* Refund Warning */}
-          {refundNeeded && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-yellow-800">
-                  <p className="font-medium">Refund Required</p>
-                  <p>
-                    Order is already paid. Manual refund of $
-                    {refundNeeded.toFixed(2)} needed.
-                  </p>
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Customer Notification */}
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={customerNotified}
-              onChange={(e) => setCustomerNotified(e.target.checked)}
-              className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              disabled={loading}
-            />
-            <span className="text-sm text-gray-700">
-              Customer has been notified
-            </span>
-          </label>
-
-          {/* Error Message */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
+              )}
+            </>
           )}
         </div>
 
@@ -523,7 +559,6 @@ export function ModifyOrderModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={loading || !hasChanges || !customerNotified}
             className="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed rounded-lg transition-colors"
           >
             {loading ? 'Saving...' : 'Save Changes'}

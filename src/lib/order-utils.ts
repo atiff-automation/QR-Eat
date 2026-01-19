@@ -1,20 +1,50 @@
 import { CartItem } from '@/types/menu';
+import Decimal from 'decimal.js';
 
+/**
+ * Calculate order totals with strict "Round Floor" logic.
+ *
+ * Strategy: "Floor per Component"
+ * 1. Subtotal = Sum of all item prices (exact).
+ * 2. Tax = Floor(Subtotal * TaxRate)
+ *    - We round DOWN to 2 decimal places to favor the customer/meet requirement.
+ * 3. Service = Floor(Subtotal * ServiceRate)
+ *    - We round DOWN to 2 decimal places.
+ * 4. Total = Subtotal + Tax + Service
+ *    - This ensures the receipt always adds up perfectly (Receipt Integrity).
+ *
+ * @param items Array of items with totalPrice
+ * @param taxRate Decimal tax rate (e.g. 0.06 for 6%)
+ * @param serviceChargeRate Decimal service rate (e.g. 0.10 for 10%)
+ */
 export function calculateOrderTotals(
-  items: CartItem[],
+  items: { totalPrice: number }[],
   taxRate: number,
   serviceChargeRate: number
 ) {
-  const subtotal = items.reduce((sum, item) => sum + item.totalPrice, 0);
-  const taxAmount = subtotal * taxRate;
-  const serviceCharge = subtotal * serviceChargeRate;
-  const totalAmount = subtotal + taxAmount + serviceCharge;
+  // Use Decimal for all intermediate math to avoid floating point errors
+  const subtotal = items.reduce(
+    (sum, item) => sum.plus(new Decimal(item.totalPrice)),
+    new Decimal(0)
+  );
 
+  // Round Logic: FLOOR to 2 decimal places (Truncate)
+  const taxAmount = subtotal
+    .times(taxRate)
+    .toDecimalPlaces(2, Decimal.ROUND_FLOOR);
+  const serviceCharge = subtotal
+    .times(serviceChargeRate)
+    .toDecimalPlaces(2, Decimal.ROUND_FLOOR);
+
+  // Total is the simple sum of the rounded components
+  const totalAmount = subtotal.plus(taxAmount).plus(serviceCharge);
+
+  // Return numbers for compatibility with Prisma/Frontend
   return {
-    subtotal: Math.round(subtotal * 100) / 100,
-    taxAmount: Math.round(taxAmount * 100) / 100,
-    serviceCharge: Math.round(serviceCharge * 100) / 100,
-    totalAmount: Math.round(totalAmount * 100) / 100,
+    subtotal: subtotal.toNumber(),
+    taxAmount: taxAmount.toNumber(),
+    serviceCharge: serviceCharge.toNumber(),
+    totalAmount: totalAmount.toNumber(),
   };
 }
 
