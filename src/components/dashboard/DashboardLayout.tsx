@@ -286,6 +286,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <h1 className="text-lg font-semibold text-gray-900">
                 {restaurantContext?.name || 'Dashboard'}
               </h1>
+              {restaurantContext?.slug && (
+                <p className="text-xs text-gray-500 mt-0.5 mb-2 truncate font-mono">
+                  {restaurantContext.slug}
+                </p>
+              )}
               <div className="flex items-center space-x-2 mt-1">
                 <span className="text-xs text-gray-500">Role:</span>
                 <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded">
