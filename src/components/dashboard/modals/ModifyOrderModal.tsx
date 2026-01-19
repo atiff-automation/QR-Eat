@@ -375,23 +375,25 @@ export function ModifyOrderModal({
                     </button>
                   </div>
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => updateQuantity(item.id, -1)}
-                        className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         disabled={loading || item.quantity <= 1}
+                        aria-label="Decrease quantity"
                       >
-                        <Minus className="h-4 w-4" />
+                        <Minus className="h-4 w-4 text-gray-700" />
                       </button>
-                      <span className="w-8 text-center font-medium">
+                      <span className="w-8 text-center font-semibold text-gray-900 text-base">
                         {item.quantity}
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, 1)}
-                        className="p-1 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="p-1.5 bg-white border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 active:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
                         disabled={loading || item.quantity >= 99}
+                        aria-label="Increase quantity"
                       >
-                        <Plus className="h-4 w-4" />
+                        <Plus className="h-4 w-4 text-gray-700" />
                       </button>
                     </div>
                     <span className="font-semibold text-gray-900">
