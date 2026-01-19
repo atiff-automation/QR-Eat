@@ -146,14 +146,6 @@ export interface OrderDetailsProps {
   showOrderNumber?: boolean;
 }
 
-// NEW: Table Orders List Props
-export interface TableOrdersListProps {
-  orders: OrderWithDetails[];
-  tableTotal: number;
-  onProcessPayment: () => void;
-  isLoading: boolean;
-}
-
 // ============================================================================
 // Public Receipt Types (for customer access)
 // ============================================================================

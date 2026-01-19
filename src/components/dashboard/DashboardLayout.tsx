@@ -139,13 +139,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       current: pathname.startsWith('/dashboard/menu'),
       permission: 'menu:read',
     },
-    // {
-    //   name: 'Cashier',
-    //   href: '/dashboard/cashier',
-    //   icon: CreditCard,
-    //   current: pathname.startsWith('/dashboard/cashier'),
-    //   permission: 'orders:write',
-    // },
+
     {
       name: 'Staff',
       href: '/dashboard/staff',

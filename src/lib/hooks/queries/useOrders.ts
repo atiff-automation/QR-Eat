@@ -17,42 +17,11 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/lib/query-client';
-import { fetchPendingOrders } from '@/lib/services/payment-service';
 import type { OrderWithDetails } from '@/types/pos';
-import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 
 // =============================================================================
 // Type Definitions
 // =============================================================================
-
-export interface PendingOrdersResponse {
-  success: boolean;
-  orders: OrderWithDetails[];
-}
-
-export interface UsePendingOrdersOptions {
-  /**
-   * Enable automatic polling
-   * @default true
-   */
-  enabled?: boolean;
-
-  /**
-   * Polling interval in milliseconds
-   * @default POLLING_INTERVALS.ORDERS (30 seconds)
-   */
-  refetchInterval?: number;
-}
-
-export interface UsePendingOrdersReturn {
-  orders: OrderWithDetails[];
-  isLoading: boolean;
-  isRefreshing: boolean;
-  error: string | null;
-  refetch: () => Promise<void>;
-  totalOrders: number;
-  totalRevenue: number;
-}
 
 // =============================================================================
 // Query Hooks
@@ -79,60 +48,6 @@ export interface UsePendingOrdersReturn {
  * });
  * ```
  */
-export function usePendingOrders(
-  options: UsePendingOrdersOptions = {}
-): UsePendingOrdersReturn {
-  const { enabled = true, refetchInterval = POLLING_INTERVALS.ORDERS } =
-    options;
-
-  const {
-    data,
-    isLoading,
-    isFetching,
-    error,
-    refetch: queryRefetch,
-  } = useQuery<PendingOrdersResponse, Error>({
-    queryKey: queryKeys.orders.pending,
-    queryFn: async () => {
-      const result = await fetchPendingOrders();
-
-      if (!result.success) {
-        throw new Error('Failed to load pending orders');
-      }
-
-      return result;
-    },
-    enabled,
-    staleTime: 10 * 1000, // Consider data stale after 10 seconds
-    refetchInterval: enabled ? refetchInterval : false, // Built-in polling
-    refetchIntervalInBackground: false, // Pause polling when tab not visible
-    refetchOnWindowFocus: true, // Refetch when user returns to tab
-    retry: 1,
-  });
-
-  // Manual refetch wrapper
-  const refetch = async () => {
-    await queryRefetch();
-  };
-
-  // Computed values
-  const orders = data?.orders ?? [];
-  const totalOrders = orders.length;
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + Number(order.totalAmount),
-    0
-  );
-
-  return {
-    orders,
-    isLoading,
-    isRefreshing: isFetching && !isLoading, // Is refetching (not initial load)
-    error: error?.message ?? null,
-    refetch,
-    totalOrders,
-    totalRevenue,
-  };
-}
 
 /**
  * Fetch single order by ID

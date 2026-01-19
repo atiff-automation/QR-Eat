@@ -11,11 +11,7 @@
  */
 
 import { ApiClient } from '@/lib/api-client';
-import type {
-  PaymentProcessRequest,
-  PaymentProcessResult,
-  PendingOrdersResponse,
-} from '@/types/pos';
+import type { PaymentProcessRequest, PaymentProcessResult } from '@/types/pos';
 
 /**
  * Process payment for an order
@@ -78,14 +74,6 @@ export async function processTablePayment(
  * This fixes the polling refresh issue where expired tokens caused
  * continuous 401 errors without triggering reactive refresh.
  */
-export async function fetchPendingOrders(
-  page = 1,
-  limit = 20
-): Promise<PendingOrdersResponse> {
-  return ApiClient.get<PendingOrdersResponse>('pos/orders/pending', {
-    params: { page, limit },
-  });
-}
 
 /**
  * Refresh order details
