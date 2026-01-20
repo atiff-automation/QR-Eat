@@ -398,6 +398,7 @@ function TablesContent() {
         }}
         onProcessPayment={handleProcessPayment}
         currency={currency}
+        restaurantSlug={restaurantContext?.slug}
       />
 
       {/* QR Code Modal */}
@@ -408,6 +409,7 @@ function TablesContent() {
           tableName={selectedTable.tableName}
           qrToken={selectedTable.qrCodeToken}
           restaurantName="Restaurant"
+          restaurantSlug={restaurantContext?.slug}
           onClose={() => setShowQRCodeModal(false)}
           onRegenerate={regenerateQRCode}
         />

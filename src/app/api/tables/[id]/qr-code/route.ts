@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { generateQRCodeImage, generateQRCodeSVG } from '@/lib/qr-utils';
-import { buildQrCodeUrl } from '@/lib/url-config';
+import { buildSubdomainUrl } from '@/lib/config/domains';
 import {
   getTenantContext,
   requireAuth,
@@ -27,17 +27,25 @@ export async function GET(
     const format = searchParams.get('format') || 'image'; // 'image' or 'svg'
     const download = searchParams.get('download') === 'true';
 
-    // Get the table
+    // Get the table with restaurant
     const table = await prisma.table.findUnique({
       where: { id: tableId },
+      include: {
+        restaurant: {
+          select: { slug: true },
+        },
+      },
     });
 
     if (!table) {
       return NextResponse.json({ error: 'Table not found' }, { status: 404 });
     }
 
-    // Generate QR code URL using centralized configuration
-    const qrUrl = buildQrCodeUrl(table.qrCodeToken, request);
+    // Generate QR code URL using subdomain routing
+    const qrUrl = buildSubdomainUrl(
+      table.restaurant.slug,
+      `/qr/${table.qrCodeToken}`
+    );
 
     if (format === 'svg') {
       // Generate SVG QR code

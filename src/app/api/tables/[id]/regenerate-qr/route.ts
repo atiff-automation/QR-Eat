@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { v4 as uuidv4 } from 'uuid';
-import { buildQrCodeUrl } from '@/lib/url-config';
+import { buildSubdomainUrl } from '@/lib/config/domains';
 import {
   getTenantContext,
   requireAuth,
@@ -26,6 +26,11 @@ export async function POST(
     // Get the current table for logging
     const currentTable = await prisma.table.findUnique({
       where: { id: tableId },
+      include: {
+        restaurant: {
+          select: { slug: true },
+        },
+      },
     });
 
     if (!currentTable) {
@@ -60,8 +65,11 @@ export async function POST(
       },
     });
 
-    // Generate the new QR URL using centralized configuration
-    const qrUrl = buildQrCodeUrl(newQrCodeToken, request);
+    // Generate the new QR URL using subdomain routing
+    const qrUrl = buildSubdomainUrl(
+      currentTable.restaurant.slug,
+      `/qr/${newQrCodeToken}`
+    );
 
     return NextResponse.json({
       success: true,

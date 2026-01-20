@@ -19,11 +19,11 @@ import { buildPublicReceiptUrl } from '@/lib/utils/receipt-url';
 
 export function ReceiptQRDisplay({
   receiptNumber,
-  restaurantId,
+  restaurantSlug,
   onClose,
 }: ReceiptQRDisplayProps) {
   // Build the public receipt URL
-  const receiptUrl = buildPublicReceiptUrl(receiptNumber, restaurantId);
+  const receiptUrl = buildPublicReceiptUrl(receiptNumber, restaurantSlug);
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[80]">

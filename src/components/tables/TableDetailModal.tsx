@@ -13,6 +13,7 @@ import {
 import { useTableOrders } from '@/lib/hooks/queries/useTableOrders';
 import { formatPrice } from '@/lib/qr-utils';
 import type { OrderWithDetails } from '@/types/pos';
+import { buildSubdomainUrl } from '@/lib/config/domains';
 
 import type { Table } from '@/lib/hooks/queries/useTables';
 
@@ -24,6 +25,7 @@ interface TableDetailModalProps {
   onShowQR: (table: NonNullable<TableDetailModalProps['table']>) => void;
   onProcessPayment?: (tableId: string, orders: OrderWithDetails[]) => void;
   currency?: string;
+  restaurantSlug?: string;
 }
 
 export function TableDetailModal({
@@ -34,6 +36,7 @@ export function TableDetailModal({
   onShowQR,
   onProcessPayment,
   currency = 'MYR',
+  restaurantSlug,
 }: TableDetailModalProps) {
   const [isVisible, setIsVisible] = useState(false);
   const [showOrderModal, setShowOrderModal] = useState(false);
@@ -80,8 +83,10 @@ export function TableDetailModal({
   if (!table) return null;
 
   const generateQRCode = (token: string) => {
-    const baseUrl = window.location.origin;
-    return `${baseUrl}/qr/${token}`;
+    if (restaurantSlug) {
+      return buildSubdomainUrl(restaurantSlug, `/qr/${token}`);
+    }
+    return `${window.location.origin}/qr/${token}`;
   };
 
   const openOrderModal = () => {

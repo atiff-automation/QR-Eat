@@ -49,13 +49,10 @@ export function Receipt({
       email: restaurantInfo.email,
       currency: currency || restaurantInfo.currency || 'MYR',
       // Map snapshot labels for ReceiptCard
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      taxLabel:
-        (order as any).taxLabelSnapshot || (order as any).taxLabel || 'Tax',
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      taxLabel: order.taxLabelSnapshot || order.taxLabel || 'Tax',
       serviceChargeLabel:
-        (order as any).serviceChargeLabelSnapshot ||
-        (order as any).serviceChargeLabel ||
+        order.serviceChargeLabelSnapshot ||
+        order.serviceChargeLabel ||
         'Service Charge',
     },
     cashier: {
@@ -117,7 +114,7 @@ export function Receipt({
       {showQR && payment.receiptNumber && (
         <ReceiptQRDisplay
           receiptNumber={payment.receiptNumber}
-          restaurantId={order.restaurantId}
+          restaurantSlug={restaurantInfo.slug}
           onClose={() => setShowQR(false)}
         />
       )}

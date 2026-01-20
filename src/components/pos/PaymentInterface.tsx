@@ -22,6 +22,7 @@ import type { Payment } from '@prisma/client';
 import type { PaymentInterfaceProps } from '@/types/pos';
 import { usePaymentMethods } from '@/lib/hooks/queries/useRestaurantSettings';
 import { ApiClient } from '@/lib/api-client';
+import { useRole } from '@/components/rbac/RoleProvider';
 
 export function PaymentInterface({
   order,
@@ -49,6 +50,10 @@ export function PaymentInterface({
     firstName: string;
     lastName: string;
   } | null>(null);
+
+  // Get restaurant slug from context
+  const { restaurantContext } = useRole();
+  const restaurantSlug = restaurantContext?.slug || '';
 
   // Fetch restaurant and cashier info
   useEffect(() => {
@@ -341,7 +346,10 @@ export function PaymentInterface({
           order={displayOrder}
           payment={completedPayment}
           currency={currency}
-          restaurantInfo={restaurantInfo}
+          restaurantInfo={{
+            ...restaurantInfo,
+            slug: restaurantSlug,
+          }}
           cashierInfo={cashierInfo}
           onClose={handleReceiptClose}
         />

@@ -132,6 +132,7 @@ export interface ReceiptProps {
     phone: string;
     email: string;
     currency?: string;
+    slug: string;
   };
   cashierInfo: {
     firstName: string;
@@ -203,6 +204,6 @@ export interface PublicReceiptData {
 
 export interface ReceiptQRDisplayProps {
   receiptNumber: string;
-  restaurantId: string;
+  restaurantSlug: string;
   onClose: () => void;
 }

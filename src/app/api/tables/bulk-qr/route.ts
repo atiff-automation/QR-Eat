@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { generateQRCodeImage } from '@/lib/qr-utils';
-import { buildQrCodeUrl } from '@/lib/url-config';
+import { buildSubdomainUrl } from '@/lib/config/domains';
 
 export async function POST(request: NextRequest) {
   try {
@@ -36,14 +36,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get the tables
+    // Get the tables with restaurant slug
     const tables = await prisma.table.findMany({
       where: {
         id: { in: tableIds },
         restaurantId: authResult.user.currentRole.restaurantId,
       },
       include: {
-        restaurant: true,
+        restaurant: {
+          select: {
+            name: true,
+            slug: true,
+          },
+        },
       },
     });
 
@@ -51,10 +56,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No tables found' }, { status: 404 });
     }
 
-    // Generate QR codes for all tables using centralized configuration
+    // Generate QR codes for all tables using subdomain routing
     const qrCodes = await Promise.all(
       tables.map(async (table) => {
-        const qrUrl = buildQrCodeUrl(table.qrCodeToken, request);
+        const qrUrl = buildSubdomainUrl(
+          table.restaurant.slug,
+          `/qr/${table.qrCodeToken}`
+        );
         const qrCodeImage = await generateQRCodeImage(qrUrl);
 
         return {

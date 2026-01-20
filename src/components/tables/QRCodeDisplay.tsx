@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { X, Printer, Share2, Copy, RotateCcw, Check } from 'lucide-react';
+import { buildSubdomainUrl } from '@/lib/config/domains';
 
 interface QRCodeDisplayProps {
   tableId: string;
   tableNumber: string;
   tableName?: string;
   restaurantName: string;
+  restaurantSlug?: string;
   qrToken?: string;
   onClose: () => void;
   onRegenerate: (tableId: string) => void;
@@ -17,6 +19,7 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
   tableNumber,
   tableName,
   restaurantName,
+  restaurantSlug,
   qrToken,
   onClose,
   onRegenerate,
@@ -24,7 +27,11 @@ export const QRCodeDisplay: React.FC<QRCodeDisplayProps> = ({
   const [copied, setCopied] = useState(false);
   // Use token if available, otherwise fallback to ID (though ID is static)
   const codeToUse = qrToken || tableId;
-  const qrValue = `${window.location.origin}/qr/${codeToUse}`;
+
+  // ✅ Use subdomain if slug provided, fallback to current origin
+  const qrValue = restaurantSlug
+    ? buildSubdomainUrl(restaurantSlug, `/qr/${codeToUse}`)
+    : `${window.location.origin}/qr/${codeToUse}`;
 
   const handlePrint = () => {
     window.print();

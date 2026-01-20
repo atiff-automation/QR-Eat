@@ -71,6 +71,25 @@ export default function QRMenuPage() {
       const tableResponse = await ApiClient.get<{ table: Table }>(
         `/api/qr/${token}`
       );
+
+      // ✅ PRODUCTION: Validate subdomain matches (security check)
+      if (typeof window !== 'undefined') {
+        const hostname = window.location.hostname;
+        const subdomain = hostname.split('.')[0];
+
+        // Only validate if we're on a subdomain (not localhost or main domain)
+        if (subdomain && subdomain !== 'localhost' && subdomain !== hostname) {
+          if (tableResponse.table.restaurant.slug !== subdomain) {
+            console.error(
+              `[QR] Security: Token belongs to ${tableResponse.table.restaurant.slug}, accessed via ${subdomain}`
+            );
+            setError('Invalid QR code for this location');
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       setTable(tableResponse.table);
 
       // Set restaurant settings
