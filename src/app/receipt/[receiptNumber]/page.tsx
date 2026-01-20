@@ -15,11 +15,13 @@ export default async function ReceiptPage({ params }: PageProps) {
   const headersList = await headers();
   const slug = headersList.get('x-tenant-slug');
 
-  console.log('[Receipt Page] Debug:', {
-    receiptNumber,
-    slug,
-    allHeaders: Object.fromEntries(headersList.entries()),
-  });
+  if (process.env.NODE_ENV === 'development') {
+    console.log('[Receipt Page] Debug:', {
+      receiptNumber,
+      slug,
+      isSubdomain: headersList.get('x-is-subdomain'),
+    });
+  }
 
   if (!slug) {
     console.error('[Receipt] No tenant slug');

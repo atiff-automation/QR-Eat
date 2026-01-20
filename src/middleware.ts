@@ -298,11 +298,13 @@ async function handleSubdomainRouting(
     requestHeaders.set('x-tenant-slug', subdomain);
     requestHeaders.set('x-is-subdomain', 'true');
 
-    console.log(`[Subdomain Routing] Setting headers for ${pathname}:`, {
-      subdomain,
-      pathname,
-      isPublicRoute: isPublicRoute(pathname),
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Subdomain Routing] Setting headers for ${pathname}:`, {
+        subdomain,
+        pathname,
+        isPublicRoute: isPublicRoute(pathname),
+      });
+    }
 
     // Return response with modified request headers
     return NextResponse.next({
