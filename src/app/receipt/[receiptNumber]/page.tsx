@@ -63,7 +63,10 @@ async function fetchReceipt(
     const response = await fetch(
       `${baseUrl}/api/receipt/${restaurantId}/${receiptNumber}`,
       {
-        cache: 'no-store',
+        next: {
+          revalidate: 3600, // Cache for 1 hour (receipts are immutable)
+          tags: [`receipt-${receiptNumber}`], // Allow targeted cache invalidation if needed
+        },
         headers: {
           'Content-Type': 'application/json',
         },
