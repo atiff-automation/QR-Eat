@@ -292,10 +292,20 @@ async function handleSubdomainRouting(
       return NextResponse.rewrite(menuUrl);
     }
 
-    response.headers.set('x-tenant-slug', subdomain);
-    response.headers.set('x-is-subdomain', 'true');
+    // ✅ CRITICAL FIX: Set headers on request for server components to access
+    // Server components use headers() which reads REQUEST headers, not response headers
+    const requestHeaders = new Headers(request.headers);
+    requestHeaders.set('x-tenant-slug', subdomain);
+    requestHeaders.set('x-is-subdomain', 'true');
 
-    return response;
+    // Create new request with updated headers and rewrite to same URL
+    const newRequest = new NextRequest(request.url, {
+      headers: requestHeaders,
+    });
+
+    return NextResponse.next({
+      request: newRequest,
+    });
   } catch (error) {
     console.error('[Subdomain Routing] Error:', error);
     // Fail-safe: redirect to main domain on error
