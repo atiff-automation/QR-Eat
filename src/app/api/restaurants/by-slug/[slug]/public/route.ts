@@ -22,9 +22,9 @@ export async function GET(
 
     // Find restaurant by slug
     const restaurant = await prisma.restaurant.findUnique({
-      where: { 
+      where: {
         slug: slug.toLowerCase(),
-        isActive: true 
+        isActive: true
       },
       select: {
         id: true,
@@ -64,7 +64,7 @@ export async function GET(
 
     if (!restaurant) {
       return NextResponse.json(
-        { 
+        {
           error: 'Restaurant not found',
           message: 'The restaurant you are looking for does not exist or is currently inactive.'
         },
@@ -102,12 +102,16 @@ export async function GET(
         takeoutAvailable: restaurant.takeoutAvailable,
         owner: restaurant.owner
       }
+    }, {
+      headers: {
+        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200'
+      }
     });
 
   } catch (error) {
     console.error('Error fetching restaurant:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Internal server error',
         message: 'Failed to fetch restaurant information. Please try again later.'
       },

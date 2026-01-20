@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { STAFF_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import { revalidateTag } from 'next/cache';
 
 // GET - List all roles for a restaurant
 export async function GET(request: NextRequest) {
@@ -44,11 +45,18 @@ export async function GET(request: NextRequest) {
       orderBy: { name: 'asc' },
     });
 
-    return NextResponse.json({
-      success: true,
-      roles,
-      count: roles.length,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        roles,
+        count: roles.length,
+      },
+      {
+        headers: {
+          'Cache-Control': 'private, s-maxage=3600',
+        },
+      }
+    );
   } catch (error) {
     console.error('Error fetching staff roles:', error);
     return NextResponse.json(
@@ -115,6 +123,10 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    // Clear roles cache
+    revalidateTag('staff-roles');
+    revalidateTag(`staff-roles-${restaurantId}`);
 
     return NextResponse.json(
       {

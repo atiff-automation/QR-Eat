@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { revalidateTag } from 'next/cache';
 
 export async function PATCH(
   request: NextRequest,
@@ -106,6 +107,10 @@ export async function PATCH(
 
       return category;
     });
+
+    // Clear menu cache
+    revalidateTag('menu');
+    revalidateTag(`menu-${restaurantId}`);
 
     return NextResponse.json({
       success: true,
@@ -215,6 +220,10 @@ export async function DELETE(
     await prisma.menuCategory.delete({
       where: { id: categoryId },
     });
+
+    // Clear menu cache
+    revalidateTag('menu');
+    revalidateTag(`menu-${restaurantId}`);
 
     return NextResponse.json({
       success: true,

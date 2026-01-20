@@ -83,7 +83,14 @@ export async function GET(
       })),
     }));
 
-    return NextResponse.json({ menu });
+    return NextResponse.json(
+      { menu },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600',
+        },
+      }
+    );
   } catch (error) {
     console.error('Menu fetch error:', error);
     return NextResponse.json(

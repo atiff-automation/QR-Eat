@@ -5,6 +5,7 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 import { z } from 'zod';
+import { revalidateTag } from 'next/cache';
 
 // ============================================================================
 // Internal Utilities
@@ -196,6 +197,10 @@ export async function PATCH(
       },
     });
 
+    // Clear menu cache
+    revalidateTag('menu');
+    revalidateTag(`menu-${currentRole.restaurantId}`);
+
     return NextResponse.json({
       success: true,
       item: updatedItem,
@@ -298,6 +303,10 @@ export async function DELETE(
     await prisma.menuItem.delete({
       where: { id: itemId },
     });
+
+    // Clear menu cache
+    revalidateTag('menu');
+    revalidateTag(`menu-${currentRole.restaurantId}`);
 
     return NextResponse.json({
       success: true,
