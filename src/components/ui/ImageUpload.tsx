@@ -75,10 +75,11 @@ export function ImageUpload({
     try {
       // Compress image
       const options = {
-        maxSizeMB: 0.2, // 200KB
-        maxWidthOrHeight: 1024,
+        maxSizeMB: 0.5, // 500KB
+        maxWidthOrHeight: 1920, // 1080p
         useWebWorker: true,
         fileType: 'image/webp',
+        initialQuality: 0.8,
       };
 
       const compressedFile = await imageCompression(file, options);
@@ -199,7 +200,7 @@ export function ImageUpload({
                   : 'Click to upload or drag and drop'}
               </p>
               <p className="text-xs text-gray-500 mt-1">
-                JPEG, PNG, or WebP • Max 5MB • Recommended: 800x600px
+                JPEG, PNG, or WebP • Max 5MB • Recommended: 1920x1080px
               </p>
             </div>
           </div>
