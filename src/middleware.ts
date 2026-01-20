@@ -292,19 +292,23 @@ async function handleSubdomainRouting(
       return NextResponse.rewrite(menuUrl);
     }
 
-    // ✅ CRITICAL FIX: Set headers on request for server components to access
-    // Server components use headers() which reads REQUEST headers, not response headers
+    // ✅ CRITICAL FIX: Pass tenant slug to page via request headers
+    // Clone request headers and add tenant information
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-tenant-slug', subdomain);
     requestHeaders.set('x-is-subdomain', 'true');
 
-    // Create new request with updated headers and rewrite to same URL
-    const newRequest = new NextRequest(request.url, {
-      headers: requestHeaders,
+    console.log(`[Subdomain Routing] Setting headers for ${pathname}:`, {
+      subdomain,
+      pathname,
+      isPublicRoute: isPublicRoute(pathname),
     });
 
+    // Return response with modified request headers
     return NextResponse.next({
-      request: newRequest,
+      request: {
+        headers: requestHeaders,
+      },
     });
   } catch (error) {
     console.error('[Subdomain Routing] Error:', error);
@@ -332,6 +336,7 @@ function isPublicRoute(pathname: string): boolean {
     '/receipt/', // Public receipt access for customers
     '/_next/',
     '/favicon.ico',
+    '/manifest.webmanifest', // PWA manifest
     '/test-login.html',
     '/test',
     '/simple-login',

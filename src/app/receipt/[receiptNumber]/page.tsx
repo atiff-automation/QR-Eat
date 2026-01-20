@@ -12,7 +12,15 @@ export default async function ReceiptPage({ params }: PageProps) {
   const { receiptNumber } = await params;
 
   // ✅ STEP 1: Validate slug exists
-  const slug = headers().get('x-tenant-slug');
+  const headersList = headers();
+  const slug = headersList.get('x-tenant-slug');
+
+  console.log('[Receipt Page] Debug:', {
+    receiptNumber,
+    slug,
+    allHeaders: Object.fromEntries(headersList.entries()),
+  });
+
   if (!slug) {
     console.error('[Receipt] No tenant slug');
     return notFound();
