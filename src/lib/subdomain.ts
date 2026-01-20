@@ -228,7 +228,7 @@ export function getBaseDomain(): string {
   }
 
   // In production, this should be set via environment variable
-  return process.env.BASE_DOMAIN || 'tabtep.com';
+  return process.env.NEXT_PUBLIC_BASE_DOMAIN || 'tabtep.com';
 }
 
 /**
