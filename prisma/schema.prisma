@@ -238,31 +238,34 @@ model Restaurant {
   takeoutAvailable        Boolean @default(true) // Takeout available
 
   // Settings Fields (Phase 2 - Restaurant Settings MVP)
-  taxLabel              String  @default("SST (6%)")
-  serviceChargeLabel    String  @default("Service Charge (10%)")
-  notificationSettings  Json    @default("{\"orderAlerts\":true,\"soundEnabled\":true,\"soundType\":\"chime\",\"desktopNotifications\":true}")
-  receiptSettings       Json    @default("{\"headerText\":\"Thank you for dining with us!\",\"footerText\":\"Please come again!\",\"paperSize\":\"80mm\"}")
-  paymentMethods        Json    @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
-  systemPreferences     Json    @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")
+  taxLabel             String @default("SST (6%)")
+  serviceChargeLabel   String @default("Service Charge (10%)")
+  notificationSettings Json   @default("{\"orderAlerts\":true,\"soundEnabled\":true,\"soundType\":\"chime\",\"desktopNotifications\":true}")
+  receiptSettings      Json   @default("{\"headerText\":\"Thank you for dining with us!\",\"footerText\":\"Please come again!\",\"paperSize\":\"80mm\"}")
+  paymentMethods       Json   @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
+  systemPreferences    Json   @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  owner           RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  subscription    Subscription?
-  tables          Table[]
-  menuItems       MenuItem[]
-  categories      MenuCategory[]
-  orders          Order[]
-  staff           Staff[]
-  transactionFees TransactionFee[]
-  roleHierarchy   StaffRoleHierarchy[]
-  reservations    Reservation[]
+  owner             RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  subscription      Subscription?
+  tables            Table[]
+  menuItems         MenuItem[]
+  categories        MenuCategory[]
+  orders            Order[]
+  staff             Staff[]
+  transactionFees   TransactionFee[]
+  roleHierarchy     StaffRoleHierarchy[]
+  reservations      Reservation[]
   // RBAC Relations
-  userRoles       UserRole[]
-  userSessions    UserSession[]
-  pushSubscriptions PushSubscription[]  // Phase 2 - Push Notifications
+  userRoles         UserRole[]
+  userSessions      UserSession[]
+  pushSubscriptions PushSubscription[] // Phase 2 - Push Notifications
   dailySequences    DailySequence[]
+  // Expenses Tracking Relations
+  expenseCategories ExpenseCategory[]
+  expenses          Expense[]
 
   @@index([ownerId])
   @@index([slug])
@@ -333,7 +336,7 @@ model MenuItem {
   restaurant        Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   category          MenuCategory            @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   orderItems        OrderItem[]
-  variationGroups   VariationGroup[]        // New relation
+  variationGroups   VariationGroup[] // New relation
   cartItems         CartItem[]
   modificationItems OrderModificationItem[] // New relation
 
@@ -406,21 +409,21 @@ model OrderItemOption {
 
 // Transaction Fee Tracking
 model TransactionFee {
-  id             String  @id @default(uuid())
-  restaurantId   String
-  orderId        String  @unique
-  subscriptionId String
-  orderAmount    Decimal @db.Decimal(10, 2)
-  feeRate        Decimal @db.Decimal(5, 4)
-  feeAmount      Decimal @db.Decimal(10, 2)
-  stripeFee      Decimal @default(0.00) @db.Decimal(10, 2)
-  netFee         Decimal @db.Decimal(10, 2)
-  currency       String  @default("USD")
-  processedAt    DateTime @default(now())
-  payoutStatus   String   @default("pending") // 'pending', 'paid', 'failed'
-  payoutDate     DateTime?
+  id               String    @id @default(uuid())
+  restaurantId     String
+  orderId          String    @unique
+  subscriptionId   String
+  orderAmount      Decimal   @db.Decimal(10, 2)
+  feeRate          Decimal   @db.Decimal(5, 4)
+  feeAmount        Decimal   @db.Decimal(10, 2)
+  stripeFee        Decimal   @default(0.00) @db.Decimal(10, 2)
+  netFee           Decimal   @db.Decimal(10, 2)
+  currency         String    @default("USD")
+  processedAt      DateTime  @default(now())
+  payoutStatus     String    @default("pending") // 'pending', 'paid', 'failed'
+  payoutDate       DateTime?
   stripeTransferId String?
-  createdAt      DateTime @default(now())
+  createdAt        DateTime  @default(now())
 
   restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -525,36 +528,36 @@ model StaffRoleHierarchy {
 
 // Enhanced Staff Model with SaaS Features
 model Staff {
-  id                     String       @id @default(uuid())
+  id                     String      @id @default(uuid())
   restaurantId           String
   roleId                 String
-  email                  String       @unique
-  username               String       @unique
+  email                  String      @unique
+  username               String      @unique
   passwordHash           String
   firstName              String
   lastName               String
   phone                  String?
   employeeId             String? // Restaurant-specific employee ID
   hireDate               DateTime?
-  hourlyRate             Decimal?     @db.Decimal(8, 2)
-  isActive               Boolean      @default(true)
-  status                 StaffStatus  @default(ACTIVE)
+  hourlyRate             Decimal?    @db.Decimal(8, 2)
+  isActive               Boolean     @default(true)
+  status                 StaffStatus @default(ACTIVE)
   lastLoginAt            DateTime?
-  passwordChangedAt      DateTime     @default(now())
-  mustChangePassword     Boolean      @default(false)
-  failedLoginAttempts    Int          @default(0)
+  passwordChangedAt      DateTime    @default(now())
+  mustChangePassword     Boolean     @default(false)
+  failedLoginAttempts    Int         @default(0)
   lockedUntil            DateTime?
-  permissions            Json         @default("{}") // Additional custom permissions
-  preferences            Json         @default("{}") // User preferences (e.g. KDS station filters)
-  emailVerified          Boolean      @default(false)
+  permissions            Json        @default("{}") // Additional custom permissions
+  preferences            Json        @default("{}") // User preferences (e.g. KDS station filters)
+  emailVerified          Boolean     @default(false)
   emailVerificationToken String?
   passwordResetToken     String?
   passwordResetExpires   DateTime?
-  twoFactorEnabled       Boolean      @default(false)
+  twoFactorEnabled       Boolean     @default(false)
   twoFactorSecret        String?
-  backupCodes            String[]     @default([])
-  createdAt              DateTime     @default(now())
-  updatedAt              DateTime     @updatedAt
+  backupCodes            String[]    @default([])
+  createdAt              DateTime    @default(now())
+  updatedAt              DateTime    @updatedAt
 
   restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   role          StaffRole      @relation(fields: [roleId], references: [id])
@@ -849,11 +852,11 @@ model AuditLog {
 }
 
 model DailySequence {
-  id           String   @id @default(uuid())
+  id           String @id @default(uuid())
   restaurantId String
   date         String // YYYY-MM-DD
-  orderCount   Int      @default(0)
-  paymentCount Int      @default(0)
+  orderCount   Int    @default(0)
+  paymentCount Int    @default(0)
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
@@ -1201,11 +1204,11 @@ model OrderModificationItem {
 model PushSubscription {
   id           String   @id @default(uuid())
   userId       String
-  userType     String   // 'staff', 'restaurant_owner', 'platform_admin'
+  userType     String // 'staff', 'restaurant_owner', 'platform_admin'
   restaurantId String
   endpoint     String   @unique
-  p256dh       String   // Client public key for encryption
-  auth         String   // Authentication secret for encryption
+  p256dh       String // Client public key for encryption
+  auth         String // Authentication secret for encryption
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1215,4 +1218,66 @@ model PushSubscription {
   @@index([restaurantId])
   @@index([endpoint])
   @@map("push_subscriptions")
+}
+
+// ============================================================================
+// Expenses Tracking Models
+// ============================================================================
+
+model ExpenseCategory {
+  id           String   @id @default(uuid())
+  restaurantId String? // null = system default, non-null = restaurant-specific
+  name         String
+  description  String?
+  categoryType String // "COGS", "OPERATING", "OTHER"
+  isSystem     Boolean  @default(false) // System categories cannot be deleted
+  isActive     Boolean  @default(true)
+  displayOrder Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant? @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  expenses   Expense[]
+
+  @@index([restaurantId])
+  @@index([isActive])
+  @@index([categoryType])
+  @@map("expense_categories")
+}
+
+model Expense {
+  id           String @id @default(uuid())
+  restaurantId String
+  categoryId   String
+
+  // Core expense data
+  amount      Decimal  @db.Decimal(10, 2)
+  description String
+  expenseDate DateTime // When expense occurred (cash basis)
+  vendor      String? // Supplier/vendor name
+
+  // Payment tracking
+  paymentMethod String  @default("CASH") // "CASH", "CARD", "BANK_TRANSFER", "EWALLET"
+  invoiceNumber String? // Optional reference number
+
+  // Audit trail
+  recordedBy       String // User ID who recorded this
+  recordedByType   String // "restaurant_owner", "staff"
+  lastEditedBy     String? // User ID who last edited
+  lastEditedByType String? // User type who last edited
+  notes            String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  restaurant Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  category   ExpenseCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@index([expenseDate])
+  @@index([recordedBy])
+  @@index([restaurantId, expenseDate])
+  @@index([restaurantId, categoryId, expenseDate])
+  @@map("expenses")
 }

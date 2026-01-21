@@ -1277,6 +1277,195 @@ async function main() {
   console.log(`Staff Roles: ${staffRoles.length}`);
   console.log(`Subscriptions: ${subscriptions.length}`);
 
+  // ==============================================
+  // 9. CREATE SYSTEM DEFAULT EXPENSE CATEGORIES
+  // ==============================================
+  console.log('\n🏷️  Creating system default expense categories...');
+
+  const expenseCategories = await Promise.all([
+    // COGS Categories
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-cogs-food' },
+      update: {},
+      create: {
+        id: 'system-cogs-food',
+        restaurantId: null, // System category
+        name: 'Food & Ingredients',
+        description: 'Raw food materials and ingredients',
+        categoryType: 'COGS',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 1,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-cogs-beverages' },
+      update: {},
+      create: {
+        id: 'system-cogs-beverages',
+        restaurantId: null,
+        name: 'Beverages',
+        description: 'Drinks and beverage supplies',
+        categoryType: 'COGS',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 2,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-cogs-packaging' },
+      update: {},
+      create: {
+        id: 'system-cogs-packaging',
+        restaurantId: null,
+        name: 'Packaging & Disposables',
+        description: 'Takeout containers, bags, utensils',
+        categoryType: 'COGS',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 3,
+      },
+    }),
+
+    // Operating Expense Categories
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-rent' },
+      update: {},
+      create: {
+        id: 'system-opex-rent',
+        restaurantId: null,
+        name: 'Rent & Lease',
+        description: 'Monthly rent and lease payments',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 4,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-utilities' },
+      update: {},
+      create: {
+        id: 'system-opex-utilities',
+        restaurantId: null,
+        name: 'Utilities',
+        description: 'Electricity, water, gas, internet',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 5,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-salaries' },
+      update: {},
+      create: {
+        id: 'system-opex-salaries',
+        restaurantId: null,
+        name: 'Staff Salaries & Wages',
+        description: 'Employee salaries, wages, and benefits',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 6,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-marketing' },
+      update: {},
+      create: {
+        id: 'system-opex-marketing',
+        restaurantId: null,
+        name: 'Marketing & Advertising',
+        description: 'Promotional materials and advertising',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 7,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-maintenance' },
+      update: {},
+      create: {
+        id: 'system-opex-maintenance',
+        restaurantId: null,
+        name: 'Equipment Maintenance',
+        description: 'Repairs and maintenance of equipment',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 8,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-cleaning' },
+      update: {},
+      create: {
+        id: 'system-opex-cleaning',
+        restaurantId: null,
+        name: 'Cleaning Supplies',
+        description: 'Cleaning products and janitorial supplies',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 9,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-insurance' },
+      update: {},
+      create: {
+        id: 'system-opex-insurance',
+        restaurantId: null,
+        name: 'Insurance',
+        description: 'Business and liability insurance',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 10,
+      },
+    }),
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-opex-licenses' },
+      update: {},
+      create: {
+        id: 'system-opex-licenses',
+        restaurantId: null,
+        name: 'Licenses & Permits',
+        description: 'Business licenses and permits',
+        categoryType: 'OPERATING',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 11,
+      },
+    }),
+
+    // Other Category
+    prisma.expenseCategory.upsert({
+      where: { id: 'system-other-misc' },
+      update: {},
+      create: {
+        id: 'system-other-misc',
+        restaurantId: null,
+        name: 'Miscellaneous',
+        description: 'Other uncategorized expenses',
+        categoryType: 'OTHER',
+        isSystem: true,
+        isActive: true,
+        displayOrder: 12,
+      },
+    }),
+  ]);
+
+  console.log(
+    '✅ Created system expense categories:',
+    expenseCategories.length
+  );
+  console.log('   - COGS categories: 3');
+  console.log('   - Operating categories: 8');
+  console.log('   - Other categories: 1');
+
   console.log('\n🔑 Test Credentials:');
   console.log('\n📱 Platform Admin:');
   console.log('Email: admin@qrorder.com');
