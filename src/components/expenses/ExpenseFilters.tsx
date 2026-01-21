@@ -30,6 +30,9 @@ export function ExpenseFilters({
   const [isOpen, setIsOpen] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState(filters.search || '');
   const [selectedPreset, setSelectedPreset] = React.useState('month');
+  const [showCustomDatePicker, setShowCustomDatePicker] = React.useState(false);
+  const [customStartDate, setCustomStartDate] = React.useState('');
+  const [customEndDate, setCustomEndDate] = React.useState('');
 
   const { data: categoriesData } = useCategories(restaurantId);
 
@@ -44,6 +47,12 @@ export function ExpenseFilters({
 
   const handlePresetChange = (preset: string) => {
     setSelectedPreset(preset);
+
+    if (preset === 'custom') {
+      setShowCustomDatePicker(true);
+      return;
+    }
+
     const now = new Date();
     let startDate: Date;
     const endDate = now;
@@ -63,6 +72,15 @@ export function ExpenseFilters({
     }
 
     onFiltersChange({ ...filters, startDate, endDate });
+  };
+
+  const handleCustomDateApply = () => {
+    if (customStartDate && customEndDate) {
+      const startDate = new Date(customStartDate);
+      const endDate = new Date(customEndDate);
+      onFiltersChange({ ...filters, startDate, endDate });
+      setShowCustomDatePicker(false);
+    }
   };
 
   const handleCategoryChange = (categoryId: string) => {
@@ -177,6 +195,54 @@ export function ExpenseFilters({
           </div>
         </div>
       </div>
+
+      {/* Custom Date Picker Modal */}
+      {showCustomDatePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Custom Date Range</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date
+                </label>
+                <input
+                  type="date"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date
+                </label>
+                <input
+                  type="date"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setShowCustomDatePicker(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCustomDateApply}
+                  disabled={!customStartDate || !customEndDate}
+                  className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
