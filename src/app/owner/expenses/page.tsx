@@ -9,6 +9,7 @@ import { ExpenseSummaryCards } from '@/components/expenses/ExpenseSummaryCards';
 import { ExpenseFilters } from '@/components/expenses/ExpenseFilters';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormModal } from '@/components/expenses/ExpenseFormModal';
+import { CategoryManager } from '@/components/expenses/CategoryManager';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import type { Metadata } from 'next';
 
@@ -202,23 +203,12 @@ export default function ExpensesPage() {
         onSuccess={handleFormSuccess}
       />
 
-      {/* Category Manager Modal - TODO: Implement in next phase */}
-      {showCategoryManager && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full">
-            <h2 className="text-xl font-bold mb-4">Category Manager</h2>
-            <p className="text-gray-600 mb-4">
-              Category management will be implemented in the next phase.
-            </p>
-            <button
-              onClick={() => setShowCategoryManager(false)}
-              className="w-full px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Category Manager Modal */}
+      <CategoryManager
+        restaurantId={restaurantId}
+        isOpen={showCategoryManager}
+        onClose={() => setShowCategoryManager(false)}
+      />
     </div>
   );
 }
