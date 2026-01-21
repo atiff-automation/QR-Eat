@@ -10,6 +10,12 @@ import { ExpenseFilters } from '@/components/expenses/ExpenseFilters';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormModal } from '@/components/expenses/ExpenseFormModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = {
+  title: 'Expenses | QR-Eat',
+  description: 'Manage restaurant expenses and track spending',
+};
 
 interface Expense {
   id: string;
@@ -39,11 +45,16 @@ export default function ExpensesPage() {
   // Filter state
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const [filters, setFilters] = React.useState({
+  const [filters, setFilters] = React.useState<{
+    startDate?: Date;
+    endDate?: Date;
+    categoryId?: string;
+    search?: string;
+  }>({
     startDate: startOfMonth,
     endDate: now,
-    categoryId: undefined as string | undefined,
-    search: undefined as string | undefined,
+    categoryId: undefined,
+    search: undefined,
   });
 
   const restaurantId = user?.restaurantId || '';
@@ -173,7 +184,21 @@ export default function ExpensesPage() {
         isOpen={showExpenseForm}
         onClose={() => setShowExpenseForm(false)}
         restaurantId={restaurantId}
-        expense={selectedExpense}
+        expense={
+          selectedExpense
+            ? {
+                id: selectedExpense.id,
+                categoryId: selectedExpense.categoryId,
+                amount: selectedExpense.amount,
+                description: selectedExpense.description,
+                expenseDate: selectedExpense.expenseDate,
+                vendor: selectedExpense.vendor,
+                paymentMethod: selectedExpense.paymentMethod,
+                invoiceNumber: selectedExpense.invoiceNumber,
+                notes: selectedExpense.notes,
+              }
+            : undefined
+        }
         onSuccess={handleFormSuccess}
       />
 
