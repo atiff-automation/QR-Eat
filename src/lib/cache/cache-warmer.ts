@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/database';
+import { prisma } from '../database';
 import { cacheManager } from './smart-cache-manager';
 
 /**

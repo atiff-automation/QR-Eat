@@ -1,5 +1,5 @@
 import { unstable_cache, revalidateTag } from 'next/cache';
-import { prisma } from '@/lib/database';
+import { prisma } from '../database';
 
 /**
  * Smart Cache Manager
@@ -90,7 +90,7 @@ class SmartCacheManager {
 
     return unstable_cache(fetchFn, cacheKey, {
       revalidate: config.ttl,
-      tags: config.tags,
+      tags: [...config.tags], // Convert readonly array to mutable array
     })();
   }
 
