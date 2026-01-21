@@ -3,6 +3,8 @@
 import React from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
 import { useCategories } from '@/hooks/expenses/useCategories';
+import { useCreateCategory } from '@/hooks/expenses/useCreateCategory';
+import { useDeleteCategory } from '@/hooks/expenses/useDeleteCategory';
 import { CategoryBadge } from './CategoryBadge';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
@@ -18,7 +20,14 @@ export function CategoryManager({
   onClose,
 }: CategoryManagerProps) {
   const { data: categoriesData, isLoading } = useCategories(restaurantId);
+  const createMutation = useCreateCategory();
+  const deleteMutation = useDeleteCategory();
+
   const [showCreateForm, setShowCreateForm] = React.useState(false);
+  const [categoryName, setCategoryName] = React.useState('');
+  const [categoryType, setCategoryType] = React.useState<
+    'COGS' | 'OPERATING' | 'OTHER'
+  >('OPERATING');
 
   if (!isOpen) return null;
 
@@ -45,9 +54,25 @@ export function CategoryManager({
         `Are you sure you want to delete "${categoryName}"? This action cannot be undone.`
       )
     ) {
-      // TODO: Implement delete mutation
-      console.log('Delete category:', categoryId);
+      await deleteMutation.mutateAsync(categoryId);
     }
+  };
+
+  const handleCreate = async () => {
+    if (!categoryName.trim()) {
+      return;
+    }
+
+    await createMutation.mutateAsync({
+      restaurantId,
+      name: categoryName.trim(),
+      categoryType,
+    });
+
+    // Reset form
+    setCategoryName('');
+    setCategoryType('OPERATING');
+    setShowCreateForm(false);
   };
 
   return (
@@ -133,15 +158,30 @@ export function CategoryManager({
                         </label>
                         <input
                           type="text"
+                          value={categoryName}
+                          onChange={(e) => setCategoryName(e.target.value)}
                           placeholder="e.g., Marketing, Utilities"
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              handleCreate();
+                            }
+                          }}
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Category Type
                         </label>
-                        <select className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent">
+                        <select
+                          value={categoryType}
+                          onChange={(e) =>
+                            setCategoryType(
+                              e.target.value as 'COGS' | 'OPERATING' | 'OTHER'
+                            )
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        >
                           <option value="COGS">
                             Cost of Goods Sold (COGS)
                           </option>
@@ -151,19 +191,23 @@ export function CategoryManager({
                       </div>
                       <div className="flex gap-2">
                         <button
-                          onClick={() => setShowCreateForm(false)}
+                          onClick={() => {
+                            setShowCreateForm(false);
+                            setCategoryName('');
+                            setCategoryType('OPERATING');
+                          }}
                           className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium"
                         >
                           Cancel
                         </button>
                         <button
-                          onClick={() => {
-                            // TODO: Implement create mutation
-                            setShowCreateForm(false);
-                          }}
-                          className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 font-medium"
+                          onClick={handleCreate}
+                          disabled={
+                            !categoryName.trim() || createMutation.isPending
+                          }
+                          className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          Create
+                          {createMutation.isPending ? 'Creating...' : 'Create'}
                         </button>
                       </div>
                     </div>
