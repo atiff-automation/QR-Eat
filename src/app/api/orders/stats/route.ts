@@ -84,11 +84,11 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where: { ...where, status: 'SERVED' } }),
       prisma.order.count({ where: { ...where, status: 'CANCELLED' } }),
 
-      // Revenue calculations
+      // Revenue calculations - only count SERVED (completed) orders
       prisma.order.aggregate({
         where: {
           ...where,
-          status: { not: 'CANCELLED' },
+          status: 'SERVED',
         },
         _sum: {
           totalAmount: true,
