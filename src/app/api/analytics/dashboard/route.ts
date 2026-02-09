@@ -89,24 +89,40 @@ export async function GET(request: NextRequest) {
 
     switch (timeframe) {
       case 'yearly':
-        // Last 12 months
-        startDate = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+        // This year (January 1st to now)
+        startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0);
         truncUnit = 'month';
         break;
       case 'monthly':
-        // Last 30 days
-        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        // This month (1st of month to now)
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
         truncUnit = 'day';
         break;
       case 'weekly':
-        // Last 7 days
-        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        // This week (Monday to now)
+        const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon, ...
+        const daysFromMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+        startDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate() - daysFromMonday,
+          0,
+          0,
+          0
+        );
         truncUnit = 'day';
         break;
       case 'daily':
       default:
-        // Last 24 hours
-        startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+        // Today's calendar day (midnight to now)
+        startDate = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate(),
+          0,
+          0,
+          0
+        );
         truncUnit = 'hour';
         break;
     }
