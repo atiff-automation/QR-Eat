@@ -8,7 +8,7 @@ import { z } from 'zod';
 // ============================================================================
 
 const UpdateExpenseSchema = z.object({
-  categoryId: z.string().uuid('Invalid category ID').optional(),
+  categoryId: z.string().min(1, 'Invalid category ID').optional(),
   amount: z
     .number()
     .positive('Amount must be positive')
@@ -20,7 +20,10 @@ const UpdateExpenseSchema = z.object({
     .max(500, 'Description too long')
     .trim()
     .optional(),
-  expenseDate: z.string().datetime('Invalid date format').optional(),
+  expenseDate: z
+    .string()
+    .date('Invalid date format (expected YYYY-MM-DD)')
+    .optional(),
   vendor: z.string().max(200).optional().nullable(),
   paymentMethod: z
     .enum(['CASH', 'CARD', 'BANK_TRANSFER', 'EWALLET'])
@@ -189,8 +192,9 @@ export async function PUT(
 
     // Validate expense date is not in the future (if provided)
     if (validatedData.expenseDate) {
-      const expenseDate = new Date(validatedData.expenseDate);
-      if (expenseDate > new Date()) {
+      const today = new Date();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+      if (validatedData.expenseDate > todayStr) {
         return NextResponse.json(
           { error: 'Expense date cannot be in the future' },
           { status: 400 }

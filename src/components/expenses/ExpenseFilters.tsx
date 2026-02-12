@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Search, X, SlidersHorizontal } from 'lucide-react';
+import { DateInput } from '@/components/ui/DateInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { BottomSheet } from '@/components/ui/BottomSheet';
 
@@ -267,22 +268,20 @@ export function ExpenseFilters({
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Start Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={setCustomStartDate}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   End Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={setCustomEndDate}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div className="flex gap-2 pt-1">

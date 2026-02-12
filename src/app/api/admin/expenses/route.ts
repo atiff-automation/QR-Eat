@@ -10,7 +10,7 @@ import { Prisma } from '@prisma/client';
 
 const CreateExpenseSchema = z.object({
   restaurantId: z.string().uuid('Invalid restaurant ID'),
-  categoryId: z.string().uuid('Invalid category ID'),
+  categoryId: z.string().min(1, 'Invalid category ID'),
   amount: z
     .number()
     .positive('Amount must be positive')
@@ -20,7 +20,7 @@ const CreateExpenseSchema = z.object({
     .min(1, 'Description is required')
     .max(500, 'Description too long')
     .trim(),
-  expenseDate: z.string().datetime('Invalid date format'),
+  expenseDate: z.string().date('Invalid date format (expected YYYY-MM-DD)'),
   vendor: z.string().max(200).optional(),
   paymentMethod: z
     .enum(['CASH', 'CARD', 'BANK_TRANSFER', 'EWALLET'])
@@ -219,8 +219,10 @@ export async function POST(request: NextRequest) {
     const validatedData: CreateExpenseInput = CreateExpenseSchema.parse(body);
 
     // Validate expense date is not in the future
-    const expenseDate = new Date(validatedData.expenseDate);
-    if (expenseDate > new Date()) {
+    // Compare as YYYY-MM-DD strings (lexicographic comparison works for this format)
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    if (validatedData.expenseDate > todayStr) {
       return NextResponse.json(
         { error: 'Expense date cannot be in the future' },
         { status: 400 }
@@ -295,7 +297,7 @@ export async function POST(request: NextRequest) {
         categoryId: validatedData.categoryId,
         amount: validatedData.amount,
         description: validatedData.description,
-        expenseDate,
+        expenseDate: new Date(validatedData.expenseDate),
         vendor: validatedData.vendor,
         paymentMethod: validatedData.paymentMethod,
         invoiceNumber: validatedData.invoiceNumber,

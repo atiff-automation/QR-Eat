@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Calendar } from 'lucide-react';
+import { DateInput } from '@/components/ui/DateInput';
 
 type PeriodType = 'today' | 'week' | 'month' | 'custom';
 
@@ -112,22 +113,20 @@ export function ProfitLossHeader({
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Start Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={setCustomStart}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   End Date
                 </label>
-                <input
-                  type="date"
+                <DateInput
                   value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  onChange={setCustomEnd}
+                  className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div className="flex gap-2 pt-1">

@@ -1253,7 +1253,7 @@ model Expense {
   // Core expense data
   amount      Decimal  @db.Decimal(10, 2)
   description String
-  expenseDate DateTime // When expense occurred (cash basis)
+  expenseDate DateTime @db.Date // Calendar date only — no time/timezone
   vendor      String? // Supplier/vendor name
 
   // Payment tracking

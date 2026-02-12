@@ -4,6 +4,7 @@ import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
+import { DateInput } from '@/components/ui/DateInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { useCreateExpense } from '@/hooks/expenses/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/expenses/useUpdateExpense';
@@ -30,6 +31,18 @@ interface ExpenseFormProps {
 
 type FormData = z.infer<typeof createExpenseSchema>;
 
+// Extract YYYY-MM-DD from an ISO string without timezone conversion
+function toDateString(isoOrDate: string | Date): string {
+  const s = typeof isoOrDate === 'string' ? isoOrDate : isoOrDate.toISOString();
+  return s.slice(0, 10);
+}
+
+// Get today as YYYY-MM-DD in local timezone
+function todayString(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export function ExpenseForm({
   restaurantId,
   expense,
@@ -51,9 +64,9 @@ export function ExpenseForm({
       ? {
           restaurantId,
           categoryId: expense.categoryId,
-          amount: expense.amount,
+          amount: Number(expense.amount),
           description: expense.description,
-          expenseDate: new Date(expense.expenseDate),
+          expenseDate: toDateString(expense.expenseDate),
           vendor: expense.vendor || undefined,
           paymentMethod: expense.paymentMethod,
           invoiceNumber: expense.invoiceNumber || undefined,
@@ -61,7 +74,7 @@ export function ExpenseForm({
         }
       : {
           restaurantId,
-          expenseDate: new Date(),
+          expenseDate: todayString(),
           paymentMethod: 'CASH',
         };
 
@@ -71,9 +84,12 @@ export function ExpenseForm({
     formState: { errors, isSubmitting },
     setValue,
     watch,
+    clearErrors,
   } = useForm<FormData>({
     resolver: zodResolver(createExpenseSchema),
     defaultValues,
+    mode: 'onSubmit',
+    reValidateMode: 'onChange',
   });
 
   const amount = watch('amount') || 0;
@@ -85,7 +101,7 @@ export function ExpenseForm({
           categoryId: data.categoryId,
           amount: data.amount,
           description: data.description,
-          expenseDate: data.expenseDate.toISOString(),
+          expenseDate: data.expenseDate,
           vendor: data.vendor || null,
           paymentMethod: data.paymentMethod,
           invoiceNumber: data.invoiceNumber || null,
@@ -97,7 +113,7 @@ export function ExpenseForm({
           categoryId: data.categoryId,
           amount: data.amount,
           description: data.description,
-          expenseDate: data.expenseDate.toISOString(),
+          expenseDate: data.expenseDate,
           vendor: data.vendor,
           paymentMethod: data.paymentMethod,
           invoiceNumber: data.invoiceNumber,
@@ -118,8 +134,10 @@ export function ExpenseForm({
       }
     : null;
 
+  const handleFormSubmit = handleSubmit(onSubmit);
+
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
+    <form onSubmit={handleFormSubmit} className="flex flex-col h-full">
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
         {/* Amount Input — promoted to top */}
@@ -148,7 +166,13 @@ export function ExpenseForm({
             Category <span className="text-red-500">*</span>
           </label>
           <select
-            {...register('categoryId')}
+            {...register('categoryId', {
+              onChange: (e) => {
+                if (e.target.value) {
+                  clearErrors('categoryId');
+                }
+              },
+            })}
             className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
               errors.categoryId ? 'border-red-400' : 'border-gray-200'
             }`}
@@ -213,13 +237,11 @@ export function ExpenseForm({
             <label className="block text-xs font-medium text-gray-500 mb-1.5">
               Date <span className="text-red-500">*</span>
             </label>
-            <input
-              type="date"
-              {...register('expenseDate', {
-                setValueAs: (value) => (value ? new Date(value) : undefined),
-              })}
-              max={new Date().toISOString().split('T')[0]}
-              className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
+            <DateInput
+              value={watch('expenseDate') || ''}
+              onChange={(val) => setValue('expenseDate', val)}
+              maxDate={new Date()}
+              className={`px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
                 errors.expenseDate ? 'border-red-400' : 'border-gray-200'
               }`}
             />

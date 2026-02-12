@@ -198,25 +198,25 @@ export async function GET(request: NextRequest) {
       const netSales = grossSales - discounts - refunds;
 
       // ================================================================
-      // 2. Calculate COGS Section (using materialized view)
+      // 2. Calculate COGS Section (from expenses table directly)
       // ================================================================
 
-      // Query materialized view for COGS
       const cogsData = await prisma.$queryRaw<
         Array<{
           category_name: string;
           total_amount: Prisma.Decimal;
         }>
       >`
-          SELECT 
-            category_name,
-            SUM(total_amount) as total_amount
-          FROM expense_daily_summary
-          WHERE "restaurantId" = ${restaurantId}
-            AND expense_date >= ${defaultStartDate}
-            AND expense_date <= ${defaultEndDate}
-            AND "categoryType" = 'COGS'
-          GROUP BY category_name
+          SELECT
+            ec.name as category_name,
+            SUM(e.amount) as total_amount
+          FROM expenses e
+          JOIN expense_categories ec ON e."categoryId" = ec.id
+          WHERE e."restaurantId" = ${restaurantId}
+            AND e."expenseDate" >= ${defaultStartDate}
+            AND e."expenseDate" <= ${defaultEndDate}
+            AND ec."categoryType" = 'COGS'
+          GROUP BY ec.name
           ORDER BY total_amount DESC
         `;
 
@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
         netSales > 0 ? (grossProfit / netSales) * 100 : 0;
 
       // ================================================================
-      // 4. Calculate Operating Expenses (using materialized view)
+      // 4. Calculate Operating Expenses (from expenses table directly)
       // ================================================================
 
       const opexData = await prisma.$queryRaw<
@@ -251,15 +251,16 @@ export async function GET(request: NextRequest) {
           total_amount: Prisma.Decimal;
         }>
       >`
-          SELECT 
-            category_name,
-            SUM(total_amount) as total_amount
-          FROM expense_daily_summary
-          WHERE "restaurantId" = ${restaurantId}
-            AND expense_date >= ${defaultStartDate}
-            AND expense_date <= ${defaultEndDate}
-            AND "categoryType" = 'OPERATING'
-          GROUP BY category_name
+          SELECT
+            ec.name as category_name,
+            SUM(e.amount) as total_amount
+          FROM expenses e
+          JOIN expense_categories ec ON e."categoryId" = ec.id
+          WHERE e."restaurantId" = ${restaurantId}
+            AND e."expenseDate" >= ${defaultStartDate}
+            AND e."expenseDate" <= ${defaultEndDate}
+            AND ec."categoryType" = 'OPERATING'
+          GROUP BY ec.name
           ORDER BY total_amount DESC
         `;
 

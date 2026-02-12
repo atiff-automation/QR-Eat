@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 export const createExpenseSchema = z.object({
   restaurantId: z.string().uuid('Invalid restaurant ID'),
-  categoryId: z.string().uuid('Please select a category'),
+  categoryId: z.string().min(1, 'Please select a category'),
   amount: z
     .number()
     .positive('Amount must be positive')
@@ -16,7 +16,7 @@ export const createExpenseSchema = z.object({
     .min(1, 'Description is required')
     .max(500, 'Description is too long')
     .trim(),
-  expenseDate: z.date(),
+  expenseDate: z.string().min(1, 'Date is required'),
   vendor: z.string().max(200, 'Vendor name is too long').optional(),
   paymentMethod: z.enum(['CASH', 'CARD', 'BANK_TRANSFER', 'EWALLET']),
   invoiceNumber: z.string().max(100, 'Invoice number is too long').optional(),
@@ -60,7 +60,7 @@ export const expenseFiltersSchema = z.object({
   restaurantId: z.string().uuid(),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
-  categoryId: z.string().uuid().optional(),
+  categoryId: z.string().min(1).optional(),
   search: z.string().optional(),
   page: z.number().int().positive().default(1),
   limit: z.number().int().positive().max(100).default(50),

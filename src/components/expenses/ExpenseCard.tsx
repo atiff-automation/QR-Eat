@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import { formatCurrency } from '@/lib/utils/currency-formatter';
@@ -63,7 +63,7 @@ export function ExpenseCard({ expense, onEdit, onDelete }: ExpenseCardProps) {
           </p>
           <div className="flex items-center gap-1.5 mt-0.5">
             <span className="text-xs text-gray-400">
-              {format(new Date(expense.expenseDate), 'MMM d')}
+              {format(parseISO(expense.expenseDate), 'MMM d')}
             </span>
             <span className="text-gray-300">·</span>
             <span className="text-xs text-gray-400">

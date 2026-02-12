@@ -5,6 +5,7 @@ import {
   useComprehensiveReport,
   useDownloadReport,
 } from '@/lib/hooks/queries/useReports';
+import { DateInput } from '@/components/ui/DateInput';
 
 const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
   const [startDate, setStartDate] = useState('');
@@ -104,22 +105,20 @@ const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Start Date
             </label>
-            <input
-              type="date"
+            <DateInput
               value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={setStartDate}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               End Date
             </label>
-            <input
-              type="date"
+            <DateInput
               value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onChange={setEndDate}
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <div>
@@ -346,48 +345,46 @@ const ComprehensiveReportPage = memo(function ComprehensiveReportPage() {
                       Top Performing Items
                     </h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {report.data.menu.topPerformers
-                        .slice(0, 6)
-                        .map(
-                          (
-                            item: {
-                              name: string;
-                              category: string;
-                              quantitySold: number;
-                              revenue: number;
-                            },
-                            index: number
-                          ) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                            >
-                              <div className="flex items-center">
-                                <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
-                                  <span className="text-green-600 text-xs font-medium">
-                                    {index + 1}
-                                  </span>
-                                </div>
-                                <div className="ml-3">
-                                  <p className="text-sm font-medium text-gray-900">
-                                    {item.name}
-                                  </p>
-                                  <p className="text-xs text-gray-500">
-                                    {item.category}
-                                  </p>
-                                </div>
+                      {report.data.menu.topPerformers.slice(0, 6).map(
+                        (
+                          item: {
+                            name: string;
+                            category: string;
+                            quantitySold: number;
+                            revenue: number;
+                          },
+                          index: number
+                        ) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                          >
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 w-6 h-6 bg-green-100 rounded-full flex items-center justify-center">
+                                <span className="text-green-600 text-xs font-medium">
+                                  {index + 1}
+                                </span>
                               </div>
-                              <div className="text-right">
+                              <div className="ml-3">
                                 <p className="text-sm font-medium text-gray-900">
-                                  {item.quantitySold} sold
+                                  {item.name}
                                 </p>
                                 <p className="text-xs text-gray-500">
-                                  ${item.revenue.toFixed(2)}
+                                  {item.category}
                                 </p>
                               </div>
                             </div>
-                          )
-                        )}
+                            <div className="text-right">
+                              <p className="text-sm font-medium text-gray-900">
+                                {item.quantitySold} sold
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                ${item.revenue.toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        )
+                      )}
                     </div>
                   </div>
                 )}
