@@ -10,6 +10,7 @@ import { ExpenseFilters } from '@/components/expenses/ExpenseFilters';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormModal } from '@/components/expenses/ExpenseFormModal';
 import { CategoryManager } from '@/components/expenses/CategoryManager';
+import { getDateRange } from '@/lib/date-utils';
 
 interface Expense {
   id: string;
@@ -36,17 +37,16 @@ export default function ExpensesPage() {
   );
   const [showCategoryManager, setShowCategoryManager] = React.useState(false);
 
-  // Filter state
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Filter state — default to current month
+  const defaultRange = getDateRange('month');
   const [filters, setFilters] = React.useState<{
     startDate?: Date;
     endDate?: Date;
     categoryId?: string;
     search?: string;
   }>({
-    startDate: startOfMonth,
-    endDate: now,
+    startDate: defaultRange.startDate,
+    endDate: defaultRange.endDate,
     categoryId: undefined,
     search: undefined,
   });
@@ -94,27 +94,24 @@ export default function ExpensesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/80">
-      {/* Header — compact */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-gray-900">Expenses</h1>
-          <button
-            onClick={() => setShowCategoryManager(true)}
-            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
-            title="Manage categories"
-          >
-            <Settings size={20} />
-          </button>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-lg mx-auto px-4 py-4">
+        {/* Settings shortcut */}
+        <div className="flex justify-end mb-2">
+          <button
+            onClick={() => setShowCategoryManager(true)}
+            className="p-2 -mr-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
+            title="Manage categories"
+          >
+            <Settings size={18} />
+          </button>
+        </div>
+
         {/* Summary Cards */}
         <ExpenseSummaryCards
           restaurantId={restaurantId}
-          startDate={filters.startDate || startOfMonth}
-          endDate={filters.endDate || now}
+          startDate={filters.startDate || defaultRange.startDate}
+          endDate={filters.endDate || defaultRange.endDate}
         />
 
         {/* Filters */}

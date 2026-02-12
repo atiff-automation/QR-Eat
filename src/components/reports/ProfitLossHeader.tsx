@@ -3,6 +3,7 @@
 import React from 'react';
 import { Calendar } from 'lucide-react';
 import { DateInput } from '@/components/ui/DateInput';
+import { getDateRange } from '@/lib/date-utils';
 
 type PeriodType = 'today' | 'week' | 'month' | 'custom';
 
@@ -28,29 +29,13 @@ export function ProfitLossHeader({
   );
 
   const handlePeriodClick = (newPeriod: PeriodType) => {
-    const now = new Date();
-    let start: Date;
-    const end: Date = now;
-
-    switch (newPeriod) {
-      case 'today':
-        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        break;
-      case 'week':
-        start = new Date(now);
-        start.setDate(now.getDate() - 7);
-        break;
-      case 'month':
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      case 'custom':
-        setShowCustomPicker(true);
-        return;
-      default:
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
+    if (newPeriod === 'custom') {
+      setShowCustomPicker(true);
+      return;
     }
 
-    onPeriodChange(newPeriod, start, end);
+    const { startDate, endDate } = getDateRange(newPeriod);
+    onPeriodChange(newPeriod, startDate, endDate);
   };
 
   const handleCustomApply = () => {

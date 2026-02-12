@@ -2,9 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { getDateRange } from '@/lib/date-utils';
 
 export default function OwnerDashboardPage() {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [user, setUser] = useState<any>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [restaurants, setRestaurants] = useState<any[]>([]);
   const [monthlyRevenue, setMonthlyRevenue] = useState<number>(0);
   const [loading, setLoading] = useState(true);
@@ -13,8 +16,11 @@ export default function OwnerDashboardPage() {
     // Debug: Check cookies on dashboard load
     console.log('🏠 Owner Dashboard loaded');
     console.log('🍪 Dashboard cookies:', document.cookie);
-    console.log('🍪 Dashboard cookie count:', document.cookie.split(';').filter(c => c.trim()).length);
-    
+    console.log(
+      '🍪 Dashboard cookie count:',
+      document.cookie.split(';').filter((c) => c.trim()).length
+    );
+
     fetchUserData();
     fetchRestaurants();
     fetchMonthlyRevenue();
@@ -22,11 +28,15 @@ export default function OwnerDashboardPage() {
 
   const fetchUserData = async () => {
     try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const response = await ApiClient.get<{ user: any }>('/api/auth/me');
       setUser(response.user);
     } catch (error) {
       if (error instanceof ApiClientError) {
-        console.error('[OwnerDashboard] Failed to fetch user data:', error.message);
+        console.error(
+          '[OwnerDashboard] Failed to fetch user data:',
+          error.message
+        );
       } else {
         console.error('[OwnerDashboard] Failed to fetch user data:', error);
       }
@@ -35,11 +45,17 @@ export default function OwnerDashboardPage() {
 
   const fetchRestaurants = async () => {
     try {
-      const response = await ApiClient.get<{ restaurants: any[] }>('/api/restaurants/owner');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await ApiClient.get<{ restaurants: any[] }>(
+        '/api/restaurants/owner'
+      );
       setRestaurants(response.restaurants || []);
     } catch (error) {
       if (error instanceof ApiClientError) {
-        console.error('[OwnerDashboard] Failed to fetch restaurants:', error.message);
+        console.error(
+          '[OwnerDashboard] Failed to fetch restaurants:',
+          error.message
+        );
       } else {
         console.error('[OwnerDashboard] Failed to fetch restaurants:', error);
       }
@@ -50,19 +66,16 @@ export default function OwnerDashboardPage() {
 
   const fetchMonthlyRevenue = async () => {
     try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-      const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const { startDate, endDate } = getDateRange('month');
 
-      const response = await ApiClient.get<{ data?: { summary?: { totalRevenue?: number } } }>(
-        '/api/reports/sales',
-        {
-          params: {
-            startDate: startOfMonth.toISOString(),
-            endDate: endOfMonth.toISOString()
-          }
-        }
-      );
+      const response = await ApiClient.get<{
+        data?: { summary?: { totalRevenue?: number } };
+      }>('/api/reports/sales', {
+        params: {
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
+      });
 
       setMonthlyRevenue(response.data?.summary?.totalRevenue || 0);
     } catch (error) {
@@ -91,13 +104,13 @@ export default function OwnerDashboardPage() {
         <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Restaurant Owner Dashboard</h1>
+              <h1 className="text-2xl font-bold text-gray-900">
+                Restaurant Owner Dashboard
+              </h1>
               <p className="text-sm text-gray-500">
                 Welcome back, {user?.firstName} {user?.lastName}
               </p>
-              <p className="text-sm text-gray-500">
-                {user?.companyName}
-              </p>
+              <p className="text-sm text-gray-500">{user?.companyName}</p>
             </div>
             <div className="text-sm text-gray-500">
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -147,7 +160,7 @@ export default function OwnerDashboardPage() {
                       Active Restaurants
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      {restaurants.filter(r => r.isActive).length}
+                      {restaurants.filter((r) => r.isActive).length}
                     </dd>
                   </dl>
                 </div>
@@ -169,7 +182,11 @@ export default function OwnerDashboardPage() {
                       Monthly Revenue
                     </dt>
                     <dd className="text-lg font-medium text-gray-900">
-                      ${monthlyRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      $
+                      {monthlyRevenue.toLocaleString('en-US', {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
                     </dd>
                   </dl>
                 </div>
@@ -207,11 +224,13 @@ export default function OwnerDashboardPage() {
                             <p className="text-sm font-medium text-gray-900">
                               {restaurant.name}
                             </p>
-                            <span className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                              restaurant.isActive 
-                                ? 'bg-green-100 text-green-800' 
-                                : 'bg-red-100 text-red-800'
-                            }`}>
+                            <span
+                              className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                restaurant.isActive
+                                  ? 'bg-green-100 text-green-800'
+                                  : 'bg-red-100 text-red-800'
+                              }`}
+                            >
                               {restaurant.isActive ? 'Active' : 'Inactive'}
                             </span>
                           </div>
@@ -232,7 +251,7 @@ export default function OwnerDashboardPage() {
                         </div>
                         <div className="flex space-x-2">
                           {restaurant.isActive ? (
-                            <a 
+                            <a
                               href="/dashboard"
                               className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm leading-4 font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                             >
@@ -240,7 +259,7 @@ export default function OwnerDashboardPage() {
                             </a>
                           ) : (
                             <div className="group relative">
-                              <button 
+                              <button
                                 disabled
                                 className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-400 bg-gray-100 cursor-not-allowed"
                               >
@@ -248,20 +267,22 @@ export default function OwnerDashboardPage() {
                               </button>
                               <div className="absolute z-50 w-72 p-3 -top-16 left-0 text-sm text-white bg-gray-900 rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
                                 <div className="relative">
-                                  Restaurant is inactive. Please contact the platform administrator to reactivate your restaurant.
+                                  Restaurant is inactive. Please contact the
+                                  platform administrator to reactivate your
+                                  restaurant.
                                   {/* Arrow pointing down */}
                                   <div className="absolute top-full left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-gray-900"></div>
                                 </div>
                               </div>
                             </div>
                           )}
-                          <a 
+                          <a
                             href={`/owner/restaurant/${restaurant.id}/profile`}
                             className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
                           >
                             Edit Profile
                           </a>
-                          <a 
+                          <a
                             href={`http://${restaurant.slug}.localhost:3000`}
                             target="_blank"
                             rel="noopener noreferrer"

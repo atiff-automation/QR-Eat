@@ -11,18 +11,18 @@ import { GrossProfitSection } from '@/components/reports/GrossProfitSection';
 import { OperatingExpensesSection } from '@/components/reports/OperatingExpensesSection';
 import { NetProfitSection } from '@/components/reports/NetProfitSection';
 import { KeyMetrics } from '@/components/reports/KeyMetrics';
+import { getDateRange } from '@/lib/date-utils';
 
 type PeriodType = 'today' | 'week' | 'month' | 'custom';
 
 export default function ProfitLossReportPage() {
   const { user, restaurantContext, isLoading } = useRole();
 
-  // Period state
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+  // Period state — default to current month
+  const defaultRange = getDateRange('month');
   const [period, setPeriod] = React.useState<PeriodType>('month');
-  const [startDate, setStartDate] = React.useState(startOfMonth);
-  const [endDate, setEndDate] = React.useState(now);
+  const [startDate, setStartDate] = React.useState(defaultRange.startDate);
+  const [endDate, setEndDate] = React.useState(defaultRange.endDate);
 
   // Fetch P&L data (call hook before early returns)
   const restaurantId = restaurantContext?.id || '';
@@ -49,13 +49,6 @@ export default function ProfitLossReportPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/80">
-      {/* Header — compact */}
-      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-100 sticky top-0 z-10">
-        <div className="max-w-lg mx-auto px-4 py-3">
-          <h1 className="text-lg font-bold text-gray-900">P&L Report</h1>
-        </div>
-      </div>
-
       {/* Main Content */}
       <div className="max-w-lg mx-auto">
         {/* Period Selector */}

@@ -5,6 +5,7 @@ import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { DateInput } from '@/components/ui/DateInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { BottomSheet } from '@/components/ui/BottomSheet';
+import { getDateRange } from '@/lib/date-utils';
 
 interface ExpenseFiltersProps {
   restaurantId: string;
@@ -55,24 +56,7 @@ export function ExpenseFilters({
       return;
     }
 
-    const now = new Date();
-    let startDate: Date;
-    const endDate = now;
-
-    switch (preset) {
-      case 'today':
-        startDate = new Date(now.setHours(0, 0, 0, 0));
-        break;
-      case 'week':
-        startDate = new Date(now.setDate(now.getDate() - 7));
-        break;
-      case 'month':
-        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        break;
-      default:
-        return;
-    }
-
+    const { startDate, endDate } = getDateRange(preset);
     onFiltersChange({ ...filters, startDate, endDate });
   };
 
