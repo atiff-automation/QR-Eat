@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { getTokenFromRequest } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   try {
     // 1. Authenticate Request (Basic check to ensure they are logged in)
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
+    // Supports both cookie auth (web) and ?token= query param (mobile)
+    const token = getTokenFromRequest(request);
 
     if (!token) {
       return NextResponse.json(

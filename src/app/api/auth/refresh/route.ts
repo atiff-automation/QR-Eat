@@ -37,8 +37,23 @@ const rateLimitMap = new Map<string, { attempts: number; resetTime: number }>();
 
 export async function POST(request: NextRequest) {
   try {
-    // Get refresh token from cookie
-    const refreshToken = request.cookies.get('qr_refresh_token')?.value;
+    // Get refresh token from request body (mobile) or cookie (web)
+    let refreshToken: string | undefined;
+
+    // Try reading from request body first (mobile clients send token in body)
+    try {
+      const body = await request.clone().json();
+      if (body?.refreshToken) {
+        refreshToken = body.refreshToken;
+      }
+    } catch {
+      // No JSON body or parse error — fall through to cookie
+    }
+
+    // Fall back to cookie-based refresh token (web clients)
+    if (!refreshToken) {
+      refreshToken = request.cookies.get('qr_refresh_token')?.value;
+    }
 
     if (!refreshToken) {
       return NextResponse.json(
@@ -198,9 +213,12 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Token refreshed successfully',
       tokenExpiration: {
-        accessToken: accessTokenExpiration, // ✅ Now dynamic based on JWT_EXPIRES_IN
+        accessToken: accessTokenExpiration,
         refreshToken: newRefreshToken.expiresAt,
       },
+      // Include raw tokens for mobile clients that cannot use httpOnly cookies
+      token: newAccessToken,
+      refreshToken: newRefreshToken.token,
     });
 
     // Set new access token cookie (short-lived: 30 minutes)

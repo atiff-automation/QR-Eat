@@ -169,6 +169,9 @@ export async function POST(request: NextRequest) {
         accessToken: EnhancedJWTService.getTokenExpirationTime(),
         refreshToken: refreshTokenResult.expiresAt,
       },
+      // Include raw tokens for mobile clients that cannot use httpOnly cookies
+      token,
+      refreshToken: refreshTokenResult.token,
     };
 
     // Add tenant context if subdomain access
