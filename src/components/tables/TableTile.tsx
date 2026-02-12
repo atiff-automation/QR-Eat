@@ -68,8 +68,16 @@ export function TableTile({
       </div>
 
       {/* Center: Hero Number */}
-      <div className="flex-1 flex flex-col items-center justify-center -mt-4">
-        <span className="text-6xl font-black text-gray-900 tracking-tighter shadow-gray-200">
+      <div className="flex-1 flex flex-col items-center justify-center -mt-4 overflow-hidden w-full px-1">
+        <span
+          className={`font-black text-gray-900 tracking-tighter text-center leading-tight break-words ${
+            table.tableNumber.replace(/^T-?/, '').length <= 2
+              ? 'text-6xl'
+              : table.tableNumber.replace(/^T-?/, '').length <= 4
+                ? 'text-3xl'
+                : 'text-lg'
+          }`}
+        >
           {table.tableNumber.replace(/^T-?/, '')}
         </span>
       </div>
