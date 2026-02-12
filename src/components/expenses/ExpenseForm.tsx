@@ -3,16 +3,12 @@
 import React from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { ChevronDown, ChevronUp } from 'lucide-react';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { useCreateExpense } from '@/hooks/expenses/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/expenses/useUpdateExpense';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
-import {
-  createExpenseSchema,
-  updateExpenseSchema,
-} from '@/lib/validations/expense';
+import { createExpenseSchema } from '@/lib/validations/expense';
 import { z } from 'zod';
 
 interface ExpenseFormProps {
@@ -40,7 +36,9 @@ export function ExpenseForm({
   onSuccess,
   onCancel,
 }: ExpenseFormProps) {
-  const [showNotes, setShowNotes] = React.useState(!!expense?.notes);
+  const [showOptional, setShowOptional] = React.useState(
+    !!(expense?.vendor || expense?.invoiceNumber || expense?.notes)
+  );
   const isEditMode = !!expense;
 
   const currency = useCurrency();
@@ -48,7 +46,6 @@ export function ExpenseForm({
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense(expense?.id || '');
 
-  // Prepare default values
   const defaultValues: Partial<FormData> =
     isEditMode && expense
       ? {
@@ -75,9 +72,7 @@ export function ExpenseForm({
     setValue,
     watch,
   } = useForm<FormData>({
-    resolver: zodResolver(
-      isEditMode ? updateExpenseSchema : createExpenseSchema
-    ),
+    resolver: zodResolver(createExpenseSchema),
     defaultValues,
   });
 
@@ -111,7 +106,6 @@ export function ExpenseForm({
       }
       onSuccess();
     } catch (error) {
-      // Error handling is done in the mutation hooks
       console.error('Form submission error:', error);
     }
   };
@@ -128,15 +122,35 @@ export function ExpenseForm({
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col h-full">
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {/* Amount Input — promoted to top */}
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
+            Amount <span className="text-red-500">*</span>
+          </label>
+          <CurrencyInput
+            value={amount}
+            onChange={(value) => setValue('amount', value)}
+            currency={currency}
+            className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-lg font-semibold focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
+              errors.amount ? 'border-red-400' : 'border-gray-200'
+            }`}
+            placeholder="0.00"
+            required
+          />
+          {errors.amount && (
+            <p className="mt-1 text-xs text-red-600">{errors.amount.message}</p>
+          )}
+        </div>
+
         {/* Category Selector */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
             Category <span className="text-red-500">*</span>
           </label>
           <select
             {...register('categoryId')}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-              errors.categoryId ? 'border-red-500' : 'border-gray-300'
+            className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
+              errors.categoryId ? 'border-red-400' : 'border-gray-200'
             }`}
           >
             <option value="">Select a category</option>
@@ -167,169 +181,144 @@ export function ExpenseForm({
             )}
           </select>
           {errors.categoryId && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-xs text-red-600">
               {errors.categoryId.message}
-            </p>
-          )}
-        </div>
-
-        {/* Amount Input */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Amount <span className="text-red-500">*</span>
-          </label>
-          <CurrencyInput
-            value={amount}
-            onChange={(value) => setValue('amount', value)}
-            currency={currency}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-              errors.amount ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="0.00"
-            required
-          />
-          {errors.amount && (
-            <p className="mt-1 text-sm text-red-600">{errors.amount.message}</p>
-          )}
-        </div>
-
-        {/* Date Picker */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Date <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            {...register('expenseDate', {
-              setValueAs: (value) => (value ? new Date(value) : undefined),
-            })}
-            max={new Date().toISOString().split('T')[0]}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-              errors.expenseDate ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.expenseDate && (
-            <p className="mt-1 text-sm text-red-600">
-              {errors.expenseDate.message}
             </p>
           )}
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
+          <label className="block text-xs font-medium text-gray-500 mb-1.5">
             Description <span className="text-red-500">*</span>
           </label>
           <textarea
             {...register('description')}
-            rows={3}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none ${
-              errors.description ? 'border-red-500' : 'border-gray-300'
+            rows={2}
+            className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white resize-none ${
+              errors.description ? 'border-red-400' : 'border-gray-200'
             }`}
             placeholder="What was this expense for?"
           />
           {errors.description && (
-            <p className="mt-1 text-sm text-red-600">
+            <p className="mt-1 text-xs text-red-600">
               {errors.description.message}
             </p>
           )}
         </div>
 
-        {/* Vendor */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Vendor (Optional)
-          </label>
-          <input
-            type="text"
-            {...register('vendor')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="Supplier or vendor name"
-          />
-          {errors.vendor && (
-            <p className="mt-1 text-sm text-red-600">{errors.vendor.message}</p>
-          )}
+        {/* Date + Payment Method — side by side */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+              Date <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              {...register('expenseDate', {
+                setValueAs: (value) => (value ? new Date(value) : undefined),
+              })}
+              max={new Date().toISOString().split('T')[0]}
+              className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
+                errors.expenseDate ? 'border-red-400' : 'border-gray-200'
+              }`}
+            />
+            {errors.expenseDate && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.expenseDate.message}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-500 mb-1.5">
+              Payment <span className="text-red-500">*</span>
+            </label>
+            <select
+              {...register('paymentMethod')}
+              className={`w-full px-3 py-2.5 bg-gray-50 border rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white ${
+                errors.paymentMethod ? 'border-red-400' : 'border-gray-200'
+              }`}
+            >
+              <option value="CASH">Cash</option>
+              <option value="CARD">Card</option>
+              <option value="BANK_TRANSFER">Bank Transfer</option>
+              <option value="EWALLET">E-Wallet</option>
+            </select>
+            {errors.paymentMethod && (
+              <p className="mt-1 text-xs text-red-600">
+                {errors.paymentMethod.message}
+              </p>
+            )}
+          </div>
         </div>
 
-        {/* Payment Method */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Payment Method <span className="text-red-500">*</span>
-          </label>
-          <select
-            {...register('paymentMethod')}
-            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
-              errors.paymentMethod ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="CASH">Cash</option>
-            <option value="CARD">Card</option>
-            <option value="BANK_TRANSFER">Bank Transfer</option>
-            <option value="EWALLET">E-Wallet</option>
-          </select>
-          {errors.paymentMethod && (
-            <p className="mt-1 text-sm text-red-600">
-              {errors.paymentMethod.message}
-            </p>
-          )}
-        </div>
-
-        {/* Invoice Number */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Invoice Number (Optional)
-          </label>
-          <input
-            type="text"
-            {...register('invoiceNumber')}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            placeholder="INV-001"
-          />
-          {errors.invoiceNumber && (
-            <p className="mt-1 text-sm text-red-600">
-              {errors.invoiceNumber.message}
-            </p>
-          )}
-        </div>
-
-        {/* Notes (Collapsible) */}
-        <div>
+        {/* Optional Fields Toggle */}
+        {!showOptional ? (
           <button
             type="button"
-            onClick={() => setShowNotes(!showNotes)}
-            className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1 hover:text-gray-900"
+            onClick={() => setShowOptional(true)}
+            className="text-sm text-green-600 font-medium hover:text-green-700"
           >
-            Notes (Optional)
-            {showNotes ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            + Add vendor, invoice, notes
           </button>
-          {showNotes && (
-            <textarea
-              {...register('notes')}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
-              placeholder="Additional notes or details..."
-            />
-          )}
-          {errors.notes && (
-            <p className="mt-1 text-sm text-red-600">{errors.notes.message}</p>
-          )}
-        </div>
+        ) : (
+          <div className="space-y-3 pt-1">
+            {/* Vendor */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                Vendor
+              </label>
+              <input
+                type="text"
+                {...register('vendor')}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white"
+                placeholder="Supplier or vendor name"
+              />
+            </div>
+
+            {/* Invoice Number */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                Invoice Number
+              </label>
+              <input
+                type="text"
+                {...register('invoiceNumber')}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white"
+                placeholder="INV-001"
+              />
+            </div>
+
+            {/* Notes */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                Notes
+              </label>
+              <textarea
+                {...register('notes')}
+                rows={2}
+                className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent focus:bg-white resize-none"
+                placeholder="Additional notes..."
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Sticky Footer with Buttons */}
-      <div className="border-t border-gray-200 p-4 bg-white flex gap-3">
+      {/* Sticky Footer */}
+      <div className="border-t border-gray-100 p-4 bg-white flex gap-3">
         <button
           type="button"
           onClick={onCancel}
           disabled={isSubmitting}
-          className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 text-gray-700 bg-gray-100 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-200 active:bg-gray-300"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="flex-1 px-4 py-3 text-white bg-green-600 rounded-lg hover:bg-green-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-3 text-white bg-green-600 rounded-xl font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-green-700 active:bg-green-800"
         >
           {isSubmitting ? 'Saving...' : isEditMode ? 'Update' : 'Save'}
         </button>

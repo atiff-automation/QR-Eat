@@ -25,15 +25,15 @@ export function ExpenseSummaryCards({
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="flex gap-3 overflow-x-auto pb-2 mb-4 -mx-4 px-4 scrollbar-hide">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse"
+            className="flex-shrink-0 w-[140px] bg-white rounded-xl border border-gray-100 p-3 animate-pulse"
           >
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
-            <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-3 bg-gray-200 rounded w-2/3 mb-2"></div>
+            <div className="h-5 bg-gray-200 rounded w-full mb-1.5"></div>
+            <div className="h-3 bg-gray-200 rounded w-1/2"></div>
           </div>
         ))}
       </div>
@@ -42,14 +42,9 @@ export function ExpenseSummaryCards({
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center gap-2 text-red-700">
-          <AlertCircle size={20} />
-          <p className="font-medium">Failed to load expense summary</p>
-        </div>
-        <p className="text-sm text-red-600 mt-1">
-          {error instanceof Error ? error.message : 'Please try again later'}
-        </p>
+      <div className="bg-red-50 rounded-xl p-3 mb-4 flex items-center gap-2 text-red-700 text-sm">
+        <AlertCircle size={16} />
+        <span>Failed to load summary</span>
       </div>
     );
   }
@@ -58,63 +53,60 @@ export function ExpenseSummaryCards({
 
   const cards = [
     {
-      title: 'Total Expenses',
+      title: 'Total',
       amount: data.total,
       trend: data.trend.total,
-      color: 'text-gray-900',
-      bgColor: 'bg-gray-50',
+      dotColor: 'bg-gray-400',
     },
     {
       title: 'COGS',
       amount: data.cogs,
       trend: data.trend.cogs,
-      color: 'text-orange-700',
-      bgColor: 'bg-orange-50',
+      dotColor: 'bg-orange-400',
     },
     {
-      title: 'Operating',
+      title: 'OpEx',
       amount: data.operating,
       trend: data.trend.operating,
-      color: 'text-blue-700',
-      bgColor: 'bg-blue-50',
+      dotColor: 'bg-blue-400',
     },
   ];
 
   return (
-    <div className="overflow-x-auto -mx-4 px-4 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-w-max md:min-w-0">
-        {cards.map((card, index) => (
-          <div
-            key={index}
-            className={`${card.bgColor} rounded-lg border border-gray-200 p-4 min-w-[280px] md:min-w-0`}
-          >
-            <p className="text-sm font-medium text-gray-600 mb-2">
+    <div className="flex gap-3 overflow-x-auto pb-2 mb-4 -mx-4 px-4 scrollbar-hide">
+      {cards.map((card, index) => (
+        <div
+          key={index}
+          className="flex-shrink-0 min-w-[130px] flex-1 bg-white rounded-xl border border-gray-100 p-3 shadow-sm"
+        >
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className={`w-2 h-2 rounded-full ${card.dotColor}`} />
+            <span className="text-xs font-medium text-gray-500">
               {card.title}
-            </p>
-            <p className={`text-3xl font-bold ${card.color} mb-2`}>
-              {formatCurrency(card.amount, currency)}
-            </p>
-            <div className="flex items-center gap-1 text-sm">
-              {card.trend >= 0 ? (
-                <>
-                  <TrendingUp size={16} className="text-red-500" />
-                  <span className="text-red-600">
-                    +{card.trend.toFixed(1)}%
-                  </span>
-                </>
-              ) : (
-                <>
-                  <TrendingDown size={16} className="text-green-500" />
-                  <span className="text-green-600">
-                    {card.trend.toFixed(1)}%
-                  </span>
-                </>
-              )}
-              <span className="text-gray-500 ml-1">vs last month</span>
-            </div>
+            </span>
           </div>
-        ))}
-      </div>
+          <p className="text-lg font-bold text-gray-900 leading-tight">
+            {formatCurrency(card.amount, currency)}
+          </p>
+          <div className="flex items-center gap-1 mt-1">
+            {card.trend >= 0 ? (
+              <>
+                <TrendingUp size={12} className="text-red-500" />
+                <span className="text-xs text-red-600 font-medium">
+                  +{card.trend.toFixed(1)}%
+                </span>
+              </>
+            ) : (
+              <>
+                <TrendingDown size={12} className="text-green-500" />
+                <span className="text-xs text-green-600 font-medium">
+                  {card.trend.toFixed(1)}%
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

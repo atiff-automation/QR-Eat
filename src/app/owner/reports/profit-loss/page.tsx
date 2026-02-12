@@ -48,57 +48,57 @@ export default function ProfitLossReportPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Profit & Loss Report
-          </h1>
+    <div className="min-h-screen bg-gray-50/80">
+      {/* Header — compact */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-lg mx-auto px-4 py-3">
+          <h1 className="text-lg font-bold text-gray-900">P&L Report</h1>
         </div>
       </div>
 
-      {/* Period Selector */}
-      <ProfitLossHeader
-        period={period}
-        startDate={startDate}
-        endDate={endDate}
-        onPeriodChange={handlePeriodChange}
-      />
-
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
-        {plLoading ? (
-          <div className="flex items-center justify-center py-12">
-            <LoadingSpinner />
-          </div>
-        ) : plData ? (
-          <div className="space-y-6">
-            {/* Revenue Section */}
-            <RevenueSection revenue={plData.revenue} />
+      <div className="max-w-lg mx-auto">
+        {/* Period Selector */}
+        <ProfitLossHeader
+          period={period}
+          startDate={startDate}
+          endDate={endDate}
+          onPeriodChange={handlePeriodChange}
+        />
 
-            {/* COGS Section */}
-            <COGSSection cogs={plData.cogs} />
+        <div className="px-4 pb-6">
+          {plLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <LoadingSpinner />
+            </div>
+          ) : plData ? (
+            <div className="space-y-3">
+              {/* 1. Net Profit Hero Card — answer first */}
+              <NetProfitSection netProfit={plData.netProfit} variant="hero" />
 
-            {/* Gross Profit */}
-            <GrossProfitSection grossProfit={plData.grossProfit} />
+              {/* 2. Revenue (collapsible) */}
+              <RevenueSection revenue={plData.revenue} />
 
-            {/* Operating Expenses */}
-            <OperatingExpensesSection
-              operatingExpenses={plData.operatingExpenses}
-            />
+              {/* 3. COGS (collapsible) */}
+              <COGSSection cogs={plData.cogs} />
 
-            {/* Net Profit */}
-            <NetProfitSection netProfit={plData.netProfit} />
+              {/* 4. Gross Profit — inline divider */}
+              <GrossProfitSection grossProfit={plData.grossProfit} />
 
-            {/* Key Metrics */}
-            <KeyMetrics keyMetrics={plData.keyMetrics} />
-          </div>
-        ) : (
-          <div className="text-center text-gray-600 py-12">
-            No data available for the selected period.
-          </div>
-        )}
+              {/* 5. Operating Expenses (collapsible) */}
+              <OperatingExpensesSection
+                operatingExpenses={plData.operatingExpenses}
+              />
+
+              {/* 6. Key Metrics */}
+              <KeyMetrics keyMetrics={plData.keyMetrics} />
+            </div>
+          ) : (
+            <div className="text-center text-gray-500 py-16 text-sm">
+              No data available for the selected period.
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

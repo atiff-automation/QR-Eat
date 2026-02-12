@@ -20,7 +20,6 @@ export function KeyMetrics({ keyMetrics }: KeyMetricsProps) {
     }).format(amount);
   };
 
-  // Benchmark ranges
   const getBenchmarkStatus = (
     value: number,
     goodMax: number,
@@ -47,85 +46,88 @@ export function KeyMetrics({ keyMetrics }: KeyMetricsProps) {
     65
   );
 
-  const getStatusColor = (status: 'good' | 'warning' | 'bad') => {
+  const getStatusDot = (status: 'good' | 'warning' | 'bad') => {
     switch (status) {
       case 'good':
-        return 'bg-green-100 text-green-800 border-green-300';
+        return 'bg-green-400';
       case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+        return 'bg-yellow-400';
       case 'bad':
-        return 'bg-red-100 text-red-800 border-red-300';
+        return 'bg-red-400';
     }
   };
 
+  const getStatusLabel = (status: 'good' | 'warning' | 'bad') => {
+    switch (status) {
+      case 'good':
+        return 'On target';
+      case 'warning':
+        return 'Above target';
+      case 'bad':
+        return 'High';
+    }
+  };
+
+  const metrics = [
+    {
+      label: 'Food Cost',
+      value: keyMetrics.foodCostPercentage,
+      status: foodCostStatus,
+    },
+    {
+      label: 'Labor Cost',
+      value: keyMetrics.laborCostPercentage,
+      status: laborCostStatus,
+    },
+    {
+      label: 'Prime Cost',
+      value: keyMetrics.primeCostPercentage,
+      status: primeCostStatus,
+    },
+  ];
+
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6">
-      <h2 className="text-xl font-bold text-gray-900 mb-4">
-        Key Performance Metrics
-      </h2>
+    <div className="bg-white rounded-xl border border-gray-100 p-4">
+      <h3 className="text-sm font-semibold text-gray-900 mb-3">Key Metrics</h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Food Cost % */}
-        <div
-          className={`p-4 rounded-lg border-2 ${getStatusColor(foodCostStatus)}`}
-        >
-          <div className="text-sm font-medium mb-1">Food Cost %</div>
-          <div className="text-3xl font-bold mb-2">
-            {formatPercentage(keyMetrics.foodCostPercentage)}
+      <div className="space-y-3">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span
+                className={`w-2 h-2 rounded-full ${getStatusDot(metric.status)}`}
+              />
+              <span className="text-sm text-gray-600">{metric.label}</span>
+            </div>
+            <div className="flex items-center gap-2.5">
+              <span className="text-sm font-semibold text-gray-900">
+                {formatPercentage(metric.value)}
+              </span>
+              <span
+                className={`text-xs ${
+                  metric.status === 'good'
+                    ? 'text-green-600'
+                    : metric.status === 'warning'
+                      ? 'text-yellow-600'
+                      : 'text-red-600'
+                }`}
+              >
+                {getStatusLabel(metric.status)}
+              </span>
+            </div>
           </div>
-          <div className="text-xs">
-            Benchmark: 28-35%
-            <br />
-            {foodCostStatus === 'good' && '✓ Within target'}
-            {foodCostStatus === 'warning' && '⚠ Above target'}
-            {foodCostStatus === 'bad' && '✗ Well above target'}
-          </div>
-        </div>
-
-        {/* Labor Cost % */}
-        <div
-          className={`p-4 rounded-lg border-2 ${getStatusColor(laborCostStatus)}`}
-        >
-          <div className="text-sm font-medium mb-1">Labor Cost %</div>
-          <div className="text-3xl font-bold mb-2">
-            {formatPercentage(keyMetrics.laborCostPercentage)}
-          </div>
-          <div className="text-xs">
-            Benchmark: 25-35%
-            <br />
-            {laborCostStatus === 'good' && '✓ Within target'}
-            {laborCostStatus === 'warning' && '⚠ Above target'}
-            {laborCostStatus === 'bad' && '✗ Well above target'}
-          </div>
-        </div>
-
-        {/* Prime Cost % */}
-        <div
-          className={`p-4 rounded-lg border-2 ${getStatusColor(primeCostStatus)}`}
-        >
-          <div className="text-sm font-medium mb-1">Prime Cost %</div>
-          <div className="text-3xl font-bold mb-2">
-            {formatPercentage(keyMetrics.primeCostPercentage)}
-          </div>
-          <div className="text-xs">
-            Benchmark: &lt;60%
-            <br />
-            {primeCostStatus === 'good' && '✓ Within target'}
-            {primeCostStatus === 'warning' && '⚠ Above target'}
-            {primeCostStatus === 'bad' && '✗ Well above target'}
-          </div>
-        </div>
+        ))}
       </div>
 
-      {/* Additional Info */}
-      <div className="mt-4 p-3 bg-gray-50 rounded-lg">
-        <div className="text-sm text-gray-600">
-          <strong>Prime Cost:</strong> {formatCurrency(keyMetrics.primeCost)}{' '}
-          (Food + Labor)
+      {/* Footer info */}
+      <div className="mt-3 pt-3 border-t border-gray-50 flex flex-col gap-1">
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>Prime Cost</span>
+          <span>{formatCurrency(keyMetrics.primeCost)}</span>
         </div>
-        <div className="text-sm text-gray-600 mt-1">
-          <strong>Break-Even Revenue:</strong>{' '}
-          {formatCurrency(keyMetrics.breakEvenRevenue)}
+        <div className="flex justify-between text-xs text-gray-400">
+          <span>Break-Even Revenue</span>
+          <span>{formatCurrency(keyMetrics.breakEvenRevenue)}</span>
         </div>
       </div>
     </div>

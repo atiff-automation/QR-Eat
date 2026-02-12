@@ -1,8 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Search, Calendar, Filter as FilterIcon, X } from 'lucide-react';
+import { Search, X, SlidersHorizontal } from 'lucide-react';
 import { useCategories } from '@/hooks/expenses/useCategories';
+import { BottomSheet } from '@/components/ui/BottomSheet';
 
 interface ExpenseFiltersProps {
   restaurantId: string;
@@ -27,10 +28,10 @@ export function ExpenseFilters({
   filters,
   onFiltersChange,
 }: ExpenseFiltersProps) {
-  const [isOpen, setIsOpen] = React.useState(false);
   const [searchInput, setSearchInput] = React.useState(filters.search || '');
   const [selectedPreset, setSelectedPreset] = React.useState('month');
   const [showCustomDatePicker, setShowCustomDatePicker] = React.useState(false);
+  const [showCategorySheet, setShowCategorySheet] = React.useState(false);
   const [customStartDate, setCustomStartDate] = React.useState('');
   const [customEndDate, setCustomEndDate] = React.useState('');
 
@@ -39,7 +40,7 @@ export function ExpenseFilters({
   // Debounce search input
   React.useEffect(() => {
     const timer = setTimeout(() => {
-      onFiltersChange({ ...filters, search: searchInput });
+      onFiltersChange({ ...filters, search: searchInput || undefined });
     }, 300);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,14 +89,7 @@ export function ExpenseFilters({
       ...filters,
       categoryId: categoryId === 'all' ? undefined : categoryId,
     });
-  };
-
-  const clearFilters = () => {
-    setSearchInput('');
-    setSelectedPreset('month');
-    const now = new Date();
-    const startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-    onFiltersChange({ startDate, endDate: now });
+    setShowCategorySheet(false);
   };
 
   const allCategories = categoriesData
@@ -106,135 +100,202 @@ export function ExpenseFilters({
       ]
     : [];
 
+  const selectedCategory = allCategories.find(
+    (c) => c.id === filters.categoryId
+  );
+
   return (
-    <div className="bg-white border-b border-gray-200">
-      {/* Mobile: Collapsible Filter Button */}
-      <div className="lg:hidden px-4 py-3">
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-full flex items-center justify-between px-4 py-2 bg-gray-50 rounded-lg text-gray-700 hover:bg-gray-100"
-        >
-          <span className="flex items-center gap-2">
-            <FilterIcon size={18} />
-            Filters
-          </span>
-          {isOpen ? (
-            <X size={18} />
-          ) : (
-            <span className="text-sm text-gray-500">Tap to expand</span>
-          )}
-        </button>
+    <div className="space-y-3">
+      {/* Date Preset Pills — always visible */}
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4">
+        {datePresets.map((preset) => (
+          <button
+            key={preset.value}
+            onClick={() => handlePresetChange(preset.value)}
+            className={`flex-shrink-0 px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+              selectedPreset === preset.value
+                ? 'bg-green-600 text-white shadow-sm'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 active:bg-gray-300'
+            }`}
+          >
+            {preset.label}
+          </button>
+        ))}
       </div>
 
-      {/* Filter Content */}
-      <div
-        className={`${isOpen ? 'block' : 'hidden'} lg:block px-4 py-4 space-y-4`}
-      >
-        {/* Search */}
-        <div className="relative">
+      {/* Search + Category Filter Row — always visible */}
+      <div className="flex gap-2">
+        <div className="relative flex-1">
           <Search
-            size={18}
+            size={16}
             className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
           />
           <input
             type="text"
-            placeholder="Search description, vendor, invoice..."
+            placeholder="Search expenses..."
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+            className="w-full pl-9 pr-8 py-2.5 bg-gray-100 border-0 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:bg-white transition-colors placeholder:text-gray-400"
           />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Date Preset */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar size={16} className="inline mr-1" />
-              Date Range
-            </label>
-            <select
-              value={selectedPreset}
-              onChange={(e) => handlePresetChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              {datePresets.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Category Filter */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Category
-            </label>
-            <select
-              value={filters.categoryId || 'all'}
-              onChange={(e) => handleCategoryChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
-            >
-              <option value="all">All Categories</option>
-              {allCategories.map((category) => (
-                <option key={category.id} value={category.id}>
-                  {category.name} ({category.categoryType})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Clear Filters */}
-          <div className="flex items-end">
+          {searchInput && (
             <button
-              onClick={clearFilters}
-              className="w-full px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              onClick={() => setSearchInput('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 p-0.5 text-gray-400 hover:text-gray-600"
             >
-              Clear Filters
+              <X size={14} />
             </button>
-          </div>
+          )}
         </div>
+        <button
+          onClick={() => setShowCategorySheet(true)}
+          className={`flex-shrink-0 p-2.5 rounded-xl transition-colors ${
+            filters.categoryId
+              ? 'bg-green-100 text-green-700'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+          title="Filter by category"
+        >
+          <SlidersHorizontal size={18} />
+        </button>
       </div>
+
+      {/* Active category indicator */}
+      {selectedCategory && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-xs text-gray-500">Filtered:</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium">
+            {selectedCategory.name}
+            <button
+              onClick={() =>
+                onFiltersChange({ ...filters, categoryId: undefined })
+              }
+              className="hover:text-green-900"
+            >
+              <X size={12} />
+            </button>
+          </span>
+        </div>
+      )}
+
+      {/* Category Bottom Sheet */}
+      <BottomSheet
+        isOpen={showCategorySheet}
+        onClose={() => setShowCategorySheet(false)}
+        title="Filter by Category"
+      >
+        <div className="px-4 py-2 space-y-1">
+          <button
+            onClick={() => handleCategoryChange('all')}
+            className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors ${
+              !filters.categoryId
+                ? 'bg-green-50 text-green-700'
+                : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+            }`}
+          >
+            All Categories
+          </button>
+
+          {allCategories.length > 0 && (
+            <>
+              <div className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                COGS
+              </div>
+              {categoriesData?.categories.COGS.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors flex items-center gap-3 ${
+                    filters.categoryId === cat.id
+                      ? 'bg-green-50 text-green-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-orange-400" />
+                  {cat.name}
+                </button>
+              ))}
+
+              <div className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Operating
+              </div>
+              {categoriesData?.categories.OPERATING.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors flex items-center gap-3 ${
+                    filters.categoryId === cat.id
+                      ? 'bg-green-50 text-green-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-blue-400" />
+                  {cat.name}
+                </button>
+              ))}
+
+              <div className="px-4 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Other
+              </div>
+              {categoriesData?.categories.OTHER.map((cat) => (
+                <button
+                  key={cat.id}
+                  onClick={() => handleCategoryChange(cat.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-colors flex items-center gap-3 ${
+                    filters.categoryId === cat.id
+                      ? 'bg-green-50 text-green-700 font-medium'
+                      : 'text-gray-700 hover:bg-gray-50 active:bg-gray-100'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-gray-400" />
+                  {cat.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </BottomSheet>
 
       {/* Custom Date Picker Modal */}
       {showCustomDatePicker && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Custom Date Range</h3>
-            <div className="space-y-4">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl p-5 w-full max-w-md animate-slide-up">
+            <h3 className="text-base font-semibold text-gray-900 mb-4">
+              Custom Date Range
+            </h3>
+            <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   Start Date
                 </label>
                 <input
                   type="date"
                   value={customStartDate}
                   onChange={(e) => setCustomStartDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-xs font-medium text-gray-500 mb-1">
                   End Date
                 </label>
                 <input
                   type="date"
                   value={customEndDate}
                   onChange={(e) => setCustomEndDate(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent"
                 />
               </div>
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 pt-1">
                 <button
                   onClick={() => setShowCustomDatePicker(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+                  className="flex-1 px-4 py-2.5 text-gray-700 bg-gray-100 rounded-xl text-sm font-medium hover:bg-gray-200"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCustomDateApply}
                   disabled={!customStartDate || !customEndDate}
-                  className="flex-1 px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2.5 text-white bg-green-600 rounded-xl text-sm font-medium hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Apply
                 </button>

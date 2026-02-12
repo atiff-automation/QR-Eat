@@ -6,6 +6,7 @@ import { queryKeys } from '@/lib/query-client';
 
 interface Expense {
   id: string;
+  categoryId: string;
   amount: number;
   description: string;
   expenseDate: string;

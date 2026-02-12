@@ -3,14 +3,18 @@
 import React from 'react';
 import { ExpenseCard } from './ExpenseCard';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { Receipt } from 'lucide-react';
 
 interface Expense {
   id: string;
+  categoryId: string;
   amount: number;
   description: string;
   expenseDate: string;
   vendor: string | null;
   paymentMethod: 'CASH' | 'CARD' | 'BANK_TRANSFER' | 'EWALLET';
+  invoiceNumber: string | null;
+  notes: string | null;
   category: {
     id: string;
     name: string;
@@ -33,7 +37,7 @@ export function ExpenseList({
 }: ExpenseListProps) {
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-16">
         <LoadingSpinner />
       </div>
     );
@@ -41,34 +45,20 @@ export function ExpenseList({
 
   if (expenses.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-4">
-          <svg
-            className="w-8 h-8 text-gray-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-            />
-          </svg>
+      <div className="text-center py-16">
+        <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gray-100 mb-3">
+          <Receipt className="w-6 h-6 text-gray-400" />
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-1">
+        <h3 className="text-base font-semibold text-gray-900 mb-1">
           No expenses found
         </h3>
-        <p className="text-gray-600 mb-4">
-          Get started by adding your first expense
-        </p>
+        <p className="text-sm text-gray-500">Tap + to add your first expense</p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {expenses.map((expense) => (
         <ExpenseCard
           key={expense.id}

@@ -93,34 +93,23 @@ export default function ExpensesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-gray-900">Expenses</h1>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowCategoryManager(true)}
-                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 font-medium transition-colors flex items-center gap-2"
-              >
-                <Settings size={18} />
-                <span className="hidden sm:inline">Categories</span>
-              </button>
-              <button
-                onClick={handleAddExpense}
-                className="px-4 py-2 text-white bg-green-600 rounded-lg hover:bg-green-700 font-medium transition-colors flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Add Expense
-              </button>
-            </div>
-          </div>
+    <div className="min-h-screen bg-gray-50/80">
+      {/* Header — compact */}
+      <div className="bg-white/80 backdrop-blur-lg border-b border-gray-100 sticky top-0 z-10">
+        <div className="max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-900">Expenses</h1>
+          <button
+            onClick={() => setShowCategoryManager(true)}
+            className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-xl transition-colors"
+            title="Manage categories"
+          >
+            <Settings size={20} />
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-lg mx-auto px-4 py-4">
         {/* Summary Cards */}
         <ExpenseSummaryCards
           restaurantId={restaurantId}
@@ -136,7 +125,7 @@ export default function ExpensesPage() {
         />
 
         {/* Expense List */}
-        <div className="mt-6">
+        <div className="mt-4">
           <ExpenseList
             expenses={expensesData?.expenses || []}
             isLoading={expensesLoading}
@@ -147,12 +136,24 @@ export default function ExpensesPage() {
 
         {/* Pagination Info */}
         {expensesData && expensesData.expenses.length > 0 && (
-          <div className="mt-4 text-center text-sm text-gray-600">
-            Showing {expensesData.expenses.length} of{' '}
+          <div className="mt-3 text-center text-xs text-gray-400">
+            {expensesData.expenses.length} of{' '}
             {expensesData.pagination.totalCount} expenses
           </div>
         )}
+
+        {/* Bottom spacer for FAB */}
+        <div className="h-20" />
       </div>
+
+      {/* Floating Action Button */}
+      <button
+        onClick={handleAddExpense}
+        className="fixed bottom-6 right-6 w-14 h-14 bg-green-600 text-white rounded-2xl shadow-lg shadow-green-600/30 flex items-center justify-center hover:bg-green-700 active:bg-green-800 transition-all hover:shadow-xl hover:scale-105 z-20"
+        aria-label="Add expense"
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
 
       {/* Expense Form Modal */}
       <ExpenseFormModal
