@@ -2,6 +2,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface UpdateExpenseData {
   categoryId?: string;
@@ -19,23 +21,10 @@ export function useUpdateExpense(expenseId: string) {
 
   return useMutation({
     mutationFn: async (data: UpdateExpenseData) => {
-      const response = await fetch(`/api/admin/expenses/${expenseId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to update expense');
-      }
-
-      return response.json();
+      return ApiClient.put(`/api/admin/expenses/${expenseId}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
       toast.success('Expense updated successfully');
     },
     onError: (error: Error) => {

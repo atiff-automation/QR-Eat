@@ -155,6 +155,23 @@ export const queryKeys = {
       ['analytics', 'popular-items', period, limit] as const,
   },
 
+  // Expenses
+  expenses: {
+    all: ['expenses'] as const,
+    list: (filters: Record<string, unknown>) =>
+      ['expenses', 'list', filters] as const,
+    summary: (params: Record<string, unknown>) =>
+      ['expenses', 'summary', params] as const,
+    categories: (restaurantId: string) =>
+      ['expenses', 'categories', restaurantId] as const,
+  },
+
+  // Profit & Loss
+  profitLoss: {
+    report: (params: Record<string, unknown>) =>
+      ['profit-loss', params] as const,
+  },
+
   // Restaurants (for multi-tenant)
   restaurants: {
     all: ['restaurants'] as const,

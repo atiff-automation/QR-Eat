@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface ExpenseSummary {
   total: number;
@@ -19,19 +21,19 @@ export function useExpenseSummary(
   endDate: Date
 ) {
   return useQuery<ExpenseSummary>({
-    queryKey: ['expense-summary', restaurantId, startDate, endDate],
+    queryKey: queryKeys.expenses.summary({
+      restaurantId,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    }),
     queryFn: async () => {
-      const params = new URLSearchParams({
-        restaurantId,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+      return ApiClient.get<ExpenseSummary>('/api/admin/expenses/summary', {
+        params: {
+          restaurantId,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
       });
-
-      const response = await fetch(`/api/admin/expenses/summary?${params}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch expense summary');
-      }
-      return response.json();
     },
     staleTime: 10 * 60 * 1000, // 10 minutes
     enabled: !!restaurantId,

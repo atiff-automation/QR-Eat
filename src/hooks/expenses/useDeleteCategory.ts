@@ -1,28 +1,22 @@
+'use client';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (categoryId: string) => {
-      const response = await fetch(
-        `/api/admin/expenses/categories/${categoryId}`,
-        {
-          method: 'DELETE',
-        }
+      return ApiClient.delete<{ restaurantId: string }>(
+        `/api/admin/expenses/categories/${categoryId}`
       );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to delete category');
-      }
-
-      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({
-        queryKey: ['expense-categories', data.restaurantId],
+        queryKey: queryKeys.expenses.categories(data.restaurantId),
       });
       toast.success('Category deleted successfully');
     },

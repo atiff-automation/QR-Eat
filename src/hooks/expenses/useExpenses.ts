@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface Expense {
   id: string;
@@ -43,24 +45,20 @@ interface ExpenseFilters {
 }
 
 export function useExpenses(filters: ExpenseFilters) {
-  const queryParams = new URLSearchParams();
+  const params: Record<string, string | number | boolean | undefined> = {};
 
   Object.entries(filters).forEach(([key, value]) => {
     if (value !== undefined && value !== null && value !== '') {
-      queryParams.append(key, String(value));
+      params[key] = value as string | number;
     }
   });
 
   return useQuery<ExpensesResponse>({
-    queryKey: ['expenses', filters],
+    queryKey: queryKeys.expenses.list(
+      filters as unknown as Record<string, unknown>
+    ),
     queryFn: async () => {
-      const response = await fetch(
-        `/api/admin/expenses?${queryParams.toString()}`
-      );
-      if (!response.ok) {
-        throw new Error('Failed to fetch expenses');
-      }
-      return response.json();
+      return ApiClient.get<ExpensesResponse>('/api/admin/expenses', { params });
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     enabled: !!filters.restaurantId,

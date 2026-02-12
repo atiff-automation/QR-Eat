@@ -1,6 +1,8 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface Category {
   id: string;
@@ -23,15 +25,12 @@ interface CategoriesResponse {
 
 export function useCategories(restaurantId: string) {
   return useQuery<CategoriesResponse>({
-    queryKey: ['expense-categories', restaurantId],
+    queryKey: queryKeys.expenses.categories(restaurantId),
     queryFn: async () => {
-      const response = await fetch(
-        `/api/admin/expenses/categories?restaurantId=${restaurantId}`
+      return ApiClient.get<CategoriesResponse>(
+        '/api/admin/expenses/categories',
+        { params: { restaurantId } }
       );
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories');
-      }
-      return response.json();
     },
     staleTime: Infinity, // Categories rarely change
     enabled: !!restaurantId,

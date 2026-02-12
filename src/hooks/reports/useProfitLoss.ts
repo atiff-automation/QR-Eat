@@ -1,4 +1,8 @@
+'use client';
+
 import { useQuery } from '@tanstack/react-query';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface ProfitLossParams {
   restaurantId: string;
@@ -59,29 +63,19 @@ export function useProfitLoss({
   endDate,
 }: ProfitLossParams) {
   return useQuery<ProfitLossData>({
-    queryKey: [
-      'profit-loss',
+    queryKey: queryKeys.profitLoss.report({
       restaurantId,
-      startDate.toISOString(),
-      endDate.toISOString(),
-    ],
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+    }),
     queryFn: async () => {
-      const params = new URLSearchParams({
-        restaurantId,
-        startDate: startDate.toISOString(),
-        endDate: endDate.toISOString(),
+      return ApiClient.get<ProfitLossData>('/api/admin/reports/profit-loss', {
+        params: {
+          restaurantId,
+          startDate: startDate.toISOString(),
+          endDate: endDate.toISOString(),
+        },
       });
-
-      const response = await fetch(
-        `/api/admin/reports/profit-loss?${params.toString()}`
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to fetch P&L report');
-      }
-
-      return response.json();
     },
     staleTime: 30 * 60 * 1000, // 30 minutes (expensive calculation)
     gcTime: 60 * 60 * 1000, // 1 hour

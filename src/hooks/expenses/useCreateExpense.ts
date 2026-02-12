@@ -2,6 +2,8 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface CreateExpenseData {
   restaurantId: string;
@@ -20,23 +22,10 @@ export function useCreateExpense() {
 
   return useMutation({
     mutationFn: async (data: CreateExpenseData) => {
-      const response = await fetch('/api/admin/expenses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to create expense');
-      }
-
-      return response.json();
+      return ApiClient.post('/api/admin/expenses', data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.expenses.all });
       toast.success('Expense added successfully');
     },
     onError: (error: Error) => {

@@ -8,6 +8,7 @@ import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { useCreateExpense } from '@/hooks/expenses/useCreateExpense';
 import { useUpdateExpense } from '@/hooks/expenses/useUpdateExpense';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import {
   createExpenseSchema,
   updateExpenseSchema,
@@ -42,6 +43,7 @@ export function ExpenseForm({
   const [showNotes, setShowNotes] = React.useState(!!expense?.notes);
   const isEditMode = !!expense;
 
+  const currency = useCurrency();
   const { data: categoriesData } = useCategories(restaurantId);
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense(expense?.id || '');
@@ -179,7 +181,7 @@ export function ExpenseForm({
           <CurrencyInput
             value={amount}
             onChange={(value) => setValue('amount', value)}
-            currency="MYR"
+            currency={currency}
             className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent ${
               errors.amount ? 'border-red-500' : 'border-gray-300'
             }`}

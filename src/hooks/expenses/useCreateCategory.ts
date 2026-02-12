@@ -1,5 +1,9 @@
+'use client';
+
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { ApiClient } from '@/lib/api-client';
+import { queryKeys } from '@/lib/query-client';
 
 interface CreateCategoryInput {
   restaurantId: string;
@@ -12,22 +16,11 @@ export function useCreateCategory() {
 
   return useMutation({
     mutationFn: async (data: CreateCategoryInput) => {
-      const response = await fetch('/api/admin/expenses/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to create category');
-      }
-
-      return response.json();
+      return ApiClient.post('/api/admin/expenses/categories', data);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: ['expense-categories', variables.restaurantId],
+        queryKey: queryKeys.expenses.categories(variables.restaurantId),
       });
       toast.success('Category created successfully');
     },

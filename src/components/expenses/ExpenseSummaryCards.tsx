@@ -1,8 +1,9 @@
 'use client';
 
-import React from 'react';
 import { TrendingUp, TrendingDown, AlertCircle } from 'lucide-react';
 import { useExpenseSummary } from '@/hooks/expenses/useExpenseSummary';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 
 interface ExpenseSummaryCardsProps {
   restaurantId: string;
@@ -15,6 +16,7 @@ export function ExpenseSummaryCards({
   startDate,
   endDate,
 }: ExpenseSummaryCardsProps) {
+  const currency = useCurrency();
   const { data, isLoading, error } = useExpenseSummary(
     restaurantId,
     startDate,
@@ -48,23 +50,6 @@ export function ExpenseSummaryCards({
         <p className="text-sm text-red-600 mt-1">
           {error instanceof Error ? error.message : 'Please try again later'}
         </p>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        {[1, 2, 3].map((i) => (
-          <div
-            key={i}
-            className="bg-white rounded-lg border border-gray-200 p-4 animate-pulse"
-          >
-            <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
-            <div className="h-8 bg-gray-200 rounded w-3/4 mb-2"></div>
-            <div className="h-3 bg-gray-200 rounded w-1/3"></div>
-          </div>
-        ))}
       </div>
     );
   }
@@ -107,7 +92,7 @@ export function ExpenseSummaryCards({
               {card.title}
             </p>
             <p className={`text-3xl font-bold ${card.color} mb-2`}>
-              RM {card.amount.toFixed(2)}
+              {formatCurrency(card.amount, currency)}
             </p>
             <div className="flex items-center gap-1 text-sm">
               {card.trend >= 0 ? (

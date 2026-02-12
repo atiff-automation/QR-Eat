@@ -4,6 +4,8 @@ import React from 'react';
 import { format } from 'date-fns';
 import { Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { CategoryBadge } from './CategoryBadge';
+import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
+import { formatCurrency } from '@/lib/utils/currency-formatter';
 
 interface ExpenseCardProps {
   expense: {
@@ -31,6 +33,7 @@ const paymentMethodLabels = {
 };
 
 export function ExpenseCard({ expense, onEdit, onDelete }: ExpenseCardProps) {
+  const currency = useCurrency();
   const [showActions, setShowActions] = React.useState(false);
 
   return (
@@ -42,7 +45,7 @@ export function ExpenseCard({ expense, onEdit, onDelete }: ExpenseCardProps) {
             {format(new Date(expense.expenseDate), 'MMM dd, yyyy')}
           </p>
           <p className="text-2xl font-bold text-gray-900 mt-1">
-            RM {expense.amount.toFixed(2)}
+            {formatCurrency(expense.amount, currency)}
           </p>
         </div>
 

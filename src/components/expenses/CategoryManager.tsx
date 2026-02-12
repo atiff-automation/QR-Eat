@@ -117,7 +117,7 @@ export function CategoryManager({
                       >
                         <div className="flex items-center gap-3">
                           <CategoryBadge
-                            name={category.name}
+                            categoryName={category.name}
                             categoryType={category.categoryType}
                             isSystem={category.isSystem}
                           />
@@ -231,7 +231,7 @@ export function CategoryManager({
                         >
                           <div className="flex items-center gap-3">
                             <CategoryBadge
-                              name={category.name}
+                              categoryName={category.name}
                               categoryType={category.categoryType}
                               isSystem={category.isSystem}
                             />
