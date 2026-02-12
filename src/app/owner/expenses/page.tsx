@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Plus, Settings } from 'lucide-react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/hooks/queries/useAuth';
 import { useExpenses } from '@/hooks/expenses/useExpenses';
 import { useDeleteExpense } from '@/hooks/expenses/useDeleteExpense';
 import { ExpenseSummaryCards } from '@/components/expenses/ExpenseSummaryCards';
@@ -11,12 +11,6 @@ import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormModal } from '@/components/expenses/ExpenseFormModal';
 import { CategoryManager } from '@/components/expenses/CategoryManager';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Expenses | QR-Eat',
-  description: 'Manage restaurant expenses and track spending',
-};
 
 interface Expense {
   id: string;

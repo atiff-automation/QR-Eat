@@ -27,6 +27,7 @@
     "generate-vapid-keys": "tsx scripts/generate-vapid-keys.ts"
   },
   "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.11.1",
     "@serwist/next": "^9.0.0",
     "@tailwindcss/postcss": "^4.1.18",
@@ -53,10 +54,12 @@
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-hook-form": "^7.71.1",
     "react-hot-toast": "^2.6.0",
     "recharts": "^3.6.0",
     "server-only": "^0.0.1",
     "serwist": "^9.0.0",
+    "sonner": "^2.0.7",
     "tailwind-merge": "^2.5.4",
     "typescript": "^5.9.3",
     "uuid": "^11.1.0",

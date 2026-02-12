@@ -99,6 +99,15 @@ export function useAuthUser() {
   });
 }
 
+/**
+ * Convenience wrapper around useAuthUser for simpler destructuring.
+ * Returns { user, isLoading } instead of the full TanStack Query result.
+ */
+export function useAuth() {
+  const { data, isLoading } = useAuthUser();
+  return { user: data?.user ?? null, isLoading };
+}
+
 // =============================================================================
 // Mutation Hooks
 // =============================================================================

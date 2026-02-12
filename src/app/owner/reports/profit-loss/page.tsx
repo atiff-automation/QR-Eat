@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/lib/hooks/queries/useAuth';
 import { useProfitLoss } from '@/hooks/reports/useProfitLoss';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ProfitLossHeader } from '@/components/reports/ProfitLossHeader';
@@ -11,12 +11,6 @@ import { GrossProfitSection } from '@/components/reports/GrossProfitSection';
 import { OperatingExpensesSection } from '@/components/reports/OperatingExpensesSection';
 import { NetProfitSection } from '@/components/reports/NetProfitSection';
 import { KeyMetrics } from '@/components/reports/KeyMetrics';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = {
-  title: 'Profit & Loss Report | QR-Eat',
-  description: 'View profit and loss report for your restaurant',
-};
 
 type PeriodType = 'today' | 'week' | 'month' | 'custom';
 
