@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Plus, Settings } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { useExpenses } from '@/hooks/expenses/useExpenses';
 import { useDeleteExpense } from '@/hooks/expenses/useDeleteExpense';
@@ -96,17 +96,6 @@ export default function ExpensesPage() {
     <div className="min-h-screen bg-gray-50/80">
       {/* Main Content */}
       <div className="max-w-lg mx-auto px-4 py-4">
-        {/* Settings shortcut */}
-        <div className="flex justify-end mb-2">
-          <button
-            onClick={() => setShowCategoryManager(true)}
-            className="p-2 -mr-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
-            title="Manage categories"
-          >
-            <Settings size={18} />
-          </button>
-        </div>
-
         {/* Summary Cards */}
         <ExpenseSummaryCards
           restaurantId={restaurantId}
@@ -119,6 +108,7 @@ export default function ExpensesPage() {
           restaurantId={restaurantId}
           filters={filters}
           onFiltersChange={setFilters}
+          onSettingsClick={() => setShowCategoryManager(true)}
         />
 
         {/* Expense List */}

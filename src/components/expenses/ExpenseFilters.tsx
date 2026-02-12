@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Search, X, SlidersHorizontal } from 'lucide-react';
+import { Search, X, SlidersHorizontal, Settings } from 'lucide-react';
 import { DateInput } from '@/components/ui/DateInput';
 import { useCategories } from '@/hooks/expenses/useCategories';
 import { BottomSheet } from '@/components/ui/BottomSheet';
@@ -16,6 +16,7 @@ interface ExpenseFiltersProps {
     search?: string;
   };
   onFiltersChange: (filters: ExpenseFiltersProps['filters']) => void;
+  onSettingsClick?: () => void;
 }
 
 const datePresets = [
@@ -29,6 +30,7 @@ export function ExpenseFilters({
   restaurantId,
   filters,
   onFiltersChange,
+  onSettingsClick,
 }: ExpenseFiltersProps) {
   const [searchInput, setSearchInput] = React.useState(filters.search || '');
   const [selectedPreset, setSelectedPreset] = React.useState('month');
@@ -142,6 +144,15 @@ export function ExpenseFilters({
         >
           <SlidersHorizontal size={18} />
         </button>
+        {onSettingsClick && (
+          <button
+            onClick={onSettingsClick}
+            className="flex-shrink-0 p-2.5 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+            title="Manage categories"
+          >
+            <Settings size={18} />
+          </button>
+        )}
       </div>
 
       {/* Active category indicator */}
