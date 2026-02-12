@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { z } from 'zod';
-import { cacheManager, cacheMonitor } from '../../../../../lib/cache';
 
 // ============================================================================
 // Types
@@ -116,39 +115,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user type' }, { status: 403 });
     }
 
-    // Fetch categories with smart caching
-    const categories = await cacheManager.get(
-      'expense-categories',
-      { restaurantId },
-      async () => {
-        cacheMonitor.recordMiss();
-
-        return prisma.expenseCategory.findMany({
-          where: {
-            OR: [
-              { restaurantId: null, isSystem: true }, // System categories
-              { restaurantId: restaurantId }, // Restaurant-specific categories
-            ],
-            isActive: true,
-          },
-          orderBy: [{ categoryType: 'asc' }, { displayOrder: 'asc' }],
-          select: {
-            id: true,
-            name: true,
-            description: true,
-            categoryType: true,
-            isSystem: true,
-            displayOrder: true,
-            createdAt: true,
-          },
-        });
-      }
-    );
-
-    // Record cache hit if we got here
-    if (categories) {
-      cacheMonitor.recordHit();
-    }
+    const categories = await prisma.expenseCategory.findMany({
+      where: {
+        OR: [
+          { restaurantId: null, isSystem: true },
+          { restaurantId: restaurantId },
+        ],
+        isActive: true,
+      },
+      orderBy: [{ categoryType: 'asc' }, { displayOrder: 'asc' }],
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        categoryType: true,
+        isSystem: true,
+        displayOrder: true,
+        createdAt: true,
+      },
+    });
 
     // Group by category type
     const grouped = {
@@ -283,13 +268,6 @@ export async function POST(request: NextRequest) {
         displayOrder: true,
         createdAt: true,
       },
-    });
-
-    // Invalidate cache
-    await cacheManager.invalidate({
-      type: 'category-created',
-      restaurantId: validatedData.restaurantId,
-      affectedData: category,
     });
 
     return NextResponse.json(

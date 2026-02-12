@@ -29,6 +29,8 @@ import {
   LogOut,
   CreditCard,
   Lock,
+  Receipt,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
@@ -151,7 +153,23 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       name: 'Reports',
       href: '/dashboard/reports',
       icon: BarChart3,
-      current: pathname.startsWith('/dashboard/reports'),
+      current:
+        pathname.startsWith('/dashboard/reports') &&
+        !pathname.startsWith('/dashboard/reports/profit-loss'),
+      permission: 'analytics:read',
+    },
+    {
+      name: 'Expenses',
+      href: '/dashboard/expenses',
+      icon: Receipt,
+      current: pathname.startsWith('/dashboard/expenses'),
+      permission: 'analytics:read',
+    },
+    {
+      name: 'Profit & Loss',
+      href: '/dashboard/reports/profit-loss',
+      icon: TrendingUp,
+      current: pathname.startsWith('/dashboard/reports/profit-loss'),
       permission: 'analytics:read',
     },
     {
@@ -171,6 +189,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/menu')) return UtensilsCrossed;
     if (pathname.includes('/cashier')) return CreditCard;
     if (pathname.includes('/staff')) return Users;
+    if (pathname.includes('/expenses')) return Receipt;
+    if (pathname.includes('/profit-loss')) return TrendingUp;
     if (pathname.includes('/reports')) return BarChart3;
     if (pathname.includes('/settings')) return Settings;
     return Home;
@@ -184,6 +204,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/menu')) return 'Menu';
     if (pathname.includes('/cashier')) return 'Cashier / POS';
     if (pathname.includes('/staff')) return 'Staff';
+    if (pathname.includes('/expenses')) return 'Expenses';
+    if (pathname.includes('/profit-loss')) return 'Profit & Loss';
     if (pathname.includes('/reports')) return 'Reports';
     if (pathname.includes('/settings')) return 'Settings';
     return 'Dashboard';

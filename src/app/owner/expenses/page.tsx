@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Plus, Settings } from 'lucide-react';
-import { useAuth } from '@/lib/hooks/queries/useAuth';
+import { useRole } from '@/components/rbac/RoleProvider';
 import { useExpenses } from '@/hooks/expenses/useExpenses';
 import { useDeleteExpense } from '@/hooks/expenses/useDeleteExpense';
 import { ExpenseSummaryCards } from '@/components/expenses/ExpenseSummaryCards';
@@ -10,7 +10,6 @@ import { ExpenseFilters } from '@/components/expenses/ExpenseFilters';
 import { ExpenseList } from '@/components/expenses/ExpenseList';
 import { ExpenseFormModal } from '@/components/expenses/ExpenseFormModal';
 import { CategoryManager } from '@/components/expenses/CategoryManager';
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface Expense {
   id: string;
@@ -30,7 +29,7 @@ interface Expense {
 }
 
 export default function ExpensesPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, restaurantContext, isLoading } = useRole();
   const [showExpenseForm, setShowExpenseForm] = React.useState(false);
   const [selectedExpense, setSelectedExpense] = React.useState<Expense | null>(
     null
@@ -52,7 +51,7 @@ export default function ExpensesPage() {
     search: undefined,
   });
 
-  const restaurantId = user?.restaurantId || '';
+  const restaurantId = restaurantContext?.id || '';
 
   // Fetch expenses with current filters
   const { data: expensesData, isLoading: expensesLoading } = useExpenses({
@@ -67,28 +66,9 @@ export default function ExpensesPage() {
 
   const deleteMutation = useDeleteExpense();
 
-  // Handle authentication
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!user || !restaurantId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Access Denied
-          </h1>
-          <p className="text-gray-600">
-            You must be logged in to view this page.
-          </p>
-        </div>
-      </div>
-    );
+  // RoleProvider already handles auth loading and redirects to login
+  if (isLoading || !user || !restaurantId) {
+    return null;
   }
 
   const handleAddExpense = () => {

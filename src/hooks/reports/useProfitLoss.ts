@@ -69,14 +69,19 @@ export function useProfitLoss({
       endDate: endDate.toISOString(),
     }),
     queryFn: async () => {
-      return ApiClient.get<ProfitLossData>('/api/admin/reports/profit-loss', {
+      const response = await ApiClient.get<{
+        success: boolean;
+        report: ProfitLossData;
+      }>('/api/admin/reports/profit-loss', {
         params: {
           restaurantId,
           startDate: startDate.toISOString(),
           endDate: endDate.toISOString(),
         },
       });
+      return response.report;
     },
+    enabled: !!restaurantId,
     staleTime: 30 * 60 * 1000, // 30 minutes (expensive calculation)
     gcTime: 60 * 60 * 1000, // 1 hour
     refetchOnWindowFocus: false, // Don't refetch on tab switch

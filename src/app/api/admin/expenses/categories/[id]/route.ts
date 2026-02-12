@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { z } from 'zod';
-import { cacheManager } from '../../../../../../lib/cache';
 
 // ============================================================================
 // Validation Schemas
@@ -155,13 +154,6 @@ export async function PUT(
       },
     });
 
-    // Invalidate cache
-    await cacheManager.invalidate({
-      type: 'category-updated',
-      restaurantId: existingCategory.restaurantId,
-      affectedData: updatedCategory,
-    });
-
     return NextResponse.json({
       success: true,
       category: updatedCategory,
@@ -297,13 +289,6 @@ export async function DELETE(
     // Delete category
     await prisma.expenseCategory.delete({
       where: { id: categoryId },
-    });
-
-    // Invalidate cache
-    await cacheManager.invalidate({
-      type: 'category-deleted',
-      restaurantId: existingCategory.restaurantId,
-      affectedData: { id: categoryId, name: existingCategory.name },
     });
 
     return NextResponse.json({

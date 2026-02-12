@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
-import { cacheManager, cacheMonitor } from '../../../../../lib/cache';
 import { Prisma } from '@prisma/client';
 
 // ============================================================================
@@ -153,71 +152,62 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user type' }, { status: 403 });
     }
 
-    // Generate P&L report with smart caching
-    const report = await cacheManager.get(
-      'profit-loss',
-      {
-        restaurantId,
-        startDate: defaultStartDate.toISOString(),
-        endDate: defaultEndDate.toISOString(),
-      },
-      async () => {
-        cacheMonitor.recordMiss();
+    // Generate P&L report
+    {
+      // ================================================================
+      // 1. Calculate Revenue Section
+      // ================================================================
 
-        // ================================================================
-        // 1. Calculate Revenue Section
-        // ================================================================
+      // Get gross sales from completed orders
+      const revenueData = await prisma.order.aggregate({
+        where: {
+          restaurantId,
+          createdAt: {
+            gte: defaultStartDate,
+            lte: defaultEndDate,
+          },
+          status: 'SERVED',
+        },
+        _sum: {
+          totalAmount: true,
+          discountAmount: true,
+        },
+      });
 
-        // Get gross sales from completed orders
-        const revenueData = await prisma.order.aggregate({
-          where: {
+      const grossSales = Number(revenueData._sum.totalAmount || 0);
+      const discounts = Number(revenueData._sum.discountAmount || 0);
+
+      // Get refunds from payments
+      const refundsData = await prisma.payment.aggregate({
+        where: {
+          order: {
             restaurantId,
             createdAt: {
               gte: defaultStartDate,
               lte: defaultEndDate,
             },
-            status: 'SERVED',
           },
-          _sum: {
-            totalAmount: true,
-            discountAmount: true,
-          },
-        });
+          status: 'REFUNDED',
+        },
+        _sum: {
+          amount: true,
+        },
+      });
 
-        const grossSales = Number(revenueData._sum.totalAmount || 0);
-        const discounts = Number(revenueData._sum.discountAmount || 0);
+      const refunds = Number(refundsData._sum.amount || 0);
+      const netSales = grossSales - discounts - refunds;
 
-        // Get refunds from payments
-        const refundsData = await prisma.payment.aggregate({
-          where: {
-            order: {
-              restaurantId,
-              createdAt: {
-                gte: defaultStartDate,
-                lte: defaultEndDate,
-              },
-            },
-            status: 'REFUNDED',
-          },
-          _sum: {
-            amount: true,
-          },
-        });
+      // ================================================================
+      // 2. Calculate COGS Section (using materialized view)
+      // ================================================================
 
-        const refunds = Number(refundsData._sum.amount || 0);
-        const netSales = grossSales - discounts - refunds;
-
-        // ================================================================
-        // 2. Calculate COGS Section (using materialized view)
-        // ================================================================
-
-        // Query materialized view for COGS
-        const cogsData = await prisma.$queryRaw<
-          Array<{
-            category_name: string;
-            total_amount: Prisma.Decimal;
-          }>
-        >`
+      // Query materialized view for COGS
+      const cogsData = await prisma.$queryRaw<
+        Array<{
+          category_name: string;
+          total_amount: Prisma.Decimal;
+        }>
+      >`
           SELECT 
             category_name,
             SUM(total_amount) as total_amount
@@ -230,37 +220,37 @@ export async function GET(request: NextRequest) {
           ORDER BY total_amount DESC
         `;
 
-        const cogsBreakdown = cogsData.map((item) => ({
-          categoryName: item.category_name,
-          amount: Number(item.total_amount),
-          percentage:
-            netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
-        }));
+      const cogsBreakdown = cogsData.map((item) => ({
+        categoryName: item.category_name,
+        amount: Number(item.total_amount),
+        percentage:
+          netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
+      }));
 
-        const totalCOGS = cogsBreakdown.reduce(
-          (sum, item) => sum + item.amount,
-          0
-        );
-        const cogsPercentage = netSales > 0 ? (totalCOGS / netSales) * 100 : 0;
+      const totalCOGS = cogsBreakdown.reduce(
+        (sum, item) => sum + item.amount,
+        0
+      );
+      const cogsPercentage = netSales > 0 ? (totalCOGS / netSales) * 100 : 0;
 
-        // ================================================================
-        // 3. Calculate Gross Profit
-        // ================================================================
+      // ================================================================
+      // 3. Calculate Gross Profit
+      // ================================================================
 
-        const grossProfit = netSales - totalCOGS;
-        const grossProfitMargin =
-          netSales > 0 ? (grossProfit / netSales) * 100 : 0;
+      const grossProfit = netSales - totalCOGS;
+      const grossProfitMargin =
+        netSales > 0 ? (grossProfit / netSales) * 100 : 0;
 
-        // ================================================================
-        // 4. Calculate Operating Expenses (using materialized view)
-        // ================================================================
+      // ================================================================
+      // 4. Calculate Operating Expenses (using materialized view)
+      // ================================================================
 
-        const opexData = await prisma.$queryRaw<
-          Array<{
-            category_name: string;
-            total_amount: Prisma.Decimal;
-          }>
-        >`
+      const opexData = await prisma.$queryRaw<
+        Array<{
+          category_name: string;
+          total_amount: Prisma.Decimal;
+        }>
+      >`
           SELECT 
             category_name,
             SUM(total_amount) as total_amount
@@ -273,121 +263,112 @@ export async function GET(request: NextRequest) {
           ORDER BY total_amount DESC
         `;
 
-        const opexBreakdown = opexData.map((item) => ({
-          categoryName: item.category_name,
-          amount: Number(item.total_amount),
-          percentage:
-            netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
-        }));
+      const opexBreakdown = opexData.map((item) => ({
+        categoryName: item.category_name,
+        amount: Number(item.total_amount),
+        percentage:
+          netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
+      }));
 
-        const totalOperatingExpenses = opexBreakdown.reduce(
-          (sum, item) => sum + item.amount,
-          0
-        );
-        const opexPercentage =
-          netSales > 0 ? (totalOperatingExpenses / netSales) * 100 : 0;
+      const totalOperatingExpenses = opexBreakdown.reduce(
+        (sum, item) => sum + item.amount,
+        0
+      );
+      const opexPercentage =
+        netSales > 0 ? (totalOperatingExpenses / netSales) * 100 : 0;
 
-        // ================================================================
-        // 5. Calculate Net Profit
-        // ================================================================
+      // ================================================================
+      // 5. Calculate Net Profit
+      // ================================================================
 
-        const netProfit = grossProfit - totalOperatingExpenses;
-        const netProfitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
+      const netProfit = grossProfit - totalOperatingExpenses;
+      const netProfitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
 
-        // ================================================================
-        // 6. Calculate Key Metrics
-        // ================================================================
+      // ================================================================
+      // 6. Calculate Key Metrics
+      // ================================================================
 
-        // Food cost (from COGS breakdown)
-        const foodCost =
-          cogsBreakdown.find((item) =>
-            item.categoryName.toLowerCase().includes('food')
-          )?.amount || 0;
-        const foodCostPercentage =
-          netSales > 0 ? (foodCost / netSales) * 100 : 0;
+      // Food cost (from COGS breakdown)
+      const foodCost =
+        cogsBreakdown.find((item) =>
+          item.categoryName.toLowerCase().includes('food')
+        )?.amount || 0;
+      const foodCostPercentage = netSales > 0 ? (foodCost / netSales) * 100 : 0;
 
-        // Labor cost (from operating expenses)
-        const laborCost =
-          opexBreakdown.find(
-            (item) =>
-              item.categoryName.toLowerCase().includes('salaries') ||
-              item.categoryName.toLowerCase().includes('wages')
-          )?.amount || 0;
-        const laborCostPercentage =
-          netSales > 0 ? (laborCost / netSales) * 100 : 0;
+      // Labor cost (from operating expenses)
+      const laborCost =
+        opexBreakdown.find(
+          (item) =>
+            item.categoryName.toLowerCase().includes('salaries') ||
+            item.categoryName.toLowerCase().includes('wages')
+        )?.amount || 0;
+      const laborCostPercentage =
+        netSales > 0 ? (laborCost / netSales) * 100 : 0;
 
-        // Prime cost (COGS + Labor)
-        const primeCost = totalCOGS + laborCost;
-        const primeCostPercentage =
-          netSales > 0 ? (primeCost / netSales) * 100 : 0;
+      // Prime cost (COGS + Labor)
+      const primeCost = totalCOGS + laborCost;
+      const primeCostPercentage =
+        netSales > 0 ? (primeCost / netSales) * 100 : 0;
 
-        // Break-even revenue (total expenses / (1 - target profit margin))
-        // Assuming 10% target profit margin
-        const totalExpenses = totalCOGS + totalOperatingExpenses;
-        const breakEvenRevenue = totalExpenses / 0.9; // 10% profit margin
+      // Break-even revenue (total expenses / (1 - target profit margin))
+      // Assuming 10% target profit margin
+      const totalExpenses = totalCOGS + totalOperatingExpenses;
+      const breakEvenRevenue = totalExpenses / 0.9; // 10% profit margin
 
-        // ================================================================
-        // 7. Build Report Object
-        // ================================================================
+      // ================================================================
+      // 7. Build Report Object
+      // ================================================================
 
-        const days =
-          Math.ceil(
-            (defaultEndDate.getTime() - defaultStartDate.getTime()) /
-              (1000 * 60 * 60 * 24)
-          ) + 1;
+      const days =
+        Math.ceil(
+          (defaultEndDate.getTime() - defaultStartDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        ) + 1;
 
-        const report: ProfitLossReport = {
-          period: {
-            startDate: defaultStartDate.toISOString(),
-            endDate: defaultEndDate.toISOString(),
-            days,
-          },
-          revenue: {
-            grossSales,
-            discounts,
-            refunds,
-            netSales,
-          },
-          cogs: {
-            breakdown: cogsBreakdown,
-            totalCOGS,
-            cogsPercentage,
-          },
-          grossProfit: {
-            amount: grossProfit,
-            margin: grossProfitMargin,
-          },
-          operatingExpenses: {
-            breakdown: opexBreakdown,
-            totalOperatingExpenses,
-            opexPercentage,
-          },
-          netProfit: {
-            amount: netProfit,
-            margin: netProfitMargin,
-          },
-          keyMetrics: {
-            foodCostPercentage,
-            laborCostPercentage,
-            primeCost,
-            primeCostPercentage,
-            breakEvenRevenue,
-          },
-        };
+      const report: ProfitLossReport = {
+        period: {
+          startDate: defaultStartDate.toISOString(),
+          endDate: defaultEndDate.toISOString(),
+          days,
+        },
+        revenue: {
+          grossSales,
+          discounts,
+          refunds,
+          netSales,
+        },
+        cogs: {
+          breakdown: cogsBreakdown,
+          totalCOGS,
+          cogsPercentage,
+        },
+        grossProfit: {
+          amount: grossProfit,
+          margin: grossProfitMargin,
+        },
+        operatingExpenses: {
+          breakdown: opexBreakdown,
+          totalOperatingExpenses,
+          opexPercentage,
+        },
+        netProfit: {
+          amount: netProfit,
+          margin: netProfitMargin,
+        },
+        keyMetrics: {
+          foodCostPercentage,
+          laborCostPercentage,
+          primeCost,
+          primeCostPercentage,
+          breakEvenRevenue,
+        },
+      };
 
-        return report;
-      }
-    );
-
-    // Record cache hit
-    if (report) {
-      cacheMonitor.recordHit();
+      return NextResponse.json({
+        success: true,
+        report,
+      });
     }
-
-    return NextResponse.json({
-      success: true,
-      report,
-    });
   } catch (error) {
     console.error('[P&L Report API] GET error:', error);
     return NextResponse.json(

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { z } from 'zod';
-import { cacheManager, cacheMonitor } from '../../../../lib/cache';
 import { Prisma } from '@prisma/client';
 
 // ============================================================================
@@ -126,87 +125,60 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user type' }, { status: 403 });
     }
 
-    // Build cache key with all filter params
-    const cacheKey = {
-      restaurantId,
-      startDate: defaultStartDate.toISOString(),
-      endDate: defaultEndDate.toISOString(),
-      categoryId: categoryId || 'all',
-      search: search || '',
-      page,
-      limit,
-    };
+    {
+      // Build where clause
+      const where: Prisma.ExpenseWhereInput = {
+        restaurantId,
+        expenseDate: {
+          gte: defaultStartDate,
+          lte: defaultEndDate,
+        },
+      };
 
-    // Fetch expenses with smart caching
-    const result = await cacheManager.get(
-      'expense-list',
-      cacheKey,
-      async () => {
-        cacheMonitor.recordMiss();
+      if (categoryId) {
+        where.categoryId = categoryId;
+      }
 
-        // Build where clause
-        const where: Prisma.ExpenseWhereInput = {
-          restaurantId,
-          expenseDate: {
-            gte: defaultStartDate,
-            lte: defaultEndDate,
-          },
-        };
+      if (search) {
+        where.OR = [
+          { description: { contains: search, mode: 'insensitive' } },
+          { vendor: { contains: search, mode: 'insensitive' } },
+          { invoiceNumber: { contains: search, mode: 'insensitive' } },
+        ];
+      }
 
-        if (categoryId) {
-          where.categoryId = categoryId;
-        }
+      // Get total count for pagination
+      const totalCount = await prisma.expense.count({ where });
 
-        if (search) {
-          where.OR = [
-            { description: { contains: search, mode: 'insensitive' } },
-            { vendor: { contains: search, mode: 'insensitive' } },
-            { invoiceNumber: { contains: search, mode: 'insensitive' } },
-          ];
-        }
-
-        // Get total count for pagination
-        const totalCount = await prisma.expense.count({ where });
-
-        // Fetch expenses with pagination
-        const expenses = await prisma.expense.findMany({
-          where,
-          include: {
-            category: {
-              select: {
-                id: true,
-                name: true,
-                categoryType: true,
-              },
+      // Fetch expenses with pagination
+      const expenses = await prisma.expense.findMany({
+        where,
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              categoryType: true,
             },
           },
-          orderBy: { expenseDate: 'desc' },
-          skip: (page - 1) * limit,
-          take: limit,
-        });
+        },
+        orderBy: { expenseDate: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      });
 
-        return {
-          expenses,
-          pagination: {
-            page,
-            limit,
-            totalCount,
-            totalPages: Math.ceil(totalCount / limit),
-            hasMore: page * limit < totalCount,
-          },
-        };
-      }
-    );
-
-    // Record cache hit
-    if (result) {
-      cacheMonitor.recordHit();
+      return NextResponse.json({
+        success: true,
+        expenses,
+        pagination: {
+          page,
+          limit,
+          totalCount,
+          totalPages: Math.ceil(totalCount / limit),
+          hasMore: page * limit < totalCount,
+        },
+      });
     }
-
-    return NextResponse.json({
-      success: true,
-      ...result,
-    });
   } catch (error) {
     console.error('[Expenses API] GET error:', error);
     return NextResponse.json(
@@ -340,13 +312,6 @@ export async function POST(request: NextRequest) {
           },
         },
       },
-    });
-
-    // Invalidate cache
-    await cacheManager.invalidate({
-      type: 'expense-created',
-      restaurantId: validatedData.restaurantId,
-      affectedData: expense,
     });
 
     return NextResponse.json(

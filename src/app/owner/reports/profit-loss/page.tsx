@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@/lib/hooks/queries/useAuth';
+import { useRole } from '@/components/rbac/RoleProvider';
 import { useProfitLoss } from '@/hooks/reports/useProfitLoss';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ProfitLossHeader } from '@/components/reports/ProfitLossHeader';
@@ -15,7 +15,7 @@ import { KeyMetrics } from '@/components/reports/KeyMetrics';
 type PeriodType = 'today' | 'week' | 'month' | 'custom';
 
 export default function ProfitLossReportPage() {
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, restaurantContext, isLoading } = useRole();
 
   // Period state
   const now = new Date();
@@ -25,7 +25,7 @@ export default function ProfitLossReportPage() {
   const [endDate, setEndDate] = React.useState(now);
 
   // Fetch P&L data (call hook before early returns)
-  const restaurantId = user?.restaurantId || '';
+  const restaurantId = restaurantContext?.id || '';
   const { data: plData, isLoading: plLoading } = useProfitLoss({
     restaurantId,
     startDate,
@@ -42,28 +42,9 @@ export default function ProfitLossReportPage() {
     setEndDate(newEndDate);
   };
 
-  // Handle authentication
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <LoadingSpinner />
-      </div>
-    );
-  }
-
-  if (!user || !user.restaurantId) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Access Denied
-          </h1>
-          <p className="text-gray-600">
-            You must be logged in to view this page.
-          </p>
-        </div>
-      </div>
-    );
+  // RoleProvider already handles auth loading and redirects to login
+  if (isLoading || !user || !restaurantId) {
+    return null;
   }
 
   return (
