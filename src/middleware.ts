@@ -374,6 +374,7 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/receipt/', // Public receipt access for customers
     '/api/debug-auth/', // Debug endpoint for testing auth
     '/api/kitchen/', // Kitchen app mobile authentication
+    '/api/events/', // SSE events for real-time updates
   ];
 
   return publicApiRoutes.some((route) => pathname.startsWith(route));
