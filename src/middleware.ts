@@ -372,6 +372,8 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/webhooks/', // Webhook handlers (external services)
     '/api/orders/', // Public order status tracking (order ID acts as security token)
     '/api/receipt/', // Public receipt access for customers
+    '/api/debug-auth/', // Debug endpoint for testing auth
+    '/api/kitchen/', // Kitchen app mobile authentication
   ];
 
   return publicApiRoutes.some((route) => pathname.startsWith(route));
