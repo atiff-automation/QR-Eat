@@ -67,10 +67,10 @@ export async function extractTokenFromRequest(
 }
 
 /**
- * Extract a raw JWT token from query parameter or cookies.
+ * Extract a raw JWT token from query parameter, cookies, or Authorization header.
  *
  * Returns the token string for use with AuthServiceV2.validateToken().
- * Checks ?token= query param first, then falls back to cookies.
+ * Checks ?token= query param first, then falls back to cookies, then Authorization header.
  *
  * @param request - Next.js request object
  * @returns JWT token string or null
@@ -83,9 +83,20 @@ export function getTokenFromRequest(request: NextRequest): string | null {
     return tokenParam;
   }
 
-  return (
+  // Check cookies
+  const cookieToken =
     request.cookies.get('qr_rbac_token')?.value ||
-    request.cookies.get('qr_auth_token')?.value ||
-    null
-  );
+    request.cookies.get('qr_auth_token')?.value;
+
+  if (cookieToken) {
+    return cookieToken;
+  }
+
+  // Check Authorization header (for mobile apps)
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7); // Remove 'Bearer ' prefix
+  }
+
+  return null;
 }
