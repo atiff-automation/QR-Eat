@@ -119,10 +119,20 @@ export async function middleware(request: NextRequest) {
       return response;
     }
 
-    // Get authentication token
-    const token =
+    // Get authentication token from cookies OR query params OR Authorization header (for mobile)
+    const cookieToken =
       request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
+
+    const queryToken = request.nextUrl.searchParams.get('token');
+
+    // Check Authorization header (Bearer token)
+    const authHeader = request.headers.get('authorization');
+    const bearerToken = authHeader?.startsWith('Bearer ')
+      ? authHeader.substring(7)
+      : null;
+
+    const token = cookieToken || queryToken || bearerToken;
 
     if (!token) {
       if (process.env.NODE_ENV === 'development') {
@@ -374,7 +384,7 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/receipt/', // Public receipt access for customers
     '/api/debug-auth/', // Debug endpoint for testing auth
     '/api/kitchen/', // Kitchen app mobile authentication
-    '/api/events/', // SSE events for real-time updates
+    // NOTE: /api/events/ is NOT here - it requires auth via query param token
   ];
 
   return publicApiRoutes.some((route) => pathname.startsWith(route));
