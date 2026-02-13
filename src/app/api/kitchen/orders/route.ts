@@ -6,11 +6,26 @@ import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('[KITCHEN-ORDERS] Request URL:', request.url);
+    console.log(
+      '[KITCHEN-ORDERS] Headers:',
+      Object.fromEntries(request.headers.entries())
+    );
+
     // Verify authentication using RBAC system
     // Supports both cookie auth (web) and ?token= query param (mobile)
     const token = getTokenFromRequest(request);
 
+    console.log('[KITCHEN-ORDERS] Token extracted:', token ? 'yes' : 'no');
+    if (token) {
+      console.log(
+        '[KITCHEN-ORDERS] Token preview:',
+        token.substring(0, 50) + '...'
+      );
+    }
+
     if (!token) {
+      console.log('[KITCHEN-ORDERS] No token found, returning 401');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
