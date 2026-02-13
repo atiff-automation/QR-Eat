@@ -76,8 +76,22 @@ export async function extractTokenFromRequest(
  * @returns JWT token string or null
  */
 export function getTokenFromRequest(request: NextRequest): string | null {
+  // Debug logging
+  console.log('[AUTH-UTILS] getTokenFromRequest called');
+  console.log('[AUTH-UTILS] URL:', request.url);
+
   const url = new URL(request.url);
   const tokenParam = url.searchParams.get('token');
+
+  console.log('[AUTH-UTILS] tokenParam:', tokenParam ? 'present' : 'null');
+  console.log(
+    '[AUTH-UTILS] cookies:',
+    request.cookies.getAll().map((c) => c.name)
+  );
+  console.log(
+    '[AUTH-UTILS] auth header:',
+    request.headers.get('authorization')?.substring(0, 20) || 'null'
+  );
 
   if (tokenParam) {
     return tokenParam;
