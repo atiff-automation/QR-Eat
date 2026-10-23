@@ -383,6 +383,10 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/orders/', // Public order status tracking (order ID acts as security token)
     '/api/receipt/', // Public receipt access for customers
     '/api/kitchen/', // Kitchen app mobile authentication (requires Bearer token)
+    // Station devices authenticate with a device token, not a staff session.
+    // Both handlers verify the device credential themselves.
+    '/api/devices/token',
+    '/api/devices/staff-session',
     // NOTE: /api/events/ is NOT here - it requires auth via query param token
   ];
 

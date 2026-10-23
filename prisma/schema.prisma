@@ -1343,6 +1343,8 @@ model Device {
   isActive     Boolean   @default(true)
   lastSeenAt   DateTime?
   lastPrintAt  DateTime?
+  failedPinAttempts Int   @default(0) // wrong station PINs since the last success
+  pinLockedUntil    DateTime? // device-level backoff after repeated wrong PINs
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
