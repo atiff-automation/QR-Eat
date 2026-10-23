@@ -270,6 +270,7 @@ model Restaurant {
   // Android station devices
   stations Station[]
   devices  Device[]
+  orderEvents OrderEvent[]
 
   @@index([ownerId])
   @@index([slug])
@@ -688,6 +689,7 @@ model Order {
   paymentIntents  PaymentIntent[]
   transactionFee  TransactionFee?
   modifications   OrderModification[] // New relation
+  orderEvents     OrderEvent[]
 
   @@index([restaurantId])
   @@index([tableId])
@@ -1308,6 +1310,7 @@ model Station {
   restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   categories StationCategory[]
   devices    Device[]
+  orderEvents OrderEvent[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId])
@@ -1329,6 +1332,31 @@ model StationCategory {
   @@map("station_categories")
 }
 
+/// Append-only station event log.
+///
+/// One row per station per event: the payload is the print document, already
+/// filtered and routed at write time (D18, D19). `id` is the sequence the
+/// client resumes from; it is global per database, which is fine because the
+/// stream filters by station.
+model OrderEvent {
+  id           BigInt   @id @default(autoincrement())
+  restaurantId String
+  stationId    String
+  orderId      String
+  type         String // order.created | order.status.changed | order.cancelled
+  payload      Json
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  station    Station    @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, id])
+  @@index([stationId, id])
+  @@index([orderId])
+  @@map("order_events")
+}
+
 /// A provisioned phone. Identity is separate from the staff session (D5).
 model Device {
   id           String    @id @default(uuid())
@@ -1343,6 +1371,7 @@ model Device {
   isActive     Boolean   @default(true)
   lastSeenAt   DateTime?
   lastPrintAt  DateTime?
+  lastEventId  BigInt    @default(0) // per-device delivery cursor
   failedPinAttempts Int   @default(0) // wrong station PINs since the last success
   pinLockedUntil    DateTime? // device-level backoff after repeated wrong PINs
   createdAt    DateTime  @default(now())

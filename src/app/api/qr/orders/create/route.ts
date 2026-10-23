@@ -20,6 +20,7 @@ import { prisma } from '@/lib/database';
 import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { recordOrderCreated } from '@/lib/order-events';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
@@ -260,6 +261,18 @@ export async function POST(request: NextRequest) {
         return orderItem;
       })
     );
+
+    // Station event log: the kitchen ticket exists from this moment.
+    // A failure here is loud, never silent — the order would otherwise be
+    // invisible to every station until a resnapshot.
+    try {
+      await recordOrderCreated(order.id);
+    } catch (eventError) {
+      console.error(
+        `[order-events] FAILED to record order.created for ${order.orderNumber} (${order.id}):`,
+        eventError
+      );
+    }
 
     // Update table status to occupied when order is placed
     // This is the PRIMARY trigger for marking a table as occupied

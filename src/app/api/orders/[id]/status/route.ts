@@ -7,6 +7,7 @@ import {
   getInvalidTransitionMessage,
 } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { recordOrderStatusChanged } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
 
@@ -176,6 +177,16 @@ export async function PATCH(
         },
       },
     });
+
+    // Station event log: one event per station that printed this order.
+    try {
+      await recordOrderStatusChanged(orderId, currentOrder.status, status);
+    } catch (eventError) {
+      console.error(
+        `[order-events] FAILED to record status change for ${orderId}:`,
+        eventError
+      );
+    }
 
     // Log the status change
     await prisma.auditLog.create({

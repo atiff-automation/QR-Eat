@@ -387,6 +387,8 @@ function isPublicApiRoute(pathname: string): boolean {
     // Both handlers verify the device credential themselves.
     '/api/devices/token',
     '/api/devices/staff-session',
+    '/api/events/station',
+    '/api/stations/me/snapshot',
     // NOTE: /api/events/ is NOT here - it requires auth via query param token
   ];
 

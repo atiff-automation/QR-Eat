@@ -7,6 +7,7 @@ import {
 } from '@/lib/tenant-context';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { recordOrderStatusChanged } from '@/lib/order-events';
 
 export async function GET(
   request: NextRequest,
@@ -344,7 +345,11 @@ export async function DELETE(
         });
 
         if (existing) {
-          return { isDuplicate: true, refundAmount: 0 };
+          return {
+            isDuplicate: true,
+            refundAmount: 0,
+            previousStatus: order.status,
+          };
         }
 
         // 5. Calculate refund (always full refund if paid)
@@ -426,6 +431,7 @@ export async function DELETE(
         return {
           isDuplicate: false,
           refundAmount,
+          previousStatus: order.status,
         };
       },
       {
@@ -433,6 +439,23 @@ export async function DELETE(
         timeout: 10000,
       }
     );
+
+    // Station event log: tell every station that printed this order to stop.
+    if (!result.isDuplicate) {
+      try {
+        await recordOrderStatusChanged(
+          orderId,
+          result.previousStatus,
+          'CANCELLED',
+          { reason: data.reason }
+        );
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record cancellation for ${orderId}:`,
+          eventError
+        );
+      }
+    }
 
     // Get refund message
     const { getRefundMessage: getRefundMessageAfterTransaction } = await import(
