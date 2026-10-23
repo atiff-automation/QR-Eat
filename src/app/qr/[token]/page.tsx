@@ -75,10 +75,19 @@ export default function QRMenuPage() {
       // ✅ PRODUCTION: Validate subdomain matches (security check)
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
+        const isIpAddress =
+          /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':');
         const subdomain = hostname.split('.')[0];
 
-        // Only validate if we're on a subdomain (not localhost or main domain)
-        if (subdomain && subdomain !== 'localhost' && subdomain !== hostname) {
+        // Only validate if we're on a real subdomain. An IP address (LAN
+        // testing, a server accessed directly) is not a tenant subdomain:
+        // splitting "192.168.0.7" would produce "192" and reject every QR.
+        if (
+          !isIpAddress &&
+          subdomain &&
+          subdomain !== 'localhost' &&
+          subdomain !== hostname
+        ) {
           if (tableResponse.table.restaurant.slug !== subdomain) {
             console.error(
               `[QR] Security: Token belongs to ${tableResponse.table.restaurant.slug}, accessed via ${subdomain}`
