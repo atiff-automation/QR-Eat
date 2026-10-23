@@ -267,6 +267,10 @@ model Restaurant {
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
 
+  // Android station devices
+  stations Station[]
+  devices  Device[]
+
   @@index([ownerId])
   @@index([slug])
   @@map("restaurants")
@@ -306,6 +310,8 @@ model MenuCategory {
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   menuItems  MenuItem[]
+
+  stationCategories StationCategory[]
 
   @@index([restaurantId])
   @@index([isActive])
@@ -549,6 +555,7 @@ model Staff {
   lockedUntil            DateTime?
   permissions            Json        @default("{}") // Additional custom permissions
   preferences            Json        @default("{}") // User preferences (e.g. KDS station filters)
+  pinHash                String? // bcrypt-hashed PIN for station unlock
   emailVerified          Boolean     @default(false)
   emailVerificationToken String?
   passwordResetToken     String?
@@ -1280,4 +1287,69 @@ model Expense {
   @@index([restaurantId, expenseDate])
   @@index([restaurantId, categoryId, expenseDate])
   @@map("expenses")
+}
+
+// ============================
+// ANDROID STATION DEVICES
+// ============================
+
+/// A physical work area (Grill, Drinks, Pass).
+/// Orders are routed to stations at creation time — never re-routed later.
+model Station {
+  id           String   @id @default(uuid())
+  restaurantId String
+  name         String
+  isDefault    Boolean  @default(false) // fallback for unmapped categories
+  isActive     Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categories StationCategory[]
+  devices    Device[]
+
+  @@unique([restaurantId, name])
+  @@index([restaurantId])
+  @@map("stations")
+}
+
+/// Menu category -> station mapping. Drives ticket routing.
+model StationCategory {
+  id         String   @id @default(uuid())
+  stationId  String
+  categoryId String
+  createdAt  DateTime @default(now())
+
+  station  Station      @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  category MenuCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([stationId, categoryId])
+  @@index([categoryId])
+  @@map("station_categories")
+}
+
+/// A provisioned phone. Identity is separate from the staff session (D5).
+model Device {
+  id           String    @id @default(uuid())
+  restaurantId String
+  stationId    String
+  name         String
+  platform     String    @default("android")
+  appVersion   String?
+  deviceModel  String?
+  secretHash   String // bcrypt hash of the one-time device secret
+  tokenVersion Int       @default(1) // bump to invalidate issued device tokens
+  isActive     Boolean   @default(true)
+  lastSeenAt   DateTime?
+  lastPrintAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  station    Station    @relation(fields: [stationId], references: [id], onDelete: Restrict)
+
+  @@index([restaurantId])
+  @@index([stationId])
+  @@map("devices")
 }
