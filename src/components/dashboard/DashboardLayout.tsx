@@ -30,6 +30,7 @@ import {
   CreditCard,
   Lock,
   Receipt,
+  Server,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -173,6 +174,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'analytics:read',
     },
     {
+      name: 'Stations',
+      href: '/dashboard/stations',
+      icon: Server,
+      current: pathname.startsWith('/dashboard/stations'),
+      permission: 'restaurant:settings',
+    },
+    {
       name: 'Settings',
       href: '/dashboard/settings',
       icon: Settings,
@@ -192,6 +200,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/expenses')) return Receipt;
     if (pathname.includes('/profit-loss')) return TrendingUp;
     if (pathname.includes('/reports')) return BarChart3;
+    if (pathname.includes('/stations')) return Server;
     if (pathname.includes('/settings')) return Settings;
     return Home;
   };
@@ -207,6 +216,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/expenses')) return 'Expenses';
     if (pathname.includes('/profit-loss')) return 'Profit & Loss';
     if (pathname.includes('/reports')) return 'Reports';
+    if (pathname.includes('/stations')) return 'Stations & Devices';
     if (pathname.includes('/settings')) return 'Settings';
     return 'Dashboard';
   };
