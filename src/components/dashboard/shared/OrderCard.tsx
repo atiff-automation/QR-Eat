@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { OrderActionsMenu } from './OrderActionsMenu';
+import { useAuthUser } from '@/lib/hooks/queries/useAuth';
 import {
   getNextOrderAction,
   getOrderSummary,
@@ -25,6 +26,7 @@ export interface OrderSummary {
   taxAmount: number;
   serviceCharge: number;
   createdAt: string;
+  readyAt?: string;
   estimatedReadyTime?: string;
   version: number; // For optimistic locking
   hasModifications?: boolean; // Modification indicator
@@ -114,6 +116,35 @@ export function OrderCard({
     totalQty > 0 &&
     order.items.some((item) => Boolean(item.status)) &&
     ['CONFIRMED', 'PREPARING', 'READY'].includes(order.status);
+
+  const isReady = order.status === 'READY';
+  const readyMinutes = Math.max(
+    0,
+    Math.floor(
+      (Date.now() - new Date(order.readyAt || order.createdAt).getTime()) /
+        60000
+    )
+  );
+
+  const { data: authData } = useAuthUser();
+  const userType = authData?.currentRole?.userType;
+  const roleTemplate = authData?.currentRole?.roleTemplate;
+  const isOwnerManager =
+    userType === 'restaurant_owner' ||
+    userType === 'platform_admin' ||
+    (userType === 'staff' && roleTemplate === 'manager');
+  const isKitchen = userType === 'staff' && roleTemplate === 'kitchen';
+  const isWaiter = userType === 'staff' && roleTemplate === 'waiter';
+
+  const canPerformNextAction =
+    nextAction?.nextStatus === 'CONFIRMED'
+      ? isOwnerManager
+      : nextAction?.nextStatus === 'SERVED'
+        ? isOwnerManager || isWaiter
+        : nextAction?.nextStatus === 'READY' ||
+            nextAction?.nextStatus === 'PREPARING'
+          ? isOwnerManager || isKitchen
+          : false;
 
   const handleActionClick = async () => {
     if (!nextAction || isProcessing || isUpdating) return;
@@ -211,6 +242,21 @@ export function OrderCard({
           </div>
         )}
 
+        {isReady && (
+          <div
+            className={`text-xs font-medium ${
+              readyMinutes >= 10
+                ? 'text-red-600 font-bold'
+                : readyMinutes >= 5
+                  ? 'text-orange-600'
+                  : 'text-green-600'
+            }`}
+          >
+            Ready for {readyMinutes < 1 ? '<1' : readyMinutes} min — serve it or
+            release the table
+          </div>
+        )}
+
         {/* Customer Type + Age/Time + Price */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-600">
@@ -227,7 +273,7 @@ export function OrderCard({
       </div>
 
       {/* Action Button - Modern Design */}
-      {nextAction && (
+      {nextAction && canPerformNextAction && (
         <button
           onClick={handleActionClick}
           disabled={isProcessing || isUpdating}
@@ -269,10 +315,10 @@ export function OrderCard({
         </button>
       )}
 
-      {/* No Action Available (Served/Cancelled) */}
-      {!nextAction && (
+      {/* No Action Available (Served/Cancelled or role not allowed) */}
+      {(!nextAction || !canPerformNextAction) && (
         <div className="text-center py-2 text-sm text-gray-500">
-          No actions available
+          {nextAction ? 'Waiting for the right role' : 'No actions available'}
         </div>
       )}
     </div>

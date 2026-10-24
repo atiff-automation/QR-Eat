@@ -10,6 +10,7 @@ import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { debug } from '@/lib/debug';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
+import { useAuthUser } from '@/lib/hooks/queries/useAuth';
 import { ORDER_STATUS } from '@/lib/order-utils';
 
 // Constants
@@ -44,7 +45,15 @@ export function OrdersOverview() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
+  const [bulkConfirming, setBulkConfirming] = useState(false);
   const currency = useCurrency(); // Get currency from context
+  const { data: authData } = useAuthUser();
+  const userType = authData?.currentRole?.userType;
+  const roleTemplate = authData?.currentRole?.roleTemplate;
+  const canConfirmOrders =
+    userType === 'restaurant_owner' ||
+    userType === 'platform_admin' ||
+    (userType === 'staff' && roleTemplate === 'manager');
 
   // Modal states
   const [viewDetailsOrderId, setViewDetailsOrderId] = useState<string | null>(
@@ -261,6 +270,76 @@ export function OrdersOverview() {
     });
   }, [filteredOrders]);
 
+  const pendingOrders = useMemo(
+    () => sortedOrders.filter((order) => order.status === ORDER_STATUS.PENDING),
+    [sortedOrders]
+  );
+  const inProgressOrders = useMemo(
+    () =>
+      sortedOrders.filter((order) =>
+        (
+          [
+            ORDER_STATUS.CONFIRMED,
+            ORDER_STATUS.PREPARING,
+            ORDER_STATUS.READY,
+          ] as string[]
+        ).includes(order.status)
+      ),
+    [sortedOrders]
+  );
+  const historyOrders = useMemo(
+    () =>
+      sortedOrders.filter((order) =>
+        ([ORDER_STATUS.SERVED, ORDER_STATUS.CANCELLED] as string[]).includes(
+          order.status
+        )
+      ),
+    [sortedOrders]
+  );
+
+  useEffect(() => {
+    document.title =
+      pendingOrders.length > 0
+        ? `(${pendingOrders.length}) Pending — Tabtep`
+        : 'Tabtep - QR Ordering, POS & KDS';
+  }, [pendingOrders.length]);
+
+  const confirmAllPending = async () => {
+    if (!canConfirmOrders || pendingOrders.length === 0 || bulkConfirming) {
+      return;
+    }
+
+    if (
+      !window.confirm(
+        `Confirm ${pendingOrders.length} pending order(s)? This will print ` +
+          `kitchen tickets.`
+      )
+    ) {
+      return;
+    }
+
+    setBulkConfirming(true);
+    setError('');
+
+    const results = await Promise.allSettled(
+      pendingOrders.map((order) =>
+        ApiClient.patch(`/orders/${order.id}/status`, {
+          status: ORDER_STATUS.CONFIRMED,
+        })
+      )
+    );
+
+    const failed = results.filter((result) => result.status === 'rejected');
+    if (failed.length > 0) {
+      setError(
+        `${failed.length} order(s) could not be confirmed. Check the list.`
+      );
+    }
+
+    await Promise.all([fetchOrders(), fetchStats()]);
+    setBulkConfirming(false);
+  };
+
   if (loading) {
     return (
       <div className="space-y-3">
@@ -419,37 +498,108 @@ export function OrdersOverview() {
         </div>
       )}
 
-      {sortedOrders.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-          {sortedOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={order}
-              onStatusUpdate={updateOrderStatus}
-              onViewDetails={handleViewDetails}
-              onModify={handleModify}
-              onCancel={handleCancel}
-              currency={currency}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
-          <div className="text-center">
-            <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-              <Filter className="h-6 w-6 text-gray-400" />
+      {pendingOrders.length > 0 && (
+        <section className="rounded-xl border border-orange-200 bg-orange-50/70 p-3 space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-bold text-orange-900">
+                Pending confirmation · {pendingOrders.length}
+              </h2>
+              <p className="text-xs text-orange-700">
+                These orders are not in the kitchen yet. Confirm to print and
+                start the ticket.
+              </p>
             </div>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">
-              No orders found
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {timeFilter === 'today'
-                ? 'No orders for today match your filter.'
-                : 'No orders found in history.'}
-            </p>
+            {canConfirmOrders && (
+              <button
+                onClick={confirmAllPending}
+                disabled={bulkConfirming}
+                className="flex-shrink-0 rounded-lg bg-orange-600 px-3 py-2 text-xs font-bold text-white hover:bg-orange-700 disabled:opacity-50"
+              >
+                {bulkConfirming
+                  ? 'Confirming…'
+                  : `Confirm all (${pendingOrders.length})`}
+              </button>
+            )}
           </div>
-        </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
+            {pendingOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onStatusUpdate={updateOrderStatus}
+                onViewDetails={handleViewDetails}
+                onModify={handleModify}
+                onCancel={handleCancel}
+                currency={currency}
+              />
+            ))}
+          </div>
+        </section>
       )}
+
+      {inProgressOrders.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-gray-500">
+            In progress · {inProgressOrders.length}
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+            {inProgressOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onStatusUpdate={updateOrderStatus}
+                onViewDetails={handleViewDetails}
+                onModify={handleModify}
+                onCancel={handleCancel}
+                currency={currency}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {historyOrders.length > 0 && (
+        <section className="space-y-2">
+          <h2 className="px-1 text-xs font-bold uppercase tracking-wide text-gray-500">
+            History · {historyOrders.length}
+          </h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+            {historyOrders.map((order) => (
+              <OrderCard
+                key={order.id}
+                order={order}
+                onStatusUpdate={updateOrderStatus}
+                onViewDetails={handleViewDetails}
+                onModify={handleModify}
+                onCancel={handleCancel}
+                currency={currency}
+              />
+            ))}
+          </div>
+        </section>
+      )}
+
+      {pendingOrders.length === 0 &&
+        inProgressOrders.length === 0 &&
+        historyOrders.length === 0 && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+            <div className="text-center">
+              <div className="mx-auto h-12 w-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
+                <Filter className="h-6 w-6 text-gray-400" />
+              </div>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                No orders found
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {timeFilter === 'today'
+                  ? 'No orders for today match your filter.'
+                  : 'No orders found in history.'}
+              </p>
+            </div>
+          </div>
+        )}
       {/* Modals */}
       {viewDetailsOrderId && (
         <ViewOrderDetailsModal

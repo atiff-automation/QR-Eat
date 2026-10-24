@@ -75,20 +75,42 @@ export async function PATCH(
       (user.userType === 'staff' &&
         user.currentRole?.roleTemplate === 'manager');
 
-    const canUpdateKitchenStatus =
-      user.permissions.includes('orders:write') ||
-      user.permissions.includes('orders:kitchen') ||
-      user.permissions.includes('orders:fulfill');
+    const roleTemplate = user.currentRole?.roleTemplate;
+    const isKitchen = user.userType === 'staff' && roleTemplate === 'kitchen';
+    const isWaiter = user.userType === 'staff' && roleTemplate === 'waiter';
 
-    // D41: confirmation is a manager/owner gate. Other status changes can be
-    // performed by kitchen/floor roles. `orders:read` alone is not enough.
+    // D42: kitchen starts/readies; waiter/runner serves; manager/owner can do
+    // both. The kitchen must not mark an order SERVED.
+    const canServe =
+      isOwnerOrManager ||
+      isWaiter ||
+      user.permissions.includes('orders:fulfill');
+    const canKitchenAct =
+      isOwnerOrManager ||
+      isKitchen ||
+      user.permissions.includes('orders:kitchen') ||
+      user.permissions.includes('kitchen:write');
+
     if (user.userType === 'platform_admin') {
       hasPermission = true;
     } else if (restaurantId && currentOrder.restaurantId === restaurantId) {
-      hasPermission =
-        status === ORDER_STATUS.CONFIRMED
-          ? isOwnerOrManager
-          : canUpdateKitchenStatus;
+      switch (status) {
+        case ORDER_STATUS.CONFIRMED:
+          hasPermission = isOwnerOrManager;
+          break;
+        case ORDER_STATUS.PREPARING:
+        case ORDER_STATUS.READY:
+          hasPermission = canKitchenAct;
+          break;
+        case ORDER_STATUS.SERVED:
+          hasPermission = canServe;
+          break;
+        case ORDER_STATUS.CANCELLED:
+          hasPermission = isOwnerOrManager;
+          break;
+        default:
+          hasPermission = false;
+      }
     }
 
     if (!hasPermission) {
