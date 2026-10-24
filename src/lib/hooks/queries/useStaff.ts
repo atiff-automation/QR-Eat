@@ -25,6 +25,7 @@ export interface StaffMember {
     description: string;
     permissions: Record<string, string[]>;
   };
+  hasPin?: boolean;
   _count?: {
     orders: number;
   };
@@ -239,6 +240,25 @@ export function useResetStaffPassword() {
         staffEmail: string;
         staffName: string;
       }>(`/owner/staff/${id}/reset-password`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });
+    },
+  });
+}
+
+/**
+ * Set or reset a staff member's station PIN.
+ */
+export function useSetStaffPin() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, pin }: { id: string; pin: string }) => {
+      return ApiClient.post<{ success: boolean; hasPin: boolean }>(
+        `/admin/staff/${id}/pin`,
+        { pin }
+      );
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.staff.all });

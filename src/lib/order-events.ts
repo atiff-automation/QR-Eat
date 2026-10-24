@@ -59,6 +59,13 @@ export interface OrderItemStatusPayload {
   from: string;
   to: string;
   version: number;
+  staffId?: string;
+  staffName?: string;
+}
+
+export interface ItemStatusActor {
+  staffId?: string;
+  staffName?: string;
 }
 
 interface Routing {
@@ -376,7 +383,8 @@ export async function recordOrderItemStatusChanged(
   orderId: string,
   itemId: string,
   from: string,
-  to: string
+  to: string,
+  actor?: ItemStatusActor
 ): Promise<number> {
   const item = await prisma.orderItem.findUnique({
     where: { id: itemId },
@@ -416,6 +424,9 @@ export async function recordOrderItemStatusChanged(
     from,
     to,
     version: item.order.version,
+    ...(actor?.staffId
+      ? { staffId: actor.staffId, staffName: actor.staffName }
+      : {}),
   };
 
   await prisma.orderEvent.createMany({

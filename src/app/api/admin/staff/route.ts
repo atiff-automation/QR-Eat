@@ -37,7 +37,17 @@ export async function GET(request: NextRequest) {
 
     const staff = await prisma.staff.findMany({
       where: { restaurantId },
-      include: {
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        status: true,
+        lastLoginAt: true,
+        createdAt: true,
+        pinHash: true,
         role: true,
         _count: {
           select: { orders: true },
@@ -48,7 +58,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      staff,
+      staff: staff.map(({ pinHash, ...member }) => ({
+        ...member,
+        hasPin: Boolean(pinHash),
+      })),
     });
   } catch (error) {
     console.error('Failed to fetch staff:', error);

@@ -115,7 +115,12 @@ export async function PATCH(
         orderItem.order.id,
         itemId,
         currentItem.status,
-        status
+        status,
+        {
+          staffId: authResult.user.id,
+          staffName:
+            `${authResult.user.firstName} ${authResult.user.lastName}`.trim(),
+        }
       );
     } catch (eventError) {
       console.error(

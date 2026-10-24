@@ -557,6 +557,7 @@ model Staff {
   permissions            Json        @default("{}") // Additional custom permissions
   preferences            Json        @default("{}") // User preferences (e.g. KDS station filters)
   pinHash                String? // bcrypt-hashed PIN for station unlock
+  pinLookup              String? // keyed fingerprint for uniqueness/lookup
   emailVerified          Boolean     @default(false)
   emailVerificationToken String?
   passwordResetToken     String?
@@ -579,6 +580,7 @@ model Staff {
   @@index([roleId])
   @@index([email])
   @@index([status])
+  @@unique([restaurantId, pinLookup])
   @@map("staff")
 }
 

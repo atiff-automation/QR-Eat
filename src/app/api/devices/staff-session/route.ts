@@ -10,10 +10,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import * as bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { authenticateDevice, signStaffSession } from '@/lib/device-auth';
+import { pinLookup, verifyStaffPin } from '@/lib/pin';
 
 const StaffSessionSchema = z.object({
   pin: z.string().regex(/^\d{4,8}$/, 'PIN must be 4 to 8 digits'),
@@ -58,26 +58,22 @@ export async function POST(request: NextRequest) {
     }
 
     const { pin } = parsed.data;
+    const lookup = pinLookup(restaurant.id, pin);
 
-    const candidates = await prisma.staff.findMany({
+    const matched = await prisma.staff.findFirst({
       where: {
         restaurantId: restaurant.id,
         isActive: true,
         pinHash: { not: null },
+        pinLookup: lookup,
       },
       include: { role: { select: { id: true, name: true } } },
     });
 
-    let matched: (typeof candidates)[number] | null = null;
-    for (const staff of candidates) {
-      // pinHash is non-null by the query, but keep the type honest.
-      if (staff.pinHash && (await bcrypt.compare(pin, staff.pinHash))) {
-        matched = staff;
-        break;
-      }
-    }
+    const pinValid =
+      matched?.pinHash != null && (await verifyStaffPin(pin, matched.pinHash));
 
-    if (!matched) {
+    if (!pinValid || !matched) {
       const attempts = device.failedPinAttempts + 1;
       const lockMinutes =
         attempts <= FREE_ATTEMPTS

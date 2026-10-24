@@ -13,6 +13,7 @@ import {
   Search,
   RefreshCw,
   Trash2,
+  KeyRound,
 } from 'lucide-react';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
 import {
@@ -23,6 +24,7 @@ import {
   useDeleteStaff,
   useToggleStaffStatus,
   useResetStaffPassword,
+  useSetStaffPin,
   type StaffMember,
   type StaffFormData,
 } from '@/lib/hooks/queries/useStaff';
@@ -87,12 +89,19 @@ function StaffPageContent() {
     useState<StaffMember | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
 
+  // Station PIN state
+  const [pinStaff, setPinStaff] = useState<StaffMember | null>(null);
+  const [pinValue, setPinValue] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [pinSaving, setPinSaving] = useState(false);
+
   // Mutations
   const createStaffMutation = useCreateStaff();
   const updateStaffMutation = useUpdateStaff();
   const deleteStaffMutation = useDeleteStaff();
   const toggleStatusMutation = useToggleStaffStatus();
   const resetPasswordMutation = useResetStaffPassword();
+  const setStaffPinMutation = useSetStaffPin();
 
   // No manual useEffect needed - TanStack Query handles fetching
 
@@ -325,6 +334,36 @@ function StaffPageContent() {
     }
   };
 
+  const handleSetPin = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!pinStaff) return;
+
+    setPinError('');
+    if (!/^\d{6}$/.test(pinValue)) {
+      setPinError('Enter exactly 6 digits');
+      return;
+    }
+
+    setPinSaving(true);
+    try {
+      await setStaffPinMutation.mutateAsync({ id: pinStaff.id, pin: pinValue });
+      setSuccess(
+        `Station PIN updated for ${pinStaff.firstName} ${pinStaff.lastName}`
+      );
+      setPinStaff(null);
+      setPinValue('');
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      setPinError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Failed to set the station PIN'
+      );
+    } finally {
+      setPinSaving(false);
+    }
+  };
+
   const getDeleteBlockReason = (member: StaffMember) => {
     if (member.id === user?.id) {
       return 'You cannot delete your own account.';
@@ -463,6 +502,15 @@ function StaffPageContent() {
                     <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
                       {member.role.name}
                     </span>
+                    <span
+                      className={`text-[10px] font-semibold px-2 py-0.5 rounded-md ${
+                        member.hasPin
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : 'bg-amber-50 text-amber-700'
+                      }`}
+                    >
+                      {member.hasPin ? 'PIN set' : 'No PIN'}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -499,6 +547,20 @@ function StaffPageContent() {
                   className="text-gray-400 hover:text-gray-600 p-1"
                 >
                   <Pencil className="h-4 w-4" />
+                </button>
+
+                {/* Station PIN */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPinStaff(member);
+                    setPinValue('');
+                    setPinError('');
+                  }}
+                  className="text-gray-400 hover:text-blue-600 p-1"
+                  title="Set station PIN"
+                >
+                  <KeyRound className="h-4 w-4" />
                 </button>
 
                 {/* Delete Icon */}
@@ -894,6 +956,63 @@ function StaffPageContent() {
               </form>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Station PIN Modal */}
+      {pinStaff && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <form
+            onSubmit={handleSetPin}
+            className="bg-white rounded-2xl w-full max-w-sm shadow-xl overflow-hidden"
+          >
+            <div className="px-5 py-4 border-b border-gray-100 bg-gray-50">
+              <h3 className="font-bold text-gray-900">Set station PIN</h3>
+              <p className="text-xs text-gray-500 mt-1">
+                {pinStaff.firstName} {pinStaff.lastName}
+              </p>
+            </div>
+            <div className="p-5 space-y-3">
+              <label className="block text-xs font-semibold uppercase text-gray-500">
+                6-digit PIN
+              </label>
+              <input
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]{6}"
+                maxLength={6}
+                value={pinValue}
+                onChange={(e) =>
+                  setPinValue(e.target.value.replace(/\D/g, '').slice(0, 6))
+                }
+                className="w-full p-3 text-center text-2xl tracking-[0.4em] bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium text-gray-900"
+                placeholder="••••••"
+              />
+              <p className="text-xs text-gray-500">
+                Six digits, unique in this restaurant. Common or sequential PINs
+                are rejected. The PIN is hashed and never shown again.
+              </p>
+              {pinError && (
+                <p className="text-xs font-medium text-red-600">{pinError}</p>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-gray-100 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setPinStaff(null)}
+                className="flex-1 py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={pinSaving || pinValue.length !== 6}
+                className="flex-1 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium rounded-lg"
+              >
+                {pinSaving ? 'Saving…' : 'Save PIN'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
