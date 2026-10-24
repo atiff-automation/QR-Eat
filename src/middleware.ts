@@ -389,6 +389,8 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/devices/staff-session',
     '/api/events/station',
     '/api/stations/me/snapshot',
+    '/api/stations/me/heartbeat',
+    '/api/stations/me/print-ack',
     // Scheduled jobs authenticate with CRON_SECRET, not a staff session.
     '/api/cron/',
     // NOTE: /api/events/ is NOT here - it requires auth via query param token
