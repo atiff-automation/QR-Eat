@@ -127,8 +127,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (categoryIds?.length) {
+        const uniqueCategoryIds = [...new Set(categoryIds)];
+        // A category routes to exactly one station. Reassign it atomically
+        // instead of allowing ambiguous duplicate mappings.
+        await tx.stationCategory.deleteMany({
+          where: { categoryId: { in: uniqueCategoryIds } },
+        });
         await tx.stationCategory.createMany({
-          data: [...new Set(categoryIds)].map((categoryId) => ({
+          data: uniqueCategoryIds.map((categoryId) => ({
             stationId: created.id,
             categoryId,
           })),

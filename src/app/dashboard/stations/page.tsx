@@ -447,6 +447,10 @@ export default function StationsPage() {
                         selected={editCategories}
                         onToggle={(id) => toggleSet(setEditCategories, id)}
                       />
+                      <p className="text-xs text-gray-500">
+                        One category routes to one station. Selecting it here
+                        moves it from any other station.
+                      </p>
                       <div className="flex justify-end gap-2">
                         <button
                           onClick={() => setEditingStationId(null)}
@@ -502,6 +506,10 @@ export default function StationsPage() {
                   selected={newStationCategories}
                   onToggle={(id) => toggleSet(setNewStationCategories, id)}
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  One category routes to one station. Selecting it here moves it
+                  from any other station.
+                </p>
               </div>
               <button
                 onClick={() => void createStation()}

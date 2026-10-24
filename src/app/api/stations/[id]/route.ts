@@ -197,10 +197,19 @@ export async function PATCH(
       }
 
       if (categoryIds !== undefined) {
+        const uniqueCategoryIds = [...new Set(categoryIds)];
         await tx.stationCategory.deleteMany({ where: { stationId: id } });
-        if (categoryIds.length > 0) {
+        if (uniqueCategoryIds.length > 0) {
+          // A category routes to exactly one station. Move it here from any
+          // other station rather than leaving an ambiguous duplicate.
+          await tx.stationCategory.deleteMany({
+            where: {
+              categoryId: { in: uniqueCategoryIds },
+              stationId: { not: id },
+            },
+          });
           await tx.stationCategory.createMany({
-            data: [...new Set(categoryIds)].map((categoryId) => ({
+            data: uniqueCategoryIds.map((categoryId) => ({
               stationId: id,
               categoryId,
             })),
