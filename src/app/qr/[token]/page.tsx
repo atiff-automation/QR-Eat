@@ -15,6 +15,7 @@ import { SearchBar } from '@/components/menu/SearchBar';
 import { Button } from '@/components/ui/Button';
 import { AlertTriangle } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
+import { getClientSubdomainAuthContext } from '@/lib/subdomain-auth';
 import {
   canTableAcceptOrders,
   getTableUnavailableMessage,
@@ -73,29 +74,27 @@ export default function QRMenuPage() {
       );
 
       // ✅ PRODUCTION: Validate subdomain matches (security check)
+      // An IP address, localhost, the main domain (tabtep.app), www, or a
+      // platform host is not a tenant subdomain. Only a real tenant
+      // subdomain should be compared against the restaurant slug.
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
         const isIpAddress =
           /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname) || hostname.includes(':');
-        const subdomain = hostname.split('.')[0];
+        const authContext = getClientSubdomainAuthContext();
 
-        // Only validate if we're on a real subdomain. An IP address (LAN
-        // testing, a server accessed directly) is not a tenant subdomain:
-        // splitting "192.168.0.7" would produce "192" and reject every QR.
         if (
           !isIpAddress &&
-          subdomain &&
-          subdomain !== 'localhost' &&
-          subdomain !== hostname
+          authContext.isSubdomain &&
+          authContext.restaurantSlug &&
+          tableResponse.table.restaurant.slug !== authContext.restaurantSlug
         ) {
-          if (tableResponse.table.restaurant.slug !== subdomain) {
-            console.error(
-              `[QR] Security: Token belongs to ${tableResponse.table.restaurant.slug}, accessed via ${subdomain}`
-            );
-            setError('Invalid QR code for this location');
-            setLoading(false);
-            return;
-          }
+          console.error(
+            `[QR] Security: Token belongs to ${tableResponse.table.restaurant.slug}, accessed via ${authContext.restaurantSlug}`
+          );
+          setError('Invalid QR code for this location');
+          setLoading(false);
+          return;
         }
       }
 
