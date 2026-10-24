@@ -98,6 +98,11 @@ export default function OwnerDashboardPage() {
     );
   }
 
+  const unconfiguredRestaurants = restaurants.filter(
+    (restaurant) =>
+      restaurant.isActive && (restaurant.activeStationCount ?? 0) === 0
+  );
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="bg-white shadow">
@@ -120,6 +125,21 @@ export default function OwnerDashboardPage() {
           </div>
         </div>
       </div>
+
+      {unconfiguredRestaurants.length > 0 && (
+        <div className="mx-4 sm:mx-6 lg:mx-8 mt-4 rounded-lg border border-red-200 bg-red-50 p-4">
+          <p className="text-sm font-semibold text-red-800">
+            No kitchen station configured
+          </p>
+          <p className="mt-1 text-sm text-red-700">
+            {unconfiguredRestaurants
+              .map((restaurant) => restaurant.name)
+              .join(', ')}{' '}
+            will accept orders but no kitchen ticket can be printed. Add an
+            active station before service starts.
+          </p>
+        </div>
+      )}
 
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -233,6 +253,12 @@ export default function OwnerDashboardPage() {
                             >
                               {restaurant.isActive ? 'Active' : 'Inactive'}
                             </span>
+                            {restaurant.isActive &&
+                              (restaurant.activeStationCount ?? 0) === 0 && (
+                                <span className="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                  No station
+                                </span>
+                              )}
                           </div>
                           <div className="flex items-center text-sm text-gray-500">
                             <p>{restaurant.address}</p>

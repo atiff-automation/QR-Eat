@@ -14,6 +14,8 @@ import type { Prisma } from '@prisma/client';
 
 export const ORDER_EVENT_TYPES = {
   CREATED: 'order.created',
+  ITEMS_ADDED: 'order.items.added',
+  ITEM_STATUS_CHANGED: 'order.item.status.changed',
   STATUS_CHANGED: 'order.status.changed',
   CANCELLED: 'order.cancelled',
 } as const;
@@ -39,6 +41,21 @@ export interface OrderCreatedPayload {
 export interface OrderStatusPayload {
   orderNumber: string;
   tableName: string;
+  from: string;
+  to: string;
+  version: number;
+}
+
+export interface OrderItemsAddedPayload extends OrderCreatedPayload {
+  /** The new lines only. A station prints this as an add-on ticket. */
+  addedItemIds: string[];
+}
+
+export interface OrderItemStatusPayload {
+  orderNumber: string;
+  tableName: string;
+  itemId: string;
+  itemName: string;
   from: string;
   to: string;
   version: number;
@@ -255,6 +272,177 @@ export async function recordOrderStatusChanged(
   });
 
   return stationIds.length;
+}
+
+/**
+ * Writes `order.items.added` events for a round added to an existing order.
+ *
+ * Only the new lines are embedded, so a station prints an add-on ticket rather
+ * than reprinting the whole order. The caller must call this once per accepted
+ * add-items mutation; the event log is append-only and has no natural
+ * idempotency key of its own.
+ */
+export async function recordOrderItemsAdded(
+  orderId: string,
+  itemIds: string[]
+): Promise<number> {
+  if (itemIds.length === 0) return 0;
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: {
+      table: { select: { tableNumber: true, tableName: true } },
+      items: {
+        where: { id: { in: itemIds } },
+        include: {
+          menuItem: { select: { name: true, categoryId: true } },
+          selectedOptions: { select: { name: true } },
+        },
+      },
+    },
+  });
+
+  if (!order) {
+    throw new Error(`Order ${orderId} not found`);
+  }
+
+  const routing = await resolveRouting(order.restaurantId);
+  if (!routing.defaultStationId && routing.byCategory.size === 0) {
+    console.error(
+      `[order-events] no active station or category mapping for restaurant ${order.restaurantId}; added items on order ${order.orderNumber} were not routed`
+    );
+    return 0;
+  }
+
+  const grouped = new Map<
+    string,
+    { items: StationOrderItem[]; subtotal: number; fallback: boolean }
+  >();
+
+  for (const item of order.items) {
+    const mapped = routing.byCategory.get(item.menuItem.categoryId);
+    const stationId = mapped ?? routing.defaultStationId;
+    if (!stationId) continue;
+
+    const entry = grouped.get(stationId) ?? {
+      items: [],
+      subtotal: 0,
+      fallback: false,
+    };
+    entry.items.push({
+      itemId: item.id,
+      name: item.menuItem.name,
+      qty: item.quantity,
+      modifiers: item.selectedOptions.map((option) => option.name),
+      notes: item.specialInstructions,
+    });
+    entry.subtotal += Number(item.totalAmount);
+    entry.fallback = entry.fallback || mapped === undefined;
+    grouped.set(stationId, entry);
+  }
+
+  if (grouped.size === 0) return 0;
+
+  await prisma.orderEvent.createMany({
+    data: [...grouped.entries()].map(([stationId, entry]) => {
+      const payload: OrderItemsAddedPayload = {
+        orderNumber: order.orderNumber,
+        tableName: tableName(order.table),
+        orderNote: order.specialInstructions,
+        items: entry.items,
+        stationSubtotal: entry.subtotal.toFixed(2),
+        fallback: entry.fallback,
+        addedItemIds: entry.items.map((item) => item.itemId),
+      };
+      return {
+        restaurantId: order.restaurantId,
+        stationId,
+        orderId: order.id,
+        type: ORDER_EVENT_TYPES.ITEMS_ADDED,
+        payload: payload as unknown as Prisma.InputJsonValue,
+      };
+    }),
+  });
+
+  return grouped.size;
+}
+
+/**
+ * Writes `order.item.status.changed` to every station that received the order.
+ * Item-level progress is what a kitchen display uses to tick a line off; it is
+ * not a new ticket, so no station reprints.
+ */
+export async function recordOrderItemStatusChanged(
+  orderId: string,
+  itemId: string,
+  from: string,
+  to: string
+): Promise<number> {
+  const item = await prisma.orderItem.findUnique({
+    where: { id: itemId },
+    include: {
+      menuItem: { select: { name: true } },
+      order: {
+        include: {
+          table: { select: { tableNumber: true, tableName: true } },
+        },
+      },
+    },
+  });
+
+  if (!item || item.orderId !== orderId) {
+    throw new Error(`Order item ${itemId} not found on order ${orderId}`);
+  }
+
+  const stationRows = await prisma.orderEvent.findMany({
+    where: { orderId },
+    distinct: ['stationId'],
+    select: { stationId: true },
+  });
+
+  let stationIds = stationRows.map((row) => row.stationId);
+  if (stationIds.length === 0) {
+    const routing = await resolveRouting(item.order.restaurantId);
+    stationIds = routing.defaultStationId ? [routing.defaultStationId] : [];
+  }
+
+  if (stationIds.length === 0) return 0;
+
+  const payload: OrderItemStatusPayload = {
+    orderNumber: item.order.orderNumber,
+    tableName: tableName(item.order.table),
+    itemId: item.id,
+    itemName: item.menuItem.name,
+    from,
+    to,
+    version: item.order.version,
+  };
+
+  await prisma.orderEvent.createMany({
+    data: stationIds.map((stationId) => ({
+      restaurantId: item.order.restaurantId,
+      stationId,
+      orderId,
+      type: ORDER_EVENT_TYPES.ITEM_STATUS_CHANGED,
+      payload: payload as unknown as Prisma.InputJsonValue,
+    })),
+  });
+
+  return stationIds.length;
+}
+
+/**
+ * Deletes events older than the replay window. Run this on a schedule; the
+ * stream itself only refuses an expired cursor (410) and never deletes.
+ */
+export async function cleanupOrderEvents(
+  retentionDays: number = 7
+): Promise<number> {
+  const cutoff = new Date(Date.now() - retentionDays * 86_400_000);
+  const result = await prisma.orderEvent.deleteMany({
+    where: { createdAt: { lt: cutoff } },
+  });
+  return result.count;
 }
 
 /**

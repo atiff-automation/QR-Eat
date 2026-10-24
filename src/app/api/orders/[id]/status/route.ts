@@ -117,9 +117,13 @@ export async function PATCH(
       servedAt?: Date;
       servedBy?: string;
       estimatedReadyTime?: Date;
+      version?: { increment: number };
     } = {
       status: status as OrderStatus,
       updatedAt: new Date(),
+      // Status is a state change like any other: bump the optimistic-lock
+      // version so a stale POS/kitchen client cannot overwrite it.
+      version: { increment: 1 },
     };
 
     // Set timestamps based on status changes

@@ -3,6 +3,10 @@ import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { getTokenFromRequest } from '@/lib/auth-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import {
+  recordOrderItemStatusChanged,
+  recordOrderStatusChanged,
+} from '@/lib/order-events';
 
 export async function PATCH(
   request: NextRequest,
@@ -74,6 +78,17 @@ export async function PATCH(
       );
     }
 
+    // Check ownership before mutating. The old code updated the row first and
+    // rejected afterwards, which let a kitchen user from another restaurant
+    // change the item before the 403.
+    const userRestaurantId = authResult.user.currentRole?.restaurantId;
+    if (
+      !userRestaurantId ||
+      currentItem.order.restaurantId !== userRestaurantId
+    ) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
     // Update the order item status
     const orderItem = await prisma.orderItem.update({
       where: { id: itemId },
@@ -92,13 +107,21 @@ export async function PATCH(
       },
     });
 
-    // Verify the item belongs to the same restaurant
-    const userRestaurantId = authResult.user.currentRole?.restaurantId;
-    if (
-      !userRestaurantId ||
-      orderItem.order.restaurantId !== userRestaurantId
-    ) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    // Station event log: item-level progress for the kitchen display. A
+    // failure here is loud, but it must not reject a status the user already
+    // changed; the snapshot reconciles on the next resync.
+    try {
+      await recordOrderItemStatusChanged(
+        orderItem.order.id,
+        itemId,
+        currentItem.status,
+        status
+      );
+    } catch (eventError) {
+      console.error(
+        `[order-events] FAILED to record item status for ${itemId}:`,
+        eventError
+      );
     }
 
     // Publish PostgreSQL NOTIFY event for item status change
@@ -125,19 +148,37 @@ export async function PATCH(
         allItemsReady &&
         ['CONFIRMED', 'PREPARING'].includes(orderItem.order.status)
       ) {
+        const fromStatus = orderItem.order.status;
+
         await prisma.order.update({
           where: { id: orderItem.order.id },
           data: {
             status: 'READY',
             readyAt: new Date(),
             updatedAt: new Date(),
+            version: { increment: 1 },
           },
         });
+
+        // Station event log: the order-level READY transition is what a
+        // station console shows; item events alone do not move the ticket.
+        try {
+          await recordOrderStatusChanged(
+            orderItem.order.id,
+            fromStatus,
+            'READY'
+          );
+        } catch (eventError) {
+          console.error(
+            `[order-events] FAILED to record READY for ${orderItem.order.id}:`,
+            eventError
+          );
+        }
 
         // Publish order status change event
         await PostgresEventManager.publishOrderStatusChange({
           orderId: orderItem.order.id,
-          oldStatus: 'PREPARING',
+          oldStatus: fromStatus,
           newStatus: 'READY',
           restaurantId: orderItem.order.restaurantId,
           tableId: '', // Not available in this context

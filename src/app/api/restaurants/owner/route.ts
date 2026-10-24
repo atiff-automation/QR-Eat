@@ -1,7 +1,7 @@
 /**
  * Owner Restaurants API
  * RBAC-based authentication for owner dashboard
- * 
+ *
  * Following CLAUDE.md principles:
  * - Type Safety: Proper TypeScript types throughout
  * - Error Handling: Comprehensive error cases
@@ -14,7 +14,7 @@ import {
   validateRBACToken,
   createErrorResponse,
   logAccessDenied,
-  hasRoleType
+  hasRoleType,
 } from '@/lib/rbac/route-helpers';
 import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
 
@@ -33,12 +33,22 @@ export async function GET(request: NextRequest) {
 
     // Only restaurant owners can access this endpoint
     if (!hasRoleType(user, 'restaurant_owner')) {
-      await logAccessDenied(user, 'owner:restaurants', 'Not a restaurant owner', request);
-      return createErrorResponse('Access denied: Only restaurant owners can access this endpoint', 403);
+      await logAccessDenied(
+        user,
+        'owner:restaurants',
+        'Not a restaurant owner',
+        request
+      );
+      return createErrorResponse(
+        'Access denied: Only restaurant owners can access this endpoint',
+        403
+      );
     }
 
-    // Fetch restaurants owned by this user
-    const restaurants = await prisma.restaurant.findMany({
+    // Fetch restaurants owned by this user. Active stations are included so
+    // the owner dashboard can warn before service that orders would be
+    // accepted but never printed.
+    const rows = await prisma.restaurant.findMany({
       where: { ownerId: user.id },
       select: {
         id: true,
@@ -58,17 +68,26 @@ export async function GET(request: NextRequest) {
         deliveryAvailable: true,
         takeoutAvailable: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        stations: {
+          where: { isActive: true },
+          select: { id: true, isDefault: true },
+        },
       },
-      orderBy: { name: 'asc' }
+      orderBy: { name: 'asc' },
     });
+
+    const restaurants = rows.map(({ stations, ...restaurant }) => ({
+      ...restaurant,
+      activeStationCount: stations.length,
+      hasDefaultStation: stations.some((station) => station.isDefault),
+    }));
 
     return NextResponse.json({
       success: true,
       restaurants,
-      count: restaurants.length
+      count: restaurants.length,
     });
-
   } catch (error) {
     console.error('Error fetching owner restaurants:', error);
     return NextResponse.json(
