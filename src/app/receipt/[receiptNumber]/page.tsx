@@ -9,7 +9,7 @@ interface PageProps {
   searchParams: Promise<{ slug?: string }>;
 }
 
-export default async function ReceiptPage({ params }: PageProps) {
+export default async function ReceiptPage({ params, searchParams }: PageProps) {
   const { receiptNumber } = await params;
 
   // ✅ STEP 1: Validate slug exists. Apex-domain/native receipt links pass
