@@ -550,18 +550,20 @@ function StaffPageContent() {
                 </button>
 
                 {/* Station PIN */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setPinStaff(member);
-                    setPinValue('');
-                    setPinError('');
-                  }}
-                  className="text-gray-400 hover:text-blue-600 p-1"
-                  title="Set station PIN"
-                >
-                  <KeyRound className="h-4 w-4" />
-                </button>
+                {canManageStaff && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPinStaff(member);
+                      setPinValue('');
+                      setPinError('');
+                    }}
+                    className="text-gray-400 hover:text-blue-600 p-1"
+                    title="Set station PIN"
+                  >
+                    <KeyRound className="h-4 w-4" />
+                  </button>
+                )}
 
                 {/* Delete Icon */}
                 <button
