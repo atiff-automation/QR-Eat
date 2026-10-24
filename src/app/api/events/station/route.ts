@@ -80,6 +80,7 @@ export async function GET(request: NextRequest) {
       let closed = false;
       let cursor = since;
       let lastPing = Date.now();
+      let lastSeen = Date.now();
       let persisted = Number(device.lastEventId);
 
       const close = () => {
@@ -164,6 +165,19 @@ export async function GET(request: NextRequest) {
           if (Date.now() - lastPing >= PING_MS) {
             if (!send(': ping\n\n')) break;
             lastPing = Date.now();
+          }
+
+          // A long-lived stream is also presence. Keep lastSeenAt fresh so
+          // the Counter/owner health view does not mark an idle-but-connected
+          // station offline.
+          if (Date.now() - lastSeen >= 60_000) {
+            await prisma.device
+              .update({
+                where: { id: device.id },
+                data: { lastSeenAt: new Date() },
+              })
+              .catch(() => undefined);
+            lastSeen = Date.now();
           }
 
           await sleep(POLL_MS);

@@ -30,7 +30,7 @@ export interface TenantContext {
   permissions: Record<string, string[]>;
   isAdmin: boolean;
   restaurantSlug?: string;
-  roleTemplate?: string; // For staff: manager, waiter, kitchen, cashier
+  roleTemplate?: string; // For staff: manager, waiter, kitchen_staff, cashier
 }
 
 export interface RestaurantContext {

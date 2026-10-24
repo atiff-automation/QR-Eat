@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import {
+  getTenantContext,
+  hasPermission as contextHasPermission,
+} from '@/lib/tenant-context';
 import {
   ORDER_STATUS,
   validateOrderTransition,
@@ -10,6 +13,7 @@ import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
   recordOrderCreated,
   recordOrderStatusChanged,
+  type OrderCreatedResult,
 } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
@@ -19,21 +23,10 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
+    // Verify authentication using the signed RBAC token (cookie or Bearer).
+    const context = await getTenantContext(request);
 
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (!authResult.isValid || !authResult.user) {
+    if (!context) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -65,60 +58,59 @@ export async function PATCH(
     }
 
     // Check if user has permission to update this order
-    let hasPermission = false;
-    const user = authResult.user;
-    const restaurantId = user.currentRole?.restaurantId;
+    let canUpdateOrder = false;
+    const restaurantId = context.restaurantId;
 
     const isOwnerOrManager =
-      user.userType === 'restaurant_owner' ||
-      user.userType === 'platform_admin' ||
-      (user.userType === 'staff' &&
-        user.currentRole?.roleTemplate === 'manager');
+      context.userType === 'restaurant_owner' ||
+      context.isAdmin ||
+      (context.userType === 'staff' && context.roleTemplate === 'manager');
 
-    const roleTemplate = user.currentRole?.roleTemplate;
-    const isKitchen = user.userType === 'staff' && roleTemplate === 'kitchen';
-    const isWaiter = user.userType === 'staff' && roleTemplate === 'waiter';
+    const roleTemplate = context.roleTemplate;
+    const isKitchen =
+      context.userType === 'staff' && roleTemplate === 'kitchen_staff';
+    const isWaiter = context.userType === 'staff' && roleTemplate === 'waiter';
 
     // D42: kitchen starts/readies; waiter/runner serves; manager/owner can do
     // both. The kitchen must not mark an order SERVED.
     const canServe =
       isOwnerOrManager ||
       isWaiter ||
-      user.permissions.includes('orders:fulfill');
+      contextHasPermission(context, 'orders', 'fulfill');
     const canKitchenAct =
       isOwnerOrManager ||
       isKitchen ||
-      user.permissions.includes('orders:kitchen') ||
-      user.permissions.includes('kitchen:write');
+      contextHasPermission(context, 'orders', 'kitchen') ||
+      contextHasPermission(context, 'kitchen', 'write');
 
-    if (user.userType === 'platform_admin') {
-      hasPermission = true;
+    if (context.isAdmin) {
+      canUpdateOrder = true;
     } else if (restaurantId && currentOrder.restaurantId === restaurantId) {
       switch (status) {
         case ORDER_STATUS.CONFIRMED:
-          hasPermission = isOwnerOrManager;
+          canUpdateOrder = isOwnerOrManager;
           break;
         case ORDER_STATUS.PREPARING:
         case ORDER_STATUS.READY:
-          hasPermission = canKitchenAct;
+          canUpdateOrder = canKitchenAct;
           break;
         case ORDER_STATUS.SERVED:
-          hasPermission = canServe;
+          canUpdateOrder = canServe;
           break;
         case ORDER_STATUS.CANCELLED:
-          hasPermission = isOwnerOrManager;
+          canUpdateOrder = isOwnerOrManager;
           break;
         default:
-          hasPermission = false;
+          canUpdateOrder = false;
       }
     }
 
-    if (!hasPermission) {
+    if (!canUpdateOrder) {
       console.error('❌ Access denied for order status update:', {
-        userType: user.userType,
+        userType: context.userType,
         userRestaurantId: restaurantId,
         orderRestaurantId: currentOrder.restaurantId,
-        userPermissions: user.permissions,
+        permissions: context.permissions,
       });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -129,6 +121,39 @@ export async function PATCH(
         { error: getInvalidTransitionMessage(currentOrder.status, status) },
         { status: 400 }
       );
+    }
+
+    // D51: do not silently confirm when no kitchen device is connected. A
+    // manager/owner may override with an explicit header; the audit row below
+    // records it.
+    const stationOverride =
+      request.headers.get('x-station-override') === 'true' && isOwnerOrManager;
+    if (
+      status === ORDER_STATUS.CONFIRMED &&
+      currentOrder.status === ORDER_STATUS.PENDING &&
+      !stationOverride
+    ) {
+      const onlineWindow = new Date(Date.now() - 5 * 60 * 1000);
+      const onlineDevice = await prisma.device.findFirst({
+        where: {
+          restaurantId: currentOrder.restaurantId,
+          isActive: true,
+          station: { isActive: true },
+          lastSeenAt: { gte: onlineWindow },
+        },
+        select: { id: true },
+      });
+
+      if (!onlineDevice) {
+        return NextResponse.json(
+          {
+            error:
+              'Kitchen station is offline. Fix the station or use an explicit manager override.',
+            code: 'STATION_OFFLINE',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Prepare update data
@@ -155,7 +180,7 @@ export async function PATCH(
       case ORDER_STATUS.CONFIRMED:
         if (currentOrder.status === ORDER_STATUS.PENDING) {
           updateData.confirmedAt = new Date();
-          updateData.confirmedBy = authResult.user.id;
+          updateData.confirmedBy = context.userId;
         }
         break;
       case ORDER_STATUS.READY:
@@ -166,7 +191,7 @@ export async function PATCH(
       case ORDER_STATUS.SERVED:
         if (currentOrder.status === ORDER_STATUS.READY) {
           updateData.servedAt = new Date();
-          updateData.servedBy = authResult.user.id;
+          updateData.servedBy = context.userId;
         }
         break;
     }
@@ -209,13 +234,18 @@ export async function PATCH(
     // D41: the kitchen ticket is created at confirmation, not at QR
     // submission. recordOrderCreated is idempotent, so a retried confirm or an
     // order that predates this flow cannot print twice.
+    let ticketResult: OrderCreatedResult | null = null;
+    let ticketError: string | null = null;
+
     if (
       status === ORDER_STATUS.CONFIRMED &&
       currentOrder.status === ORDER_STATUS.PENDING
     ) {
       try {
-        await recordOrderCreated(orderId);
+        ticketResult = await recordOrderCreated(orderId);
       } catch (eventError) {
+        ticketError =
+          eventError instanceof Error ? eventError.message : 'Ticket failed';
         console.error(
           `[order-events] FAILED to record kitchen ticket for ${orderId} on CONFIRMED:`,
           eventError
@@ -240,8 +270,8 @@ export async function PATCH(
         recordId: orderId,
         operation: 'UPDATE',
         oldValues: { status: currentOrder.status },
-        newValues: { status },
-        changedBy: authResult.user.id,
+        newValues: { status, ...(stationOverride ? { stationOverride } : {}) },
+        changedBy: context.userId,
         ipAddress:
           request.headers.get('x-forwarded-for') ||
           request.headers.get('x-real-ip') ||
@@ -258,7 +288,7 @@ export async function PATCH(
       tableId: currentOrder.tableId,
       orderNumber: currentOrder.orderNumber,
       timestamp: Date.now(),
-      changedBy: authResult.user.id,
+      changedBy: context.userId,
     });
 
     // Send kitchen notification for status changes
@@ -294,6 +324,16 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       order: updatedOrder,
+      ticket:
+        status === ORDER_STATUS.CONFIRMED
+          ? {
+              routed: (ticketResult?.tickets ?? 0) > 0,
+              stationIds: ticketResult?.stationIds ?? [],
+              unroutedItemIds: ticketResult?.unroutedItemIds ?? [],
+              replayed: ticketResult?.replayed ?? false,
+              error: ticketError,
+            }
+          : undefined,
       message: `Order status updated to ${status}`,
     });
   } catch (error) {

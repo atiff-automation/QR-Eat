@@ -1,40 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
 import { v4 as uuidv4 } from 'uuid';
+
+function authErrorResponse(error: unknown): NextResponse | null {
+  if (!(error instanceof Error)) return null;
+  if (error.message.includes('Authentication required')) {
+    return NextResponse.json(
+      { error: 'Authentication required' },
+      { status: 401 }
+    );
+  }
+  if (error.message.includes('Permission denied')) {
+    return NextResponse.json({ error: error.message }, { status: 403 });
+  }
+  return null;
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'tables', 'read');
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (
-      authResult.user.currentRole &&
-      authResult.user.currentRole.userType === 'staff'
-    ) {
-      const staffRestaurantId = authResult.user.currentRole.restaurantId;
+    if (context!.userType === 'staff') {
+      const staffRestaurantId = context!.restaurantId;
       if (!staffRestaurantId) {
-        return NextResponse.json({ error: 'Restaurant context missing' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'Restaurant context missing' },
+          { status: 400 }
+        );
       }
       restaurantId = staffRestaurantId;
     } else {
@@ -106,6 +107,8 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to fetch tables:', error);
+    const authError = authErrorResponse(error);
+    if (authError) return authError;
     return NextResponse.json(
       { error: 'Failed to fetch tables' },
       { status: 500 }
@@ -115,26 +118,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Verify authentication using RBAC system
-    const token =
-      request.cookies.get('qr_rbac_token')?.value ||
-      request.cookies.get('qr_auth_token')?.value;
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'tables', 'write');
 
     const {
       tableNumber,
@@ -154,11 +140,15 @@ export async function POST(request: NextRequest) {
 
     // Determine restaurant ID based on user type
     let restaurantId: string;
-    if (
-      authResult.user.currentRole &&
-      authResult.user.currentRole.userType === 'staff'
-    ) {
-      restaurantId = authResult.user.currentRole.restaurantId;
+    if (context!.userType === 'staff') {
+      const staffRestaurantId = context!.restaurantId;
+      if (!staffRestaurantId) {
+        return NextResponse.json(
+          { error: 'Restaurant context missing' },
+          { status: 400 }
+        );
+      }
+      restaurantId = staffRestaurantId;
     } else {
       // For admin/owner, require restaurantId parameter
       if (!reqRestaurantId) {
@@ -208,6 +198,8 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Failed to create table:', error);
+    const authError = authErrorResponse(error);
+    if (authError) return authError;
     return NextResponse.json(
       { error: 'Failed to create table' },
       { status: 500 }

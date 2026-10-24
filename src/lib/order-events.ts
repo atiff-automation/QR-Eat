@@ -38,6 +38,13 @@ export interface OrderCreatedPayload {
   fallback: boolean;
 }
 
+export interface OrderCreatedResult {
+  tickets: number;
+  stationIds: string[];
+  unroutedItemIds: string[];
+  replayed: boolean;
+}
+
 export interface OrderStatusPayload {
   orderNumber: string;
   tableName: string;
@@ -114,7 +121,9 @@ export async function resolveRouting(restaurantId: string): Promise<Routing> {
  * Idempotent: if the order already has creation events, it does nothing. That
  * matters because a retried request must not print a second ticket.
  */
-export async function recordOrderCreated(orderId: string): Promise<number> {
+export async function recordOrderCreated(
+  orderId: string
+): Promise<OrderCreatedResult> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
     include: {
@@ -132,11 +141,17 @@ export async function recordOrderCreated(orderId: string): Promise<number> {
     throw new Error(`Order ${orderId} not found`);
   }
 
-  const existing = await prisma.orderEvent.count({
+  const existingEvents = await prisma.orderEvent.findMany({
     where: { orderId, type: ORDER_EVENT_TYPES.CREATED },
+    select: { stationId: true },
   });
-  if (existing > 0) {
-    return 0;
+  if (existingEvents.length > 0) {
+    return {
+      tickets: existingEvents.length,
+      stationIds: [...new Set(existingEvents.map((event) => event.stationId))],
+      unroutedItemIds: [],
+      replayed: true,
+    };
   }
 
   const routing = await resolveRouting(order.restaurantId);
@@ -147,13 +162,20 @@ export async function recordOrderCreated(orderId: string): Promise<number> {
     console.error(
       `[order-events] no active station or category mapping for restaurant ${order.restaurantId}; order ${order.orderNumber} was not routed`
     );
-    return 0;
+    return {
+      tickets: 0,
+      stationIds: [],
+      unroutedItemIds: order.items.map((item) => item.id),
+      replayed: false,
+    };
   }
 
   const grouped = new Map<
     string,
     { items: StationOrderItem[]; subtotal: number; fallback: boolean }
   >();
+
+  const unroutedItemIds: string[] = [];
 
   for (const item of order.items) {
     const mapped = routing.byCategory.get(item.menuItem.categoryId);
@@ -163,6 +185,7 @@ export async function recordOrderCreated(orderId: string): Promise<number> {
       console.error(
         `[order-events] item ${item.id} has no station and there is no default; order ${order.orderNumber} is partially unrouted`
       );
+      unroutedItemIds.push(item.id);
       continue;
     }
 
@@ -186,7 +209,12 @@ export async function recordOrderCreated(orderId: string): Promise<number> {
   }
 
   if (grouped.size === 0) {
-    return 0;
+    return {
+      tickets: 0,
+      stationIds: [],
+      unroutedItemIds,
+      replayed: false,
+    };
   }
 
   const rows = [...grouped.entries()].map(([stationId, entry]) => {
@@ -210,7 +238,12 @@ export async function recordOrderCreated(orderId: string): Promise<number> {
 
   await prisma.orderEvent.createMany({ data: rows });
 
-  return rows.length;
+  return {
+    tickets: rows.length,
+    stationIds: [...grouped.keys()],
+    unroutedItemIds,
+    replayed: false,
+  };
 }
 
 /**

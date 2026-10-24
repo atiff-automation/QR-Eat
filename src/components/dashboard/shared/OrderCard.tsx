@@ -133,7 +133,7 @@ export function OrderCard({
     userType === 'restaurant_owner' ||
     userType === 'platform_admin' ||
     (userType === 'staff' && roleTemplate === 'manager');
-  const isKitchen = userType === 'staff' && roleTemplate === 'kitchen';
+  const isKitchen = userType === 'staff' && roleTemplate === 'kitchen_staff';
   const isWaiter = userType === 'staff' && roleTemplate === 'waiter';
 
   const canPerformNextAction =

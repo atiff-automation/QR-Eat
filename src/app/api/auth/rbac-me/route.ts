@@ -1,6 +1,6 @@
 /**
  * RBAC-Integrated User Info Endpoint
- * 
+ *
  * This endpoint provides current user information using the new RBAC system,
  * including roles, permissions, and session details.
  */
@@ -18,10 +18,11 @@ export async function GET(request: NextRequest) {
   try {
     // Get token from cookie or Authorization header
     let token = request.cookies.get('qr_rbac_token')?.value;
-    
+
     if (!token) {
       const authHeader = request.headers.get('authorization');
-      token = EnhancedJWTService.extractTokenFromHeader(authHeader);
+      token =
+        EnhancedJWTService.extractTokenFromHeader(authHeader) || undefined;
     }
 
     if (!token) {
@@ -38,10 +39,10 @@ export async function GET(request: NextRequest) {
     try {
       // First try to verify as RBAC token
       const tokenPayload = await EnhancedJWTService.verifyToken(token);
-      
+
       // Get current session information
       const session = await SessionManager.getSession(tokenPayload.sessionId);
-      
+
       if (!session) {
         return NextResponse.json(
           { error: 'Session not found or expired' },
@@ -51,7 +52,9 @@ export async function GET(request: NextRequest) {
 
       // Get fresh user roles (in case they changed)
       const userRoles = await RoleManager.getUserRoles(tokenPayload.userId);
-      const permissions = await PermissionManager.getUserPermissions(tokenPayload.userId);
+      const permissions = await PermissionManager.computeUserPermissions(
+        tokenPayload.userId
+      );
 
       // Prepare response data
       const responseData = {
@@ -61,7 +64,7 @@ export async function GET(request: NextRequest) {
           firstName: tokenPayload.firstName,
           lastName: tokenPayload.lastName,
           userType: tokenPayload.currentRole.userType,
-          isActive: true
+          isActive: true,
         },
         currentRole: tokenPayload.currentRole,
         availableRoles: userRoles,
@@ -71,25 +74,35 @@ export async function GET(request: NextRequest) {
           id: session.sessionId,
           expiresAt: session.expiresAt,
           lastActivity: session.lastActivity,
-          ipAddress: session.ipAddress
+          ipAddress: session.ipAddress,
         },
         tokenInfo: {
           issuedAt: new Date(tokenPayload.iat * 1000),
           expiresAt: new Date(tokenPayload.exp * 1000),
-          issuer: tokenPayload.iss
-        }
+          issuer: tokenPayload.iss,
+        },
       };
 
       return NextResponse.json(responseData);
     } catch (error) {
       // Token verification failed - check if it's a legacy token
-      const legacyValidation = await LegacyTokenSupport.validateLegacyToken(token, request);
-      
+      const legacyValidation = await LegacyTokenSupport.validateLegacyToken(
+        token,
+        request
+      );
+
       if (legacyValidation.isValid && legacyValidation.shouldUpgrade) {
         // Attempt to upgrade the legacy token
-        const upgradeResult = await LegacyTokenSupport.upgradeLegacyToken(token, request);
-        
-        if (upgradeResult.success && upgradeResult.newToken && upgradeResult.userRole) {
+        const upgradeResult = await LegacyTokenSupport.upgradeLegacyToken(
+          token,
+          request
+        );
+
+        if (
+          upgradeResult.success &&
+          upgradeResult.newToken &&
+          upgradeResult.userRole
+        ) {
           // Return response with upgrade notification
           const response = NextResponse.json({
             message: 'Legacy token detected and upgraded',
@@ -98,8 +111,8 @@ export async function GET(request: NextRequest) {
             user: {
               id: legacyValidation.payload!.userId,
               userType: upgradeResult.userRole.userType,
-              currentRole: upgradeResult.userRole
-            }
+              currentRole: upgradeResult.userRole,
+            },
           });
 
           // Set new RBAC cookie
@@ -130,8 +143,8 @@ export async function GET(request: NextRequest) {
             endpoint: 'rbac-me',
             tokenPresent: !!token,
             tokenLength: token?.length || 0,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          }
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         }
       );
 
@@ -142,11 +155,11 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('RBAC Me endpoint error:', error);
-    
+
     // Log system error
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    
+
     await AuditLogger.logSecurityEvent(
       'system',
       'ME_ENDPOINT_ERROR',
@@ -157,9 +170,10 @@ export async function GET(request: NextRequest) {
         userAgent,
         metadata: {
           endpoint: 'rbac-me',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString(),
+        },
       }
     );
 
@@ -189,11 +203,7 @@ export async function POST(request: NextRequest) {
 
     try {
       // Refresh the token
-      const newToken = await EnhancedJWTService.refreshToken(
-        currentToken,
-        clientIP,
-        userAgent
-      );
+      const newToken = await EnhancedJWTService.refreshToken(currentToken);
 
       // Verify the new token to get user info
       const tokenPayload = await EnhancedJWTService.verifyToken(newToken);
@@ -207,8 +217,8 @@ export async function POST(request: NextRequest) {
           userAgent,
           metadata: {
             endpoint: 'rbac-me-refresh',
-            refreshTime: new Date().toISOString()
-          }
+            refreshTime: new Date().toISOString(),
+          },
         }
       );
 
@@ -219,12 +229,12 @@ export async function POST(request: NextRequest) {
           email: tokenPayload.email,
           firstName: tokenPayload.firstName,
           lastName: tokenPayload.lastName,
-          userType: tokenPayload.currentRole.userType
+          userType: tokenPayload.currentRole.userType,
         },
         session: {
           id: tokenPayload.sessionId,
-          expiresAt: new Date(tokenPayload.exp * 1000)
-        }
+          expiresAt: new Date(tokenPayload.exp * 1000),
+        },
       });
 
       // Update authentication cookie with new token
@@ -243,7 +253,7 @@ export async function POST(request: NextRequest) {
         console.log('🔄 Token refresh successful:', {
           userId: tokenPayload.userId,
           sessionId: tokenPayload.sessionId,
-          userType: tokenPayload.currentRole.userType
+          userType: tokenPayload.currentRole.userType,
         });
       }
 
@@ -260,8 +270,8 @@ export async function POST(request: NextRequest) {
           userAgent,
           metadata: {
             endpoint: 'rbac-me-refresh',
-            error: error instanceof Error ? error.message : 'Unknown error'
-          }
+            error: error instanceof Error ? error.message : 'Unknown error',
+          },
         }
       );
 
