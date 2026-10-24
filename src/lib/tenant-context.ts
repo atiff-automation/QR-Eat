@@ -42,11 +42,11 @@ export interface RestaurantContext {
 }
 
 /**
- * Extract tenant context from RBAC authentication
+ * Extract tenant context from RBAC authentication.
  *
- * Priority:
- * 1. Middleware headers (set by RBAC middleware) - fastest
- * 2. Direct RBAC token validation - fallback
+ * SECURITY: only a signed token is trusted. Do not trust x-user-* request
+ * headers; clients can spoof them. The middleware's context headers are
+ * response headers, not a trusted request signature.
  *
  * @param request - Next.js request object
  * @returns TenantContext or null if not authenticated
@@ -54,66 +54,26 @@ export interface RestaurantContext {
 export async function getTenantContext(
   request: NextRequest
 ): Promise<TenantContext | null> {
-  // STRATEGY 1: Check middleware headers first (most efficient)
-  const contextFromHeaders = extractContextFromHeaders(request);
-  if (contextFromHeaders) {
-    return contextFromHeaders;
-  }
-
-  // STRATEGY 2: Fallback to direct RBAC token validation
   return await extractContextFromToken(request);
 }
 
 /**
- * Extract context from middleware-injected headers
- * @internal
- */
-function extractContextFromHeaders(request: NextRequest): TenantContext | null {
-  const userId = request.headers.get('x-user-id');
-  const userType = request.headers.get('x-user-type') as UserType;
-  const email = request.headers.get('x-user-email');
-  const isAdmin = request.headers.get('x-is-admin') === 'true';
-  const restaurantId = request.headers.get('x-restaurant-id');
-  const ownerId = request.headers.get('x-owner-id');
-  const restaurantSlug = request.headers.get('x-restaurant-slug');
-  const roleTemplate = request.headers.get('x-role-template');
-  const permissionsHeader = request.headers.get('x-user-permissions');
-
-  // All required headers must be present
-  if (!userId || !userType || !email) {
-    return null;
-  }
-
-  const permissions = parsePermissionsHeader(permissionsHeader);
-
-  if (process.env.NODE_ENV === 'development') {
-    console.log('✅ getTenantContext: Using middleware headers', {
-      userId,
-      userType,
-    });
-  }
-
-  return {
-    userId,
-    userType,
-    email,
-    restaurantId: restaurantId || undefined,
-    ownerId: ownerId || undefined,
-    permissions,
-    isAdmin,
-    restaurantSlug: restaurantSlug || undefined,
-    roleTemplate: roleTemplate || undefined,
-  };
-}
-
-/**
- * Extract context from RBAC token cookie
+ * Extract context from an RBAC token supplied as a cookie, bearer header, or
+ * query token (mobile/SSE compatibility).
  * @internal
  */
 async function extractContextFromToken(
   request: NextRequest
 ): Promise<TenantContext | null> {
-  const token = request.cookies.get('qr_rbac_token')?.value;
+  const authorization = request.headers.get('authorization');
+  const bearerToken = authorization?.startsWith('Bearer ')
+    ? authorization.slice(7)
+    : null;
+  const token =
+    request.cookies.get('qr_rbac_token')?.value ||
+    request.cookies.get('qr_auth_token')?.value ||
+    request.nextUrl.searchParams.get('token') ||
+    bearerToken;
 
   if (!token) {
     // No token = anonymous user (not an error, just not authenticated)
@@ -204,27 +164,6 @@ function convertUserToTenantContext(
     restaurantSlug: user.restaurantContext?.slug,
     roleTemplate: user.currentRole.roleTemplate,
   };
-}
-
-/**
- * Parse permissions header from middleware
- * @internal
- */
-function parsePermissionsHeader(
-  header: string | null
-): Record<string, string[]> {
-  if (!header) {
-    return {};
-  }
-
-  try {
-    const rbacPermissions = JSON.parse(header);
-    return parsePermissionsArray(
-      Array.isArray(rbacPermissions) ? rbacPermissions : []
-    );
-  } catch {
-    return {};
-  }
 }
 
 /**

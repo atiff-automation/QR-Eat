@@ -233,7 +233,6 @@ export const ORDER_WITH_DETAILS_INCLUDE = {
       customerName: true,
       customerPhone: true,
       customerEmail: true,
-      sessionToken: true,
     },
   },
   items: {

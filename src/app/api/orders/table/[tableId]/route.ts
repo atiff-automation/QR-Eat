@@ -9,6 +9,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { getTenantContext, requirePermission } from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import { RBACError } from '@/lib/rbac/types';
 import { z } from 'zod';
 
 export async function GET(
@@ -20,6 +23,18 @@ export async function GET(
 
     // Validate tableId
     const validTableId = z.string().uuid().parse(tableId);
+
+    // SECURITY: this route previously exposed pending orders and customer
+    // details without authentication. Keep it tenant- and table-scoped.
+    const context = await getTenantContext(request);
+    if (!context) {
+      return NextResponse.json(
+        { success: false, error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+    requirePermission(context, 'orders', 'read');
+    await requireTableAccess(validTableId, context);
 
     // Get all pending orders for this table
     const orders = await prisma.order.findMany({
@@ -108,8 +123,30 @@ export async function GET(
       );
     }
 
+    if (error instanceof RBACError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.statusCode }
+      );
+    }
+
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required')) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      if (error.message.includes('Permission denied')) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: 403 }
+        );
+      }
+    }
+
     return NextResponse.json(
-      { error: 'Failed to fetch table orders' },
+      { success: false, error: 'Failed to fetch table orders' },
       { status: 500 }
     );
   }

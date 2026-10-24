@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
-import { getTenantContext, requireAuth } from '@/lib/tenant-context';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import { RBACError } from '@/lib/rbac/types';
 import { Decimal } from '@prisma/client/runtime/library';
 import { PAYMENT_STATUS, ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
@@ -28,9 +34,11 @@ export async function POST(
     const { tableId } = await params;
     console.log('[Table Payment API] Request for table:', tableId);
 
-    // Get tenant context and verify authentication
+    // Get tenant context and verify authentication/authorization
     const context = await getTenantContext(request);
     requireAuth(context);
+    requirePermission(context!, 'payments', 'write');
+    await requireTableAccess(tableId, context!);
 
     const { userId, userType, restaurantId } = context!;
 
@@ -322,6 +330,28 @@ export async function POST(
         },
         { status: 400 }
       );
+    }
+
+    if (error instanceof RBACError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.statusCode }
+      );
+    }
+
+    if (error instanceof Error) {
+      if (error.message.includes('Authentication required')) {
+        return NextResponse.json(
+          { success: false, error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+      if (error.message.includes('Permission denied')) {
+        return NextResponse.json(
+          { success: false, error: error.message },
+          { status: 403 }
+        );
+      }
     }
 
     return NextResponse.json(
