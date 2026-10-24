@@ -14,6 +14,7 @@ import { useTableOrders } from '@/lib/hooks/queries/useTableOrders';
 import { formatPrice } from '@/lib/qr-utils';
 import type { OrderWithDetails } from '@/types/pos';
 import { buildSubdomainUrl } from '@/lib/config/domains';
+import { PermissionGuard } from '@/components/rbac/PermissionGuard';
 
 import type { Table } from '@/lib/hooks/queries/useTables';
 
@@ -201,15 +202,17 @@ export function TableDetailModal({
                 {orders.length} {orders.length === 1 ? 'Order' : 'Orders'} •{' '}
                 {formatPrice(tableTotal, currency)}
               </p>
-              <button
-                onClick={() => onProcessPayment?.(table.id, orders)}
-                className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>
-                  Process Payment - {formatPrice(tableTotal, currency)}
-                </span>
-              </button>
+              <PermissionGuard permission="payments:write">
+                <button
+                  onClick={() => onProcessPayment?.(table.id, orders)}
+                  className="w-full h-10 bg-green-600 hover:bg-green-700 active:scale-[0.98] text-white rounded-lg font-semibold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>
+                    Process Payment - {formatPrice(tableTotal, currency)}
+                  </span>
+                </button>
+              </PermissionGuard>
             </div>
           )}
 

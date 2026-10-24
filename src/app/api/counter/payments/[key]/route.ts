@@ -4,6 +4,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { counterAccessDenied } from '@/lib/counter/access';
 import { RBACError } from '@/lib/rbac/types';
 import { prisma } from '@/lib/database';
 
@@ -20,6 +21,8 @@ export async function GET(
   try {
     const { key } = await params;
     const context = await getTenantContext(request);
+    const denied = counterAccessDenied(context);
+    if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'payments', 'read');
 

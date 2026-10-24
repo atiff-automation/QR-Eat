@@ -332,6 +332,20 @@ export async function DELETE(
           throw new Error(cancellationCheck.reason!);
         }
 
+        // After the kitchen has fired, only a manager/owner may cancel. The
+        // web UI already hides this from cashier/waiter, but the API must not
+        // rely on the UI.
+        const isOwnerOrManager =
+          context!.isAdmin ||
+          context!.userType === 'restaurant_owner' ||
+          (context!.userType === 'staff' &&
+            context!.roleTemplate === 'manager');
+        if (order.status !== 'PENDING' && !isOwnerOrManager) {
+          throw new Error(
+            'Permission denied: only a manager or owner can cancel a confirmed order.'
+          );
+        }
+
         // 3. Check version (optimistic locking)
         if (order.version !== data.version) {
           throw new Error(

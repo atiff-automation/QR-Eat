@@ -5,6 +5,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { counterAccessDenied } from '@/lib/counter/access';
 
 /**
  * GET /api/counter/bootstrap
@@ -15,6 +16,8 @@ import {
 export async function GET(request: NextRequest) {
   try {
     const context = await getTenantContext(request);
+    const denied = counterAccessDenied(context);
+    if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 

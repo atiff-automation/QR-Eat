@@ -83,7 +83,16 @@ export async function PATCH(
           }
         }
 
-        // 3. Block modifications to paid orders
+        // 3. Safe v1 boundary: only PENDING orders can be modified. After the
+        // kitchen has a ticket, cancel and re-order rather than silently
+        // changing an item the kitchen may already be preparing.
+        if (order.status !== 'PENDING') {
+          throw new Error(
+            'Cannot modify order after it has been confirmed. Cancel and re-order instead.'
+          );
+        }
+
+        // 4. Block modifications to paid orders
         if (order.paymentStatus === PAYMENT_STATUS.PAID) {
           throw new Error(
             'Cannot modify paid orders. Please contact staff to process a refund first.'
@@ -259,14 +268,9 @@ export async function PATCH(
           },
         });
 
-        // 10. Check if refund needed
-        let refundNeeded = null;
-        if (
-          order.paymentStatus === PAYMENT_STATUS.PAID &&
-          totals.totalAmount < Number(order.totalAmount)
-        ) {
-          refundNeeded = Number(order.totalAmount) - totals.totalAmount;
-        }
+        // 10. Paid orders are blocked above; a modification never needs a
+        // refund here. Keep the response shape stable for existing clients.
+        const refundNeeded = null;
 
         return {
           order: updatedOrder,

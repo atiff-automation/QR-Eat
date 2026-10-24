@@ -31,6 +31,7 @@ export interface TenantContext {
   isAdmin: boolean;
   restaurantSlug?: string;
   roleTemplate?: string; // For staff: manager, waiter, kitchen_staff, cashier
+  mustChangePassword: boolean;
 }
 
 export interface RestaurantContext {
@@ -163,6 +164,7 @@ function convertUserToTenantContext(
     isAdmin: user.currentRole.userType === 'platform_admin',
     restaurantSlug: user.restaurantContext?.slug,
     roleTemplate: user.currentRole.roleTemplate,
+    mustChangePassword: user.mustChangePassword ?? false,
   };
 }
 

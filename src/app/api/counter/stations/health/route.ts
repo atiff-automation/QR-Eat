@@ -5,6 +5,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { counterAccessDenied } from '@/lib/counter/access';
 
 const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
@@ -18,6 +19,8 @@ const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 export async function GET(request: NextRequest) {
   try {
     const context = await getTenantContext(request);
+    const denied = counterAccessDenied(context);
+    if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 

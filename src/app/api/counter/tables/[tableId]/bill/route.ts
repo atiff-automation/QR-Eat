@@ -5,6 +5,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { counterAccessDenied } from '@/lib/counter/access';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
 import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
@@ -23,6 +24,8 @@ export async function GET(
     const { tableId } = await params;
 
     const context = await getTenantContext(request);
+    const denied = counterAccessDenied(context);
+    if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
     await requireTableAccess(tableId, context!);
@@ -77,6 +80,18 @@ export async function GET(
       (sum, order) => sum + Number(order.totalAmount),
       0
     );
+    const subtotalAmount = orders.reduce(
+      (sum, order) => sum + Number(order.subtotalAmount),
+      0
+    );
+    const taxAmount = orders.reduce(
+      (sum, order) => sum + Number(order.taxAmount),
+      0
+    );
+    const serviceCharge = orders.reduce(
+      (sum, order) => sum + Number(order.serviceCharge),
+      0
+    );
     const paidTotal = Number(paid._sum.totalAmount || 0);
     const pendingCount = orders.filter(
       (order) => order.status === 'PENDING'
@@ -100,6 +115,9 @@ export async function GET(
         isPending: order.status === 'PENDING',
       })),
       unpaidTotal,
+      subtotalAmount,
+      taxAmount,
+      serviceCharge,
       paidTotal,
       pendingCount,
       serverTime: new Date().toISOString(),

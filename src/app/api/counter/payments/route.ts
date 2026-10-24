@@ -6,6 +6,7 @@ import {
   requireAuth,
   requirePermission,
 } from '@/lib/tenant-context';
+import { counterAccessDenied } from '@/lib/counter/access';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
 import {
@@ -33,6 +34,8 @@ const CounterPaymentSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const context = await getTenantContext(request);
+    const denied = counterAccessDenied(context);
+    if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'payments', 'write');
 

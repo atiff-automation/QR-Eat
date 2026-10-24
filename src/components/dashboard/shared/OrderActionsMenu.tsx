@@ -45,29 +45,16 @@ export function OrderActionsMenu({
   const userType = authData?.currentRole.userType;
   const roleTemplate = authData?.currentRole.roleTemplate;
 
-  // Determine if user can modify based on order status and role
-  const canModifyBasedOnRole = () => {
-    // PENDING orders: anyone with write permission can modify
-    if (order.status === 'PENDING') {
-      return canWrite;
-    }
+  // Modify is safe only before the kitchen receives the order. Post-confirm
+  // edits are a cancel + re-order; the server enforces the same rule.
+  const canModify = order.status === 'PENDING' && canWrite;
 
-    // CONFIRMED+ orders: only owner, platform_admin, or manager can modify
-    if (userType === 'platform_admin' || userType === 'restaurant_owner') {
-      return canWrite;
-    }
-
-    if (userType === 'staff' && roleTemplate === 'manager') {
-      return canWrite;
-    }
-
-    return false;
-  };
-
-  const canModify = canModifyBasedOnRole();
-
-  // For cancel, use same logic for now
-  const canCancelOrder_ = canModify;
+  const isOwnerOrManager =
+    userType === 'platform_admin' ||
+    userType === 'restaurant_owner' ||
+    (userType === 'staff' && roleTemplate === 'manager');
+  const canCancelOrder_ =
+    canWrite && (order.status === 'PENDING' || isOwnerOrManager);
 
   // Close menu when clicking outside
   useEffect(() => {
