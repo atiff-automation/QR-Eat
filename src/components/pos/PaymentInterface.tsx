@@ -11,7 +11,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { PaymentMethod, OrderWithDetails } from '@/types/pos';
 import { OrderDetails } from './OrderDetails';
 import { PaymentMethodSelector } from './PaymentMethodSelector';
@@ -38,6 +38,13 @@ export function PaymentInterface({
   const [error, setError] = useState<string>('');
   const [completedPayment, setCompletedPayment] = useState<Payment | null>(
     null
+  );
+  // Keep one key for this payment attempt. A timeout/retry must replay the
+  // same request, not create a second charge.
+  const idempotencyKeyRef = useRef<string>(
+    typeof crypto !== 'undefined' && 'randomUUID' in crypto
+      ? crypto.randomUUID()
+      : `payment-${Date.now()}-${Math.random().toString(36).slice(2)}`
   );
   const paymentMethods = usePaymentMethods();
   const [restaurantInfo, setRestaurantInfo] = useState<{
@@ -171,10 +178,14 @@ export function PaymentInterface({
       // Use table payment endpoint if this is a table payment
       const result = isTablePayment
         ? await import('@/lib/services/payment-service').then((m) =>
-            m.processTablePayment(order.tableId, {
-              paymentMethod: 'cash',
-              cashReceived: data.cashReceived,
-            })
+            m.processTablePayment(
+              order.tableId,
+              {
+                paymentMethod: 'cash',
+                cashReceived: data.cashReceived,
+              },
+              idempotencyKeyRef.current
+            )
           )
         : await import('@/lib/services/payment-service').then((m) =>
             m.processPayment({
@@ -212,9 +223,13 @@ export function PaymentInterface({
       // Use table payment endpoint if this is a table payment
       const result = isTablePayment
         ? await import('@/lib/services/payment-service').then((m) =>
-            m.processTablePayment(order.tableId, {
-              paymentMethod: selectedMethod,
-            })
+            m.processTablePayment(
+              order.tableId,
+              {
+                paymentMethod: selectedMethod,
+              },
+              idempotencyKeyRef.current
+            )
           )
         : await import('@/lib/services/payment-service').then((m) =>
             m.processPayment({

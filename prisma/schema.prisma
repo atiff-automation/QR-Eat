@@ -268,8 +268,8 @@ model Restaurant {
   expenses          Expense[]
 
   // Android station devices
-  stations Station[]
-  devices  Device[]
+  stations    Station[]
+  devices     Device[]
   orderEvents OrderEvent[]
 
   @@index([ownerId])
@@ -576,11 +576,11 @@ model Staff {
   auditLogs     AuditLog[]     @relation("StaffAuditLogs")
   refreshTokens RefreshToken[]
 
+  @@unique([restaurantId, pinLookup])
   @@index([restaurantId])
   @@index([roleId])
   @@index([email])
   @@index([status])
-  @@unique([restaurantId, pinLookup])
   @@map("staff")
 }
 
@@ -749,9 +749,38 @@ model PaymentIntent {
   @@map("payment_intents")
 }
 
+model PaymentBatch {
+  id                 String   @id @default(uuid())
+  idempotencyKey     String   @unique
+  requestHash        String
+  restaurantId       String
+  tableId            String
+  paymentMethod      String
+  totalAmount        Decimal  @db.Decimal(10, 2)
+  cashReceived       Decimal? @db.Decimal(10, 2)
+  changeGiven        Decimal? @db.Decimal(10, 2)
+  receiptNumber      String   @unique
+  status             String   @default("COMPLETED")
+  response           Json
+  processedBy        String?
+  processedByType    String?
+  processedByAdminId String?
+  processedByOwnerId String?
+  processedByStaffId String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  payments Payment[]
+
+  @@index([restaurantId, createdAt])
+  @@index([tableId, createdAt])
+  @@map("payment_batches")
+}
+
 model Payment {
   id               String             @id @default(uuid())
   orderId          String
+  batchId          String?
   paymentMethod    String
   paymentProcessor String?
   amount           Decimal            @db.Decimal(10, 2)
@@ -784,10 +813,12 @@ model Payment {
   updatedAt             DateTime  @updatedAt
 
   order            Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  batch            PaymentBatch?    @relation(fields: [batchId], references: [id], onDelete: SetNull)
   processedByAdmin PlatformAdmin?   @relation(fields: [processedByAdminId], references: [id])
   processedByOwner RestaurantOwner? @relation(fields: [processedByOwnerId], references: [id])
   processedByStaff Staff?           @relation(fields: [processedByStaffId], references: [id])
 
+  @@index([batchId])
   @@index([processedBy])
   @@index([processedByType])
   @@index([processedByAdminId])
@@ -1309,9 +1340,9 @@ model Station {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  categories StationCategory[]
-  devices    Device[]
+  restaurant  Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  categories  StationCategory[]
+  devices     Device[]
   orderEvents OrderEvent[]
 
   @@unique([restaurantId, name])
@@ -1361,23 +1392,23 @@ model OrderEvent {
 
 /// A provisioned phone. Identity is separate from the staff session (D5).
 model Device {
-  id           String    @id @default(uuid())
-  restaurantId String
-  stationId    String
-  name         String
-  platform     String    @default("android")
-  appVersion   String?
-  deviceModel  String?
-  secretHash   String // bcrypt hash of the one-time device secret
-  tokenVersion Int       @default(1) // bump to invalidate issued device tokens
-  isActive     Boolean   @default(true)
-  lastSeenAt   DateTime?
-  lastPrintAt  DateTime?
-  lastEventId  BigInt    @default(0) // per-device delivery cursor
-  failedPinAttempts Int   @default(0) // wrong station PINs since the last success
+  id                String    @id @default(uuid())
+  restaurantId      String
+  stationId         String
+  name              String
+  platform          String    @default("android")
+  appVersion        String?
+  deviceModel       String?
+  secretHash        String // bcrypt hash of the one-time device secret
+  tokenVersion      Int       @default(1) // bump to invalidate issued device tokens
+  isActive          Boolean   @default(true)
+  lastSeenAt        DateTime?
+  lastPrintAt       DateTime?
+  lastEventId       BigInt    @default(0) // per-device delivery cursor
+  failedPinAttempts Int       @default(0) // wrong station PINs since the last success
   pinLockedUntil    DateTime? // device-level backoff after repeated wrong PINs
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   station    Station    @relation(fields: [stationId], references: [id], onDelete: Restrict)

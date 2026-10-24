@@ -8,13 +8,13 @@ import {
 } from '@/lib/tenant-context';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
-import { Decimal } from '@prisma/client/runtime/library';
-import { PAYMENT_STATUS, ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
+import {
+  PaymentServiceError,
+  processTablePaymentBatch,
+} from '@/lib/services/payment-batch-service';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
-import { SequenceManager } from '@/lib/sequence-manager';
 
-// Validation schema for table payment
 const TablePaymentSchema = z.object({
   paymentMethod: z.enum(['cash', 'card', 'ewallet']),
   cashReceived: z.number().positive().optional(),
@@ -24,7 +24,12 @@ const TablePaymentSchema = z.object({
 
 /**
  * POST /api/pos/payment/table/[tableId]
- * Process payment for all pending orders on a table
+ *
+ * Canonical table payment:
+ * - requires payments:write + table access;
+ * - requires Idempotency-Key;
+ * - rejects PENDING orders;
+ * - sends all confirmed unpaid orders through one idempotent batch.
  */
 export async function POST(
   request: NextRequest,
@@ -32,192 +37,75 @@ export async function POST(
 ) {
   try {
     const { tableId } = await params;
-    console.log('[Table Payment API] Request for table:', tableId);
 
-    // Get tenant context and verify authentication/authorization
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'payments', 'write');
     await requireTableAccess(tableId, context!);
 
-    const { userId, userType, restaurantId } = context!;
-
-    // Validate request body
-    const body = await request.json();
-    const validatedData = TablePaymentSchema.parse(body);
-
-    // Find all eligible orders for this table
-    // Eligible = PENDING payment status (any order status allowed for early payment)
-    const eligibleOrders = await prisma.order.findMany({
-      where: {
-        tableId,
-        restaurantId: restaurantId!,
-        paymentStatus: PAYMENT_STATUS.PENDING,
-        // Exclude cancelled orders from payment calculation
-        status: { not: 'CANCELLED' },
-      },
-      include: ORDER_WITH_DETAILS_INCLUDE,
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
-    console.log(
-      `[Table Payment API] Found ${eligibleOrders.length} eligible orders`
-    );
-
-    if (eligibleOrders.length === 0) {
+    const idempotencyKey = request.headers.get('idempotency-key')?.trim();
+    if (!idempotencyKey) {
       return NextResponse.json(
         {
           success: false,
-          error: 'No eligible orders found for this table',
+          error: 'Idempotency-Key header is required',
+          code: 'IDEMPOTENCY_KEY_REQUIRED',
         },
-        { status: 404 }
+        { status: 400 }
       );
     }
 
-    // Calculate total amount
-    const totalAmount = eligibleOrders.reduce(
-      (sum, order) => sum.plus(new Decimal(order.totalAmount)),
-      new Decimal(0)
-    );
+    const body = await request.json();
+    const validatedData = TablePaymentSchema.parse(body);
 
-    console.log(`[Table Payment API] Total amount: ${totalAmount.toString()}`);
+    let restaurantId = context!.restaurantId;
+    if (!restaurantId && context!.isAdmin) {
+      const table = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { restaurantId: true },
+      });
+      restaurantId = table?.restaurantId;
+    }
 
-    // Validate cash sufficiency for cash payments
-    let changeGiven: Decimal | null = null;
-    if (validatedData.paymentMethod === 'cash' && validatedData.cashReceived) {
-      const cashReceived = new Decimal(validatedData.cashReceived);
-      if (cashReceived.lessThan(totalAmount)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: `Insufficient cash. Total: ${totalAmount}, Received: ${cashReceived}`,
-          },
-          { status: 400 }
-        );
-      }
-      changeGiven = cashReceived.minus(totalAmount);
-      console.log(
-        `[Table Payment API] Cash: ${cashReceived}, Change: ${changeGiven.toString()}`
+    if (!restaurantId) {
+      return NextResponse.json(
+        { success: false, error: 'Restaurant context is required' },
+        { status: 400 }
       );
     }
 
-    // Generate sequential receipt number for this table payment
-    const { number: dailySeq, formatted: receiptNumber } =
-      await SequenceManager.getNextReceipt(restaurantId!);
-
-    // Process all payments in a single transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const payments = [];
-
-      for (let i = 0; i < eligibleOrders.length; i++) {
-        const order = eligibleOrders[i];
-        const isFirstOrder = i === 0;
-        const orderAmount = new Decimal(order.totalAmount);
-
-        // For FIRST order: store actual cash received and change
-        // For OTHER orders: store just their individual amount
-        const orderCashReceived =
-          isFirstOrder && validatedData.cashReceived
-            ? new Decimal(validatedData.cashReceived)
-            : orderAmount;
-
-        const orderChangeGiven =
-          isFirstOrder && changeGiven ? changeGiven : new Decimal(0);
-
-        // Build payment data
-        const paymentData = {
-          orderId: order.id,
-          paymentMethod: validatedData.paymentMethod,
-          amount: orderAmount,
-          processingFee: new Decimal(0),
-          netAmount: orderAmount,
-          status: 'PAID' as const,
-          processedBy: userId!,
-          processedByType: userType!,
-          cashReceived: orderCashReceived,
-          changeGiven: orderChangeGiven,
-          receiptNumber: `${receiptNumber}-${i + 1}`,
-          dailySeq: dailySeq,
-          externalTransactionId: validatedData.externalTransactionId,
-          paymentMetadata: {
-            tablePayment: true,
-            primaryReceipt: receiptNumber,
-            isFirstOrder,
-            orderIndex: i + 1,
-            totalOrders: eligibleOrders.length,
-            notes: validatedData.notes,
-          },
-          processedAt: new Date(),
-          completedAt: new Date(),
-        };
-
-        // Add user FK based on userType
-        const finalPaymentData =
-          userType === 'platform_admin'
-            ? { ...paymentData, processedByAdminId: userId }
-            : userType === 'restaurant_owner'
-              ? { ...paymentData, processedByOwnerId: userId }
-              : { ...paymentData, processedByStaffId: userId };
-
-        // Create payment record
-        const payment = await tx.payment.create({ data: finalPaymentData });
-
-        // Update order payment status
-        await tx.order.update({
-          where: { id: order.id },
-          data: {
-            paymentStatus: PAYMENT_STATUS.PAID,
-          },
-        });
-
-        // Create audit log
-        await tx.auditLog.create({
-          data: {
-            tableName: 'payments',
-            recordId: payment.id,
-            operation: 'CREATE',
-            newValues: {
-              orderId: order.id,
-              orderNumber: order.orderNumber,
-              amount: orderAmount.toString(),
-              receiptNumber,
-              tablePayment: true,
-            },
-            changedBy: userId!,
-            changedByType: userType!,
-            ...(userType === 'platform_admin'
-              ? { adminId: userId }
-              : userType === 'restaurant_owner'
-                ? { ownerId: userId }
-                : { staffId: userId }),
-          },
-        });
-
-        payments.push(payment);
-      }
-
-      return payments;
+    const result = await processTablePaymentBatch({
+      tableId,
+      restaurantId,
+      userId: context!.userId,
+      userType: context!.userType,
+      idempotencyKey,
+      paymentMethod: validatedData.paymentMethod,
+      cashReceived: validatedData.cashReceived,
+      externalTransactionId: validatedData.externalTransactionId,
+      notes: validatedData.notes,
     });
 
-    console.log(
-      `[Table Payment API] Successfully processed ${result.length} payments`
-    );
+    const response = result.response as {
+      receiptNumber?: string;
+      payments?: Array<{
+        id: string;
+        orderId: string;
+        amount: string;
+      }>;
+    };
 
-    // Post-transaction updates (Events & Table Status)
-    for (const payment of result) {
-      const order = eligibleOrders.find((o) => o.id === payment.orderId);
-      if (order) {
+    if (!result.replayed && response.payments) {
+      for (const payment of response.payments) {
         try {
           await PostgresEventManager.publishPaymentCompleted({
-            orderId: order.id,
+            orderId: payment.orderId,
             paymentId: payment.id,
-            restaurantId: restaurantId!,
+            restaurantId,
             paymentMethod: validatedData.paymentMethod,
-            amount: Number(order.totalAmount),
-            receiptNumber,
-            processedBy: context!.userId!,
+            amount: Number(payment.amount),
+            receiptNumber: response.receiptNumber!,
+            processedBy: context!.userId,
             timestamp: Date.now(),
           });
         } catch (error) {
@@ -226,7 +114,7 @@ export async function POST(
       }
     }
 
-    // Update table status once
+    // Idempotent and safe to call after a replay too.
     try {
       await autoUpdateTableStatus(tableId);
     } catch (error) {
@@ -236,88 +124,12 @@ export async function POST(
       );
     }
 
-    // Create combined payment object for receipt display
-    // This includes all orders and their items
-    const combinedPayment = {
-      ...result[0], // result is array of payments
-      amount: totalAmount, // Combined total
-      cashReceived: validatedData.cashReceived
-        ? new Decimal(validatedData.cashReceived)
-        : totalAmount,
-      changeGiven: changeGiven || new Decimal(0),
-      receiptNumber, // Primary receipt number
-      order: {
-        id: eligibleOrders[0].id, // Use first order ID as reference
-        orderNumber: `TABLE-${eligibleOrders.length}-ORDERS`, // Indicate multiple orders
-        tableId,
-        createdAt: eligibleOrders[0].createdAt, // Use first order's creation time
-        totalAmount,
-        subtotalAmount: eligibleOrders.reduce(
-          (sum, o) => sum.plus(new Decimal(o.subtotalAmount)),
-          new Decimal(0)
-        ),
-        taxAmount: eligibleOrders.reduce(
-          (sum, o) => sum.plus(new Decimal(o.taxAmount || 0)),
-          new Decimal(0)
-        ),
-        serviceCharge: eligibleOrders.reduce(
-          (sum, o) => sum.plus(new Decimal(o.serviceCharge || 0)),
-          new Decimal(0)
-        ),
-        restaurant: {
-          ...eligibleOrders[0].restaurant,
-        },
-        table: {
-          id: tableId,
-          tableNumber: eligibleOrders[0].table?.tableNumber || 0,
-          tableName:
-            eligibleOrders[0].table?.tableName ||
-            `Table ${eligibleOrders[0].table?.tableNumber || ''}`,
-          locationDescription: eligibleOrders[0].table?.locationDescription,
-        },
-        // Combine all items from all orders
-        items: eligibleOrders.flatMap(
-          (order) =>
-            order.items?.map((item) => ({
-              ...item,
-              orderNumber: order.orderNumber, // Track which order each item came from
-            })) || []
-        ),
-        // Add tax and service charge labels from restaurant settings
-        taxLabel: eligibleOrders[0].restaurant.taxLabel || 'Tax',
-        serviceChargeLabel:
-          eligibleOrders[0].restaurant.serviceChargeLabel || 'Service Charge',
-      },
-    };
-
-    console.log('[Table Payment API] Combined payment object:', {
-      orderNumber: combinedPayment.order.orderNumber,
-      itemsCount: combinedPayment.order.items?.length || 0,
-      totalAmount: combinedPayment.order.totalAmount?.toString() || '0',
-      items:
-        combinedPayment.order.items?.map((i) => ({
-          name: i.menuItem?.name || 'Unknown',
-          quantity: i.quantity || 0,
-          price: i.unitPrice?.toString() || '0',
-        })) || [],
-    });
-
-    // Return success response
-    return NextResponse.json({
-      success: true,
-      message: `Processed payment for ${result.length} orders`,
-      receiptNumber,
-      ordersProcessed: result.length,
-      totalPaid: totalAmount.toString(),
-      changeGiven: changeGiven?.toString() || '0',
-      payment: combinedPayment, // Combined payment for receipt display
-      payments: result.map((p) => ({
-        id: p.id,
-        orderId: p.orderId,
-        amount: p.amount.toString(),
-        receiptNumber: p.receiptNumber,
-      })),
-    });
+    return NextResponse.json(
+      { ...response, replayed: result.replayed },
+      {
+        headers: result.replayed ? { 'Idempotent-Replay': 'true' } : undefined,
+      }
+    );
   } catch (error) {
     console.error('[Table Payment API] Error:', error);
 
@@ -329,6 +141,13 @@ export async function POST(
           details: error.issues,
         },
         { status: 400 }
+      );
+    }
+
+    if (error instanceof PaymentServiceError) {
+      return NextResponse.json(
+        { success: false, error: error.message, code: error.code },
+        { status: error.statusCode }
       );
     }
 

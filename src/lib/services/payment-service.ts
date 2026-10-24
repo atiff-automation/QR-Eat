@@ -47,19 +47,28 @@ export async function processPayment(
  */
 export async function processTablePayment(
   tableId: string,
-  data: Omit<PaymentProcessRequest, 'orderId' | 'payFullTable'>
+  data: Omit<PaymentProcessRequest, 'orderId' | 'payFullTable'>,
+  idempotencyKey: string
 ): Promise<PaymentProcessResult> {
   console.log(
     '[PaymentService] Sending table payment request:',
     `/api/pos/payment/table/${tableId}`,
     data
   );
-  return ApiClient.post<PaymentProcessResult>(`pos/payment/table/${tableId}`, {
-    paymentMethod: data.paymentMethod,
-    cashReceived: data.cashReceived,
-    externalTransactionId: data.externalTransactionId,
-    notes: data.notes,
-  });
+  return ApiClient.post<PaymentProcessResult>(
+    `pos/payment/table/${tableId}`,
+    {
+      paymentMethod: data.paymentMethod,
+      cashReceived: data.cashReceived,
+      externalTransactionId: data.externalTransactionId,
+      notes: data.notes,
+    },
+    {
+      headers: {
+        'Idempotency-Key': idempotencyKey,
+      },
+    }
+  );
 }
 
 /**
