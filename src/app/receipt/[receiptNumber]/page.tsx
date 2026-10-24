@@ -6,14 +6,17 @@ import type { PublicReceiptData } from '@/types/pos';
 
 interface PageProps {
   params: Promise<{ receiptNumber: string }>;
+  searchParams: Promise<{ slug?: string }>;
 }
 
 export default async function ReceiptPage({ params }: PageProps) {
   const { receiptNumber } = await params;
 
-  // ✅ STEP 1: Validate slug exists
+  // ✅ STEP 1: Validate slug exists. Apex-domain/native receipt links pass
+  // the tenant slug explicitly because there is no tenant subdomain.
   const headersList = await headers();
-  const slug = headersList.get('x-tenant-slug');
+  const query = await searchParams;
+  const slug = headersList.get('x-tenant-slug') || query.slug;
 
   if (process.env.NODE_ENV === 'development') {
     console.log('[Receipt Page] Debug:', {
