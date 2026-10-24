@@ -42,6 +42,7 @@ export interface OrderSummary {
     quantity: number;
     unitPrice: number;
     totalAmount: number;
+    status?: string;
     menuItem: {
       id: string;
       name: string;
@@ -105,6 +106,14 @@ export function OrderCard({
   const nextAction = getNextOrderAction(order.status);
   const itemSummary = getOrderSummary(order.items);
   const borderColor = getStatusBorderColor(order.status);
+  const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
+  const readyQty = order.items
+    .filter((item) => item.status === 'READY' || item.status === 'SERVED')
+    .reduce((sum, item) => sum + item.quantity, 0);
+  const showProgress =
+    totalQty > 0 &&
+    order.items.some((item) => Boolean(item.status)) &&
+    ['CONFIRMED', 'PREPARING', 'READY'].includes(order.status);
 
   const handleActionClick = async () => {
     if (!nextAction || isProcessing || isUpdating) return;
@@ -186,6 +195,21 @@ export function OrderCard({
           </span>
           <span className="text-gray-600">{itemSummary}</span>
         </div>
+
+        {showProgress && (
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-gray-500">Kitchen progress</span>
+            <span
+              className={
+                readyQty === totalQty
+                  ? 'font-semibold text-green-600'
+                  : 'font-medium text-orange-600'
+              }
+            >
+              {readyQty} of {totalQty} ready
+            </span>
+          </div>
+        )}
 
         {/* Customer Type + Age/Time + Price */}
         <div className="flex items-center justify-between text-sm">

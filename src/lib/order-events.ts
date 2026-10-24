@@ -244,8 +244,14 @@ export async function recordOrderStatusChanged(
   let stationIds = stationRows.map((row) => row.stationId);
 
   // No creation event (for example, the order predates this log). Fall back to
-  // routing so the station still learns about the change.
+  // routing so the station still learns about the change — except for a
+  // PENDING cancellation: no kitchen ticket ever existed, so there is nothing
+  // to stop and no slip to print (D41).
   if (stationIds.length === 0) {
+    if (from === 'PENDING') {
+      return 0;
+    }
+
     const routing = await resolveRouting(order.restaurantId);
     stationIds = routing.defaultStationId ? [routing.defaultStationId] : [];
   }

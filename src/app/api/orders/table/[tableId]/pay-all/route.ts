@@ -10,6 +10,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { z } from 'zod';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+} from '@/lib/tenant-context';
+import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import {
+  recordOrderCreated,
+  recordOrderStatusChanged,
+} from '@/lib/order-events';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 const PayAllSchema = z.object({
   paymentMethod: z.enum(['cash', 'card', 'qr_payment']),
@@ -28,6 +39,11 @@ export async function POST(
     // Validate inputs
     const validTableId = z.string().uuid().parse(tableId);
     const validatedData = PayAllSchema.parse(body);
+
+    const context = await getTenantContext(request);
+    requireAuth(context);
+    requirePermission(context!, 'payments', 'write');
+    await requireTableAccess(validTableId, context!);
 
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx) => {
@@ -65,6 +81,8 @@ export async function POST(
             data: {
               status: 'CONFIRMED',
               paymentStatus: 'PAID',
+              updatedAt: new Date(),
+              version: { increment: 1 },
             },
           });
 
@@ -76,7 +94,7 @@ export async function POST(
               amount: order.totalAmount,
               processingFee: 0,
               netAmount: order.totalAmount,
-              status: 'COMPLETED',
+              status: 'PAID',
               processedAt: new Date(),
               completedAt: new Date(),
             },
@@ -110,6 +128,46 @@ export async function POST(
         orderCount: orders.length,
       };
     });
+
+    // D41: paying all PENDING orders is also a confirmation. Emit the
+    // kitchen ticket and status events just like the normal confirm route.
+    for (const order of result.orders) {
+      try {
+        await recordOrderCreated(order.id);
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record kitchen ticket for paid order ${order.id}:`,
+          eventError
+        );
+      }
+
+      try {
+        await recordOrderStatusChanged(order.id, 'PENDING', 'CONFIRMED');
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record CONFIRMED for paid order ${order.id}:`,
+          eventError
+        );
+      }
+
+      await PostgresEventManager.publishOrderStatusChange({
+        orderId: order.id,
+        oldStatus: 'PENDING',
+        newStatus: 'CONFIRMED',
+        restaurantId: order.restaurantId,
+        tableId: order.tableId,
+        orderNumber: order.orderNumber,
+        timestamp: Date.now(),
+      });
+
+      await PostgresEventManager.publishKitchenNotification({
+        type: 'new_order',
+        orderId: order.id,
+        restaurantId: order.restaurantId,
+        message: `New order ${order.orderNumber} ready for kitchen`,
+        timestamp: Date.now(),
+      });
+    }
 
     return NextResponse.json({
       success: true,

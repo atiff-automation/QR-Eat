@@ -18,12 +18,7 @@ import { resolveRouting } from '@/lib/order-events';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const OPEN_STATUSES: OrderStatus[] = [
-  'PENDING',
-  'CONFIRMED',
-  'PREPARING',
-  'READY',
-];
+const OPEN_STATUSES: OrderStatus[] = ['CONFIRMED', 'PREPARING', 'READY'];
 
 export async function GET(request: NextRequest) {
   try {

@@ -159,6 +159,12 @@ export function OrdersOverview() {
           fetchStats();
           break;
 
+        case 'order_item_status_changed':
+          // Item progress is visible on the order card; refresh the order so
+          // the “x of y ready” line and any status changes are current.
+          fetchOrders();
+          break;
+
         default:
           break;
       }

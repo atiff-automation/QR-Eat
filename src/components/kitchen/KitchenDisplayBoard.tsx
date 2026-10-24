@@ -412,7 +412,8 @@ export function KitchenDisplayBoard() {
         })
       );
 
-      // API Calls (Parallel)
+      // API Calls (Parallel). The server moves the order to PREPARING when the
+      // first item starts; do not PATCH the order separately.
       await Promise.all(
         items.map((item) =>
           ApiClient.patch(`/kitchen/items/${item.id}/status`, {
@@ -421,20 +422,8 @@ export function KitchenDisplayBoard() {
         )
       );
 
-      // Side Effect: If starting cooking, ensure Global Order Status is at least PREPARING
-      if (newStatus === 'PREPARING') {
-        // We don't await this to avoid blocking the UI response, and we catch errors silently
-        ApiClient.patch(`/orders/${orderId}/status`, {
-          status: 'PREPARING',
-        }).catch((err) =>
-          console.warn('Failed to auto-update global order status:', err)
-        );
-      }
-
-      // If marking items READY, check if ALL items in the original order are now ready
-      // This logic is complex to do purely client-side without full order context.
-      // Ideally backend handles "Check All Ready".
-      // For now, we rely on the waiter/kds visual cue.
+      // If marking items READY, the server checks all items and moves the
+      // order to READY. No client-side order status write is needed.
     } catch (error) {
       console.error('Failed to bulk update items:', error);
       toast.error('Failed to update items');

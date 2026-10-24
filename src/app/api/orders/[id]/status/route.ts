@@ -7,7 +7,10 @@ import {
   getInvalidTransitionMessage,
 } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
-import { recordOrderStatusChanged } from '@/lib/order-events';
+import {
+  recordOrderCreated,
+  recordOrderStatusChanged,
+} from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
 
@@ -66,27 +69,26 @@ export async function PATCH(
     const user = authResult.user;
     const restaurantId = user.currentRole?.restaurantId;
 
-    // Debug logging
-    if (process.env.NODE_ENV === 'development') {
-      console.log('🔍 Order status update permission check:', {
-        userType: user.userType,
-        userRestaurantId: restaurantId,
-        orderRestaurantId: currentOrder.restaurantId,
-        userPermissions: user.permissions,
-        hasOrdersUpdate: user.permissions.includes('orders:update'),
-        hasOrdersKitchen: user.permissions.includes('orders:kitchen'),
-        hasOrdersRead: user.permissions.includes('orders:read'),
-      });
-    }
+    const isOwnerOrManager =
+      user.userType === 'restaurant_owner' ||
+      user.userType === 'platform_admin' ||
+      (user.userType === 'staff' &&
+        user.currentRole?.roleTemplate === 'manager');
 
+    const canUpdateKitchenStatus =
+      user.permissions.includes('orders:write') ||
+      user.permissions.includes('orders:kitchen') ||
+      user.permissions.includes('orders:fulfill');
+
+    // D41: confirmation is a manager/owner gate. Other status changes can be
+    // performed by kitchen/floor roles. `orders:read` alone is not enough.
     if (user.userType === 'platform_admin') {
       hasPermission = true;
     } else if (restaurantId && currentOrder.restaurantId === restaurantId) {
-      // Check if user has permission to update orders in this restaurant
       hasPermission =
-        user.permissions.includes('orders:update') ||
-        user.permissions.includes('orders:kitchen') ||
-        user.permissions.includes('orders:read'); // Allow read permission to update status
+        status === ORDER_STATUS.CONFIRMED
+          ? isOwnerOrManager
+          : canUpdateKitchenStatus;
     }
 
     if (!hasPermission) {
@@ -182,7 +184,24 @@ export async function PATCH(
       },
     });
 
-    // Station event log: one event per station that printed this order.
+    // D41: the kitchen ticket is created at confirmation, not at QR
+    // submission. recordOrderCreated is idempotent, so a retried confirm or an
+    // order that predates this flow cannot print twice.
+    if (
+      status === ORDER_STATUS.CONFIRMED &&
+      currentOrder.status === ORDER_STATUS.PENDING
+    ) {
+      try {
+        await recordOrderCreated(orderId);
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record kitchen ticket for ${orderId} on CONFIRMED:`,
+          eventError
+        );
+      }
+    }
+
+    // Station event log: one event per station that received this order.
     try {
       await recordOrderStatusChanged(orderId, currentOrder.status, status);
     } catch (eventError) {

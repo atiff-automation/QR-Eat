@@ -107,6 +107,9 @@ export async function PATCH(
         order: {
           select: {
             restaurantId: true,
+            status: true,
+            tableId: true,
+            orderNumber: true,
           },
         },
       },
@@ -129,6 +132,16 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // D41: kitchen actions only make sense after manager/owner confirmation.
+    // A PENDING order has no kitchen ticket, and a closed order must not be
+    // mutated.
+    if (!['CONFIRMED', 'PREPARING'].includes(currentItem.order.status)) {
+      return NextResponse.json(
+        { error: 'Order is not in a kitchen-action state' },
+        { status: 409 }
+      );
+    }
+
     // Update the order item status
     const orderItem = await prisma.orderItem.update({
       where: { id: itemId },
@@ -142,6 +155,8 @@ export async function PATCH(
             id: true,
             restaurantId: true,
             status: true,
+            tableId: true,
+            orderNumber: true,
           },
         },
       },
@@ -178,57 +193,104 @@ export async function PATCH(
       timestamp: Date.now(),
     });
 
-    // Check if all items in the order are ready, then update order status
-    if (status === 'READY') {
+    const orderIdForStatus = orderItem.order.id;
+    const restaurantIdForStatus = orderItem.order.restaurantId;
+    const tableIdForStatus = orderItem.order.tableId;
+    const orderNumberForStatus = orderItem.order.orderNumber;
+
+    const transitionToPreparing = async () => {
+      if (orderItem.order.status !== 'CONFIRMED') return;
+
+      const updated = await prisma.order.updateMany({
+        where: { id: orderIdForStatus, status: 'CONFIRMED' },
+        data: {
+          status: 'PREPARING',
+          updatedAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+
+      if (updated.count === 0) return;
+
+      try {
+        await recordOrderStatusChanged(
+          orderIdForStatus,
+          'CONFIRMED',
+          'PREPARING'
+        );
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record PREPARING for ${orderIdForStatus}:`,
+          eventError
+        );
+      }
+
+      await PostgresEventManager.publishOrderStatusChange({
+        orderId: orderIdForStatus,
+        oldStatus: 'CONFIRMED',
+        newStatus: 'PREPARING',
+        restaurantId: restaurantIdForStatus,
+        tableId: tableIdForStatus,
+        orderNumber: orderNumberForStatus,
+        timestamp: Date.now(),
+      });
+    };
+
+    const transitionToReady = async () => {
+      const fresh = await prisma.order.findUnique({
+        where: { id: orderIdForStatus },
+        select: { status: true },
+      });
+
+      if (!fresh || !['CONFIRMED', 'PREPARING'].includes(fresh.status)) return;
+
+      const updated = await prisma.order.updateMany({
+        where: { id: orderIdForStatus, status: fresh.status },
+        data: {
+          status: 'READY',
+          readyAt: new Date(),
+          updatedAt: new Date(),
+          version: { increment: 1 },
+        },
+      });
+
+      if (updated.count === 0) return;
+
+      try {
+        await recordOrderStatusChanged(orderIdForStatus, fresh.status, 'READY');
+      } catch (eventError) {
+        console.error(
+          `[order-events] FAILED to record READY for ${orderIdForStatus}:`,
+          eventError
+        );
+      }
+
+      await PostgresEventManager.publishOrderStatusChange({
+        orderId: orderIdForStatus,
+        oldStatus: fresh.status,
+        newStatus: 'READY',
+        restaurantId: restaurantIdForStatus,
+        tableId: tableIdForStatus,
+        orderNumber: orderNumberForStatus,
+        timestamp: Date.now(),
+      });
+    };
+
+    if (status === 'PREPARING') {
+      await transitionToPreparing();
+    } else if (status === 'READY') {
       const allOrderItems = await prisma.orderItem.findMany({
-        where: { orderId: orderItem.order.id },
+        where: { orderId: orderIdForStatus },
       });
 
       const allItemsReady = allOrderItems.every(
         (item) => item.status === 'READY'
       );
 
-      if (
-        allItemsReady &&
-        ['CONFIRMED', 'PREPARING'].includes(orderItem.order.status)
-      ) {
-        const fromStatus = orderItem.order.status;
-
-        await prisma.order.update({
-          where: { id: orderItem.order.id },
-          data: {
-            status: 'READY',
-            readyAt: new Date(),
-            updatedAt: new Date(),
-            version: { increment: 1 },
-          },
-        });
-
-        // Station event log: the order-level READY transition is what a
-        // station console shows; item events alone do not move the ticket.
-        try {
-          await recordOrderStatusChanged(
-            orderItem.order.id,
-            fromStatus,
-            'READY'
-          );
-        } catch (eventError) {
-          console.error(
-            `[order-events] FAILED to record READY for ${orderItem.order.id}:`,
-            eventError
-          );
-        }
-
-        // Publish order status change event
-        await PostgresEventManager.publishOrderStatusChange({
-          orderId: orderItem.order.id,
-          oldStatus: fromStatus,
-          newStatus: 'READY',
-          restaurantId: orderItem.order.restaurantId,
-          tableId: '', // Not available in this context
-          orderNumber: '', // Not available in this context
-          timestamp: Date.now(),
-        });
+      if (allItemsReady) {
+        await transitionToReady();
+      } else {
+        await transitionToPreparing();
       }
     }
 
