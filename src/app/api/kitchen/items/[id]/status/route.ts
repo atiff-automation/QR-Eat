@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { getTokenFromRequest } from '@/lib/auth-utils';
+import { verifyStaffSession } from '@/lib/device-auth';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
   recordOrderItemStatusChanged,
@@ -24,17 +25,57 @@ export async function PATCH(
       );
     }
 
+    let actorId: string | undefined;
+    let actorName: string | undefined;
+    let userRestaurantId: string | undefined;
+    let canKitchen = false;
+
     const authResult = await AuthServiceV2.validateToken(token);
 
-    if (!authResult.isValid || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
+    if (authResult.isValid && authResult.user) {
+      actorId = authResult.user.id;
+      actorName =
+        `${authResult.user.firstName} ${authResult.user.lastName}`.trim();
+      userRestaurantId = authResult.user.currentRole?.restaurantId;
+      canKitchen = authResult.user.permissions.some(
+        (permission) =>
+          permission === 'orders:kitchen' || permission === 'kitchen:write'
       );
+    } else {
+      const session = verifyStaffSession(token);
+      if (!session) {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
+
+      const staff = await prisma.staff.findUnique({
+        where: { id: session.staffId },
+        include: { role: { select: { permissions: true } } },
+      });
+
+      if (
+        !staff ||
+        !staff.isActive ||
+        staff.restaurantId !== session.restaurantId
+      ) {
+        return NextResponse.json(
+          { error: 'Staff session is not valid for this restaurant' },
+          { status: 403 }
+        );
+      }
+
+      actorId = staff.id;
+      actorName = `${staff.firstName} ${staff.lastName}`.trim();
+      userRestaurantId = staff.restaurantId;
+
+      const permissions = staff.role.permissions as Record<string, unknown>;
+      const kitchen = permissions.kitchen;
+      canKitchen = Array.isArray(kitchen) && kitchen.includes('write');
     }
 
-    // Check if user has kitchen permissions
-    if (!authResult.user.permissions.includes('orders:kitchen')) {
+    if (!canKitchen) {
       return NextResponse.json(
         { error: 'Kitchen access required' },
         { status: 403 }
@@ -81,7 +122,6 @@ export async function PATCH(
     // Check ownership before mutating. The old code updated the row first and
     // rejected afterwards, which let a kitchen user from another restaurant
     // change the item before the 403.
-    const userRestaurantId = authResult.user.currentRole?.restaurantId;
     if (
       !userRestaurantId ||
       currentItem.order.restaurantId !== userRestaurantId
@@ -117,9 +157,8 @@ export async function PATCH(
         currentItem.status,
         status,
         {
-          staffId: authResult.user.id,
-          staffName:
-            `${authResult.user.firstName} ${authResult.user.lastName}`.trim(),
+          staffId: actorId,
+          staffName: actorName,
         }
       );
     } catch (eventError) {
