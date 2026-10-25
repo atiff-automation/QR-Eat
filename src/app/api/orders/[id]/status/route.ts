@@ -17,6 +17,7 @@ import {
 } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
+import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
 
 export async function PATCH(
   request: NextRequest,
@@ -133,7 +134,9 @@ export async function PATCH(
       currentOrder.status === ORDER_STATUS.PENDING &&
       !stationOverride
     ) {
-      const onlineWindow = new Date(Date.now() - 5 * 60 * 1000);
+      const onlineWindow = new Date(
+        Date.now() - COUNTER_STATION_ONLINE_WINDOW_MS
+      );
       const onlineDevice = await prisma.device.findFirst({
         where: {
           restaurantId: currentOrder.restaurantId,

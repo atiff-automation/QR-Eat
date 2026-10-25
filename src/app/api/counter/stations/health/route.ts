@@ -6,8 +6,9 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
+import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
 
-const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const ONLINE_WINDOW_MS = COUNTER_STATION_ONLINE_WINDOW_MS;
 
 /**
  * GET /api/counter/stations/health
