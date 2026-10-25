@@ -9,6 +9,8 @@ import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { recordOrderStatusChanged } from '@/lib/order-events';
 import { RBACError } from '@/lib/rbac/types';
+import { AuditLogger } from '@/lib/rbac/audit-logger';
+import { SecurityUtils } from '@/lib/security';
 
 export async function GET(
   request: NextRequest,
@@ -484,6 +486,24 @@ export async function DELETE(
         );
       }
     }
+
+    await AuditLogger.logSecurityEvent(
+      context!.userId,
+      'ORDER_CANCELLED',
+      'high',
+      `Order ${orderId} cancelled${result.refundAmount > 0 ? ' with refund' : ''}`,
+      {
+        ipAddress: SecurityUtils.getClientIP(request),
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        metadata: {
+          orderId,
+          reason: data.reason,
+          previousStatus: result.previousStatus,
+          refundAmount: result.refundAmount,
+          duplicate: result.isDuplicate,
+        },
+      }
+    );
 
     // Get refund message
     const { getRefundMessage: getRefundMessageAfterTransaction } = await import(

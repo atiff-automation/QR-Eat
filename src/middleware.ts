@@ -16,27 +16,47 @@ import { getMainDomain } from '@/lib/config/domains';
  */
 function getSecurityHeaders(request: NextRequest): Record<string, string> {
   const isSubdomain = shouldHandleSubdomain(request);
+  const isProduction = process.env.NODE_ENV === 'production';
+
+  const frameAncestors = (() => {
+    try {
+      const mainDomain = getMainDomain();
+      return isSubdomain
+        ? `frame-ancestors 'self' https://${mainDomain}`
+        : "frame-ancestors 'self'";
+    } catch {
+      return "frame-ancestors 'self'";
+    }
+  })();
+
+  const csp = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "form-action 'self'",
+    frameAncestors,
+    "script-src 'self' 'unsafe-inline'" +
+      (isProduction ? '' : " 'unsafe-eval'"),
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self' data:",
+    "connect-src 'self' https: wss:" + (isProduction ? '' : ' ws:'),
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+    ...(isProduction ? ['upgrade-insecure-requests'] : []),
+  ].join('; ');
 
   const headers: Record<string, string> = {
+    'Content-Security-Policy': csp,
     'X-Content-Type-Options': 'nosniff',
-    'Referrer-Policy': 'origin-when-cross-origin',
-    'X-XSS-Protection': '1; mode=block',
+    'Referrer-Policy': 'strict-origin-when-cross-origin',
+    'Permissions-Policy':
+      'camera=(self), microphone=(), geolocation=(self), payment=(self)',
   };
 
-  try {
-    const mainDomain = getMainDomain();
-
-    if (isSubdomain) {
-      // Only main domain can frame subdomains
-      headers['Content-Security-Policy'] =
-        `frame-ancestors 'self' https://${mainDomain}`;
-    } else {
-      headers['Content-Security-Policy'] = `frame-ancestors 'self'`;
-    }
-  } catch (error) {
-    console.error('[Middleware] Failed to get main domain for CSP:', error);
-    // Fallback to safe default
-    headers['Content-Security-Policy'] = `frame-ancestors 'self'`;
+  if (isProduction) {
+    headers['Strict-Transport-Security'] =
+      'max-age=31536000; includeSubDomains';
   }
 
   return headers;
@@ -124,15 +144,13 @@ export async function middleware(request: NextRequest) {
       request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
 
-    const queryToken = request.nextUrl.searchParams.get('token');
-
     // Check Authorization header (Bearer token)
     const authHeader = request.headers.get('authorization');
     const bearerToken = authHeader?.startsWith('Bearer ')
       ? authHeader.substring(7)
       : null;
 
-    const token = cookieToken || queryToken || bearerToken;
+    const token = cookieToken || bearerToken;
 
     if (!token) {
       if (process.env.NODE_ENV === 'development') {
@@ -393,7 +411,7 @@ function isPublicApiRoute(pathname: string): boolean {
     '/api/stations/me/print-ack',
     // Scheduled jobs authenticate with CRON_SECRET, not a staff session.
     '/api/cron/',
-    // NOTE: /api/events/ is NOT here - it requires auth via query param token
+    // NOTE: /api/events/ is NOT here - it authenticates via cookie or Bearer token
   ];
 
   return publicApiRoutes.some((route) => pathname.startsWith(route));

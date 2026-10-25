@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  poweredByHeader: false,
   // Disable ESLint during builds to prevent blocking on legacy code
   eslint: {
     ignoreDuringBuilds: true,

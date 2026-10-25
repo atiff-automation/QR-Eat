@@ -15,6 +15,8 @@ import {
 } from '@/lib/services/payment-batch-service';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { AuditLogger } from '@/lib/rbac/audit-logger';
+import { SecurityUtils } from '@/lib/security';
 
 const CounterPaymentSchema = z.object({
   tableId: z.string().uuid(),
@@ -117,6 +119,28 @@ export async function POST(request: NextRequest) {
         error
       );
     }
+
+    await AuditLogger.logSecurityEvent(
+      context!.userId,
+      result.replayed ? 'PAYMENT_BATCH_REPLAYED' : 'PAYMENT_BATCH_COMPLETED',
+      'high',
+      result.replayed
+        ? `Payment batch ${response.receiptNumber || idempotencyKey} replayed`
+        : `Payment batch ${response.receiptNumber || idempotencyKey} completed`,
+      {
+        ipAddress: SecurityUtils.getClientIP(request),
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        metadata: {
+          paymentBatchId: result.paymentBatchId,
+          receiptNumber: response.receiptNumber,
+          tableId: data.tableId,
+          paymentMethod: data.paymentMethod,
+          idempotencyKey,
+          replayed: result.replayed,
+          paymentCount: response.payments?.length || 0,
+        },
+      }
+    );
 
     return NextResponse.json(
       { ...result.response, replayed: result.replayed },

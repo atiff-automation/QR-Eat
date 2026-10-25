@@ -9,7 +9,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext, requireAuth } from '@/lib/tenant-context';
-import { extractTokenFromRequest } from '@/lib/auth-utils';
 import { pgPubSub, PG_EVENTS } from '@/lib/postgres-pubsub';
 import { EventPersistenceService } from '@/lib/event-persistence';
 import {
@@ -46,9 +45,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get tenant context from middleware headers or ?token= query param (mobile clients)
-    const context =
-      (await extractTokenFromRequest(request)) ||
-      (await getTenantContext(request));
+    const context = await getTenantContext(request);
     requireAuth(context);
 
     // Get user info from context

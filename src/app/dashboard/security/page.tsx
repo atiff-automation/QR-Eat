@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
+  History,
   Laptop,
   LogOut,
   MonitorSmartphone,
@@ -34,6 +35,15 @@ interface SessionsResponse {
   sessions: SessionSummary[];
   currentSessionId: string;
   maxSessions: number;
+}
+
+interface SecurityEvent {
+  id: string;
+  action: string;
+  resource: string | null;
+  metadata: Record<string, unknown>;
+  ipAddress?: string | null;
+  createdAt: string;
 }
 
 function relativeTime(value: string): string {
@@ -68,6 +78,7 @@ export default function SecurityPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [isBusyAll, setIsBusyAll] = useState(false);
+  const [events, setEvents] = useState<SecurityEvent[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -85,9 +96,22 @@ export default function SecurityPage() {
     }
   }, []);
 
+  const loadEvents = useCallback(async () => {
+    try {
+      const data = await ApiClient.get<{
+        success: boolean;
+        events: SecurityEvent[];
+      }>('/auth/security-log?limit=10');
+      setEvents(data.events || []);
+    } catch {
+      // The session list is the primary control; activity is best-effort.
+    }
+  }, []);
+
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadEvents();
+  }, [load, loadEvents]);
 
   const revoke = async (session: SessionSummary) => {
     if (
@@ -108,7 +132,7 @@ export default function SecurityPage() {
         return;
       }
       toast.success('Device signed out');
-      await load();
+      await Promise.all([load(), loadEvents()]);
     } catch (error) {
       toast.error(
         error instanceof ApiClientError
@@ -132,7 +156,7 @@ export default function SecurityPage() {
     try {
       await ApiClient.post('/auth/sessions/revoke-all', { othersOnly: true });
       toast.success('Other devices signed out');
-      await load();
+      await Promise.all([load(), loadEvents()]);
     } catch (error) {
       toast.error(
         error instanceof ApiClientError
@@ -272,6 +296,45 @@ export default function SecurityPage() {
           <p className="p-6 text-center text-sm text-gray-500">
             No active sessions found.
           </p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-gray-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-gray-100 p-4">
+          <History className="h-5 w-5 text-gray-500" />
+          <h2 className="font-medium text-gray-900">
+            Recent security activity
+          </h2>
+        </div>
+        {events.length === 0 ? (
+          <p className="p-4 text-sm text-gray-500">
+            No recent security events.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {events.map((event) => (
+              <li
+                key={event.id}
+                className="flex items-start justify-between gap-3 px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm font-medium text-gray-900">
+                    {event.action
+                      .replace(/_/g, ' ')
+                      .toLowerCase()
+                      .replace(/\b\w/g, (c) => c.toUpperCase())}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {event.resource || 'security'}
+                    {event.ipAddress ? ` · ${event.ipAddress}` : ''}
+                  </p>
+                </div>
+                <span className="whitespace-nowrap text-xs text-gray-500">
+                  {relativeTime(event.createdAt)}
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 

@@ -64,6 +64,16 @@ describe('tenant context security', () => {
     expect(validateToken).not.toHaveBeenCalled();
   });
 
+  it('does not authenticate a token from the query string', async () => {
+    const validateToken = jest.spyOn(AuthServiceV2, 'validateToken');
+    const request = new NextRequest(
+      'http://localhost/api/orders?token=leaked-in-url'
+    );
+
+    await expect(getTenantContext(request)).resolves.toBeNull();
+    expect(validateToken).not.toHaveBeenCalled();
+  });
+
   it('accepts a valid bearer token', async () => {
     const validateToken = jest
       .spyOn(AuthServiceV2, 'validateToken')

@@ -9,6 +9,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import { AuditLogger } from '@/lib/rbac/audit-logger';
+import { SecurityUtils } from '@/lib/security';
 
 export async function POST(
   request: NextRequest,
@@ -50,6 +52,23 @@ export async function POST(
       },
       select: { id: true, name: true, isActive: true, tokenVersion: true },
     });
+
+    await AuditLogger.logSecurityEvent(
+      auth.user?.id || 'unknown',
+      'DEVICE_REVOKED',
+      'high',
+      `Station device ${device.name} revoked`,
+      {
+        ipAddress: SecurityUtils.getClientIP(request),
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        metadata: {
+          deviceId: device.id,
+          deviceName: device.name,
+          restaurantId,
+          tokenVersion: device.tokenVersion,
+        },
+      }
+    );
 
     return NextResponse.json({ success: true, device });
   } catch (error) {

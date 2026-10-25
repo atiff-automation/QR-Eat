@@ -59,8 +59,8 @@ export async function getTenantContext(
 }
 
 /**
- * Extract context from an RBAC token supplied as a cookie, bearer header, or
- * query token (mobile/SSE compatibility).
+ * Extract context from an RBAC token supplied as a cookie or bearer header.
+ * Query-string tokens are intentionally rejected.
  * @internal
  */
 async function extractContextFromToken(
@@ -73,7 +73,6 @@ async function extractContextFromToken(
   const token =
     request.cookies.get('qr_rbac_token')?.value ||
     request.cookies.get('qr_auth_token')?.value ||
-    request.nextUrl.searchParams.get('token') ||
     bearerToken;
 
   if (!token) {

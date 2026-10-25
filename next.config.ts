@@ -10,6 +10,7 @@ const withSerwist = withSerwistInit({
 });
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   serverExternalPackages: [
     'jsonwebtoken',
     'bcryptjs',
