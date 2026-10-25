@@ -55,46 +55,32 @@ export async function GET(
       );
     }
 
-    // A table is reused across sittings. Scope the bill to the latest customer
-    // session so historical payments do not appear as "already paid" on a new
-    // bill. Prefer a live session; otherwise use the most recent session.
-    const now = new Date();
-    const currentSession = await prisma.customerSession.findFirst({
-      where: {
-        tableId,
-        OR: [
-          { status: 'ACTIVE', expiresAt: { gt: now } },
-          { status: { in: ['ACTIVE', 'ENDED'] } },
-        ],
-      },
-      orderBy: { startedAt: 'desc' },
-      select: { id: true },
-    });
-
-    const sessionFilter = currentSession
-      ? { customerSessionId: currentSession.id }
-      : { customerSessionId: '__no_current_session__' };
-
+    // A table is reused across sittings. Unpaid orders must match exactly what
+    // the payment service will charge, including multiple active QR sessions at
+    // the same table. Paid totals are scoped only to the sessions that own those
+    // unpaid orders, so historical sittings never appear as "already paid".
     const orders = await prisma.order.findMany({
       where: {
         tableId,
         restaurantId: table.restaurantId,
         paymentStatus: 'PENDING',
         status: { not: 'CANCELLED' },
-        ...sessionFilter,
       },
       include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
 
-    const paid = orders.length
+    const billSessionIds = Array.from(
+      new Set(orders.map((order) => order.customerSessionId))
+    );
+    const paid = billSessionIds.length
       ? await prisma.order.aggregate({
           where: {
             tableId,
             restaurantId: table.restaurantId,
             paymentStatus: 'PAID',
             status: { not: 'CANCELLED' },
-            ...sessionFilter,
+            customerSessionId: { in: billSessionIds },
           },
           _sum: { totalAmount: true },
         })
