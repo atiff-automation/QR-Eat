@@ -233,6 +233,7 @@ export async function recordOrderCreated(
       orderId: order.id,
       type: ORDER_EVENT_TYPES.CREATED,
       payload: payload as unknown as Prisma.InputJsonValue,
+      printStatus: 'PENDING' as const,
     };
   });
 
@@ -314,6 +315,7 @@ export async function recordOrderStatusChanged(
       orderId: order.id,
       type,
       payload: payload as unknown as Prisma.InputJsonValue,
+      printStatus: isCancellation ? ('PENDING' as const) : undefined,
     })),
   });
 
@@ -406,6 +408,7 @@ export async function recordOrderItemsAdded(
         orderId: order.id,
         type: ORDER_EVENT_TYPES.ITEMS_ADDED,
         payload: payload as unknown as Prisma.InputJsonValue,
+        printStatus: 'PENDING' as const,
       };
     }),
   });

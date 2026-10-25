@@ -1371,6 +1371,12 @@ model StationCategory {
 /// filtered and routed at write time (D18, D19). `id` is the sequence the
 /// client resumes from; it is global per database, which is fine because the
 /// stream filters by station.
+enum OrderEventPrintStatus {
+  PENDING
+  PRINTED
+  FAILED
+}
+
 model OrderEvent {
   id           BigInt   @id @default(autoincrement())
   restaurantId String
@@ -1380,6 +1386,15 @@ model OrderEvent {
   payload      Json
   createdAt    DateTime @default(now())
 
+  // Kitchen ticket delivery/print state. Null means legacy/unknown: existing
+  // rows predate per-ticket acknowledgements and must never be shown as
+  // printed without evidence.
+  printStatus      OrderEventPrintStatus?
+  printAttemptedAt DateTime?
+  printedAt        DateTime?
+  printError       String?
+  printDeviceId    String?
+
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   station    Station    @relation(fields: [stationId], references: [id], onDelete: Cascade)
   order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -1387,6 +1402,8 @@ model OrderEvent {
   @@index([restaurantId, id])
   @@index([stationId, id])
   @@index([orderId])
+  @@index([orderId, type])
+  @@index([printStatus])
   @@map("order_events")
 }
 

@@ -335,6 +335,8 @@ export async function PATCH(
               unroutedItemIds: ticketResult?.unroutedItemIds ?? [],
               replayed: ticketResult?.replayed ?? false,
               error: ticketError,
+              ticketStatus:
+                (ticketResult?.tickets ?? 0) > 0 ? 'QUEUED' : 'NOT_ROUTED',
             }
           : undefined,
       message: `Order status updated to ${status}`,
