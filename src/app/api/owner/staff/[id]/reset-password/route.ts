@@ -3,6 +3,8 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { prisma } from '@/lib/database';
 import { Prisma } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { SessionManager } from '@/lib/rbac/session-manager';
+import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 
 export async function POST(
   request: NextRequest,
@@ -113,6 +115,13 @@ export async function POST(
         lockedUntil: null,
       },
     });
+
+    // A temporary password invalidates all existing staff sessions.
+    await SessionManager.invalidateAllUserSessions(staffId);
+    await RefreshTokenService.revokeAllUserTokens(
+      staffId,
+      'staff_password_reset'
+    );
 
     // Mark any related password reset notifications as completed
     // Use a more targeted approach to avoid potential session conflicts

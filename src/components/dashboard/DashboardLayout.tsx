@@ -31,6 +31,7 @@ import {
   Lock,
   Receipt,
   Server,
+  ShieldCheck,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -181,6 +182,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'restaurant:settings',
     },
     {
+      name: 'Security',
+      href: '/dashboard/security',
+      icon: ShieldCheck,
+      current: pathname.startsWith('/dashboard/security'),
+      permission: undefined,
+    },
+    {
       name: 'Settings',
       href: '/dashboard/settings',
       icon: Settings,
@@ -201,6 +209,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/profit-loss')) return TrendingUp;
     if (pathname.includes('/reports')) return BarChart3;
     if (pathname.includes('/stations')) return Server;
+    if (pathname.includes('/security')) return ShieldCheck;
     if (pathname.includes('/settings')) return Settings;
     return Home;
   };
@@ -217,6 +226,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/profit-loss')) return 'Profit & Loss';
     if (pathname.includes('/reports')) return 'Reports';
     if (pathname.includes('/stations')) return 'Stations & Devices';
+    if (pathname.includes('/security')) return 'Security & Devices';
     if (pathname.includes('/settings')) return 'Settings';
     return 'Dashboard';
   };

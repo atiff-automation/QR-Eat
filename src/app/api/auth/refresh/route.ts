@@ -22,6 +22,7 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { SecurityUtils } from '@/lib/security';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { EnhancedJWTService } from '@/lib/rbac/jwt';
+import { SessionManager } from '@/lib/rbac/session-manager';
 
 // =============================================================================
 // Rate Limiting Configuration
@@ -143,6 +144,27 @@ export async function POST(request: NextRequest) {
           success: false,
           error: 'Invalid or expired refresh token',
           reason: validation.reason,
+        },
+        { status: 401 }
+      );
+    }
+
+    // A refresh token is only meaningful while its server session exists.
+    // This also makes revoked/evicted sessions unusable even if an old refresh
+    // token row has not been cleaned up yet.
+    const activeSession = await SessionManager.getSession(
+      validation.data.sessionId
+    );
+    if (!activeSession) {
+      await RefreshTokenService.revokeRefreshToken(
+        refreshToken,
+        'session_missing'
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Session has been revoked',
+          reason: 'session_revoked',
         },
         { status: 401 }
       );

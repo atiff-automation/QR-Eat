@@ -3,6 +3,8 @@ import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { UserType } from '@/lib/rbac/types';
 import { Sanitizer } from '@/lib/validation';
+import { SessionManager } from '@/lib/rbac/session-manager';
+import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 
 // PUT - Update staff member
 export async function PUT(
@@ -13,8 +15,9 @@ export async function PUT(
     const { id: restaurantId, staffId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -46,13 +49,13 @@ export async function PUT(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.id
-        }
+          ownerId: authResult.user.id,
+        },
       },
       include: {
         restaurant: true,
-        role: true
-      }
+        role: true,
+      },
     });
 
     if (!staffMember) {
@@ -65,7 +68,13 @@ export async function PUT(
     const requestData = await request.json();
 
     // Validate required fields
-    const requiredFields = ['username', 'email', 'firstName', 'lastName', 'roleId'];
+    const requiredFields = [
+      'username',
+      'email',
+      'firstName',
+      'lastName',
+      'roleId',
+    ];
     for (const field of requiredFields) {
       if (!requestData[field]) {
         return NextResponse.json(
@@ -78,7 +87,7 @@ export async function PUT(
     // Check if username already exists (excluding current staff)
     if (requestData.username !== staffMember.username) {
       const existingUsername = await prisma.staff.findUnique({
-        where: { username: requestData.username }
+        where: { username: requestData.username },
       });
 
       if (existingUsername) {
@@ -92,7 +101,7 @@ export async function PUT(
     // Check if email already exists (excluding current staff)
     if (requestData.email.toLowerCase() !== staffMember.email) {
       const existingEmail = await prisma.staff.findUnique({
-        where: { email: requestData.email.toLowerCase() }
+        where: { email: requestData.email.toLowerCase() },
       });
 
       if (existingEmail) {
@@ -105,7 +114,7 @@ export async function PUT(
 
     // Validate role exists
     const role = await prisma.staffRole.findUnique({
-      where: { id: requestData.roleId }
+      where: { id: requestData.roleId },
     });
 
     if (!role) {
@@ -115,6 +124,8 @@ export async function PUT(
       );
     }
 
+    const roleChanged = staffMember.roleId !== requestData.roleId;
+
     // Update staff member
     const updatedStaff = await prisma.staff.update({
       where: { id: staffId },
@@ -123,8 +134,10 @@ export async function PUT(
         email: Sanitizer.sanitizeEmail(requestData.email),
         firstName: Sanitizer.sanitizeString(requestData.firstName),
         lastName: Sanitizer.sanitizeString(requestData.lastName),
-        phone: requestData.phone ? Sanitizer.sanitizePhone(requestData.phone) : null,
-        roleId: requestData.roleId
+        phone: requestData.phone
+          ? Sanitizer.sanitizePhone(requestData.phone)
+          : null,
+        roleId: requestData.roleId,
       },
       include: {
         role: {
@@ -132,24 +145,32 @@ export async function PUT(
             id: true,
             name: true,
             description: true,
-            permissions: true
-          }
-        }
-      }
+            permissions: true,
+          },
+        },
+      },
     });
+
+    if (roleChanged) {
+      await SessionManager.invalidateAllUserSessions(staffId);
+      await RefreshTokenService.revokeAllUserTokens(
+        staffId,
+        'staff_role_changed'
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Staff member updated successfully',
-      staff: updatedStaff
+      staff: updatedStaff,
     });
-
   } catch (error) {
     console.error('Failed to update staff:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to update staff',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );
@@ -165,8 +186,9 @@ export async function PATCH(
     const { id: restaurantId, staffId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -198,9 +220,9 @@ export async function PATCH(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.id
-        }
-      }
+          ownerId: authResult.user.id,
+        },
+      },
     });
 
     if (!staffMember) {
@@ -216,7 +238,7 @@ export async function PATCH(
     const updatedStaff = await prisma.staff.update({
       where: { id: staffId },
       data: {
-        isActive: requestData.isActive
+        isActive: requestData.isActive,
       },
       include: {
         role: {
@@ -224,24 +246,32 @@ export async function PATCH(
             id: true,
             name: true,
             description: true,
-            permissions: true
-          }
-        }
-      }
+            permissions: true,
+          },
+        },
+      },
     });
+
+    if (requestData.isActive === false) {
+      await SessionManager.invalidateAllUserSessions(staffId);
+      await RefreshTokenService.revokeAllUserTokens(
+        staffId,
+        'staff_deactivated'
+      );
+    }
 
     return NextResponse.json({
       success: true,
       message: `Staff member ${requestData.isActive ? 'activated' : 'deactivated'} successfully`,
-      staff: updatedStaff
+      staff: updatedStaff,
     });
-
   } catch (error) {
     console.error('Failed to update staff status:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to update staff status',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );
@@ -257,8 +287,9 @@ export async function DELETE(
     const { id: restaurantId, staffId } = await params;
 
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -290,9 +321,9 @@ export async function DELETE(
         id: staffId,
         restaurantId,
         restaurant: {
-          ownerId: authResult.user.id
-        }
-      }
+          ownerId: authResult.user.id,
+        },
+      },
     });
 
     if (!staffMember) {
@@ -302,22 +333,26 @@ export async function DELETE(
       );
     }
 
+    // Revoke access before deleting the account.
+    await SessionManager.invalidateAllUserSessions(staffId);
+    await RefreshTokenService.revokeAllUserTokens(staffId, 'staff_deleted');
+
     // Delete staff member
     await prisma.staff.delete({
-      where: { id: staffId }
+      where: { id: staffId },
     });
 
     return NextResponse.json({
       success: true,
-      message: `Staff member "${staffMember.firstName} ${staffMember.lastName}" deleted successfully`
+      message: `Staff member "${staffMember.firstName} ${staffMember.lastName}" deleted successfully`,
     });
-
   } catch (error) {
     console.error('Failed to delete staff:', error);
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to delete staff',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development' ? error.message : undefined,
       },
       { status: 500 }
     );

@@ -248,8 +248,24 @@ export class RefreshTokenService {
         return null;
       }
 
-      // Revoke old token
-      await this.revokeRefreshToken(oldToken, 'rotated');
+      // Atomically claim the old token so two concurrent refresh requests
+      // cannot both rotate the same token.
+      const hashedToken = this.hashToken(oldToken);
+      const claimed = await prisma.refreshToken.updateMany({
+        where: {
+          token: hashedToken,
+          isRevoked: false,
+          expiresAt: { gt: new Date() },
+        },
+        data: {
+          isRevoked: true,
+          revokedAt: new Date(),
+          revokedReason: 'rotated',
+        },
+      });
+      if (claimed.count !== 1) {
+        return null;
+      }
 
       // Create new token with same user context
       return await this.createRefreshToken({
@@ -321,6 +337,57 @@ export class RefreshTokenService {
       return result.count;
     } catch (error) {
       console.error('Failed to revoke all user tokens:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Revoke all refresh tokens for a user except the current session.
+   */
+  static async revokeOtherUserTokens(
+    userId: string,
+    currentSessionId: string,
+    reason?: string
+  ): Promise<number> {
+    try {
+      const result = await prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          sessionId: { not: currentSessionId },
+          isRevoked: false,
+        },
+        data: {
+          isRevoked: true,
+          revokedAt: new Date(),
+          revokedReason: reason || 'revoke_other_devices',
+        },
+      });
+      return result.count;
+    } catch (error) {
+      console.error('Failed to revoke other user tokens:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Revoke refresh tokens belonging to a specific raw session id.
+   */
+  static async revokeSessionTokens(
+    sessionId: string,
+    reason?: string
+  ): Promise<number> {
+    try {
+      const result = await prisma.refreshToken.updateMany({
+        where: { sessionId, isRevoked: false },
+        data: {
+          isRevoked: true,
+          revokedAt: new Date(),
+          revokedReason: reason || 'session_revoked',
+        },
+      });
+      return result.count;
+    } catch (error) {
+      console.error('Failed to revoke session tokens:', error);
       return 0;
     }
   }

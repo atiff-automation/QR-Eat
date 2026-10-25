@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import { SessionManager } from '@/lib/rbac/session-manager';
+import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,18 +18,18 @@ export async function POST(request: NextRequest) {
 
     // Find user based on type
     let user = null;
-    
+
     switch (userType) {
       case 'staff':
         user = await prisma.staff.findUnique({
           where: { email },
-          include: { restaurant: true }
+          include: { restaurant: true },
         });
         tableName = 'staff';
         break;
       case 'restaurant_owner':
         user = await prisma.restaurantOwner.findUnique({
-          where: { email }
+          where: { email },
         });
         tableName = 'restaurant_owner';
         break;
@@ -57,8 +59,8 @@ export async function POST(request: NextRequest) {
           where: { id: user.id },
           data: {
             passwordResetToken: resetToken,
-            passwordResetExpires: resetExpires
-          }
+            passwordResetExpires: resetExpires,
+          },
         });
         break;
       case 'restaurant_owner':
@@ -66,8 +68,8 @@ export async function POST(request: NextRequest) {
           where: { id: user.id },
           data: {
             passwordResetToken: resetToken,
-            passwordResetExpires: resetExpires
-          }
+            passwordResetExpires: resetExpires,
+          },
         });
         break;
     }
@@ -79,14 +81,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         message: 'Password reset token generated successfully.',
         resetToken: resetToken, // Only in development
-        resetUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+        resetUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`,
       });
     }
 
     return NextResponse.json({
-      message: 'If the email exists, a password reset link will be sent.'
+      message: 'If the email exists, a password reset link will be sent.',
     });
-
   } catch (error) {
     console.error('Password reset error:', error);
     return NextResponse.json(
@@ -116,7 +117,7 @@ export async function PATCH(request: NextRequest) {
 
     // Find user with valid reset token
     const now = new Date();
-    
+
     let user = null;
     let userType = '';
 
@@ -125,9 +126,9 @@ export async function PATCH(request: NextRequest) {
       where: {
         passwordResetToken: token,
         passwordResetExpires: {
-          gt: now
-        }
-      }
+          gt: now,
+        },
+      },
     });
 
     if (user) {
@@ -138,9 +139,9 @@ export async function PATCH(request: NextRequest) {
         where: {
           passwordResetToken: token,
           passwordResetExpires: {
-            gt: now
-          }
-        }
+            gt: now,
+          },
+        },
       });
       if (user) {
         userType = 'restaurant_owner';
@@ -163,28 +164,31 @@ export async function PATCH(request: NextRequest) {
       passwordResetToken: null,
       passwordResetExpires: null,
       passwordChangedAt: new Date(),
-      mustChangePassword: false // Password has been changed
+      mustChangePassword: false, // Password has been changed
     };
 
     switch (userType) {
       case 'staff':
         await prisma.staff.update({
           where: { id: user.id },
-          data: updateData
+          data: updateData,
         });
         break;
       case 'restaurant_owner':
         await prisma.restaurantOwner.update({
           where: { id: user.id },
-          data: updateData
+          data: updateData,
         });
         break;
     }
 
-    return NextResponse.json({
-      message: 'Password reset successfully'
-    });
+    // A password reset is a recovery event: sign out every existing session.
+    await SessionManager.invalidateAllUserSessions(user.id);
+    await RefreshTokenService.revokeAllUserTokens(user.id, 'password_reset');
 
+    return NextResponse.json({
+      message: 'Password reset successfully',
+    });
   } catch (error) {
     console.error('Password reset confirmation error:', error);
     return NextResponse.json(

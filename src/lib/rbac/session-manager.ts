@@ -39,6 +39,27 @@ export interface SessionWithRelations extends UserSession {
   restaurantContext?: RestaurantContext;
 }
 
+/** Safe shape for the "Active devices" UI. Never includes tokens/session hashes. */
+export interface UserSessionSummary {
+  id: string;
+  isCurrent: boolean;
+  roleTemplate: string;
+  userType: string;
+  restaurant: {
+    id: string;
+    name: string;
+  } | null;
+  device: {
+    platform: string;
+    browser: string;
+    label: string;
+  };
+  ipAddress?: string;
+  createdAt: Date;
+  lastActivity: Date;
+  expiresAt: Date;
+}
+
 export class SessionManager {
   /**
    * Helper to hash session ID for secure storage
@@ -54,8 +75,12 @@ export class SessionManager {
     params: CreateSessionParams
   ): Promise<UserSession> {
     try {
-      // First, clean up any existing sessions for this user to prevent conflicts
-      await this.cleanupUserSessions(params.userId);
+      // A user may be signed in on several devices. Keep at most the configured
+      // number of sessions and evict the oldest before creating this one.
+      await this.evictOldestSessions(
+        params.userId,
+        RBAC_CONSTANTS.MAX_SESSIONS_PER_USER
+      );
 
       // Generate a unique session ID with enough entropy
       const rawSessionId = `${randomUUID()}-${randomUUID()}`;
@@ -309,6 +334,52 @@ export class SessionManager {
   }
 
   /**
+   * Invalidate one session by its database row id, scoped to the owner.
+   * Use this for the session-management API; raw session ids stay server-side.
+   */
+  static async invalidateSessionById(
+    sessionRecordId: string,
+    userId: string
+  ): Promise<boolean> {
+    try {
+      const result = await prisma.userSession.deleteMany({
+        where: { id: sessionRecordId, userId },
+      });
+      return result.count > 0;
+    } catch {
+      throw new RBACError(
+        'Failed to invalidate session',
+        'INVALIDATE_SESSION_FAILED',
+        500
+      );
+    }
+  }
+
+  /**
+   * Invalidate all sessions except the current database row.
+   */
+  static async invalidateOtherSessionsByRecordId(
+    userId: string,
+    currentSessionRecordId: string
+  ): Promise<number> {
+    try {
+      const result = await prisma.userSession.deleteMany({
+        where: {
+          userId,
+          id: { not: currentSessionRecordId },
+        },
+      });
+      return result.count;
+    } catch {
+      throw new RBACError(
+        'Failed to invalidate other sessions',
+        'INVALIDATE_OTHER_SESSIONS_FAILED',
+        500
+      );
+    }
+  }
+
+  /**
    * Invalidate all sessions for a user
    */
   static async invalidateAllUserSessions(userId: string): Promise<void> {
@@ -350,18 +421,39 @@ export class SessionManager {
   }
 
   /**
-   * Clean up existing sessions for a user
+   * Evict the oldest active sessions so at most `max` remain after the next
+   * login. This is intentionally not a "logout all": other devices survive
+   * until the cap is reached.
    */
-  static async cleanupUserSessions(userId: string): Promise<number> {
+  static async evictOldestSessions(
+    userId: string,
+    max: number = RBAC_CONSTANTS.MAX_SESSIONS_PER_USER
+  ): Promise<number> {
     try {
+      if (max < 1) return 0;
+      const active = await prisma.userSession.findMany({
+        where: {
+          userId,
+          expiresAt: { gt: new Date() },
+        },
+        orderBy: { createdAt: 'asc' },
+        select: { id: true },
+      });
+
+      // Leave room for the session that is about to be created.
+      const excess = active.length - (max - 1);
+      if (excess <= 0) return 0;
+
       const result = await prisma.userSession.deleteMany({
-        where: { userId },
+        where: {
+          id: { in: active.slice(0, excess).map((session) => session.id) },
+        },
       });
       return result.count;
     } catch {
       throw new RBACError(
-        'Failed to cleanup user sessions',
-        'CLEANUP_USER_SESSIONS_FAILED',
+        'Failed to evict old sessions',
+        'EVICT_SESSIONS_FAILED',
         500
       );
     }
@@ -452,6 +544,93 @@ export class SessionManager {
         500
       );
     }
+  }
+
+  /**
+   * Safe session summaries for the Active devices UI.
+   */
+  static async getUserSessionSummaries(
+    userId: string,
+    currentSessionRecordId?: string
+  ): Promise<UserSessionSummary[]> {
+    try {
+      const sessions = await prisma.userSession.findMany({
+        where: {
+          userId,
+          expiresAt: { gt: new Date() },
+        },
+        include: {
+          currentRole: true,
+          restaurantContext: {
+            select: { id: true, name: true },
+          },
+        },
+        orderBy: { lastActivity: 'desc' },
+      });
+
+      return sessions.map((session) => {
+        const device = this.describeDevice(session.userAgent);
+        return {
+          id: session.id,
+          isCurrent: session.id === currentSessionRecordId,
+          roleTemplate: session.currentRole.roleTemplate,
+          userType: session.currentRole.userType,
+          restaurant: session.restaurantContext
+            ? {
+                id: session.restaurantContext.id,
+                name: session.restaurantContext.name,
+              }
+            : null,
+          device,
+          ipAddress: session.ipAddress || undefined,
+          createdAt: session.createdAt,
+          lastActivity: session.lastActivity,
+          expiresAt: session.expiresAt,
+        };
+      });
+    } catch {
+      throw new RBACError(
+        'Failed to get session summaries',
+        'GET_SESSION_SUMMARIES_FAILED',
+        500
+      );
+    }
+  }
+
+  private static describeDevice(userAgent?: string | null): {
+    platform: string;
+    browser: string;
+    label: string;
+  } {
+    const ua = userAgent || '';
+    const platform = /android/i.test(ua)
+      ? 'Android'
+      : /iphone|ipad|ipod/i.test(ua)
+        ? 'iOS'
+        : /windows/i.test(ua)
+          ? 'Windows'
+          : /mac os|macintosh/i.test(ua)
+            ? 'macOS'
+            : /linux/i.test(ua)
+              ? 'Linux'
+              : 'Unknown';
+    const browser = /edg\//i.test(ua)
+      ? 'Edge'
+      : /firefox\//i.test(ua)
+        ? 'Firefox'
+        : /chrome\//i.test(ua) && !/edg\//i.test(ua)
+          ? 'Chrome'
+          : /safari\//i.test(ua) && !/chrome\//i.test(ua)
+            ? 'Safari'
+            : /tabtep-counter|okhttp/i.test(ua)
+              ? 'Tabtep Counter'
+              : 'Unknown';
+    return {
+      platform,
+      browser,
+      label:
+        browser === 'Tabtep Counter' ? browser : `${browser} on ${platform}`,
+    };
   }
 
   /**

@@ -219,8 +219,12 @@ export async function DELETE(request: NextRequest) {
       // Verify and decode token to get user info
       const tokenPayload = await EnhancedJWTService.verifyToken(currentToken);
 
-      // Invalidate all sessions for this user
+      // Invalidate all sessions and refresh tokens for this user.
       await SessionManager.invalidateAllUserSessions(tokenPayload.userId);
+      await RefreshTokenService.revokeAllUserTokens(
+        tokenPayload.userId,
+        'logout_all'
+      );
 
       // Log logout all event
       await AuditLogger.logSecurityEvent(
@@ -258,16 +262,18 @@ export async function DELETE(request: NextRequest) {
       message: 'Logged out from all sessions successfully',
     });
 
-    // Clear RBAC authentication cookie
-    response.cookies.set({
-      name: 'qr_rbac_token',
-      value: '',
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 0,
-      path: '/',
-    });
+    // Clear RBAC authentication cookies
+    for (const name of ['qr_rbac_token', 'qr_refresh_token']) {
+      response.cookies.set({
+        name,
+        value: '',
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/',
+      });
+    }
 
     // Clear any legacy authentication cookies
     const legacyCookies = [

@@ -24,6 +24,7 @@ import { PermissionManager } from './permissions';
 import { RoleManager } from './role-manager';
 import { SessionManager, CreateSessionParams } from './session-manager';
 import { AuditLogger } from './audit-logger';
+import { RefreshTokenService } from './refresh-token-service';
 
 // Authentication result interface
 export interface AuthenticationResult {
@@ -556,8 +557,9 @@ export class AuthServiceV2 {
       // Get session info for logging
       const session = await SessionManager.getSession(sessionId);
 
-      // Invalidate session
+      // Invalidate session and its refresh tokens.
       await SessionManager.invalidateSession(sessionId);
+      await RefreshTokenService.revokeSessionTokens(sessionId, 'user_logout');
 
       // Log logout
       if (session) {

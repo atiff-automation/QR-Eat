@@ -264,6 +264,7 @@ export const RBAC_CONSTANTS = {
   // Session Configuration
   SESSION_TIMEOUT: 24 * 60 * 60 * 1000, // 24 hours in milliseconds
   SESSION_CLEANUP_INTERVAL: 60 * 60 * 1000, // 1 hour cleanup interval
+  MAX_SESSIONS_PER_USER: 5, // Per-device sessions; oldest is evicted
 
   // Permission Categories
   PERMISSION_CATEGORIES: [

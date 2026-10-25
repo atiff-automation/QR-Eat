@@ -5,6 +5,8 @@ import { AuthService } from '@/lib/auth';
 import { UserType } from '@/lib/rbac/types';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { SecurityUtils } from '@/lib/security';
+import { SessionManager } from '@/lib/rbac/session-manager';
+import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -153,6 +155,20 @@ export async function POST(request: NextRequest) {
           passwordChangedAt: new Date(),
         },
       });
+    }
+
+    // Keep this device signed in, but invalidate every other session and
+    // refresh token after a password change.
+    if (authResult.session) {
+      await SessionManager.invalidateOtherUserSessions(
+        user.id,
+        authResult.session.sessionId
+      );
+      await RefreshTokenService.revokeOtherUserTokens(
+        user.id,
+        authResult.session.sessionId,
+        'password_changed'
+      );
     }
 
     // Log password change for security and audit
