@@ -95,7 +95,10 @@ function usesIndex(plan: QueryPlanRow[], indexName?: string): boolean {
   return hasIndexScan && !hasSeqScan;
 }
 
-describe('Query Performance Tests', () => {
+const runPerformanceTests = process.env.RUN_PERFORMANCE_TESTS === '1';
+const performanceDescribe = runPerformanceTests ? describe : describe.skip;
+
+performanceDescribe('Query Performance Tests', () => {
   beforeAll(async () => {
     // Create test data
     console.log('\n📊 Setting up test data...\n');

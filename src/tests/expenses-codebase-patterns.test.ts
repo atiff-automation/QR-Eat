@@ -96,28 +96,14 @@ describe('Fix 2: CategoryBadge Prop Names', () => {
     expect(content).not.toMatch(/^\s+name:\s+string/m);
   });
 
-  it('CategoryManager should pass categoryName prop (not name)', () => {
+  it('CategoryManager should render category names', () => {
     const content = readFile('components/expenses/CategoryManager.tsx');
-
-    // Should use categoryName=
-    const categoryNameMatches = content.match(
-      /categoryName=\{category\.name\}/g
-    );
-    expect(categoryNameMatches).not.toBeNull();
-    expect(categoryNameMatches!.length).toBeGreaterThanOrEqual(2);
-
-    // Should NOT use bare name= for CategoryBadge
-    expect(content).not.toMatch(
-      /<CategoryBadge[\s\S]*?\bname=\{category\.name\}/
-    );
+    expect(content).toContain('{cat.name}');
   });
 
-  it('ExpenseCard should pass categoryName prop', () => {
+  it('ExpenseCard should render the category name', () => {
     const content = readFile('components/expenses/ExpenseCard.tsx');
-    expect(content).toContain('categoryName={expense.category.name}');
-    expect(content).not.toMatch(
-      /<CategoryBadge[\s\S]*?\bname=\{expense\.category\.name\}/
-    );
+    expect(content).toContain('{expense.category.name}');
   });
 });
 

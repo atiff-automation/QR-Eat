@@ -281,6 +281,16 @@ export const RBAC_CONSTANTS = {
     'users',
   ] as const,
 
+  // Human-readable role descriptions used by admin role-template APIs
+  ROLE_DESCRIPTIONS: {
+    platform_admin: 'Platform administrator',
+    restaurant_owner: 'Restaurant owner',
+    manager: 'Restaurant manager',
+    waiter: 'Waiter',
+    cashier: 'Cashier',
+    kitchen_staff: 'Kitchen staff',
+  } as const,
+
   // Role Templates
   ROLE_TEMPLATES: [
     'platform_admin',

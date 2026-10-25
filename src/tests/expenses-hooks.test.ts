@@ -247,6 +247,10 @@ describe('Expense Query Hooks', () => {
         startDate: start,
         endDate: end,
       });
+      (ApiClient.get as jest.Mock).mockResolvedValue({
+        success: true,
+        report: {},
+      });
 
       expect(config.queryKey).toEqual(
         queryKeys.profitLoss.report({

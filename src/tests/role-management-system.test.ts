@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Comprehensive Test Suite for Role Management System
  *
@@ -10,7 +11,7 @@
  * - Analytics functionality
  */
 
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { RBACMiddleware } from '@/middleware/rbac-middleware';
@@ -37,7 +38,7 @@ const mockRequest = (
     url: url.toString(),
     nextUrl: url,
     headers: new Headers({
-      'authorization': 'Bearer test-token',
+      authorization: 'Bearer test-token',
       'content-type': 'application/json',
       'user-agent': 'test-agent',
     }),
@@ -63,15 +64,20 @@ jest.mock('@/lib/database', () => ({
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+      groupBy: jest.fn(),
     },
     rolePermission: {
       findMany: jest.fn(),
       findUnique: jest.fn(),
       findFirst: jest.fn(),
       create: jest.fn(),
+      createMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
       count: jest.fn(),
+    },
+    roleTemplate: {
+      findMany: jest.fn(),
     },
     userRole: {
       findMany: jest.fn(),
@@ -175,6 +181,11 @@ describe('Role Management System Tests', () => {
         },
       ]);
 
+      (prisma.permission.count as jest.Mock).mockResolvedValue(2);
+      (prisma.permission.groupBy as jest.Mock).mockResolvedValue([
+        { category: 'users', _count: { category: 2 } },
+      ]);
+
       const { GET } = PermissionsRoute as any;
       const request = mockRequest('GET');
       const response = await GET(request);
@@ -211,7 +222,7 @@ describe('Role Management System Tests', () => {
         category: 'users',
       };
 
-      (prisma.permission.findFirst as jest.Mock).mockResolvedValue({
+      (prisma.permission.findUnique as jest.Mock).mockResolvedValue({
         id: '1',
         permissionKey: 'users:read',
       });
@@ -229,9 +240,19 @@ describe('Role Management System Tests', () => {
       (prisma.rolePermission.findMany as jest.Mock).mockResolvedValue([
         {
           roleTemplate: 'platform_admin',
-          permissionKey: 'users:read',
+          permission: {
+            id: 'p1',
+            permissionKey: 'users:read',
+            description: 'Read users',
+            category: 'users',
+            isActive: true,
+          },
         },
       ]);
+      (prisma.userRole.count as jest.Mock).mockResolvedValue(5);
+      (prisma.userRole.findFirst as jest.Mock).mockResolvedValue({
+        updatedAt: new Date(),
+      });
 
       (prisma.userRole.groupBy as jest.Mock).mockResolvedValue([
         {
@@ -260,17 +281,15 @@ describe('Role Management System Tests', () => {
         { permissionKey: 'users:read', isActive: true },
         { permissionKey: 'analytics:read', isActive: true },
       ]);
-      (prisma.rolePermission.create as jest.Mock).mockResolvedValue({
-        id: '1',
-        ...newTemplate,
-        isActive: true,
+      (prisma.rolePermission.createMany as jest.Mock).mockResolvedValue({
+        count: 2,
       });
 
       const { POST } = RoleTemplatesRoute as any;
       const request = mockRequest('POST', newTemplate);
       await POST(request);
 
-      expect(prisma.rolePermission.create).toHaveBeenCalled();
+      expect(prisma.rolePermission.createMany).toHaveBeenCalled();
     });
   });
 
@@ -419,7 +438,9 @@ describe('Role Management System Tests', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({ id: 'existing' });
 
-      (prisma.userRole.create as jest.Mock).mockResolvedValue({ id: 'new-role' });
+      (prisma.userRole.create as jest.Mock).mockResolvedValue({
+        id: 'new-role',
+      });
 
       const { POST } = UsersBulkRoute as any;
       const request = mockRequest('POST', bulkOperation);
@@ -473,6 +494,8 @@ describe('Role Management System Tests', () => {
           customPermissions: ['analytics:read'],
         },
       ]);
+      (prisma.restaurant.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.auditLog.count as jest.Mock).mockResolvedValue(0);
 
       (prisma.rolePermission.findMany as jest.Mock).mockResolvedValue([
         {
@@ -480,7 +503,6 @@ describe('Role Management System Tests', () => {
           permissionKey: 'orders:read',
         },
       ]);
-
       const { GET } = AnalyticsRolesRoute as any;
       const request = mockRequest('GET', null, { period: '30d' });
       const response = await GET(request);
@@ -495,7 +517,9 @@ describe('Role Management System Tests', () => {
     it('should enforce permission requirements', async () => {
       (RBACMiddleware.protect as jest.Mock).mockResolvedValueOnce({
         isAuthorized: false,
-        response: new NextResponse(JSON.stringify({ error: 'Access denied' }), { status: 403 }),
+        response: new NextResponse(JSON.stringify({ error: 'Access denied' }), {
+          status: 403,
+        }),
       });
 
       const { GET } = PermissionsRoute as any;
@@ -569,7 +593,10 @@ describe('Role Management System Tests', () => {
     it('should handle rate limiting properly', async () => {
       (RBACMiddleware.protect as jest.Mock).mockResolvedValueOnce({
         isAuthorized: false,
-        response: new NextResponse(JSON.stringify({ error: 'Rate limit exceeded' }), { status: 429 }),
+        response: new NextResponse(
+          JSON.stringify({ error: 'Rate limit exceeded' }),
+          { status: 429 }
+        ),
       });
 
       const { POST } = UsersBulkRoute as any;
@@ -619,20 +646,24 @@ describe('Role Management Integration Tests', () => {
       description: 'Test role template',
     };
 
+    (prisma.permission.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.permission.create as jest.Mock).mockResolvedValue({
+      id: 'perm-1',
+      ...permissionData,
+      isActive: true,
+    });
     (prisma.rolePermission.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.permission.findMany as jest.Mock).mockResolvedValue([
       { permissionKey: 'test:integration', isActive: true },
     ]);
-    (prisma.rolePermission.create as jest.Mock).mockResolvedValue({
-      id: 'template-1',
-      ...templateData,
-      isActive: true,
+    (prisma.rolePermission.createMany as jest.Mock).mockResolvedValue({
+      count: 1,
     });
 
     const roleAssignment = {
       userId: 'test-user',
       userType: 'platform_admin',
-      roleTemplate: 'test_role',
+      roleTemplate: 'platform_admin',
     };
 
     (prisma.userRole.findFirst as jest.Mock).mockResolvedValue(null);
