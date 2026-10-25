@@ -166,7 +166,11 @@ export async function processTablePaymentBatch(
       // Serialize all payments for this table. Different keys cannot race into
       // a double payment; the second transaction sees the paid orders.
       const lockKey = `table-payment:${input.restaurantId}:${input.tableId}`;
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)`;
+      // pg_advisory_xact_lock returns void. Prisma cannot deserialize a raw
+      // void column, so cast it to text while still acquiring the lock.
+      await tx.$queryRaw<Array<{ lock: string }>>`
+        SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
+      `;
 
       const lockedExisting = await tx.paymentBatch.findUnique({
         where: { idempotencyKey: input.idempotencyKey },
