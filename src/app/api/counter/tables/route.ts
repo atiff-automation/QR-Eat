@@ -59,6 +59,9 @@ export async function GET(request: NextRequest) {
         const readyCount = table.orders.filter(
           (order) => order.status === 'READY'
         ).length;
+        const pendingCount = table.orders.filter(
+          (order) => order.status === 'PENDING'
+        ).length;
         const unpaidTotal = table.orders
           .filter((order) => order.paymentStatus === 'PENDING')
           .reduce((sum, order) => sum + Number(order.totalAmount), 0);
@@ -68,6 +71,7 @@ export async function GET(request: NextRequest) {
           tableName: table.tableName,
           status: table.status,
           currentOrders: activeOrders,
+          pendingCount,
           readyCount,
           unpaidTotal: unpaidTotal.toFixed(2),
           lastOrderAt: table.orders[0]?.createdAt?.toISOString() || null,
