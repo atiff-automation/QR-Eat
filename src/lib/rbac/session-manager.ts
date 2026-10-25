@@ -14,6 +14,7 @@ import {
   RBAC_CONSTANTS,
   RBACError,
 } from './types';
+import { describeDevice, sessionsToEvict } from './session-policy';
 
 // Session creation parameters
 export interface CreateSessionParams {
@@ -441,7 +442,7 @@ export class SessionManager {
       });
 
       // Leave room for the session that is about to be created.
-      const excess = active.length - (max - 1);
+      const excess = sessionsToEvict(active.length, max);
       if (excess <= 0) return 0;
 
       const result = await prisma.userSession.deleteMany({
@@ -569,7 +570,7 @@ export class SessionManager {
       });
 
       return sessions.map((session) => {
-        const device = this.describeDevice(session.userAgent);
+        const device = describeDevice(session.userAgent);
         return {
           id: session.id,
           isCurrent: session.id === currentSessionRecordId,
@@ -595,42 +596,6 @@ export class SessionManager {
         500
       );
     }
-  }
-
-  private static describeDevice(userAgent?: string | null): {
-    platform: string;
-    browser: string;
-    label: string;
-  } {
-    const ua = userAgent || '';
-    const platform = /android/i.test(ua)
-      ? 'Android'
-      : /iphone|ipad|ipod/i.test(ua)
-        ? 'iOS'
-        : /windows/i.test(ua)
-          ? 'Windows'
-          : /mac os|macintosh/i.test(ua)
-            ? 'macOS'
-            : /linux/i.test(ua)
-              ? 'Linux'
-              : 'Unknown';
-    const browser = /edg\//i.test(ua)
-      ? 'Edge'
-      : /firefox\//i.test(ua)
-        ? 'Firefox'
-        : /chrome\//i.test(ua) && !/edg\//i.test(ua)
-          ? 'Chrome'
-          : /safari\//i.test(ua) && !/chrome\//i.test(ua)
-            ? 'Safari'
-            : /tabtep-counter|okhttp/i.test(ua)
-              ? 'Tabtep Counter'
-              : 'Unknown';
-    return {
-      platform,
-      browser,
-      label:
-        browser === 'Tabtep Counter' ? browser : `${browser} on ${platform}`,
-    };
   }
 
   /**
