@@ -52,6 +52,8 @@ export async function GET(request: NextRequest) {
         paymentMethods: true,
         receiptSettings: true,
         notificationSettings: true,
+        brandingConfig: true,
+        logoUrl: true,
       },
     });
 
