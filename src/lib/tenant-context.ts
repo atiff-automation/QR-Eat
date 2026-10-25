@@ -385,6 +385,30 @@ export function createRestaurantFilter(
 }
 
 /**
+ * Restaurant-specific filter for a single current restaurant.
+ *
+ * Use this on Counter, POS, orders, tables, reservations and reports. Do not
+ * use the owner-wide chain filter for a surface that is operating inside one
+ * restaurant.
+ */
+export function createCurrentRestaurantFilter(
+  context: TenantContext,
+  restaurantIdField = 'restaurantId'
+): Record<string, unknown> {
+  if (context.isAdmin) {
+    throw new Error('Platform admins cannot access restaurant business data.');
+  }
+
+  if (context.restaurantId) {
+    return { [restaurantIdField]: context.restaurantId };
+  }
+
+  // Fail closed. A missing current restaurant must never become an unscoped
+  // query that could return another tenant's rows.
+  return { id: '__no_current_restaurant__' };
+}
+
+/**
  * Validate restaurant ownership for restaurant owners
  */
 export async function validateRestaurantOwnership(

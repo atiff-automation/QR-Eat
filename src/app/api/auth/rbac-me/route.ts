@@ -52,9 +52,10 @@ export async function GET(request: NextRequest) {
 
       // Get fresh user roles (in case they changed)
       const userRoles = await RoleManager.getUserRoles(tokenPayload.userId);
-      const permissions = await PermissionManager.computeUserPermissions(
-        tokenPayload.userId
-      );
+      const permissions = await PermissionManager.computeRolePermissions({
+        roleTemplate: tokenPayload.currentRole.roleTemplate,
+        customPermissions: tokenPayload.currentRole.customPermissions,
+      });
 
       // Prepare response data
       const responseData = {

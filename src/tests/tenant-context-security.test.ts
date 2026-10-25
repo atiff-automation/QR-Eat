@@ -7,7 +7,11 @@
 
 import { describe, it, expect, jest, beforeEach } from '@jest/globals';
 import { NextRequest } from 'next/server';
-import { getTenantContext } from '@/lib/tenant-context';
+import {
+  createCurrentRestaurantFilter,
+  getTenantContext,
+  type TenantContext,
+} from '@/lib/tenant-context';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { EnhancedAuthenticatedUser, UserType } from '@/lib/rbac/types';
 import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
@@ -89,5 +93,46 @@ describe('tenant context security', () => {
     const customerSession = ORDER_WITH_DETAILS_INCLUDE.customerSession;
 
     expect(customerSession.select).not.toHaveProperty('sessionToken');
+  });
+});
+
+describe('current-restaurant tenant filters', () => {
+  const staffContext: TenantContext = {
+    userId: 'user-1',
+    userType: UserType.STAFF,
+    email: 'manager@example.com',
+    restaurantId: 'restaurant-1',
+    permissions: {},
+    isAdmin: false,
+    roleTemplate: 'manager',
+    mustChangePassword: false,
+  };
+
+  it('scopes a staff member to the current restaurant', () => {
+    expect(createCurrentRestaurantFilter(staffContext)).toEqual({
+      restaurantId: 'restaurant-1',
+    });
+  });
+
+  it('fails closed when an owner has no current restaurant context', () => {
+    expect(
+      createCurrentRestaurantFilter({
+        ...staffContext,
+        userType: UserType.RESTAURANT_OWNER,
+        roleTemplate: 'restaurant_owner',
+        restaurantId: undefined,
+      })
+    ).toEqual({ id: '__no_current_restaurant__' });
+  });
+
+  it('blocks platform admins from business-data filters', () => {
+    expect(() =>
+      createCurrentRestaurantFilter({
+        ...staffContext,
+        userType: UserType.PLATFORM_ADMIN,
+        isAdmin: true,
+        restaurantId: undefined,
+      })
+    ).toThrow('Platform admins cannot access restaurant business data');
   });
 });

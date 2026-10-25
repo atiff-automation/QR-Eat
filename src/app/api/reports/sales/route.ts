@@ -5,7 +5,7 @@ import {
   getTenantContext,
   requireAuth,
   requirePermission,
-  createRestaurantFilter,
+  createCurrentRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -14,6 +14,15 @@ export async function GET(request: NextRequest) {
     requireAuth(context);
     requirePermission(context!, 'analytics', 'read');
 
+    if (context!.isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Platform admins cannot access restaurant business data',
+          code: 'BUSINESS_DATA_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const startDate = url.searchParams.get('startDate');
     const endDate = url.searchParams.get('endDate');
@@ -40,7 +49,7 @@ export async function GET(request: NextRequest) {
     };
 
     // Apply restaurant filter based on user type
-    const restaurantFilter = createRestaurantFilter(context!);
+    const restaurantFilter = createCurrentRestaurantFilter(context!);
     where = { ...where, ...restaurantFilter };
 
     // Platform admins can filter by specific restaurant

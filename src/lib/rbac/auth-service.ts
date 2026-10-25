@@ -152,7 +152,7 @@ export class AuthServiceV2 {
 
       // Compute permissions for default role
       const permissions =
-        await PermissionManager.computeUserPermissions(userId);
+        await PermissionManager.computeRolePermissions(defaultRole);
 
       // Get restaurant context if applicable
       const restaurantContext = defaultRole.restaurantId
@@ -281,10 +281,9 @@ export class AuthServiceV2 {
         };
       }
 
-      // Compute new permissions
-      const newPermissions = await PermissionManager.computeUserPermissions(
-        session.userId
-      );
+      // Compute new permissions for the selected role only.
+      const newPermissions =
+        await PermissionManager.computeRolePermissions(newRole);
 
       // Get restaurant context for new role
       const restaurantContext = newRole.restaurantId

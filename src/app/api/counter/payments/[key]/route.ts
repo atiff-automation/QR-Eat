@@ -7,6 +7,7 @@ import {
 import { counterAccessDenied } from '@/lib/counter/access';
 import { RBACError } from '@/lib/rbac/types';
 import { prisma } from '@/lib/database';
+import { canReadRestaurantPaymentBatch } from '@/lib/counter/tenant-guards';
 
 /**
  * GET /api/counter/payments/{idempotencyKey}
@@ -37,10 +38,22 @@ export async function GET(
       );
     }
 
+    // Counter access already excludes platform admins. A restaurant context is
+    // mandatory here: an owner with no current restaurant must not be able to
+    // read a batch by guessing an idempotency key.
+    if (!context!.restaurantId) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Restaurant context is required',
+          code: 'RESTAURANT_CONTEXT_REQUIRED',
+        },
+        { status: 403 }
+      );
+    }
+
     if (
-      !context!.isAdmin &&
-      context!.restaurantId &&
-      batch.restaurantId !== context!.restaurantId
+      !canReadRestaurantPaymentBatch(context!.restaurantId, batch.restaurantId)
     ) {
       return NextResponse.json(
         { success: false, error: 'Access denied', code: 'FORBIDDEN' },

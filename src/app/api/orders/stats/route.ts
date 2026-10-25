@@ -5,7 +5,7 @@ import {
   getTenantContext,
   requireAuth,
   requirePermission,
-  createRestaurantFilter,
+  createCurrentRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -14,6 +14,15 @@ export async function GET(request: NextRequest) {
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 
+    if (context!.isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Platform admins cannot access restaurant business data',
+          code: 'BUSINESS_DATA_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const period = url.searchParams.get('period') || 'today';
     const startDateParam = url.searchParams.get('startDate');
@@ -59,7 +68,7 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    const restaurantFilter = createRestaurantFilter(context!);
+    const restaurantFilter = createCurrentRestaurantFilter(context!);
     where = { ...where, ...restaurantFilter };
 
     // Get order statistics

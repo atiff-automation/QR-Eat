@@ -13,6 +13,20 @@ import { RBACError } from './types';
  */
 
 /**
+ * Platform admins manage platform metadata/accounts, not tenant business data.
+ * Keep this policy consistent with createCurrentRestaurantFilter.
+ */
+function rejectPlatformAdminBusiness(context: TenantContext): void {
+  if (context.isAdmin) {
+    throw new RBACError(
+      'Platform admins cannot access restaurant business data',
+      'BUSINESS_DATA_FORBIDDEN',
+      403
+    );
+  }
+}
+
+/**
  * Validate user has access to a specific order
  */
 export async function requireOrderAccess(
@@ -28,8 +42,7 @@ export async function requireOrderAccess(
     throw new RBACError('Order not found', 'NOT_FOUND', 404);
   }
 
-  // Platform admins can access all
-  if (context.isAdmin) return;
+  rejectPlatformAdminBusiness(context);
 
   // Staff must match restaurant
   if (context.userType === UserType.STAFF) {
@@ -85,7 +98,7 @@ export async function requireTableAccess(
     throw new RBACError('Table not found', 'NOT_FOUND', 404);
   }
 
-  if (context.isAdmin) return;
+  rejectPlatformAdminBusiness(context);
 
   if (context.userType === UserType.STAFF) {
     if (table.restaurantId !== context.restaurantId) {
@@ -139,7 +152,7 @@ export async function requireStaffAccess(
     throw new RBACError('Staff member not found', 'NOT_FOUND', 404);
   }
 
-  if (context.isAdmin) return;
+  rejectPlatformAdminBusiness(context);
 
   if (context.userType === UserType.STAFF) {
     if (staff.restaurantId !== context.restaurantId) {
@@ -193,7 +206,7 @@ export async function requireRestaurantAccess(
     throw new RBACError('Restaurant not found', 'NOT_FOUND', 404);
   }
 
-  if (context.isAdmin) return;
+  rejectPlatformAdminBusiness(context);
 
   if (context.userType === UserType.STAFF) {
     if (restaurantId !== context.restaurantId) {

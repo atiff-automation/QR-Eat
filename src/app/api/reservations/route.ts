@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { 
-  getTenantContext, 
-  requireAuth, 
-  requirePermission, 
-  createRestaurantFilter 
+import { Prisma } from '@prisma/client';
+import {
+  getTenantContext,
+  requireAuth,
+  requirePermission,
+  createCurrentRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -13,6 +14,15 @@ export async function GET(request: NextRequest) {
     requireAuth(context);
     requirePermission(context!, 'reservations', 'read');
 
+    if (context!.isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Platform admins cannot access restaurant business data',
+          code: 'BUSINESS_DATA_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
     const date = url.searchParams.get('date');
@@ -20,7 +30,9 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(url.searchParams.get('offset') || '0');
     const restaurantId = url.searchParams.get('restaurantId');
 
-    let where: any = createRestaurantFilter(context!);
+    let where: Prisma.ReservationWhereInput = createCurrentRestaurantFilter(
+      context!
+    ) as Prisma.ReservationWhereInput;
 
     // Platform admins can filter by specific restaurant
     if (context!.isAdmin && restaurantId) {
@@ -36,10 +48,10 @@ export async function GET(request: NextRequest) {
       dateStart.setHours(0, 0, 0, 0);
       const dateEnd = new Date(date);
       dateEnd.setHours(23, 59, 59, 999);
-      
+
       where.reservationDate = {
         gte: dateStart,
-        lte: dateEnd
+        lte: dateEnd,
       };
     }
 
@@ -50,22 +62,24 @@ export async function GET(request: NextRequest) {
           select: {
             tableNumber: true,
             tableName: true,
-            capacity: true
-          }
+            capacity: true,
+          },
         },
-        restaurant: context!.isAdmin ? {
-          select: {
-            id: true,
-            name: true,
-            slug: true
-          }
-        } : false
+        restaurant: context!.isAdmin
+          ? {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            }
+          : false,
       },
       orderBy: {
-        reservationDate: 'asc'
+        reservationDate: 'asc',
       },
       take: limit,
-      skip: offset
+      skip: offset,
     });
 
     const totalCount = await prisma.reservation.count({ where });
@@ -77,13 +91,12 @@ export async function GET(request: NextRequest) {
         total: totalCount,
         limit,
         offset,
-        hasMore: offset + limit < totalCount
-      }
+        hasMore: offset + limit < totalCount,
+      },
     });
-
   } catch (error) {
     console.error('Failed to fetch reservations:', error);
-    
+
     if (error instanceof Error) {
       if (error.message.includes('Authentication required')) {
         return NextResponse.json(
@@ -92,10 +105,7 @@ export async function GET(request: NextRequest) {
         );
       }
       if (error.message.includes('Permission denied')) {
-        return NextResponse.json(
-          { error: error.message },
-          { status: 403 }
-        );
+        return NextResponse.json({ error: error.message }, { status: 403 });
       }
     }
 
@@ -121,11 +131,17 @@ export async function POST(request: NextRequest) {
       customerPhone,
       partySize,
       reservationDate,
-      specialRequests
+      specialRequests,
     } = data;
 
     // Validate required fields
-    if (!restaurantId || !customerName || !customerEmail || !partySize || !reservationDate) {
+    if (
+      !restaurantId ||
+      !customerName ||
+      !customerEmail ||
+      !partySize ||
+      !reservationDate
+    ) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -135,7 +151,7 @@ export async function POST(request: NextRequest) {
     // Check if restaurant accepts reservations
     const restaurant = await prisma.restaurant.findUnique({
       where: { id: restaurantId },
-      select: { acceptsReservations: true, timezone: true }
+      select: { acceptsReservations: true, timezone: true },
     });
 
     if (!restaurant || !restaurant.acceptsReservations) {
@@ -149,7 +165,7 @@ export async function POST(request: NextRequest) {
     if (tableId) {
       const table = await prisma.table.findUnique({
         where: { id: tableId },
-        select: { capacity: true, isActive: true }
+        select: { capacity: true, isActive: true },
       });
 
       if (!table || !table.isActive) {
@@ -168,8 +184,12 @@ export async function POST(request: NextRequest) {
 
       // Check for conflicting reservations
       const reservationDateTime = new Date(reservationDate);
-      const timeSlotStart = new Date(reservationDateTime.getTime() - 60 * 60 * 1000); // 1 hour before
-      const timeSlotEnd = new Date(reservationDateTime.getTime() + 2 * 60 * 60 * 1000); // 2 hours after
+      const timeSlotStart = new Date(
+        reservationDateTime.getTime() - 60 * 60 * 1000
+      ); // 1 hour before
+      const timeSlotEnd = new Date(
+        reservationDateTime.getTime() + 2 * 60 * 60 * 1000
+      ); // 2 hours after
 
       const conflictingReservation = await prisma.reservation.findFirst({
         where: {
@@ -177,9 +197,9 @@ export async function POST(request: NextRequest) {
           status: { in: ['CONFIRMED', 'PENDING'] },
           reservationDate: {
             gte: timeSlotStart,
-            lte: timeSlotEnd
-          }
-        }
+            lte: timeSlotEnd,
+          },
+        },
       });
 
       if (conflictingReservation) {
@@ -202,24 +222,23 @@ export async function POST(request: NextRequest) {
         reservationDate: new Date(reservationDate),
         specialRequests,
         status: 'PENDING',
-        confirmationCode: generateConfirmationCode()
+        confirmationCode: generateConfirmationCode(),
       },
       include: {
         table: {
           select: {
             tableNumber: true,
-            tableName: true
-          }
-        }
-      }
+            tableName: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({
       success: true,
       message: 'Reservation created successfully',
-      reservation
+      reservation,
     });
-
   } catch (error) {
     console.error('Failed to create reservation:', error);
     return NextResponse.json(

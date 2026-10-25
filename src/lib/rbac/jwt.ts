@@ -8,6 +8,7 @@
 import * as jwt from 'jsonwebtoken';
 // crypto import removed for Edge compatibility
 import { prisma } from '@/lib/database';
+import { PermissionManager } from './permissions';
 import {
   EnhancedJWTPayload,
   EnhancedAuthenticatedUser,
@@ -509,8 +510,12 @@ export class EnhancedJWTService {
         },
       });
 
-      // Get fresh permissions
-      const permissions = await this.computeUserPermissions(payload.userId);
+      // Permissions belong to the current role/session, not the union of
+      // every role this user holds in other restaurants.
+      const permissions = await PermissionManager.computeRolePermissions({
+        roleTemplate: userRole.roleTemplate,
+        customPermissions: userRole.customPermissions,
+      });
 
       return {
         id: payload.userId,

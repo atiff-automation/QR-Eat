@@ -148,7 +148,7 @@ export class LegacyTokenSupport {
 
       // Get user permissions
       const permissions =
-        await PermissionManager.computeUserPermissions(userId);
+        await PermissionManager.computeRolePermissions(selectedRole);
 
       // Create new session for the upgraded token
       const context = AuditLogger.extractContextFromRequest(request);

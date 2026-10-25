@@ -317,9 +317,10 @@ export class RBACMiddleware {
 
       // Check permission restrictions
       if (config.requiredPermissions && config.requiredPermissions.length > 0) {
-        const userPermissions = await PermissionManager.computeUserPermissions(
-          tokenPayload.userId
-        );
+        const userPermissions = await PermissionManager.computeRolePermissions({
+          roleTemplate: tokenPayload.currentRole.roleTemplate,
+          customPermissions: tokenPayload.currentRole.customPermissions,
+        });
         const hasPermission = PermissionManager.hasAllPermissions(
           userPermissions,
           config.requiredPermissions
@@ -349,9 +350,10 @@ export class RBACMiddleware {
 
       // Get fresh user roles and permissions
       const userRoles = await RoleManager.getUserRoles(tokenPayload.userId);
-      const permissions = await PermissionManager.computeUserPermissions(
-        tokenPayload.userId
-      );
+      const permissions = await PermissionManager.computeRolePermissions({
+        roleTemplate: tokenPayload.currentRole.roleTemplate,
+        customPermissions: tokenPayload.currentRole.customPermissions,
+      });
 
       // Build context
       const context: RBACContext = {

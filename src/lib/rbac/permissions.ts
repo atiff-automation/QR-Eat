@@ -84,14 +84,34 @@ export class PermissionManager {
       });
 
       return result;
-    } catch (error) {
-      // eslint-disable-line @typescript-eslint/no-unused-vars
+    } catch {
       throw new RBACError(
         'Failed to compute user permissions',
         'PERMISSION_COMPUTATION_FAILED',
         500
       );
     }
+  }
+
+  /**
+   * Permissions for one concrete role (current session role), not a union of
+   * every role the user holds in other restaurants.
+   */
+  static async computeRolePermissions(role: {
+    roleTemplate: string;
+    customPermissions?: unknown;
+  }): Promise<string[]> {
+    const templatePermissions = await this.getTemplatePermissions(
+      role.roleTemplate
+    );
+    const customPermissions = Array.isArray(role.customPermissions)
+      ? role.customPermissions.filter(
+          (permission): permission is string =>
+            typeof permission === 'string' && permission.length > 0
+        )
+      : [];
+
+    return Array.from(new Set([...templatePermissions, ...customPermissions]));
   }
 
   /**
@@ -215,8 +235,7 @@ export class PermissionManager {
         category: p.category,
         isActive: p.isActive,
       }));
-    } catch (error) {
-      // eslint-disable-line @typescript-eslint/no-unused-vars
+    } catch {
       throw new RBACError(
         'Failed to get all permissions',
         'GET_PERMISSIONS_FAILED',

@@ -5,7 +5,7 @@ import {
   getTenantContext,
   requireAuth,
   requirePermission,
-  createRestaurantFilter,
+  createCurrentRestaurantFilter,
 } from '@/lib/tenant-context';
 
 export async function GET(request: NextRequest) {
@@ -15,6 +15,15 @@ export async function GET(request: NextRequest) {
     requireAuth(context);
     requirePermission(context!, 'orders', 'read');
 
+    if (context!.isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Platform admins cannot access restaurant business data',
+          code: 'BUSINESS_DATA_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
     const url = new URL(request.url);
     const status = url.searchParams.get('status');
     const limit = parseInt(url.searchParams.get('limit') || '50');
@@ -27,7 +36,7 @@ export async function GET(request: NextRequest) {
     const endDateParam = url.searchParams.get('endDate');
 
     // Build tenant-aware where clause
-    let where: Prisma.OrderWhereInput = createRestaurantFilter(context!);
+    let where: Prisma.OrderWhereInput = createCurrentRestaurantFilter(context!);
 
     // Platform admins can optionally filter by specific restaurant
     if (context!.isAdmin && restaurantId) {
@@ -60,7 +69,7 @@ export async function GET(request: NextRequest) {
     if (startDateParam) {
       // Check for active orders created BEFORE the start date
       const lapsedWhere: Prisma.OrderWhereInput = {
-        ...createRestaurantFilter(context!), // Base tenant filter
+        ...createCurrentRestaurantFilter(context!), // Base tenant filter
         status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] }, // Active statuses
         createdAt: {
           lt: new Date(startDateParam),

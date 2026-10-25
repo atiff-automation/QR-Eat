@@ -18,6 +18,7 @@ import {
   SSE_EVENT_TYPES,
 } from '@/lib/constants/sse';
 import { pushNotificationService } from '@/lib/push-notification-service';
+import { canReceiveRestaurantEvent } from '@/lib/counter/tenant-guards';
 
 // Connection tracking types
 interface ActiveConnection {
@@ -57,6 +58,26 @@ export async function GET(request: NextRequest) {
 
     if (!userId) {
       return NextResponse.json({ error: 'Invalid user data' }, { status: 400 });
+    }
+
+    if (context!.isAdmin) {
+      return NextResponse.json(
+        {
+          error: 'Platform admins cannot access restaurant business events',
+          code: 'BUSINESS_DATA_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
+
+    if (!restaurantId) {
+      return NextResponse.json(
+        {
+          error: 'Restaurant context is required for order events',
+          code: 'RESTAURANT_CONTEXT_REQUIRED',
+        },
+        { status: 403 }
+      );
     }
 
     // Parse query parameters for SSE catchup
@@ -307,23 +328,12 @@ function checkEventPermission(
   connection: ActiveConnection,
   eventData: { restaurantId?: string }
 ): boolean {
-  // Platform admins can see all events
-  if (connection.userType === 'platform_admin') {
-    return true;
-  }
-
-  // Restaurant-specific users can only see their restaurant's events
-  if (connection.restaurantId && eventData.restaurantId) {
-    return connection.restaurantId === eventData.restaurantId;
-  }
-
-  // Restaurant owners can see events for all their restaurants
-  if (connection.userType === 'restaurant_owner') {
-    // This would require additional logic to check restaurant ownership
-    return true;
-  }
-
-  return false;
+  // Business events are restaurant-scoped. There is no owner-wide fallback:
+  // owner/manager sessions must be operating in one current restaurant.
+  return canReceiveRestaurantEvent(
+    connection.restaurantId,
+    eventData.restaurantId
+  );
 }
 
 function getEventType(channel: string): string {
