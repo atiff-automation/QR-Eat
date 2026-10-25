@@ -69,10 +69,8 @@ export async function GET(request: NextRequest) {
         );
       }
 
-      const hasPermission = await AuthServiceV2.checkPermission(
-        authResult.user.id,
-        'expenses.view'
-      );
+      const hasPermission =
+        authResult.user.permissions?.includes('expenses.view') ?? false;
 
       if (!hasPermission) {
         return NextResponse.json(

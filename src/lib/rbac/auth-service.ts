@@ -18,7 +18,6 @@ import {
   RBACError,
   InvalidTokenError,
   SessionExpiredError,
-  PermissionDeniedError,
 } from './types';
 import { EnhancedJWTService } from './jwt';
 import { PermissionManager } from './permissions';
@@ -806,35 +805,6 @@ export class AuthServiceV2 {
   static getUserAgent(request?: NextRequest): string | undefined {
     if (!request) return undefined;
     return request.headers.get('user-agent') || undefined;
-  }
-
-  /**
-   * Check if user has permission
-   */
-  static async checkPermission(
-    userId: string,
-    permission: string
-  ): Promise<boolean> {
-    try {
-      const permissions =
-        await PermissionManager.computeUserPermissions(userId);
-      return PermissionManager.hasPermission(permissions, permission);
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Assert user has permission (throws error if not)
-   */
-  static async assertPermission(
-    userId: string,
-    permission: string
-  ): Promise<void> {
-    const hasPermission = await this.checkPermission(userId, permission);
-    if (!hasPermission) {
-      throw new PermissionDeniedError(permission);
-    }
   }
 
   /**

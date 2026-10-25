@@ -115,10 +115,8 @@ export async function PUT(
       }
 
       // Check if staff has permission
-      const hasPermission = await AuthServiceV2.checkPermission(
-        authResult.user.id,
-        'expenses.edit'
-      );
+      const hasPermission =
+        authResult.user.permissions?.includes('expenses.edit') ?? false;
 
       if (!hasPermission) {
         return NextResponse.json(

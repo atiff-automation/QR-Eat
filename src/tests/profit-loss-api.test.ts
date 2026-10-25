@@ -33,7 +33,6 @@ jest.mock('@/lib/database', () => ({
 jest.mock('@/lib/rbac/auth-service', () => ({
   AuthServiceV2: {
     validateToken: jest.fn(),
-    checkPermission: jest.fn(),
   },
 }));
 
@@ -80,8 +79,13 @@ function setupOwnerAuth() {
 }
 
 function setupStaffAuth(hasPermission = true) {
-  (AuthServiceV2.validateToken as jest.Mock).mockResolvedValue(mockAuthStaff);
-  (AuthServiceV2.checkPermission as jest.Mock).mockResolvedValue(hasPermission);
+  (AuthServiceV2.validateToken as jest.Mock).mockResolvedValue({
+    ...mockAuthStaff,
+    user: {
+      ...mockAuthStaff.user,
+      permissions: hasPermission ? ['reports.view'] : [],
+    },
+  });
 }
 
 function setupDefaultMocks(

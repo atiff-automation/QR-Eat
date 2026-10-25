@@ -18,81 +18,13 @@ import {
 // Permission cache for better performance
 interface PermissionCache {
   templatePermissions: Map<string, string[]>;
-  userPermissions: Map<string, { permissions: string[]; timestamp: number }>;
 }
 
 const cache: PermissionCache = {
   templatePermissions: new Map(),
-  userPermissions: new Map(),
 };
 
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache
-
 export class PermissionManager {
-  /**
-   * Compute all permissions for a user based on their roles
-   */
-  static async computeUserPermissions(userId: string): Promise<string[]> {
-    try {
-      // Check cache first
-      const cached = cache.userPermissions.get(userId);
-      if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-        return cached.permissions;
-      }
-
-      // Get user's active roles
-      const userRoles = await prisma.userRole.findMany({
-        where: { userId, isActive: true },
-        include: {
-          restaurant: {
-            select: {
-              id: true,
-              isActive: true,
-            },
-          },
-        },
-      });
-
-      // Filter out roles for inactive restaurants
-      const activeRoles = userRoles.filter(
-        (role) => !role.restaurantId || role.restaurant?.isActive
-      );
-
-      const permissions = new Set<string>();
-
-      for (const role of activeRoles) {
-        // Add template permissions
-        const templatePermissions = await this.getTemplatePermissions(
-          role.roleTemplate
-        );
-        templatePermissions.forEach((p) => permissions.add(p));
-
-        // Add custom permissions
-        if (role.customPermissions && Array.isArray(role.customPermissions)) {
-          (role.customPermissions as string[]).forEach((p) =>
-            permissions.add(p)
-          );
-        }
-      }
-
-      const result = Array.from(permissions);
-
-      // Cache the result
-      cache.userPermissions.set(userId, {
-        permissions: result,
-        timestamp: Date.now(),
-      });
-
-      return result;
-    } catch {
-      throw new RBACError(
-        'Failed to compute user permissions',
-        'PERMISSION_COMPUTATION_FAILED',
-        500
-      );
-    }
-  }
-
   /**
    * Permissions for one concrete role (current session role), not a union of
    * every role the user holds in other restaurants.

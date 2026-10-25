@@ -40,7 +40,6 @@ jest.mock('@/lib/database', () => ({
 jest.mock('@/lib/rbac/auth-service', () => ({
   AuthServiceV2: {
     validateToken: jest.fn(),
-    checkPermission: jest.fn(),
   },
 }));
 
@@ -107,9 +106,9 @@ function mockStaffAuth(hasPermission = true) {
         userType: 'staff',
         restaurantId: RESTAURANT_ID,
       },
+      permissions: hasPermission ? ['expenses.view'] : [],
     },
   });
-  (AuthServiceV2.checkPermission as jest.Mock).mockResolvedValue(hasPermission);
 }
 
 /** Helper to create Prisma Decimal-like objects */
@@ -263,10 +262,6 @@ describe('/api/admin/expenses/summary', () => {
       const response = await SummaryRoute.GET(request);
 
       expect(response.status).toBe(200);
-      expect(AuthServiceV2.checkPermission).toHaveBeenCalledWith(
-        STAFF_USER_ID,
-        'expenses.view'
-      );
     });
 
     it('should deny staff without expenses.view permission', async () => {

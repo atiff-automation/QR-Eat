@@ -565,47 +565,6 @@ export class EnhancedJWTService {
   }
 
   /**
-   * Compute user permissions from roles
-   */
-  static async computeUserPermissions(userId: string): Promise<string[]> {
-    try {
-      const userRoles = await prisma.userRole.findMany({
-        where: { userId, isActive: true },
-      });
-
-      const permissions = new Set<string>();
-
-      for (const role of userRoles) {
-        // Get template permissions
-        const templatePermissions = await prisma.rolePermission.findMany({
-          where: { roleTemplate: role.roleTemplate },
-          include: {
-            permission: true,
-          },
-        });
-
-        // Add template permissions
-        templatePermissions.forEach((rp) => {
-          if (rp.permission.isActive) {
-            permissions.add(rp.permission.permissionKey);
-          }
-        });
-
-        // Add custom permissions
-        if (role.customPermissions) {
-          (role.customPermissions as string[]).forEach((p) =>
-            permissions.add(p)
-          );
-        }
-      }
-
-      return Array.from(permissions);
-    } catch {
-      return [];
-    }
-  }
-
-  /**
    * Clean up expired sessions
    */
   static async cleanupExpiredSessions(): Promise<void> {

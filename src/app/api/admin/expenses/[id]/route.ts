@@ -113,10 +113,8 @@ export async function GET(
       }
 
       // Check if staff has permission
-      const hasPermission = await AuthServiceV2.checkPermission(
-        authResult.user.id,
-        'expenses.view'
-      );
+      const hasPermission =
+        authResult.user.permissions?.includes('expenses.view') ?? false;
 
       if (!hasPermission) {
         return NextResponse.json(
@@ -231,10 +229,8 @@ export async function PUT(
       }
 
       // Check if staff has permission
-      const hasPermission = await AuthServiceV2.checkPermission(
-        authResult.user.id,
-        'expenses.edit'
-      );
+      const hasPermission =
+        authResult.user.permissions?.includes('expenses.edit') ?? false;
 
       if (!hasPermission) {
         return NextResponse.json(

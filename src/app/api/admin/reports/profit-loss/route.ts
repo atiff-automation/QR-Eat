@@ -137,10 +137,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Check if staff has permission
-      const hasPermission = await AuthServiceV2.checkPermission(
-        authResult.user.id,
-        'reports.view'
-      );
+      const hasPermission =
+        authResult.user.permissions?.includes('reports.view') ?? false;
 
       if (!hasPermission) {
         return NextResponse.json(
