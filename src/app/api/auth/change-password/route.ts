@@ -159,14 +159,15 @@ export async function POST(request: NextRequest) {
 
     // Keep this device signed in, but invalidate every other session and
     // refresh token after a password change.
-    if (authResult.session) {
+    const currentRawSessionId = authResult.payload?.sessionId;
+    if (currentRawSessionId) {
       await SessionManager.invalidateOtherUserSessions(
         user.id,
-        authResult.session.sessionId
+        currentRawSessionId
       );
       await RefreshTokenService.revokeOtherUserTokens(
         user.id,
-        authResult.session.sessionId,
+        currentRawSessionId,
         'password_changed'
       );
     }

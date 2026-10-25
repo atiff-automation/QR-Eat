@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       );
       revokedRefreshTokens = await RefreshTokenService.revokeOtherUserTokens(
         auth.user.id,
-        auth.session.sessionId,
+        auth.payload?.sessionId || '',
         'revoke_other_devices'
       );
     } else {
