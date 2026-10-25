@@ -24,7 +24,9 @@
     "test:admin": "jest src/app/api/admin",
     "test:rbac": "jest src/lib/rbac",
     "test:ci": "jest --ci --coverage --watchAll=false",
-    "generate-vapid-keys": "tsx scripts/generate-vapid-keys.ts"
+    "generate-vapid-keys": "tsx scripts/generate-vapid-keys.ts",
+    "reconcile:counter-web": "tsx scripts/reconcile-counter-web.ts",
+    "cleanup:stale-tables": "tsx scripts/cleanup-stale-table-state.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
