@@ -235,35 +235,83 @@ export async function PATCH(
       updateData.estimatedReadyTime = new Date(estimatedReadyTime);
     }
 
-    // Update the order
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: {
-        table: {
-          select: {
-            tableNumber: true,
-            tableName: true,
-          },
+    // Claim the transition with an optimistic version guard. Two concurrent
+    // confirm requests must not both create tickets or both pass this point.
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: orderId,
+          status: currentOrder.status as OrderStatus,
+          version: currentOrder.version,
         },
-        customerSession: {
-          select: {
-            customerName: true,
-            customerPhone: true,
+        data: updateData,
+      });
+      if (claimed.count === 0) return null;
+      return tx.order.findUnique({
+        where: { id: orderId },
+        include: {
+          table: {
+            select: {
+              tableNumber: true,
+              tableName: true,
+            },
           },
-        },
-        items: {
-          include: {
-            menuItem: {
-              select: {
-                name: true,
-                preparationTime: true,
+          customerSession: {
+            select: {
+              customerName: true,
+              customerPhone: true,
+            },
+          },
+          items: {
+            include: {
+              menuItem: {
+                select: {
+                  name: true,
+                  preparationTime: true,
+                },
               },
             },
           },
         },
-      },
+      });
     });
+
+    if (!updatedOrder) {
+      const latest = await prisma.order.findUnique({
+        where: { id: orderId },
+        select: { id: true, orderNumber: true, status: true },
+      });
+      if (latest?.status === status) {
+        const events = await prisma.orderEvent.findMany({
+          where: {
+            orderId,
+            type: { in: ['order.created', 'order.items.added'] },
+          },
+          select: { stationId: true, printStatus: true, printedAt: true },
+        });
+        const aggregate = aggregateTicketStatus(events);
+        return NextResponse.json({
+          success: true,
+          order: latest,
+          ticket: {
+            routed: events.length > 0,
+            stationIds: [...new Set(events.map((event) => event.stationId))],
+            unroutedItemIds: [],
+            replayed: true,
+            ticketStatus: aggregate.aggregate,
+          },
+          message: `Order already ${status}`,
+        });
+      }
+      return NextResponse.json(
+        {
+          error:
+            'Order changed while this action was being processed. Reload and try again.',
+          code: 'ORDER_CHANGED',
+        },
+        { status: 409 }
+      );
+    }
 
     // D41: the kitchen ticket is created at confirmation, not at QR
     // submission. recordOrderCreated is idempotent, so a retried confirm or an
