@@ -67,8 +67,8 @@ export async function GET(request: NextRequest) {
             tableName: true,
           },
         },
-        _count: {
-          select: { items: true },
+        items: {
+          select: { quantity: true },
         },
       },
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
@@ -92,7 +92,7 @@ export async function GET(request: NextRequest) {
         status: order.status,
         paymentStatus: order.paymentStatus,
         totalAmount: order.totalAmount.toString(),
-        itemCount: order._count.items,
+        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
         createdAt: order.createdAt.toISOString(),
         ageSeconds: Math.max(
           0,

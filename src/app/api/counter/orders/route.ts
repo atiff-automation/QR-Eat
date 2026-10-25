@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
         createdAt: true,
         readyAt: true,
         table: { select: { tableNumber: true, tableName: true } },
-        _count: { select: { items: true } },
+        items: { select: { quantity: true } },
         orderEvents: {
           where: { type: { in: ['order.created', 'order.items.added'] } },
           select: {
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
           status: order.status,
           paymentStatus: order.paymentStatus,
           totalAmount: order.totalAmount.toString(),
-          itemCount: order._count.items,
+          itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
           createdAt: order.createdAt.toISOString(),
           readyAt: order.readyAt?.toISOString() ?? null,
           ageSeconds: Math.max(0, Math.floor((now - ageFrom.getTime()) / 1000)),

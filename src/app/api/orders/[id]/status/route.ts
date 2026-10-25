@@ -17,6 +17,7 @@ import {
 } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
+import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
 
 export async function PATCH(
@@ -114,6 +115,36 @@ export async function PATCH(
         permissions: context.permissions,
       });
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    }
+
+    // Retries are common when a mobile request times out after the server
+    // committed. Treat an already-reached status as an idempotent success
+    // instead of reporting an invalid transition.
+    if (currentOrder.status === status) {
+      let ticket: Record<string, unknown> | undefined;
+      if (status === ORDER_STATUS.CONFIRMED) {
+        const events = await prisma.orderEvent.findMany({
+          where: {
+            orderId,
+            type: { in: ['order.created', 'order.items.added'] },
+          },
+          select: { stationId: true, printStatus: true, printedAt: true },
+        });
+        const aggregate = aggregateTicketStatus(events);
+        ticket = {
+          routed: events.length > 0,
+          stationIds: [...new Set(events.map((event) => event.stationId))],
+          unroutedItemIds: [],
+          replayed: true,
+          ticketStatus: aggregate.aggregate,
+        };
+      }
+      return NextResponse.json({
+        success: true,
+        order: currentOrder,
+        ticket,
+        message: `Order already ${status}`,
+      });
     }
 
     // Validate state transition
