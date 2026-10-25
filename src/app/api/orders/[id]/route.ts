@@ -8,6 +8,7 @@ import {
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { recordOrderStatusChanged } from '@/lib/order-events';
+import { RBACError } from '@/lib/rbac/types';
 
 export async function GET(
   request: NextRequest,
@@ -172,6 +173,13 @@ export async function GET(
   } catch (error) {
     console.error('Order fetch error:', error);
 
+    if (error instanceof RBACError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.statusCode }
+      );
+    }
+
     if (error instanceof Error && error.message.includes('Permission denied')) {
       return NextResponse.json({ error: error.message }, { status: 403 });
     }
@@ -268,6 +276,12 @@ export async function PATCH(
     return NextResponse.json(result);
   } catch (error) {
     console.error('Order update error:', error);
+    if (error instanceof RBACError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.statusCode }
+      );
+    }
     return NextResponse.json(
       { error: 'Failed to update order' },
       { status: 500 }
@@ -495,6 +509,13 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Invalid input', details: error.issues },
         { status: 400 }
+      );
+    }
+
+    if (error instanceof RBACError) {
+      return NextResponse.json(
+        { error: error.message, code: error.code },
+        { status: error.statusCode }
       );
     }
 
