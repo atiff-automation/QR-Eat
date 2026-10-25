@@ -56,6 +56,12 @@ export interface TokenValidationResult {
 export interface RoleSwitchResultV2 {
   success: boolean;
   token?: string;
+  user?: EnhancedAuthenticatedUser;
+  session?: {
+    id: string;
+    sessionId: string;
+    expiresAt: Date;
+  };
   currentRole?: UserRole;
   permissions?: string[];
   restaurantContext?: RestaurantContext;
@@ -347,6 +353,12 @@ export class AuthServiceV2 {
       return {
         success: true,
         token: newToken,
+        user: enhancedUser,
+        session: {
+          id: session.id,
+          sessionId: session.sessionId,
+          expiresAt: session.expiresAt,
+        },
         currentRole: newRole,
         permissions: newPermissions,
         restaurantContext,

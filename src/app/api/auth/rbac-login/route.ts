@@ -306,9 +306,17 @@ export async function PATCH(request: NextRequest) {
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    // Switch role using RBAC system
+    // Validate the JWT and switch the underlying session, not the token string.
+    const validation = await AuthServiceV2.validateToken(currentToken);
+    if (!validation.isValid || !validation.payload?.sessionId) {
+      return NextResponse.json(
+        { error: 'Invalid or expired token' },
+        { status: 401 }
+      );
+    }
+
     const switchResult = await AuthServiceV2.switchRole(
-      currentToken,
+      validation.payload.sessionId,
       roleId,
       clientIP,
       userAgent
