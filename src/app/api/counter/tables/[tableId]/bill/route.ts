@@ -55,26 +55,50 @@ export async function GET(
       );
     }
 
+    // A table is reused across sittings. Scope the bill to the latest customer
+    // session so historical payments do not appear as "already paid" on a new
+    // bill. Prefer a live session; otherwise use the most recent session.
+    const now = new Date();
+    const currentSession = await prisma.customerSession.findFirst({
+      where: {
+        tableId,
+        OR: [
+          { status: 'ACTIVE', expiresAt: { gt: now } },
+          { status: { in: ['ACTIVE', 'ENDED'] } },
+        ],
+      },
+      orderBy: { startedAt: 'desc' },
+      select: { id: true },
+    });
+
+    const sessionFilter = currentSession
+      ? { customerSessionId: currentSession.id }
+      : { customerSessionId: '__no_current_session__' };
+
     const orders = await prisma.order.findMany({
       where: {
         tableId,
         restaurantId: table.restaurantId,
         paymentStatus: 'PENDING',
         status: { not: 'CANCELLED' },
+        ...sessionFilter,
       },
       include: ORDER_WITH_DETAILS_INCLUDE,
       orderBy: { createdAt: 'asc' },
     });
 
-    const paid = await prisma.order.aggregate({
-      where: {
-        tableId,
-        restaurantId: table.restaurantId,
-        paymentStatus: 'PAID',
-        status: { not: 'CANCELLED' },
-      },
-      _sum: { totalAmount: true },
-    });
+    const paid = orders.length
+      ? await prisma.order.aggregate({
+          where: {
+            tableId,
+            restaurantId: table.restaurantId,
+            paymentStatus: 'PAID',
+            status: { not: 'CANCELLED' },
+            ...sessionFilter,
+          },
+          _sum: { totalAmount: true },
+        })
+      : { _sum: { totalAmount: null } };
 
     const unpaidTotal = orders.reduce(
       (sum, order) => sum + Number(order.totalAmount),
