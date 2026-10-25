@@ -50,6 +50,13 @@ export async function GET(request: NextRequest) {
         );
       }
 
+      if (session.currentRoleId !== tokenPayload.currentRole.id) {
+        return NextResponse.json(
+          { error: 'Session role has changed. Please refresh.' },
+          { status: 401 }
+        );
+      }
+
       // Get fresh user roles (in case they changed)
       const userRoles = await RoleManager.getUserRoles(tokenPayload.userId);
       const permissions = await PermissionManager.computeRolePermissions({

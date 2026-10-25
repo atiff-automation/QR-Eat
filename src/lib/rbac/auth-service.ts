@@ -396,6 +396,16 @@ export class AuthServiceV2 {
         };
       }
 
+      // The session row is the authority for the current role. Reject a token
+      // that was issued before a role switch so two sessions cannot keep
+      // stale authorization contexts.
+      if (payload.currentRole.id !== session.currentRoleId) {
+        return {
+          isValid: false,
+          error: 'Session role has changed',
+        };
+      }
+
       // Reconstruct user from payload
       const user = await EnhancedJWTService.reconstructUserFromPayload(payload);
       if (!user) {
