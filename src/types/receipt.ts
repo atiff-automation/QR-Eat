@@ -21,7 +21,10 @@ export interface ReceiptDisplayData {
   };
   order: {
     orderNumber: string;
-    tableName: string;
+    orderType: string;
+    pickupNumber?: string;
+    customerName?: string;
+    fulfillmentLabel: string;
     tableLocation?: string;
     createdAt: Date;
     items: {

@@ -10,6 +10,7 @@
 
 import type { ReceiptDisplayData } from '@/types/receipt';
 import type { PublicReceiptData, ReceiptData } from '@/types/pos';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 /**
  * Adapts public receipt data (DTO) to display format
@@ -17,6 +18,14 @@ import type { PublicReceiptData, ReceiptData } from '@/types/pos';
 export function adaptPublicToDisplay(
   data: PublicReceiptData
 ): ReceiptDisplayData {
+  const isTakeaway = data.order.orderType === 'TAKEAWAY';
+  const pickupNumber = data.order.pickupNumber ?? undefined;
+  const tableLabel = data.order.tableNumber
+    ? `${data.order.tableNumber}${
+        data.order.tableName ? ` - ${data.order.tableName}` : ''
+      }`
+    : '';
+
   return {
     receiptNumber: data.receiptNumber,
     restaurant: {
@@ -35,9 +44,12 @@ export function adaptPublicToDisplay(
     order: {
       orderNumber: data.order.orderNumber,
       dailySeq: data.order.dailySeq,
-      tableName: `${data.order.tableNumber}${
-        data.order.tableName ? ` - ${data.order.tableName}` : ''
-      }`,
+      orderType: data.order.orderType,
+      pickupNumber,
+      customerName: data.order.customerName ?? undefined,
+      fulfillmentLabel: isTakeaway
+        ? `TAKEAWAY ${pickupNumber ?? ''}`.trim()
+        : tableLabel,
       tableLocation: data.order.tableLocation,
       createdAt: new Date(data.order.createdAt),
       items: data.order.items.map((item) => ({
@@ -75,6 +87,12 @@ export function adaptPublicToDisplay(
  */
 export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
   const { receiptNumber, order, payment, restaurant, cashier } = data;
+  const isTakeaway = order.orderType === 'TAKEAWAY';
+  const pickupNumber = formatPickupNumber(order.dailySeq);
+  const table = order.table;
+  const tableLabel = table
+    ? `${table.tableNumber}${table.tableName ? ` - ${table.tableName}` : ''}`
+    : '';
 
   return {
     receiptNumber: receiptNumber,
@@ -98,10 +116,13 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
     order: {
       orderNumber: order.orderNumber,
       dailySeq: order.dailySeq ?? undefined,
-      tableName: `${order.table.tableNumber}${
-        order.table.tableName ? ` - ${order.table.tableName}` : ''
-      }`,
-      tableLocation: order.table.locationDescription || undefined,
+      orderType: order.orderType,
+      pickupNumber: pickupNumber ?? undefined,
+      customerName: order.customerName ?? undefined,
+      fulfillmentLabel: isTakeaway
+        ? `TAKEAWAY ${pickupNumber ?? ''}`.trim()
+        : tableLabel,
+      tableLocation: table?.locationDescription || undefined,
       createdAt: new Date(order.createdAt),
       items: order.items.map((item) => ({
         name: item.menuItem.name,

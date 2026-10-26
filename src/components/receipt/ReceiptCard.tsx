@@ -71,9 +71,11 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
             </span>
           </div>
           <div className="flex justify-between gap-4">
-            <span className="text-black shrink-0">Table:</span>
+            <span className="text-black shrink-0">
+              {order.orderType === 'TAKEAWAY' ? 'Takeaway:' : 'Table:'}
+            </span>
             <span className="text-black text-right">
-              {data.order.tableName}
+              {order.fulfillmentLabel}
               {data.order.tableLocation && (
                 <span className="text-gray-500 font-normal block text-xs">
                   ({data.order.tableLocation})
@@ -81,6 +83,14 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
               )}
             </span>
           </div>
+          {order.customerName && (
+            <div className="flex justify-between gap-4">
+              <span className="text-black shrink-0">Customer:</span>
+              <span className="text-black text-right">
+                {order.customerName}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Cashier:</span>
             <span className="text-black text-right">

@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 export async function GET(
   request: NextRequest,
@@ -162,6 +163,9 @@ export async function GET(
       ? Number(firstPayment.changeGiven)
       : undefined;
 
+    const table = firstPayment.order.table;
+    const pickupNumber = formatPickupNumber(firstPayment.order.dailySeq);
+
     // Format response (matching POS receipt modal structure)
     const receiptData = {
       receiptNumber: receiptNumber, // Use primary receipt number
@@ -180,12 +184,12 @@ export async function GET(
           : firstPayment.order.orderNumber,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dailySeq: (firstPayment.order as any).dailySeq || undefined,
-        tableNumber: firstPayment.order.table.tableNumber,
-        tableName:
-          firstPayment.order.table.tableName ||
-          `Table ${firstPayment.order.table.tableNumber}`,
-        tableLocation:
-          firstPayment.order.table.locationDescription || undefined,
+        orderType: firstPayment.order.orderType,
+        pickupNumber,
+        customerName: firstPayment.order.customerName,
+        tableNumber: table?.tableNumber ?? null,
+        tableName: table?.tableName ?? null,
+        tableLocation: table?.locationDescription || undefined,
         items: allItems, // All items from all orders
         subtotalAmount: totalSubtotal,
         taxAmount: totalTax,

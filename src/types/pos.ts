@@ -165,8 +165,11 @@ export interface PublicReceiptData {
   order: {
     orderNumber: string;
     dailySeq?: number;
-    tableNumber: string;
-    tableName: string;
+    orderType: string;
+    pickupNumber?: string | null;
+    customerName?: string | null;
+    tableNumber?: string | null;
+    tableName?: string | null;
     tableLocation?: string;
     items: {
       name: string;
