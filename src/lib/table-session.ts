@@ -225,6 +225,15 @@ export async function addToTableCart(
       specialInstructions,
     } = validParams;
 
+    const table = await prisma.table.findUnique({
+      where: { id: tableId },
+      select: { restaurantId: true, status: true },
+    });
+    if (!table) throw new Error('Table not found');
+    if (table.status === 'INACTIVE') {
+      throw new Error('This table is not available for orders.');
+    }
+
     // Get or create session
     let session: TableSession | null = null;
     if (sessionId) {
@@ -242,31 +251,97 @@ export async function addToTableCart(
       throw new Error(`Cart limit reached (${CART_LIMITS.MAX_ITEMS} items)`);
     }
 
-    // 1. Fetch MenuItem & Base Price
+    // 1. Fetch the item with its full option hierarchy. The client-provided
+    // unitPrice is ignored; the server owns menu pricing.
     const menuItem = await prisma.menuItem.findUnique({
       where: { id: menuItemId },
-      select: { price: true },
+      select: {
+        id: true,
+        name: true,
+        price: true,
+        restaurantId: true,
+        isAvailable: true,
+        status: true,
+        category: { select: { status: true, isActive: true } },
+        variationGroups: {
+          select: {
+            id: true,
+            name: true,
+            minSelections: true,
+            maxSelections: true,
+            options: {
+              select: {
+                id: true,
+                name: true,
+                priceModifier: true,
+                isAvailable: true,
+              },
+            },
+          },
+        },
+      },
     });
     if (!menuItem) throw new Error('Menu item not found');
-
-    const basePrice = Number(menuItem.price);
-
-    // 2. Fetch Option Prices & Validate
-    let optionsTotal = 0;
-    if (variationOptionIds.length > 0) {
-      const options = await prisma.variationOption.findMany({
-        where: { id: { in: variationOptionIds } },
-      });
-      if (options.length !== variationOptionIds.length) {
-        throw new Error('One or more selected options are invalid');
-      }
-      options.forEach((opt) => {
-        optionsTotal += Number(opt.priceModifier);
-      });
+    if (menuItem.restaurantId !== table.restaurantId) {
+      throw new Error('Menu item is not available for this table.');
+    }
+    if (
+      !menuItem.isAvailable ||
+      menuItem.status !== 'ACTIVE' ||
+      menuItem.category.status !== 'ACTIVE' ||
+      menuItem.category.isActive === false
+    ) {
+      throw new Error('Menu item is not available.');
     }
 
-    const finalUnitPrice = basePrice + optionsTotal;
-    const finalSubtotal = finalUnitPrice * quantity;
+    // 2. Validate option ownership, availability and group min/max. This
+    // prevents a customer from attaching another item's options or skipping a
+    // required choice.
+    if (new Set(variationOptionIds).size !== variationOptionIds.length) {
+      throw new Error('Duplicate menu options are not allowed.');
+    }
+    const optionsById = new Map(
+      menuItem.variationGroups.flatMap((group) =>
+        group.options.map((option) => [option.id, { group, option }] as const)
+      )
+    );
+    for (const optionId of variationOptionIds) {
+      const found = optionsById.get(optionId);
+      if (!found) {
+        throw new Error(
+          'One or more selected options are invalid for this item.'
+        );
+      }
+      if (!found.option.isAvailable) {
+        throw new Error(`${found.option.name} is not available.`);
+      }
+    }
+    for (const group of menuItem.variationGroups) {
+      const selectedCount = group.options.filter((option) =>
+        variationOptionIds.includes(option.id)
+      ).length;
+      if (selectedCount < group.minSelections) {
+        throw new Error(
+          `${menuItem.name}: choose at least ${group.minSelections} from ${group.name}.`
+        );
+      }
+      if (group.maxSelections > 0 && selectedCount > group.maxSelections) {
+        throw new Error(
+          `${menuItem.name}: choose no more than ${group.maxSelections} from ${group.name}.`
+        );
+      }
+    }
+
+    const selectedOptions = variationOptionIds.map((optionId) => {
+      const found = optionsById.get(optionId)!;
+      return found.option;
+    });
+    const optionsTotal = selectedOptions.reduce(
+      (sum, option) => sum.add(option.priceModifier),
+      new Prisma.Decimal(0)
+    );
+    const finalUnitPrice = new Prisma.Decimal(menuItem.price).add(optionsTotal);
+    const finalSubtotal = finalUnitPrice.mul(quantity);
 
     // 3. Find if Identical Item already exists (Exact Option Match)
     const existingItems = (await prisma.cartItem.findMany({
@@ -308,7 +383,7 @@ export async function addToTableCart(
         where: { id: existingMatch.id },
         data: {
           quantity: newQuantity,
-          subtotal: finalUnitPrice * newQuantity,
+          subtotal: finalUnitPrice.mul(newQuantity),
           specialInstructions:
             specialInstructions || existingMatch.specialInstructions,
           unitPrice: finalUnitPrice,

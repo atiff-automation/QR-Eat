@@ -9,7 +9,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { addToTableCart } from '@/lib/table-session';
-import { prisma } from '@/lib/database';
 import { z } from 'zod';
 import { CART_LIMITS } from '@/lib/session-constants';
 
@@ -50,29 +49,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const validatedData = AddToCartSchema.parse(body);
 
-    // SECURITY: Limit check is handled in table-session
-    // AVAILABILITY: Check menu item availability first
-    const menuItem = await prisma.menuItem.findUnique({
-      where: { id: validatedData.menuItemId },
-      select: { isAvailable: true },
-    });
-
-    if (!menuItem) {
-      return NextResponse.json(
-        { error: 'Menu item not found' },
-        { status: 404 }
-      );
-    }
-
-    if (!menuItem.isAvailable) {
-      return NextResponse.json(
-        { error: 'Menu item is not available' },
-        { status: 400 }
-      );
-    }
-
-    // Add item to cart
-    // Logic for price calculation and option validation is now centralized in addToTableCart
+    // Menu, option and price validation is centralized in addToTableCart.
+    // The client-provided unitPrice is intentionally ignored.
     const cartItem = await addToTableCart(validatedData);
 
     return NextResponse.json({
