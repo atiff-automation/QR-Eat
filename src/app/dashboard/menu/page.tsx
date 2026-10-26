@@ -18,7 +18,7 @@ import Image from 'next/image';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import {
   useMenuCategories,
-  useToggleItemStatus,
+  useSetMenuItemAvailability,
   useToggleCategoryStatus,
   useDeleteMenuItem,
   useDeleteCategory,
@@ -30,6 +30,7 @@ import {
   MenuCategory,
   VariationGroup,
 } from '@/lib/hooks/queries/useMenu';
+import { useHasPermission } from '@/lib/hooks/queries/useAuth';
 import { VariationManager } from '@/components/menu/VariationManager';
 import { CurrencyInput } from '@/components/ui/CurrencyInput';
 import { FloatingActionButton } from '@/components/ui/FloatingActionButton';
@@ -65,6 +66,9 @@ export default function MenuPage() {
 
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'categories' | 'items'>('items');
+  const [availabilityFilter, setAvailabilityFilter] = useState<
+    'all' | 'available' | 'unavailable'
+  >('all');
   const [showAddModal, setShowAddModal] = useState<'category' | 'item' | null>(
     null
   );
@@ -73,6 +77,8 @@ export default function MenuPage() {
   const [editingCategory, setEditingCategory] = useState<MenuCategory | null>(
     null
   );
+  const canEditMenu = useHasPermission('menu:write');
+  const canManageAvailability = useHasPermission('menu:availability');
   /* Deletion State */
   const [deleteConfirmation, setDeleteConfirmation] = useState<{
     type: 'category' | 'item';
@@ -84,7 +90,7 @@ export default function MenuPage() {
   const currency = useCurrency();
 
   // TanStack Query mutations
-  const toggleItemStatus = useToggleItemStatus();
+  const setItemAvailability = useSetMenuItemAvailability();
   const toggleCategoryStatusMutation = useToggleCategoryStatus();
   const deleteMenuItemMutation = useDeleteMenuItem();
   const deleteCategoryMutation = useDeleteCategory();
@@ -104,13 +110,19 @@ export default function MenuPage() {
   };
 
   const toggleItemAvailability = async (item: MenuItem) => {
+    if (!canManageAvailability || item.status !== 'ACTIVE') return;
+
+    const wasAvailable = item.isAvailable;
     try {
-      await toggleItemStatus.mutateAsync({
+      await setItemAvailability.mutateAsync({
         id: item.id,
-        status: item.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE',
+        isAvailable: !wasAvailable,
+        ...(wasAvailable ? { reason: 'sold_out' as const } : {}),
       });
       toast.success(
-        `${item.name} ${item.status === 'ACTIVE' ? 'disabled' : 'enabled'} successfully`
+        wasAvailable
+          ? `${item.name} marked unavailable and hidden from ordering`
+          : `${item.name} is available again`
       );
     } catch (error) {
       console.error('Failed to toggle item availability:', error);
@@ -182,6 +194,21 @@ export default function MenuPage() {
     }).format(price);
   };
 
+  const allMenuItems = categories.flatMap((category) => category.menuItems);
+  const unavailableCount = allMenuItems.filter(
+    (item) => !item.isAvailable
+  ).length;
+  const availableCount = allMenuItems.length - unavailableCount;
+  const visibleMenuItems = categories
+    .filter((cat) => !selectedCategory || cat.id === selectedCategory)
+    .flatMap((cat) => cat.menuItems)
+    .filter((item) => {
+      if (availabilityFilter === 'all') return true;
+      return availabilityFilter === 'available'
+        ? item.isAvailable
+        : !item.isAvailable;
+    });
+
   if (loading) {
     return (
       <div className="p-6">
@@ -199,7 +226,7 @@ export default function MenuPage() {
 
   return (
     <AccessControl
-      allowedRoles={['manager', 'admin']}
+      allowedRoles={['manager', 'admin', 'cashier']}
       requiredPermissions={['menu:read']}
     >
       <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
@@ -263,44 +290,48 @@ export default function MenuPage() {
                   </span>
 
                   <div className="flex items-center gap-1 border-l pl-2 border-gray-100">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingCategory(category);
-                      }}
-                      className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleCategoryStatus(category);
-                      }}
-                      className={`p-2 rounded-lg transition-colors ${
-                        category.status === 'ACTIVE'
-                          ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
-                          : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
-                      }`}
-                    >
-                      <div
-                        className={`w-2.5 h-2.5 rounded-full ${
-                          category.status === 'ACTIVE'
-                            ? 'bg-green-500'
-                            : 'bg-gray-300'
-                        }`}
-                      />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCategory(category);
-                      }}
-                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Delete category"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+                    {canEditMenu && (
+                      <>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingCategory(category);
+                          }}
+                          className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleCategoryStatus(category);
+                          }}
+                          className={`p-2 rounded-lg transition-colors ${
+                            category.status === 'ACTIVE'
+                              ? 'text-green-600 hover:bg-red-50 hover:text-red-600'
+                              : 'text-gray-300 hover:bg-green-50 hover:text-green-600'
+                          }`}
+                        >
+                          <div
+                            className={`w-2.5 h-2.5 rounded-full ${
+                              category.status === 'ACTIVE'
+                                ? 'bg-green-500'
+                                : 'bg-gray-300'
+                            }`}
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCategory(category);
+                          }}
+                          className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete category"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                     <ChevronRight
                       className="h-4 w-4 text-gray-300"
                       onClick={() => handleCategorySelect(category.id)}
@@ -315,144 +346,213 @@ export default function MenuPage() {
         {/* Items View */}
         {viewMode === 'items' && (
           <div className="space-y-4">
-            {/* Category Filter */}
-            <div className="flex items-center justify-between bg-white p-2 rounded-xl shadow-sm border border-gray-100">
-              <div className="flex-1 max-w-xs">
-                <select
-                  value={selectedCategory || ''}
-                  onChange={(e) => setSelectedCategory(e.target.value || null)}
-                  className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 text-gray-900"
+            {/* Category and availability filters */}
+            <div className="bg-white p-2 rounded-xl shadow-sm border border-gray-100 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 max-w-xs">
+                  <select
+                    value={selectedCategory || ''}
+                    onChange={(e) =>
+                      setSelectedCategory(e.target.value || null)
+                    }
+                    className="w-full bg-transparent border-none text-sm font-medium focus:ring-0 text-gray-900"
+                  >
+                    <option value="">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  onClick={handleRefresh}
+                  disabled={refreshing}
+                  className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
+                  title="Refresh"
                 >
-                  <option value="">All Categories</option>
-                  {categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                  <RefreshCw
+                    className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
+                  />
+                </button>
               </div>
-              <button
-                onClick={handleRefresh}
-                disabled={refreshing}
-                className="p-2 text-gray-400 hover:text-blue-600 rounded-lg transition-colors"
-                title="Refresh"
-              >
-                <RefreshCw
-                  className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`}
-                />
-              </button>
+              <div className="flex items-center gap-2 overflow-x-auto">
+                {[
+                  { key: 'all', label: 'All', count: allMenuItems.length },
+                  {
+                    key: 'available',
+                    label: 'Available',
+                    count: availableCount,
+                  },
+                  {
+                    key: 'unavailable',
+                    label: 'Unavailable',
+                    count: unavailableCount,
+                  },
+                ].map((filter) => (
+                  <button
+                    key={filter.key}
+                    onClick={() =>
+                      setAvailabilityFilter(
+                        filter.key as 'all' | 'available' | 'unavailable'
+                      )
+                    }
+                    className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      availabilityFilter === filter.key
+                        ? 'bg-gray-900 text-white'
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {filter.label} ({filter.count})
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {!canEditMenu && (
+              <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs text-blue-700">
+                You can mark items unavailable. Menu editing is restricted to
+                managers and owners.
+              </p>
+            )}
 
             {/* Items List */}
             <div className="space-y-3">
-              {categories
-                .filter(
-                  (cat) => !selectedCategory || cat.id === selectedCategory
-                )
-                .flatMap((cat) => cat.menuItems)
-                .map((item) => (
-                  <div
-                    key={item.id}
-                    className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${
-                      item.status === 'INACTIVE'
-                        ? 'grayscale opacity-60 bg-gray-50'
-                        : ''
-                    }`}
-                  >
-                    {/* Item Image */}
-                    <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
-                      {item.imageUrl ? (
-                        <Image
-                          src={item.imageUrl}
-                          alt={item.name}
-                          fill
-                          className={`object-cover ${
-                            item.status === 'INACTIVE'
-                              ? 'grayscale opacity-75'
-                              : ''
-                          }`}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400">
-                          <UtensilsCrossed className="h-6 w-6" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
-                      <div>
-                        <div className="flex justify-between items-start gap-2">
-                          <h3 className="font-semibold text-gray-900 leading-tight line-clamp-2 text-sm sm:text-base">
-                            {item.name}
-                          </h3>
-                          <span className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">
-                            {formatPrice(item.price)}
-                          </span>
-                        </div>
+              {visibleMenuItems.map((item) => (
+                <div
+                  key={item.id}
+                  className={`bg-white rounded-xl p-3 border border-gray-100 shadow-sm flex items-start gap-3 active:scale-[0.99] transition-all ${
+                    item.status === 'INACTIVE'
+                      ? 'grayscale opacity-60 bg-gray-50'
+                      : ''
+                  }`}
+                >
+                  {/* Item Image */}
+                  <div className="w-20 h-20 sm:w-16 sm:h-16 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 relative">
+                    {item.imageUrl ? (
+                      <Image
+                        src={item.imageUrl}
+                        alt={item.name}
+                        fill
+                        className={`object-cover ${
+                          item.status === 'INACTIVE'
+                            ? 'grayscale opacity-75'
+                            : ''
+                        }`}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-gray-400">
+                        <UtensilsCrossed className="h-6 w-6" />
                       </div>
+                    )}
+                  </div>
 
-                      {item.isFeatured && (
-                        <div className="flex items-center gap-1 mt-2">
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-                            <Star className="w-3 h-3 fill-amber-700" />
-                            Featured
-                          </span>
-                        </div>
-                      )}
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 flex flex-col justify-between py-0.5">
+                    <div>
+                      <div className="flex justify-between items-start gap-2">
+                        <h3 className="font-semibold text-gray-900 leading-tight line-clamp-2 text-sm sm:text-base">
+                          {item.name}
+                        </h3>
+                        <span className="font-semibold text-gray-900 whitespace-nowrap text-sm sm:text-base">
+                          {formatPrice(item.price)}
+                        </span>
+                      </div>
                     </div>
 
-                    {/* Actions - Vertical Stack for Mobile */}
-                    <div className="flex flex-col items-center justify-center gap-2 pl-2 border-l border-gray-100 self-stretch">
+                    <div className="flex flex-wrap items-center gap-1 mt-2">
+                      {!item.isAvailable && (
+                        <span className="inline-flex items-center rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                          Unavailable
+                        </span>
+                      )}
+                      {item.status === 'INACTIVE' && (
+                        <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+                          Hidden
+                        </span>
+                      )}
+                      {item.isFeatured && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                          <Star className="w-3 h-3 fill-amber-700" />
+                          Featured
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Actions - Vertical Stack for Mobile */}
+                  <div className="flex flex-col items-center justify-center gap-2 pl-2 border-l border-gray-100 self-stretch">
+                    {canManageAvailability && item.status === 'ACTIVE' && (
                       <button
                         onClick={() => toggleItemAvailability(item)}
-                        className={`p-1.5 rounded-lg transition-colors ${
-                          item.status === 'ACTIVE'
+                        disabled={setItemAvailability.isPending}
+                        className={`p-1.5 rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                          item.isAvailable
                             ? 'text-green-600 bg-green-50'
-                            : 'text-gray-300 bg-gray-50'
+                            : 'text-gray-400 bg-gray-50'
                         }`}
                         title={
-                          item.status === 'ACTIVE'
-                            ? 'Mark Unavailable'
-                            : 'Mark Available'
+                          item.isAvailable
+                            ? 'Mark unavailable and hide from ordering'
+                            : 'Mark available for ordering'
                         }
+                        aria-label={
+                          item.isAvailable
+                            ? `Mark ${item.name} unavailable`
+                            : `Mark ${item.name} available`
+                        }
+                        aria-pressed={item.isAvailable}
                       >
                         <div
                           className={`w-7 h-4 rounded-full relative transition-colors ${
-                            item.status === 'ACTIVE'
-                              ? 'bg-green-500'
-                              : 'bg-gray-300'
+                            item.isAvailable ? 'bg-green-500' : 'bg-gray-300'
                           }`}
                         >
                           <div
                             className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow-sm transition-transform ${
-                              item.status === 'ACTIVE'
-                                ? 'left-[14px]'
-                                : 'left-0.5'
+                              item.isAvailable ? 'left-[14px]' : 'left-0.5'
                             }`}
                           />
                         </div>
                       </button>
-                      <button
-                        onClick={() => setEditingItem(item)}
-                        className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                        title="Edit Item"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteItem(item);
-                        }}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Delete item"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
+                    )}
+                    {canEditMenu && (
+                      <>
+                        <button
+                          onClick={() => setEditingItem(item)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Edit Item"
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(item);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Delete item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
-                ))}
+                </div>
+              ))}
+              {visibleMenuItems.length === 0 && allMenuItems.length > 0 && (
+                <div className="rounded-xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
+                  <p className="text-sm font-medium text-gray-700">
+                    No items match this filter.
+                  </p>
+                  <button
+                    onClick={() => setAvailabilityFilter('all')}
+                    className="mt-2 text-xs font-semibold text-blue-600 hover:text-blue-700"
+                  >
+                    Show all items
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -467,13 +567,15 @@ export default function MenuPage() {
             <p className="text-gray-800 mb-4">
               Get started by creating your first menu category
             </p>
-            <button
-              onClick={() => setShowAddModal('category')}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Category
-            </button>
+            {canEditMenu && (
+              <button
+                onClick={() => setShowAddModal('category')}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add Category
+              </button>
+            )}
           </div>
         )}
 
@@ -586,12 +688,14 @@ export default function MenuPage() {
       </div>
 
       {/* Floating Action Button */}
-      <FloatingActionButton
-        onClick={() =>
-          setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
-        }
-        ariaLabel={viewMode === 'categories' ? 'Add Category' : 'Add Item'}
-      />
+      {canEditMenu && (
+        <FloatingActionButton
+          onClick={() =>
+            setShowAddModal(viewMode === 'categories' ? 'category' : 'item')
+          }
+          ariaLabel={viewMode === 'categories' ? 'Add Category' : 'Add Item'}
+        />
+      )}
     </AccessControl>
   );
 }
@@ -1001,7 +1105,7 @@ function AddModal({
                       className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                     />
                     <span className="text-sm font-medium text-gray-700">
-                      Available
+                      Available for sale
                     </span>
                   </label>
                   <label className="flex items-center cursor-pointer">
@@ -1087,6 +1191,7 @@ function EditItemModal({
     allergens: item.allergens || [],
     dietaryInfo: item.dietaryInfo || [],
     status: item.status,
+    isAvailable: item.isAvailable,
     isFeatured: item.isFeatured,
     variationGroups: item.variationGroups || [],
   });
@@ -1094,6 +1199,7 @@ function EditItemModal({
   const [error, setError] = useState('');
 
   const updateItemMutation = useUpdateMenuItem();
+  const setAvailabilityMutation = useSetMenuItemAvailability();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1107,9 +1213,10 @@ function EditItemModal({
         throw new ApiClientError(validationError, 400);
       }
 
+      const { isAvailable, ...details } = formData;
       const payload = {
         id: item.id, // ID is required for the hook
-        ...formData,
+        ...details,
         price: parseFloat(formData.price.toString()) || 0,
         preparationTime: parseInt(formData.preparationTime.toString()) || 0,
         variationGroups: formData.variationGroups.map((group) => ({
@@ -1124,6 +1231,14 @@ function EditItemModal({
       };
 
       await updateItemMutation.mutateAsync(payload);
+
+      if (isAvailable !== item.isAvailable) {
+        await setAvailabilityMutation.mutateAsync({
+          id: item.id,
+          isAvailable,
+          ...(isAvailable ? {} : { reason: 'sold_out' as const }),
+        });
+      }
 
       onSuccess();
     } catch (err) {
@@ -1399,7 +1514,7 @@ function EditItemModal({
               </div>
             </div>
 
-            <div className="flex space-x-6 p-1">
+            <div className="flex flex-wrap gap-x-5 gap-y-2 p-1">
               <label className="flex items-center cursor-pointer">
                 <input
                   type="checkbox"
@@ -1413,7 +1528,23 @@ function EditItemModal({
                   className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
                 />
                 <span className="text-sm font-medium text-gray-700">
-                  Available
+                  Visible on menu
+                </span>
+              </label>
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.isAvailable}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      isAvailable: e.target.checked,
+                    })
+                  }
+                  className="w-5 h-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-2"
+                />
+                <span className="text-sm font-medium text-gray-700">
+                  Available for sale
                 </span>
               </label>
               <label className="flex items-center cursor-pointer">
@@ -1430,6 +1561,10 @@ function EditItemModal({
                 </span>
               </label>
             </div>
+            <p className="px-1 text-xs text-gray-500">
+              “Available for sale” is the daily 86 switch. Unavailable items are
+              hidden from the QR menu and Counter ordering.
+            </p>
 
             {/* Variations Manager */}
             <div className="border-t border-gray-100 pt-4">

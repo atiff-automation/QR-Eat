@@ -55,6 +55,7 @@ export interface MenuItem {
   allergens: string[];
   dietaryInfo: string[];
   status: 'ACTIVE' | 'INACTIVE';
+  isAvailable: boolean;
   isFeatured: boolean;
   displayOrder: number;
   categoryId?: string;
@@ -104,8 +105,10 @@ export function useMenuCategories() {
       );
       return data.categories;
     },
-    staleTime: 10 * 60 * 1000, // 10 minutes (menu changes rarely)
+    staleTime: 60 * 1000, // availability can change during service
     gcTime: 15 * 60 * 1000, // 15 minutes
+    refetchInterval: 30 * 1000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
   });
@@ -298,6 +301,67 @@ export function useToggleItemStatus() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories });
+    },
+  });
+}
+
+/**
+ * Set an item's temporary availability ("86") state.
+ *
+ * This is intentionally separate from status: ACTIVE/INACTIVE controls whether
+ * the item belongs on the menu, while isAvailable controls whether it can be
+ * ordered right now.
+ */
+export function useSetMenuItemAvailability() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      isAvailable,
+      reason,
+    }: {
+      id: string;
+      isAvailable: boolean;
+      reason?: 'sold_out' | 'kitchen_unavailable' | 'other';
+    }) => {
+      return ApiClient.patch(`/admin/menu/items/${id}/availability`, {
+        isAvailable,
+        ...(reason ? { reason } : {}),
+      });
+    },
+    onMutate: async ({ id, isAvailable }) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.menu.categories });
+
+      const previousCategories = queryClient.getQueryData<MenuCategory[]>(
+        queryKeys.menu.categories
+      );
+
+      if (previousCategories) {
+        queryClient.setQueryData<MenuCategory[]>(
+          queryKeys.menu.categories,
+          previousCategories.map((category) => ({
+            ...category,
+            menuItems: category.menuItems.map((item) =>
+              item.id === id ? { ...item, isAvailable } : item
+            ),
+          }))
+        );
+      }
+
+      return { previousCategories };
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousCategories) {
+        queryClient.setQueryData(
+          queryKeys.menu.categories,
+          context.previousCategories
+        );
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.categories });
+      queryClient.invalidateQueries({ queryKey: queryKeys.menu.items });
     },
   });
 }
