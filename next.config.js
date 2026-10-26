@@ -1,15 +1,3 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-const withSerwistInit =
-  require('@serwist/next').default || require('@serwist/next');
-
-const withSerwist = withSerwistInit({
-  swSrc: 'src/sw.ts',
-  swDest: 'public/sw.js',
-  cacheOnNavigation: true,
-  reloadOnOnline: true,
-  disable: process.env.NODE_ENV === 'development',
-});
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   poweredByHeader: false,
@@ -52,4 +40,20 @@ const nextConfig = {
   },
 };
 
-module.exports = withSerwist(nextConfig);
+/**
+ * @serwist/next is ESM-only. next.config.js is CommonJS in the Railway Node 20
+ * build, so load it dynamically rather than using require().
+ */
+module.exports = async () => {
+  const { default: withSerwistInit } = await import('@serwist/next');
+
+  const withSerwist = withSerwistInit({
+    swSrc: 'src/sw.ts',
+    swDest: 'public/sw.js',
+    cacheOnNavigation: true,
+    reloadOnOnline: true,
+    disable: process.env.NODE_ENV === 'development',
+  });
+
+  return withSerwist(nextConfig);
+};
