@@ -59,8 +59,15 @@ export async function GET(request: NextRequest) {
         tableId: true,
         status: true,
         paymentStatus: true,
+        source: true,
         totalAmount: true,
         createdAt: true,
+        takenByStaff: {
+          select: {
+            firstName: true,
+            lastName: true,
+          },
+        },
         table: {
           select: {
             tableNumber: true,
@@ -91,6 +98,12 @@ export async function GET(request: NextRequest) {
         tableName: order.table.tableName,
         status: order.status,
         paymentStatus: order.paymentStatus,
+        source: order.source,
+        takenByName: order.takenByStaff
+          ? [order.takenByStaff.firstName, order.takenByStaff.lastName]
+              .filter(Boolean)
+              .join(' ')
+          : null,
         totalAmount: order.totalAmount.toString(),
         itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
         createdAt: order.createdAt.toISOString(),

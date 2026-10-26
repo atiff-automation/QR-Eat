@@ -10,15 +10,14 @@ import {
   getInvalidTransitionMessage,
 } from '@/lib/order-utils';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
-import {
-  recordOrderCreated,
-  recordOrderStatusChanged,
-  type OrderCreatedResult,
-} from '@/lib/order-events';
+import { recordOrderStatusChanged } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { OrderStatus } from '@prisma/client';
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
-import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
+import {
+  confirmPendingOrder,
+  OrderDispatchError,
+} from '@/lib/services/order-dispatch-service';
 
 export async function PATCH(
   request: NextRequest,
@@ -160,33 +159,40 @@ export async function PATCH(
     // records it.
     const stationOverride =
       request.headers.get('x-station-override') === 'true' && isOwnerOrManager;
-    if (
-      status === ORDER_STATUS.CONFIRMED &&
-      currentOrder.status === ORDER_STATUS.PENDING &&
-      !stationOverride
-    ) {
-      const onlineWindow = new Date(
-        Date.now() - COUNTER_STATION_ONLINE_WINDOW_MS
-      );
-      const onlineDevice = await prisma.device.findFirst({
-        where: {
-          restaurantId: currentOrder.restaurantId,
-          isActive: true,
-          station: { isActive: true },
-          lastSeenAt: { gte: onlineWindow },
-        },
-        select: { id: true },
-      });
 
-      if (!onlineDevice) {
-        return NextResponse.json(
-          {
-            error:
-              'Kitchen station is offline. Fix the station or use an explicit manager override.',
-            code: 'STATION_OFFLINE',
+    // The confirmation path is shared with Counter order entry. The service
+    // owns the station guard, optimistic transition, ticket routing,
+    // notifications, audit and table refresh so both entry points cannot drift.
+    if (status === ORDER_STATUS.CONFIRMED) {
+      try {
+        const result = await confirmPendingOrder({
+          orderId,
+          actor: {
+            userId: context.userId,
+            userType: context.userType,
+            isAdmin: context.isAdmin,
           },
-          { status: 409 }
-        );
+          overrideStation: stationOverride,
+          estimatedReadyTime,
+          ipAddress:
+            request.headers.get('x-forwarded-for') ||
+            request.headers.get('x-real-ip') ||
+            'unknown',
+        });
+        return NextResponse.json({
+          success: true,
+          order: result.order,
+          ticket: result.ticket,
+          message: `Order status updated to ${status}`,
+        });
+      } catch (error) {
+        if (error instanceof OrderDispatchError) {
+          return NextResponse.json(
+            { error: error.message, code: error.code },
+            { status: error.statusCode }
+          );
+        }
+        throw error;
       }
     }
 
@@ -194,8 +200,6 @@ export async function PATCH(
     const updateData: {
       status: OrderStatus;
       updatedAt: Date;
-      confirmedAt?: Date;
-      confirmedBy?: string;
       readyAt?: Date;
       servedAt?: Date;
       servedBy?: string;
@@ -211,12 +215,6 @@ export async function PATCH(
 
     // Set timestamps based on status changes
     switch (status) {
-      case ORDER_STATUS.CONFIRMED:
-        if (currentOrder.status === ORDER_STATUS.PENDING) {
-          updateData.confirmedAt = new Date();
-          updateData.confirmedBy = context.userId;
-        }
-        break;
       case ORDER_STATUS.READY:
         if (currentOrder.status === ORDER_STATUS.PREPARING) {
           updateData.readyAt = new Date();
@@ -313,28 +311,6 @@ export async function PATCH(
       );
     }
 
-    // D41: the kitchen ticket is created at confirmation, not at QR
-    // submission. recordOrderCreated is idempotent, so a retried confirm or an
-    // order that predates this flow cannot print twice.
-    let ticketResult: OrderCreatedResult | null = null;
-    let ticketError: string | null = null;
-
-    if (
-      status === ORDER_STATUS.CONFIRMED &&
-      currentOrder.status === ORDER_STATUS.PENDING
-    ) {
-      try {
-        ticketResult = await recordOrderCreated(orderId);
-      } catch (eventError) {
-        ticketError =
-          eventError instanceof Error ? eventError.message : 'Ticket failed';
-        console.error(
-          `[order-events] FAILED to record kitchen ticket for ${orderId} on CONFIRMED:`,
-          eventError
-        );
-      }
-    }
-
     // Station event log: one event per station that received this order.
     try {
       await recordOrderStatusChanged(orderId, currentOrder.status, status);
@@ -373,16 +349,9 @@ export async function PATCH(
       changedBy: context.userId,
     });
 
-    // Send kitchen notification for status changes
-    if (status === ORDER_STATUS.CONFIRMED) {
-      await PostgresEventManager.publishKitchenNotification({
-        type: 'new_order',
-        orderId,
-        restaurantId: currentOrder.restaurantId,
-        message: `New order ${currentOrder.orderNumber} ready for kitchen`,
-        timestamp: Date.now(),
-      });
-    } else if (status === ORDER_STATUS.READY) {
+    // Send the ready notification; confirmation notifications are owned by
+    // the shared dispatch service.
+    if (status === ORDER_STATUS.READY) {
       await PostgresEventManager.publishRestaurantNotification({
         type: 'order_ready',
         orderId,
@@ -406,18 +375,6 @@ export async function PATCH(
     return NextResponse.json({
       success: true,
       order: updatedOrder,
-      ticket:
-        status === ORDER_STATUS.CONFIRMED
-          ? {
-              routed: (ticketResult?.tickets ?? 0) > 0,
-              stationIds: ticketResult?.stationIds ?? [],
-              unroutedItemIds: ticketResult?.unroutedItemIds ?? [],
-              replayed: ticketResult?.replayed ?? false,
-              error: ticketError,
-              ticketStatus:
-                (ticketResult?.tickets ?? 0) > 0 ? 'QUEUED' : 'NOT_ROUTED',
-            }
-          : undefined,
       message: `Order status updated to ${status}`,
     });
   } catch (error) {

@@ -30,6 +30,11 @@ enum OrderPaymentStatus {
   FAILED
 }
 
+enum OrderSource {
+  QR
+  COUNTER
+}
+
 enum TableStatus {
   AVAILABLE
   OCCUPIED
@@ -658,6 +663,9 @@ model Order {
   totalAmount         Decimal            @default(0.00) @db.Decimal(10, 2)
   status              OrderStatus        @default(PENDING)
   paymentStatus       OrderPaymentStatus @default(PENDING)
+  source              OrderSource        @default(QR)
+  idempotencyKey      String?            @unique
+  idempotencyHash     String?
   takenBy             String?
   confirmedBy         String?
   servedBy            String?
@@ -700,6 +708,7 @@ model Order {
   @@index([createdAt])
   @@index([hasModifications])
   @@index([version])
+  @@index([source])
   @@map("orders")
 }
 

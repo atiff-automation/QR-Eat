@@ -26,6 +26,7 @@ export interface Order {
   totalAmount: number;
   status: string;
   paymentStatus: string;
+  source?: string;
   specialInstructions?: string;
   estimatedReadyTime?: string;
   createdAt: string;
