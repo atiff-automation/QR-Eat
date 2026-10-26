@@ -10,6 +10,7 @@ import { counterAccessDenied } from '@/lib/counter/access';
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
+import { formatPickupNumber } from '@/lib/order-utils';
 import {
   CounterOrderError,
   CounterOrderInputSchema,
@@ -49,7 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     const input = CounterOrderInputSchema.parse(await request.json());
-    await requireTableAccess(input.tableId, context!);
+    if (input.orderType === 'DINE_IN') {
+      await requireTableAccess(input.tableId!, context!);
+    }
 
     const restaurantId = context!.restaurantId;
     if (!restaurantId) {
@@ -178,6 +181,11 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         orderNumber: true,
+        dailySeq: true,
+        orderType: true,
+        customerName: true,
+        customerPhone: true,
+        tableId: true,
         status: true,
         paymentStatus: true,
         source: true,
@@ -209,8 +217,14 @@ export async function GET(request: NextRequest) {
         return {
           id: order.id,
           orderNumber: order.orderNumber,
-          tableNumber: order.table.tableNumber,
-          tableName: order.table.tableName,
+          dailySeq: order.dailySeq,
+          orderType: order.orderType,
+          pickupNumber: formatPickupNumber(order.dailySeq),
+          customerName: order.customerName,
+          customerPhone: order.customerPhone,
+          tableId: order.tableId,
+          tableNumber: order.table?.tableNumber ?? null,
+          tableName: order.table?.tableName ?? null,
           status: order.status,
           paymentStatus: order.paymentStatus,
           source: order.source,

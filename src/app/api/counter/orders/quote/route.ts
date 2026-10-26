@@ -29,7 +29,9 @@ export async function POST(request: NextRequest) {
     requirePermission(context!, 'orders', 'write');
 
     const input = CounterOrderInputSchema.parse(await request.json());
-    await requireTableAccess(input.tableId, context!);
+    if (input.orderType === 'DINE_IN') {
+      await requireTableAccess(input.tableId!, context!);
+    }
 
     const quote = await quoteCounterOrder(input, {
       userId: context!.userId,

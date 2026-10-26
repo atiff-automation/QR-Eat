@@ -6,6 +6,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 100;
@@ -56,6 +57,9 @@ export async function GET(request: NextRequest) {
         id: true,
         orderNumber: true,
         dailySeq: true,
+        orderType: true,
+        customerName: true,
+        customerPhone: true,
         tableId: true,
         status: true,
         paymentStatus: true,
@@ -93,9 +97,13 @@ export async function GET(request: NextRequest) {
         id: order.id,
         orderNumber: order.orderNumber,
         dailySeq: order.dailySeq,
+        orderType: order.orderType,
+        pickupNumber: formatPickupNumber(order.dailySeq),
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
         tableId: order.tableId,
-        tableNumber: order.table.tableNumber,
-        tableName: order.table.tableName,
+        tableNumber: order.table?.tableNumber ?? null,
+        tableName: order.table?.tableName ?? null,
         status: order.status,
         paymentStatus: order.paymentStatus,
         source: order.source,
