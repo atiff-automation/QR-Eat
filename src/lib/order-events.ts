@@ -11,6 +11,7 @@
 
 import { prisma } from '@/lib/database';
 import type { Prisma } from '@prisma/client';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 export const ORDER_EVENT_TYPES = {
   CREATED: 'order.created',
@@ -86,6 +87,19 @@ function tableName(table: {
   tableName: string | null;
 }): string {
   return table.tableName || `T${table.tableNumber}`;
+}
+
+function orderLabel(order: {
+  table: { tableNumber: string; tableName: string | null } | null;
+  orderType: string;
+  dailySeq: number | null;
+}): string {
+  if (order.table) return tableName(order.table);
+  if (order.orderType === 'TAKEAWAY') {
+    const pickup = formatPickupNumber(order.dailySeq);
+    return pickup ? `TAKEAWAY ${pickup}` : 'TAKEAWAY';
+  }
+  return 'NO TABLE';
 }
 
 /**
@@ -220,7 +234,7 @@ export async function recordOrderCreated(
   const rows = [...grouped.entries()].map(([stationId, entry]) => {
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
-      tableName: tableName(order.table),
+      tableName: orderLabel(order),
       orderNote: order.specialInstructions,
       items: entry.items,
       stationSubtotal: entry.subtotal.toFixed(2),
@@ -301,7 +315,7 @@ export async function recordOrderStatusChanged(
 
   const payload: OrderStatusPayload & { reason?: string | null } = {
     orderNumber: order.orderNumber,
-    tableName: tableName(order.table),
+    tableName: orderLabel(order),
     from,
     to,
     version: order.version,
@@ -395,7 +409,7 @@ export async function recordOrderItemsAdded(
     data: [...grouped.entries()].map(([stationId, entry]) => {
       const payload: OrderItemsAddedPayload = {
         orderNumber: order.orderNumber,
-        tableName: tableName(order.table),
+        tableName: orderLabel(order),
         orderNote: order.specialInstructions,
         items: entry.items,
         stationSubtotal: entry.subtotal.toFixed(2),
@@ -460,7 +474,7 @@ export async function recordOrderItemStatusChanged(
 
   const payload: OrderItemStatusPayload = {
     orderNumber: item.order.orderNumber,
-    tableName: tableName(item.order.table),
+    tableName: orderLabel(item.order),
     itemId: item.id,
     itemName: item.menuItem.name,
     from,

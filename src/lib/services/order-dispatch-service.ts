@@ -262,7 +262,9 @@ export async function confirmPendingOrder(
   });
 
   try {
-    await autoUpdateTableStatus(currentOrder.tableId);
+    if (currentOrder.tableId) {
+      await autoUpdateTableStatus(currentOrder.tableId);
+    }
   } catch (error) {
     console.error(
       `[OrderDispatch] Failed to auto-update table status for ${currentOrder.tableId}:`,

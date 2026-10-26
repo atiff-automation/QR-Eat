@@ -36,7 +36,7 @@ export interface OrderStatusChangedEvent {
   oldStatus: string;
   newStatus: string;
   restaurantId: string;
-  tableId: string;
+  tableId: string | null;
   orderNumber: string;
   timestamp: number;
   changedBy?: string;
@@ -45,7 +45,7 @@ export interface OrderStatusChangedEvent {
 export interface OrderCreatedEvent {
   orderId: string;
   restaurantId: string;
-  tableId: string;
+  tableId: string | null;
   orderNumber: string;
   totalAmount: number;
   timestamp: number;

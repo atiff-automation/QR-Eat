@@ -14,6 +14,7 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { authenticateDevice } from '@/lib/device-auth';
 import { resolveRouting } from '@/lib/order-events';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -89,7 +90,11 @@ export async function GET(request: NextRequest) {
         {
           orderId: order.id,
           orderNumber: order.orderNumber,
-          tableName: order.table.tableName || `T${order.table.tableNumber}`,
+          tableName: order.table
+            ? order.table.tableName || `T${order.table.tableNumber}`
+            : order.orderType === 'TAKEAWAY'
+              ? `TAKEAWAY ${formatPickupNumber(order.dailySeq) ?? ''}`.trim()
+              : 'NO TABLE',
           status: order.status,
           version: order.version,
           createdAt: order.createdAt.toISOString(),

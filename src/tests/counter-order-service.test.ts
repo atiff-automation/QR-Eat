@@ -6,6 +6,9 @@ import {
   createCounterOrder,
   quoteCounterOrder,
 } from '@/lib/services/counter-order-service';
+import { SequenceManager } from '@/lib/sequence-manager';
+import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -14,6 +17,20 @@ jest.mock('@/lib/database', () => ({
     menuItem: { findMany: jest.fn() },
     order: { findUnique: jest.fn() },
     orderEvent: { findMany: jest.fn() },
+    auditLog: { create: jest.fn() },
+    $transaction: jest.fn(),
+  },
+}));
+
+jest.mock('@/lib/sequence-manager', () => ({
+  SequenceManager: {
+    getNextOrder: jest.fn(),
+  },
+}));
+
+jest.mock('@/lib/postgres-pubsub', () => ({
+  PostgresEventManager: {
+    publishOrderCreated: jest.fn(),
   },
 }));
 
@@ -287,6 +304,29 @@ describe('Counter order idempotency hash', () => {
       })
     ).not.toBe(base);
   });
+
+  it('changes when order type or customer data changes', () => {
+    const base = buildCounterOrderRequestHash(input);
+    expect(
+      buildCounterOrderRequestHash({
+        ...input,
+        orderType: 'TAKEAWAY',
+        tableId: null,
+      })
+    ).not.toBe(base);
+    expect(
+      buildCounterOrderRequestHash({
+        ...input,
+        customerName: 'Alex',
+      })
+    ).not.toBe(base);
+    expect(
+      buildCounterOrderRequestHash({
+        ...input,
+        customerPhone: '0123456789',
+      })
+    ).not.toBe(base);
+  });
 });
 
 describe('Counter order idempotency', () => {
@@ -294,11 +334,15 @@ describe('Counter order idempotency', () => {
   const existing = {
     id: 'order-1',
     orderNumber: 'ORD-1',
+    dailySeq: 1,
     restaurantId,
     tableId,
     status: 'PENDING',
     paymentStatus: 'PENDING',
     source: 'COUNTER',
+    orderType: 'DINE_IN',
+    customerName: null,
+    customerPhone: null,
     totalAmount: new Prisma.Decimal('13.20'),
     idempotencyHash: hash,
     createdAt: new Date(),
@@ -321,6 +365,8 @@ describe('Counter order idempotency', () => {
     expect(result.replayed).toBe(true);
     expect(result.order.id).toBe('order-1');
     expect(result.order.source).toBe('COUNTER');
+    expect(result.order.orderType).toBe('DINE_IN');
+    expect(result.order.pickupNumber).toBe('#001');
     expect(result.warning).toMatch(/pending kitchen dispatch/i);
   });
 
@@ -335,5 +381,130 @@ describe('Counter order idempotency', () => {
       code: 'IDEMPOTENCY_MISMATCH',
       statusCode: 409,
     });
+  });
+});
+
+describe('Counter takeaway creation', () => {
+  const takeawayInput = {
+    orderType: 'TAKEAWAY' as const,
+    customerName: 'Alex',
+    customerPhone: '0123456789',
+    sendToKitchen: false,
+    items: [{ menuItemId: itemId, quantity: 1, optionIds: [optionId] }],
+  };
+
+  const createdTakeaway = {
+    id: 'order-takeaway-1',
+    orderNumber: 'ORD-TEST-042',
+    dailySeq: 42,
+    status: 'PENDING',
+    paymentStatus: 'PENDING',
+    source: 'COUNTER',
+    orderType: 'TAKEAWAY',
+    customerName: 'Alex',
+    customerPhone: '0123456789',
+    totalAmount: new Prisma.Decimal('13.20'),
+    tableId: null,
+    createdAt: new Date(),
+    table: null,
+  };
+
+  const tx = {
+    customerSession: { create: jest.fn() },
+    order: { create: jest.fn() },
+    orderItem: { create: jest.fn() },
+    table: { update: jest.fn() },
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue(restaurant());
+    (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([menuItem()]);
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue(null);
+    (prisma.orderEvent.findMany as jest.Mock).mockResolvedValue([]);
+    (SequenceManager.getNextOrder as jest.Mock).mockResolvedValue({
+      number: 42,
+      formatted: 'ORD-TEST-042',
+    });
+    (prisma.auditLog.create as jest.Mock).mockResolvedValue({});
+    (PostgresEventManager.publishOrderCreated as jest.Mock).mockResolvedValue(
+      undefined
+    );
+    tx.customerSession.create.mockResolvedValue({ id: 'session-1' });
+    tx.order.create.mockResolvedValue(createdTakeaway);
+    tx.orderItem.create.mockResolvedValue({});
+    tx.table.update.mockResolvedValue({});
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (callback: (client: typeof tx) => unknown) => callback(tx)
+    );
+  });
+
+  it('creates a takeaway order without a table or customer session', async () => {
+    const result = await createCounterOrder(
+      takeawayInput,
+      actor,
+      'takeaway-idempotency-key'
+    );
+
+    expect(result.order.orderType).toBe('TAKEAWAY');
+    expect(result.order.pickupNumber).toBe(formatPickupNumber(42));
+    expect(result.order.tableId).toBeNull();
+    expect(result.order.customerName).toBe('Alex');
+    expect(tx.customerSession.create).not.toHaveBeenCalled();
+    expect(tx.table.update).not.toHaveBeenCalled();
+    expect(tx.orderItem.create).toHaveBeenCalledTimes(1);
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderType: 'TAKEAWAY',
+          tableId: null,
+          customerSessionId: null,
+          customerName: 'Alex',
+          customerPhone: '0123456789',
+        }),
+      })
+    );
+    expect(
+      tx.order.create.mock.calls[0][0].data.serviceChargeRateSnapshot.toString()
+    ).toBe('0');
+    expect(PostgresEventManager.publishOrderCreated).toHaveBeenCalledWith(
+      expect.objectContaining({ tableId: null })
+    );
+  });
+
+  it('creates a dine-in order with a session and table update', async () => {
+    const dineInOrder = {
+      ...createdTakeaway,
+      id: 'order-dine-in-1',
+      dailySeq: 43,
+      orderNumber: 'ORD-TEST-043',
+      orderType: 'DINE_IN',
+      customerName: null,
+      customerPhone: null,
+      tableId,
+      table: { tableNumber: '2', tableName: 'Center Table' },
+    };
+    (prisma.table.findUnique as jest.Mock).mockResolvedValue(table());
+    tx.order.create.mockResolvedValue(dineInOrder);
+
+    const result = await createCounterOrder(
+      { ...input, sendToKitchen: false },
+      actor,
+      'dine-in-idempotency-key'
+    );
+
+    expect(result.order.orderType).toBe('DINE_IN');
+    expect(result.order.tableId).toBe(tableId);
+    expect(tx.customerSession.create).toHaveBeenCalledTimes(1);
+    expect(tx.table.update).toHaveBeenCalledTimes(1);
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          orderType: 'DINE_IN',
+          tableId,
+          customerSessionId: 'session-1',
+        }),
+      })
+    );
   });
 });

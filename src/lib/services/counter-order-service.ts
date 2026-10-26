@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { formatPickupNumber } from '@/lib/order-utils';
 import { canTableAcceptOrders } from '@/lib/table-utils';
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import {
@@ -111,6 +112,10 @@ export interface CounterOrderResult {
     status: string;
     paymentStatus: string;
     source: string;
+    orderType: string;
+    pickupNumber: string | null;
+    customerName: string | null;
+    customerPhone: string | null;
     totalAmount: string;
     tableId: string | null;
     tableNumber: string | null;
@@ -174,7 +179,10 @@ function asString(value: Prisma.Decimal | number | string): string {
 
 export function buildCounterOrderRequestHash(input: CounterOrderInput): string {
   const normalized = {
-    tableId: input.tableId,
+    orderType: input.orderType ?? 'DINE_IN',
+    tableId: input.tableId ?? null,
+    customerName: input.customerName?.trim() || null,
+    customerPhone: input.customerPhone?.trim() || null,
     specialInstructions: input.specialInstructions ?? null,
     items: input.items
       .map((item) => ({
@@ -515,9 +523,13 @@ function quoteFromPriced(priced: PricedOrder): CounterOrderQuote {
 function orderResponse(order: {
   id: string;
   orderNumber: string;
+  dailySeq: number | null;
   status: string;
   paymentStatus: string;
   source: string;
+  orderType: string;
+  customerName: string | null;
+  customerPhone: string | null;
   totalAmount: Prisma.Decimal | number | string;
   tableId: string | null;
   createdAt: Date;
@@ -529,6 +541,10 @@ function orderResponse(order: {
     status: order.status,
     paymentStatus: order.paymentStatus,
     source: order.source,
+    orderType: order.orderType,
+    pickupNumber: formatPickupNumber(order.dailySeq),
+    customerName: order.customerName,
+    customerPhone: order.customerPhone,
     totalAmount: asString(order.totalAmount),
     tableId: order.tableId,
     tableNumber: order.table?.tableNumber ?? null,
@@ -627,14 +643,8 @@ export async function createCounterOrder(
     );
   }
 
-  if (!priced.table) {
-    throw new CounterOrderError(
-      'Takeaway order creation is not available in this phase.',
-      'TAKEAWAY_CREATE_NOT_READY',
-      501
-    );
-  }
   const table = priced.table;
+  const isTakeaway = priced.orderType === 'TAKEAWAY';
 
   const { number: dailySeq, formatted: orderNumber } =
     await SequenceManager.getNextOrder(priced.restaurant.id);
@@ -644,9 +654,13 @@ export async function createCounterOrder(
   let createdOrder: {
     id: string;
     orderNumber: string;
+    dailySeq: number | null;
     status: string;
     paymentStatus: string;
     source: string;
+    orderType: string;
+    customerName: string | null;
+    customerPhone: string | null;
     totalAmount: Prisma.Decimal;
     tableId: string | null;
     createdAt: Date;
@@ -654,36 +668,53 @@ export async function createCounterOrder(
   };
   try {
     createdOrder = await prisma.$transaction(async (tx) => {
-      const session = await tx.customerSession.create({
-        data: {
-          tableId: table.id,
-          sessionToken,
-          userAgent: COUNTER_SESSION_USER_AGENT,
-          status: 'ENDED',
-          expiresAt: now,
-          endedAt: now,
-        },
-      });
+      let customerSessionId: string | null = null;
+
+      if (!isTakeaway) {
+        if (!table) {
+          throw new CounterOrderError(
+            'A table is required for a dine-in order.',
+            'TABLE_REQUIRED',
+            400
+          );
+        }
+        const session = await tx.customerSession.create({
+          data: {
+            tableId: table.id,
+            sessionToken,
+            userAgent: COUNTER_SESSION_USER_AGENT,
+            status: 'ENDED',
+            expiresAt: now,
+            endedAt: now,
+          },
+        });
+        customerSessionId = session.id;
+      }
 
       const order = await tx.order.create({
         data: {
           orderNumber,
           dailySeq,
           restaurantId: priced.restaurant.id,
-          tableId: table.id,
-          customerSessionId: session.id,
+          tableId: table?.id ?? null,
+          customerSessionId,
+          customerName: priced.customerName,
+          customerPhone: priced.customerPhone,
           subtotalAmount: priced.subtotal,
           taxAmount: priced.taxAmount,
           serviceCharge: priced.serviceCharge,
           discountAmount: 0,
           totalAmount: priced.totalAmount,
           taxRateSnapshot: priced.restaurant.taxRate,
-          serviceChargeRateSnapshot: priced.restaurant.serviceChargeRate,
+          serviceChargeRateSnapshot: isTakeaway
+            ? new Prisma.Decimal(0)
+            : priced.restaurant.serviceChargeRate,
           taxLabelSnapshot: priced.restaurant.taxLabel,
           serviceChargeLabelSnapshot: priced.restaurant.serviceChargeLabel,
           status: 'PENDING',
           paymentStatus: 'PENDING',
           source: 'COUNTER',
+          orderType: priced.orderType,
           idempotencyKey,
           idempotencyHash: requestHash,
           takenBy: actor.userType === 'staff' ? actor.userId : null,
@@ -715,10 +746,12 @@ export async function createCounterOrder(
         });
       }
 
-      await tx.table.update({
-        where: { id: table.id },
-        data: { status: 'OCCUPIED' },
-      });
+      if (!isTakeaway && table) {
+        await tx.table.update({
+          where: { id: table.id },
+          data: { status: 'OCCUPIED' },
+        });
+      }
 
       return order;
     });
@@ -758,7 +791,10 @@ export async function createCounterOrder(
         operation: 'CREATE',
         newValues: {
           source: 'COUNTER',
-          tableId: table.id,
+          orderType: priced.orderType,
+          tableId: table?.id ?? null,
+          pickupNumber: formatPickupNumber(dailySeq),
+          customerName: priced.customerName,
           itemCount: priced.lines.reduce((sum, line) => sum + line.quantity, 0),
           totalAmount: priced.totalAmount,
         },
@@ -775,7 +811,7 @@ export async function createCounterOrder(
     await PostgresEventManager.publishOrderCreated({
       orderId: createdOrder.id,
       restaurantId: priced.restaurant.id,
-      tableId: table.id,
+      tableId: table?.id ?? null,
       orderNumber: createdOrder.orderNumber,
       totalAmount: priced.totalAmount,
       timestamp: Date.now(),
