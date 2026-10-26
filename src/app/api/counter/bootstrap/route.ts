@@ -64,6 +64,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const permissionKeys = Object.entries(context!.permissions).flatMap(
+      ([resource, actions]) => actions.map((action) => `${resource}:${action}`)
+    );
+
     return NextResponse.json({
       success: true,
       restaurant,
@@ -74,6 +78,9 @@ export async function GET(request: NextRequest) {
         roleTemplate: context!.roleTemplate,
       },
       permissions: context!.permissions,
+      // Keep the object for existing consumers and expose the flat list for
+      // the Android Counter, which gates operational actions by permission.
+      permissionKeys,
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
