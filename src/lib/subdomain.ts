@@ -454,6 +454,10 @@ export function shouldHandleSubdomain(request: NextRequest): boolean {
     '/health',
     '/ping',
     '/sw.js',
+    '/swe-worker-',
+    '/workbox-',
+    '/serwist-',
+    '/offline',
   ];
 
   if (skipPaths.some((path) => pathname.startsWith(path))) {

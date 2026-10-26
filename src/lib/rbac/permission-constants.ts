@@ -82,6 +82,7 @@ export const MENU_PERMISSIONS = {
   READ: 'menu:read',
   WRITE: 'menu:write',
   DELETE: 'menu:delete',
+  AVAILABILITY: 'menu:availability',
 } as const;
 
 /**

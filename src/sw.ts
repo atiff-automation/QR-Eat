@@ -1,6 +1,12 @@
 /// <reference lib="webworker" />
 import type { PrecacheEntry, SerwistGlobalConfig } from 'serwist';
-import { Serwist, NetworkOnly, CacheFirst, StaleWhileRevalidate, NetworkFirst } from 'serwist';
+import {
+  Serwist,
+  NetworkOnly,
+  CacheFirst,
+  StaleWhileRevalidate,
+  NetworkFirst,
+} from 'serwist';
 
 // This declares the value of `injectionPoint` to TypeScript.
 declare global {
@@ -31,8 +37,7 @@ const serwist = new Serwist({
 
     // 3. NEVER CACHE: Mutation endpoints
     {
-      matcher:
-        /^https?:\/\/.*\/api\/.*(create|modify|update|delete|status).*/,
+      matcher: /^https?:\/\/.*\/api\/.*(create|modify|update|delete|status).*/,
       handler: new NetworkOnly(),
     },
 
@@ -52,15 +57,23 @@ const serwist = new Serwist({
       }),
     },
 
-    // 6. Menu & Restaurant Data - Stale While Revalidate (1 hour)
+    // 6. Menu Data - Network Only.
+    // Availability changes must never be masked by a stale service-worker
+    // response. The QR flow already requires the network for ordering.
     {
-      matcher: /^https?:\/\/.*\/api\/(menu|restaurants|tables)\/[^/]+$/,
+      matcher: /^https?:\/\/.*\/api\/menu\/[^/]+$/,
+      handler: new NetworkOnly(),
+    },
+
+    // 7. Restaurant & Table Data - Stale While Revalidate (1 hour)
+    {
+      matcher: /^https?:\/\/.*\/api\/(restaurants|tables)\/[^/]+$/,
       handler: new StaleWhileRevalidate({
-        cacheName: 'menu-cache',
+        cacheName: 'restaurant-tables-cache',
       }),
     },
 
-    // 7. Order List/Stats - Network First (5 min cache fallback)
+    // 8. Order List/Stats - Network First (5 min cache fallback)
     {
       matcher: /^https?:\/\/.*\/api\/orders\/(list|stats|live)$/,
       handler: new NetworkFirst({
@@ -167,24 +180,29 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
 /**
  * Handle push subscription changes
  */
-self.addEventListener('pushsubscriptionchange', (event: any) => {
+self.addEventListener('pushsubscriptionchange', (event: Event) => {
   console.log('[SW] Push subscription change detected');
 
-  event.waitUntil(
+  const pushEvent = event as ExtendableEvent & {
+    oldSubscription?: PushSubscription;
+  };
+
+  pushEvent.waitUntil(
     (async () => {
       try {
         const vapidPublicKey = 'NEXT_PUBLIC_VAPID_PUBLIC_KEY_PLACEHOLDER';
 
         const newSubscription = await self.registration.pushManager.subscribe({
           userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as any,
+          applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+            .buffer as ArrayBuffer,
         });
 
         await fetch('/api/push/update-subscription', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            oldEndpoint: event.oldSubscription?.endpoint,
+            oldEndpoint: pushEvent.oldSubscription?.endpoint,
             newSubscription: newSubscription.toJSON(),
           }),
         });

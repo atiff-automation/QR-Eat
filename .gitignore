@@ -73,3 +73,5 @@ prisma/migrations/*_add_cashier_role_data.sql
 /public/workbox-*.js.map
 /public/serwist-*.js
 /public/serwist-*.js.map
+/public/swe-worker-*.js
+/public/swe-worker-*.js.map

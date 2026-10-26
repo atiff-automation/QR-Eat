@@ -367,6 +367,11 @@ function isPublicRoute(pathname: string): boolean {
     '/_next/',
     '/favicon.ico',
     '/manifest.webmanifest', // PWA manifest
+    '/sw.js',
+    '/swe-worker-',
+    '/workbox-',
+    '/serwist-',
+    '/offline',
     '/test-login.html',
     '/test',
     '/simple-login',

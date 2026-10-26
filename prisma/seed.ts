@@ -962,6 +962,11 @@ async function main() {
     { key: 'menu:read', description: 'View menu items', category: 'menu' },
     { key: 'menu:write', description: 'Manage menu items', category: 'menu' },
     { key: 'menu:delete', description: 'Delete menu items', category: 'menu' },
+    {
+      key: 'menu:availability',
+      description: 'Hide or restore menu items from ordering',
+      category: 'menu',
+    },
 
     // Settings
     {
@@ -1085,6 +1090,7 @@ async function main() {
         'menu:read',
         'menu:write',
         'menu:delete',
+        'menu:availability',
         'settings:read',
         'settings:write',
         'billing:read',
@@ -1106,6 +1112,7 @@ async function main() {
         'analytics:read',
         'menu:read',
         'menu:write',
+        'menu:availability',
         'settings:read',
         'payments:read',
         'payments:write',
@@ -1138,6 +1145,7 @@ async function main() {
         'tables:read',
         'tables:write', // NEW: Can update table status (like waiters)
         'menu:read',
+        'menu:availability',
       ],
     },
   ];

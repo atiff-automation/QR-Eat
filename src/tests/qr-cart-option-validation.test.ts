@@ -189,4 +189,13 @@ describe('QR cart option validation', () => {
       /not available for this table/i
     );
   });
+
+  it('rejects a menu item that has been marked unavailable', async () => {
+    (prisma.menuItem.findUnique as jest.Mock).mockResolvedValue(
+      item({ isAvailable: false })
+    );
+
+    await expect(addToTableCart(base)).rejects.toThrow(/not available/i);
+    expect(prisma.cartItem.create).not.toHaveBeenCalled();
+  });
 });

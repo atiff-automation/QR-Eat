@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
         },
         include: {
           menuItems: {
-            where: { status: 'ACTIVE' },
+            where: { status: 'ACTIVE', isAvailable: true },
             include: {
               variationGroups: {
                 orderBy: { displayOrder: 'asc' },
@@ -94,40 +94,42 @@ export async function GET(request: NextRequest) {
           taxLabel: restaurant.taxLabel || 'Tax',
           serviceChargeLabel: restaurant.serviceChargeLabel || 'Service Charge',
         },
-        categories: categories.map((category) => ({
-          id: category.id,
-          name: category.name,
-          description: category.description,
-          displayOrder: category.displayOrder,
-          items: category.menuItems.map((item) => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            price: item.price.toString(),
-            imageUrl: item.imageUrl,
-            preparationTime: item.preparationTime,
-            calories: item.calories,
-            allergens: item.allergens,
-            dietaryInfo: item.dietaryInfo,
-            isAvailable: item.isAvailable,
-            isFeatured: item.isFeatured,
-            displayOrder: item.displayOrder,
-            variationGroups: item.variationGroups.map((group) => ({
-              id: group.id,
-              name: group.name,
-              minSelections: group.minSelections,
-              maxSelections: group.maxSelections,
-              displayOrder: group.displayOrder,
-              options: group.options.map((option) => ({
-                id: option.id,
-                name: option.name,
-                priceModifier: option.priceModifier.toString(),
-                isAvailable: option.isAvailable,
-                displayOrder: option.displayOrder,
+        categories: categories
+          .filter((category) => category.menuItems.length > 0)
+          .map((category) => ({
+            id: category.id,
+            name: category.name,
+            description: category.description,
+            displayOrder: category.displayOrder,
+            items: category.menuItems.map((item) => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              price: item.price.toString(),
+              imageUrl: item.imageUrl,
+              preparationTime: item.preparationTime,
+              calories: item.calories,
+              allergens: item.allergens,
+              dietaryInfo: item.dietaryInfo,
+              isAvailable: item.isAvailable,
+              isFeatured: item.isFeatured,
+              displayOrder: item.displayOrder,
+              variationGroups: item.variationGroups.map((group) => ({
+                id: group.id,
+                name: group.name,
+                minSelections: group.minSelections,
+                maxSelections: group.maxSelections,
+                displayOrder: group.displayOrder,
+                options: group.options.map((option) => ({
+                  id: option.id,
+                  name: option.name,
+                  priceModifier: option.priceModifier.toString(),
+                  isAvailable: option.isAvailable,
+                  displayOrder: option.displayOrder,
+                })),
               })),
             })),
           })),
-        })),
         serverTime: new Date().toISOString(),
       },
       {
