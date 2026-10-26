@@ -11,6 +11,7 @@ import {
   getElapsedTime,
 } from '@/lib/order-utils';
 import { formatPrice } from '@/lib/qr-utils';
+import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
 
 /**
  * Order summary data structure
@@ -19,6 +20,10 @@ export interface OrderSummary {
   id: string;
   orderNumber: string;
   dailySeq?: number;
+  orderType?: string;
+  pickupNumber?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
   status: string;
   paymentStatus: string;
   totalAmount: number;
@@ -31,10 +36,10 @@ export interface OrderSummary {
   version: number; // For optimistic locking
   hasModifications?: boolean; // Modification indicator
   modificationCount?: number; // Number of modifications
-  table: {
+  table?: {
     tableNumber: string;
     tableName?: string;
-  };
+  } | null;
   customerSession?: {
     customerName?: string;
     customerPhone?: string;
@@ -125,6 +130,11 @@ export function OrderCard({
         60000
     )
   );
+  const isTakeaway = order.orderType === 'TAKEAWAY';
+  const primaryLabel = getOrderPrimaryLabel(order);
+  const secondaryLabel = isTakeaway
+    ? order.customerName
+    : order.table?.tableName;
 
   const { data: authData } = useAuthUser();
   const userType = authData?.currentRole?.userType;
@@ -182,16 +192,14 @@ export function OrderCard({
     <div
       className={`${cardBackgroundClass} rounded-lg ${shadowClass} border border-gray-200 ${borderWidthClass} ${borderColor} p-3 transition-all hover:shadow-md animate-card-appear`}
       role="article"
-      aria-label={`Order ${order.orderNumber} for table ${order.table.tableNumber}`}
+      aria-label={`Order ${order.orderNumber} for ${primaryLabel}`}
     >
-      {/* Header: Table Number + Status + Actions */}
+      {/* Header: Table or takeaway label + Status + Actions */}
       <div className="flex items-start justify-between mb-2">
         <div>
-          <h3 className="text-lg font-bold text-gray-900">
-            Table {order.table.tableNumber}
-          </h3>
-          {order.table.tableName && (
-            <p className="text-xs text-gray-500">{order.table.tableName}</p>
+          <h3 className="text-lg font-bold text-gray-900">{primaryLabel}</h3>
+          {secondaryLabel && (
+            <p className="text-xs text-gray-500">{secondaryLabel}</p>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -252,15 +260,19 @@ export function OrderCard({
                   : 'text-green-600'
             }`}
           >
-            Ready for {readyMinutes < 1 ? '<1' : readyMinutes} min — serve it or
-            release the table
+            Ready for {readyMinutes < 1 ? '<1' : readyMinutes} min —{' '}
+            {isTakeaway ? 'call the customer' : 'serve it or release the table'}
           </div>
         )}
 
         {/* Customer Type + Age/Time + Price */}
         <div className="flex items-center justify-between text-sm">
           <span className="text-gray-600">
-            {order.customerSession?.customerName ? 'Dine-in' : 'Walk-in'}
+            {isTakeaway
+              ? 'Takeaway'
+              : order.customerSession?.customerName
+                ? 'Dine-in'
+                : 'Walk-in'}
             {' • '}
             {isPending
               ? `Pending ${getElapsedTime(order.createdAt)}`

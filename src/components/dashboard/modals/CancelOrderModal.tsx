@@ -6,18 +6,23 @@ import {
   generateIdempotencyKey,
   calculateRefundNeeded,
 } from '@/lib/order-modification-utils';
+import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
 
 interface CancelOrderModalProps {
   order: {
     id: string;
     orderNumber: string;
+    orderType?: string;
+    pickupNumber?: string | null;
     status: string;
     paymentStatus: string;
     totalAmount: number;
     version: number;
-    table: {
+    table?: {
       tableNumber: string;
-    };
+      tableName?: string | null;
+    } | null;
+    customerName?: string | null;
   };
   isOpen: boolean;
   onClose: () => void;
@@ -136,7 +141,7 @@ export function CancelOrderModal({
           <div className="bg-gray-50 rounded-lg p-3">
             <div className="font-semibold">Order #{order.orderNumber}</div>
             <div className="text-sm text-gray-600">
-              Table {order.table.tableNumber} • $
+              {getOrderPrimaryLabel(order)} • $
               {Number(order.totalAmount).toFixed(2)}
             </div>
           </div>

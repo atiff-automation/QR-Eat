@@ -17,8 +17,12 @@ export interface Order {
   orderNumber: string;
   dailySeq?: number;
   restaurantId: string;
-  tableId: string;
-  customerSessionId: string;
+  tableId?: string | null;
+  customerSessionId?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  orderType?: string;
+  pickupNumber?: string | null;
   subtotalAmount: number;
   taxAmount: number;
   serviceCharge: number;
@@ -33,10 +37,10 @@ export interface Order {
   confirmedAt?: string;
   readyAt?: string;
   servedAt?: string;
-  table: {
+  table?: {
     tableNumber: string;
     tableName?: string;
-  };
+  } | null;
   // Snapshot fields
   taxLabelSnapshot?: string;
   serviceChargeLabelSnapshot?: string;

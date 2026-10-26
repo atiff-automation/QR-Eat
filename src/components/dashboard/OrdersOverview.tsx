@@ -12,6 +12,7 @@ import { debug } from '@/lib/debug';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import { useAuthUser } from '@/lib/hooks/queries/useAuth';
 import { ORDER_STATUS } from '@/lib/order-utils';
+import { matchesOrderSearch } from '@/lib/utils/order-display';
 
 // Constants
 const DEFAULT_ORDER_LIMIT = 50;
@@ -239,14 +240,7 @@ export function OrdersOverview() {
   const filteredOrders = useMemo(() => {
     if (!searchQuery.trim()) return orders;
 
-    const query = searchQuery.toLowerCase();
-    return orders.filter(
-      (order) =>
-        order.orderNumber.toLowerCase().includes(query) ||
-        order.table.tableNumber.toLowerCase().includes(query) ||
-        order.table.tableName?.toLowerCase().includes(query) ||
-        order.customerSession?.customerName?.toLowerCase().includes(query)
-    );
+    return orders.filter((order) => matchesOrderSearch(order, searchQuery));
   }, [orders, searchQuery]);
 
   // Sort orders
