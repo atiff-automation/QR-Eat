@@ -13,7 +13,7 @@ import {
   type OrderDispatchTicket,
 } from '@/lib/services/order-dispatch-service';
 
-export const COUNTER_SESSION_USER_AGENT = 'counter';
+import { COUNTER_SESSION_USER_AGENT } from '@/lib/counter/constants';
 
 export const CounterOrderItemSchema = z.object({
   menuItemId: z.string().uuid('Invalid menu item'),

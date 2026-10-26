@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { COUNTER_SESSION_USER_AGENT } from '@/lib/counter/constants';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { withQueryPerformance } from '@/lib/performance';
 
@@ -493,6 +494,10 @@ async function generateCustomerReport(
         gte: startDate,
         lte: endDate,
       },
+      OR: [
+        { userAgent: null },
+        { userAgent: { not: COUNTER_SESSION_USER_AGENT } },
+      ],
     },
     include: {
       orders: {
