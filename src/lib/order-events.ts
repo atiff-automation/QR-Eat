@@ -32,6 +32,10 @@ export interface StationOrderItem {
 export interface OrderCreatedPayload {
   orderNumber: string;
   tableName: string;
+  orderType: string;
+  pickupNumber: string | null;
+  customerName: string | null;
+  fulfillmentLabel: string;
   orderNote: string | null;
   items: StationOrderItem[];
   stationSubtotal: string;
@@ -49,6 +53,10 @@ export interface OrderCreatedResult {
 export interface OrderStatusPayload {
   orderNumber: string;
   tableName: string;
+  orderType: string;
+  pickupNumber: string | null;
+  customerName: string | null;
+  fulfillmentLabel: string;
   from: string;
   to: string;
   version: number;
@@ -62,6 +70,10 @@ export interface OrderItemsAddedPayload extends OrderCreatedPayload {
 export interface OrderItemStatusPayload {
   orderNumber: string;
   tableName: string;
+  orderType: string;
+  pickupNumber: string | null;
+  customerName: string | null;
+  fulfillmentLabel: string;
   itemId: string;
   itemName: string;
   from: string;
@@ -100,6 +112,25 @@ function orderLabel(order: {
     return pickup ? `TAKEAWAY ${pickup}` : 'TAKEAWAY';
   }
   return 'NO TABLE';
+}
+
+export function orderFulfillment(order: {
+  table: { tableNumber: string; tableName: string | null } | null;
+  orderType: string;
+  dailySeq: number | null;
+  customerName: string | null;
+}): {
+  orderType: string;
+  pickupNumber: string | null;
+  customerName: string | null;
+  fulfillmentLabel: string;
+} {
+  return {
+    orderType: order.orderType,
+    pickupNumber: formatPickupNumber(order.dailySeq),
+    customerName: order.customerName,
+    fulfillmentLabel: orderLabel(order),
+  };
 }
 
 /**
@@ -235,6 +266,7 @@ export async function recordOrderCreated(
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
       tableName: orderLabel(order),
+      ...orderFulfillment(order),
       orderNote: order.specialInstructions,
       items: entry.items,
       stationSubtotal: entry.subtotal.toFixed(2),
@@ -316,6 +348,7 @@ export async function recordOrderStatusChanged(
   const payload: OrderStatusPayload & { reason?: string | null } = {
     orderNumber: order.orderNumber,
     tableName: orderLabel(order),
+    ...orderFulfillment(order),
     from,
     to,
     version: order.version,
@@ -410,6 +443,7 @@ export async function recordOrderItemsAdded(
       const payload: OrderItemsAddedPayload = {
         orderNumber: order.orderNumber,
         tableName: orderLabel(order),
+        ...orderFulfillment(order),
         orderNote: order.specialInstructions,
         items: entry.items,
         stationSubtotal: entry.subtotal.toFixed(2),
@@ -475,6 +509,7 @@ export async function recordOrderItemStatusChanged(
   const payload: OrderItemStatusPayload = {
     orderNumber: item.order.orderNumber,
     tableName: orderLabel(item.order),
+    ...orderFulfillment(item.order),
     itemId: item.id,
     itemName: item.menuItem.name,
     from,

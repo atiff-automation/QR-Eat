@@ -13,8 +13,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { OrderStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { authenticateDevice } from '@/lib/device-auth';
-import { resolveRouting } from '@/lib/order-events';
-import { formatPickupNumber } from '@/lib/order-utils';
+import { orderFulfillment, resolveRouting } from '@/lib/order-events';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,16 +84,14 @@ export async function GET(request: NextRequest) {
         (sum, item) => sum + Number(item.totalAmount),
         0
       );
+      const fulfillment = orderFulfillment(order);
 
       return [
         {
           orderId: order.id,
           orderNumber: order.orderNumber,
-          tableName: order.table
-            ? order.table.tableName || `T${order.table.tableNumber}`
-            : order.orderType === 'TAKEAWAY'
-              ? `TAKEAWAY ${formatPickupNumber(order.dailySeq) ?? ''}`.trim()
-              : 'NO TABLE',
+          tableName: fulfillment.fulfillmentLabel,
+          ...fulfillment,
           status: order.status,
           version: order.version,
           createdAt: order.createdAt.toISOString(),
