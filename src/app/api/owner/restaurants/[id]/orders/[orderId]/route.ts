@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 // GET - Get order details
 export async function GET(
@@ -90,6 +91,8 @@ export async function GET(
     const formattedOrder = {
       id: order.id,
       orderNumber: order.orderNumber,
+      orderType: order.orderType === 'TAKEAWAY' ? 'takeout' : 'dine-in',
+      pickupNumber: formatPickupNumber(order.dailySeq),
       status: order.status,
       paymentStatus: order.paymentStatus,
       subtotalAmount: Number(order.subtotalAmount),
@@ -105,17 +108,24 @@ export async function GET(
       servedAt: order.servedAt?.toISOString(),
       table: order.table
         ? {
-          number: order.table.tableNumber,
-          name: order.table.tableName,
-        }
+            number: order.table.tableNumber,
+            name: order.table.tableName,
+          }
         : null,
-      customer: order.customerSession
-        ? {
-          name: order.customerSession.customerName,
-          phone: order.customerSession.customerPhone,
-          email: order.customerSession.customerEmail,
-        }
-        : null,
+      customer:
+        order.customerName || order.customerSession
+          ? {
+              name:
+                order.customerName ??
+                order.customerSession?.customerName ??
+                null,
+              phone:
+                order.customerPhone ??
+                order.customerSession?.customerPhone ??
+                null,
+              email: order.customerSession?.customerEmail ?? null,
+            }
+          : null,
       orderItems: order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
@@ -146,7 +156,11 @@ export async function GET(
       {
         error: 'Failed to fetch order details',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
       },
       { status: 500 }
     );
@@ -288,7 +302,11 @@ export async function PATCH(
       {
         error: 'Failed to update order',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
       },
       { status: 500 }
     );

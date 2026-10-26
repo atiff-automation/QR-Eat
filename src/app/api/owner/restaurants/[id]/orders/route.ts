@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { UserType } from '@/lib/rbac/types';
+import { formatPickupNumber } from '@/lib/order-utils';
 
 export async function GET(
   request: NextRequest,
@@ -139,7 +140,8 @@ export async function GET(
         },
         table: {
           select: {
-            number: true,
+            tableNumber: true,
+            tableName: true,
           },
         },
         customerSession: {
@@ -161,10 +163,13 @@ export async function GET(
       status: order.status,
       totalAmount: Number(order.totalAmount),
       createdAt: order.createdAt.toISOString(),
-      tableNumber: order.table?.number,
-      customerName: order.customerSession?.customerName,
-      customerPhone: order.customerSession?.customerPhone,
-      orderType: order.tableId ? 'dine-in' : 'takeout',
+      tableNumber: order.table?.tableNumber,
+      tableName: order.table?.tableName,
+      pickupNumber: formatPickupNumber(order.dailySeq),
+      customerName: order.customerName ?? order.customerSession?.customerName,
+      customerPhone:
+        order.customerPhone ?? order.customerSession?.customerPhone,
+      orderType: order.orderType === 'TAKEAWAY' ? 'takeout' : 'dine-in',
       orderItems: order.items.map((item) => ({
         id: item.id,
         quantity: item.quantity,
@@ -186,7 +191,11 @@ export async function GET(
       {
         error: 'Failed to fetch orders',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : String(error)
+            : undefined,
       },
       { status: 500 }
     );

@@ -5,9 +5,16 @@ import { User, UtensilsCrossed, Clock } from 'lucide-react';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
+import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
 
 interface LiveOrder {
   id: string;
+  orderNumber: string;
+  dailySeq?: number;
+  orderType?: string;
+  pickupNumber?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
   status: string;
   totalAmount: number;
   estimatedCompletion: string | null;
@@ -403,18 +410,17 @@ export function LiveOrderBoard({
                 </span>
               </div>
 
-              {/* Table & Customer Info */}
+              {/* Table or takeaway + Customer Info */}
               <div className="space-y-2 mb-4">
-                {order.table && (
-                  <div className="text-sm text-gray-600">
-                    📍 Table {order.table.tableNumber}{' '}
-                    {order.table.tableName && `(${order.table.tableName})`}
-                  </div>
-                )}
-                {order.customerSession && (
+                <div className="text-sm text-gray-600">
+                  {getOrderPrimaryLabel(order)}
+                  {order.table?.tableName && ` (${order.table.tableName})`}
+                </div>
+                {(order.customerName ||
+                  order.customerSession?.customerName) && (
                   <div className="text-sm text-gray-600">
                     <User className="h-3 w-3 mr-1 inline" />{' '}
-                    {order.customerSession.customerName}
+                    {order.customerName ?? order.customerSession?.customerName}
                   </div>
                 )}
               </div>

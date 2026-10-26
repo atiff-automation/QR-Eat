@@ -8,6 +8,7 @@ import {
   formatModificationReason,
   formatModificationTime,
 } from '@/lib/order-modification-utils';
+import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
 
 interface ViewOrderDetailsModalProps {
   orderId: string;
@@ -77,6 +78,12 @@ export function ViewOrderDetailsModal({
   const handlePrint = () => {
     window.print();
   };
+
+  const primaryLabel = order ? getOrderPrimaryLabel(order) : '';
+  const customerName =
+    order?.customerName ?? order?.customerSession?.customerName;
+  const customerPhone =
+    order?.customerPhone ?? order?.customerSession?.customerPhone;
 
   if (!isOpen) return null;
 
@@ -158,11 +165,10 @@ export function ViewOrderDetailsModal({
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-gray-50 rounded-lg p-4">
                     <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                      Table
+                      Fulfilment
                     </p>
                     <p className="font-semibold text-gray-900">
-                      {order.table.tableNumber}
-                      {order.table.tableName && ` - ${order.table.tableName}`}
+                      {primaryLabel}
                     </p>
                   </div>
                   <div className="bg-gray-50 rounded-lg p-4">
@@ -176,18 +182,18 @@ export function ViewOrderDetailsModal({
                 </div>
 
                 {/* Customer Info */}
-                {order.customerSession?.customerName && (
+                {customerName && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start gap-3">
                       <User className="h-5 w-5 text-blue-600 mt-0.5" />
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
-                          {order.customerSession.customerName}
+                          {customerName}
                         </p>
-                        {order.customerSession.customerPhone && (
+                        {customerPhone && (
                           <p className="text-sm text-gray-600 flex items-center gap-1 mt-1">
                             <Phone className="h-3.5 w-3.5" />
-                            {order.customerSession.customerPhone}
+                            {customerPhone}
                           </p>
                         )}
                       </div>

@@ -8,21 +8,26 @@ import { useAuthAwarePolling } from '@/hooks/useAuthAwarePolling';
 import { POLLING_INTERVALS } from '@/lib/constants/polling-config';
 import { KitchenHeader } from './KitchenHeader';
 import { useKitchenSettings } from '@/hooks/useKitchenSettings';
+import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
 
 interface KitchenOrder {
   id: string;
   orderNumber: string;
   dailySeq?: number;
+  orderType?: string;
+  pickupNumber?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
   status: string;
   totalAmount: number;
   createdAt: string;
   confirmedAt?: string;
   estimatedReadyTime?: string;
   specialInstructions?: string;
-  table: {
+  table?: {
     tableNumber: string;
     tableName?: string;
-  };
+  } | null;
   customerSession?: {
     customerName?: string;
   };
@@ -510,12 +515,13 @@ export function KitchenDisplayBoard() {
                         : order.orderNumber}
                     </h3>
                     <p className="text-sm text-blue-300 font-medium tracking-wide">
-                      Table {order.table.tableNumber}
-                      {order.table.tableName && ` - ${order.table.tableName}`}
+                      {getOrderPrimaryLabel(order)}
                     </p>
-                    {order.customerSession?.customerName && (
+                    {(order.customerName ||
+                      order.customerSession?.customerName) && (
                       <p className="text-xs text-gray-400 truncate max-w-[120px]">
-                        {order.customerSession.customerName}
+                        {order.customerName ??
+                          order.customerSession?.customerName}
                       </p>
                     )}
                   </div>
