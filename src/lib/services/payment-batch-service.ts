@@ -13,7 +13,11 @@ import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 import { prisma } from '@/lib/database';
-import { ORDER_WITH_DETAILS_INCLUDE, PAYMENT_STATUS } from '@/lib/order-utils';
+import {
+  formatPickupNumber,
+  ORDER_WITH_DETAILS_INCLUDE,
+  PAYMENT_STATUS,
+} from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
 
 export type CounterPaymentMethod = 'cash' | 'card' | 'ewallet';
@@ -30,6 +34,18 @@ export interface ProcessTablePaymentInput {
   notes?: string;
   /** Optional: must match the full unpaid/confirmed set if supplied. */
   orderIds?: string[];
+}
+
+export interface ProcessOrderPaymentInput {
+  orderId: string;
+  restaurantId: string;
+  userId: string;
+  userType: string;
+  idempotencyKey: string;
+  paymentMethod: CounterPaymentMethod;
+  cashReceived?: number;
+  externalTransactionId?: string;
+  notes?: string;
 }
 
 export class PaymentServiceError extends Error {
@@ -63,8 +79,22 @@ export function buildPaymentRequestHash(
   return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
 }
 
+export function buildOrderPaymentRequestHash(
+  input: ProcessOrderPaymentInput
+): string {
+  const normalized = {
+    orderId: input.orderId,
+    paymentMethod: input.paymentMethod,
+    cashReceived: input.cashReceived ?? null,
+    externalTransactionId: input.externalTransactionId ?? null,
+    notes: input.notes ?? null,
+  };
+
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+}
+
 function assertReplayMatches(
-  batch: { requestHash: string; restaurantId: string; tableId: string },
+  batch: { requestHash: string; restaurantId: string; tableId: string | null },
   requestHash: string,
   input: ProcessTablePaymentInput
 ): void {
@@ -429,6 +459,306 @@ export async function processTablePaymentBatch(
           amount: payment.amount.toString(),
           receiptNumber: payment.receiptNumber,
         })),
+        paymentBatchId: batchId,
+      };
+
+      const serializableResponse = JSON.parse(
+        JSON.stringify(response)
+      ) as Prisma.InputJsonValue;
+
+      await tx.paymentBatch.update({
+        where: { id: batchId },
+        data: { response: serializableResponse },
+      });
+
+      return {
+        replayed: false,
+        response: serializableResponse as Record<string, unknown>,
+      };
+    },
+    { maxWait: 5000, timeout: 15000 }
+  );
+
+  return result;
+}
+
+function assertOrderReplayMatches(
+  batch: {
+    requestHash: string;
+    restaurantId: string;
+    orderId: string | null;
+  },
+  requestHash: string,
+  input: ProcessOrderPaymentInput
+): void {
+  if (batch.restaurantId !== input.restaurantId) {
+    throw new PaymentServiceError(
+      'Idempotency key belongs to another restaurant',
+      'IDEMPOTENCY_MISMATCH',
+      409
+    );
+  }
+
+  if (batch.orderId !== input.orderId) {
+    throw new PaymentServiceError(
+      'Idempotency key belongs to another order',
+      'IDEMPOTENCY_MISMATCH',
+      409
+    );
+  }
+
+  if (batch.requestHash !== requestHash) {
+    throw new PaymentServiceError(
+      'Idempotency key was reused with a different request',
+      'IDEMPOTENCY_MISMATCH',
+      409
+    );
+  }
+}
+
+/**
+ * Process one takeaway order payment. Table payments stay in
+ * processTablePaymentBatch.
+ */
+export async function processOrderPaymentBatch(
+  input: ProcessOrderPaymentInput
+): Promise<PaymentBatchResult> {
+  if (!input.idempotencyKey || input.idempotencyKey.length < 8) {
+    throw new PaymentServiceError(
+      'A valid Idempotency-Key header is required',
+      'IDEMPOTENCY_KEY_REQUIRED',
+      400
+    );
+  }
+
+  const requestHash = buildOrderPaymentRequestHash(input);
+
+  const existing = await prisma.paymentBatch.findUnique({
+    where: { idempotencyKey: input.idempotencyKey },
+  });
+
+  if (existing) {
+    assertOrderReplayMatches(existing, requestHash, input);
+    return {
+      replayed: true,
+      response: existing.response as Record<string, unknown>,
+    };
+  }
+
+  const { number: dailySeq, formatted: receiptNumber } =
+    await SequenceManager.getNextReceipt(input.restaurantId);
+
+  const result = await prisma.$transaction(
+    async (tx) => {
+      const lockKey = `order-payment:${input.restaurantId}:${input.orderId}`;
+      await tx.$queryRaw<Array<{ lock: string }>>`
+        SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
+      `;
+
+      const lockedExisting = await tx.paymentBatch.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+      });
+
+      if (lockedExisting) {
+        assertOrderReplayMatches(lockedExisting, requestHash, input);
+        return {
+          replayed: true,
+          response: lockedExisting.response as Record<string, unknown>,
+        };
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: input.orderId },
+        include: ORDER_WITH_DETAILS_INCLUDE,
+      });
+
+      if (!order || order.restaurantId !== input.restaurantId) {
+        throw new PaymentServiceError(
+          'Order not found',
+          'ORDER_NOT_FOUND',
+          404
+        );
+      }
+
+      if (order.orderType !== 'TAKEAWAY' || order.tableId !== null) {
+        throw new PaymentServiceError(
+          'This payment endpoint is for takeaway orders only',
+          'ORDER_NOT_TAKEAWAY',
+          409
+        );
+      }
+
+      if (order.paymentStatus !== PAYMENT_STATUS.PENDING) {
+        throw new PaymentServiceError(
+          'Order is already paid or is not payable',
+          'ORDER_NOT_PAYABLE',
+          409
+        );
+      }
+
+      if (order.status === 'PENDING' || order.status === 'CANCELLED') {
+        throw new PaymentServiceError(
+          'Confirm the order before taking payment',
+          'ORDER_NOT_CONFIRMED',
+          409
+        );
+      }
+
+      const totalAmount = new Decimal(order.totalAmount);
+      let cashReceived: Decimal | null = null;
+      let changeGiven: Decimal | null = null;
+
+      if (input.paymentMethod === 'cash') {
+        cashReceived =
+          input.cashReceived !== undefined
+            ? new Decimal(input.cashReceived)
+            : totalAmount;
+
+        if (cashReceived.lessThan(totalAmount)) {
+          throw new PaymentServiceError(
+            `Insufficient cash. Total: ${totalAmount}, received: ${cashReceived}`,
+            'INSUFFICIENT_CASH',
+            400
+          );
+        }
+
+        changeGiven = cashReceived.minus(totalAmount);
+      }
+
+      const batchId = randomUUID();
+      const processedBy = getProcessedByFields(input.userId, input.userType);
+
+      await tx.paymentBatch.create({
+        data: {
+          id: batchId,
+          idempotencyKey: input.idempotencyKey,
+          requestHash,
+          restaurantId: input.restaurantId,
+          tableId: null,
+          orderId: input.orderId,
+          paymentMethod: input.paymentMethod,
+          totalAmount,
+          cashReceived,
+          changeGiven,
+          receiptNumber,
+          status: 'COMPLETED',
+          response: {},
+          ...processedBy,
+        },
+      });
+
+      const updated = await tx.order.updateMany({
+        where: {
+          id: input.orderId,
+          restaurantId: input.restaurantId,
+          orderType: 'TAKEAWAY',
+          tableId: null,
+          paymentStatus: PAYMENT_STATUS.PENDING,
+          status: { notIn: ['PENDING', 'CANCELLED'] },
+        },
+        data: { paymentStatus: PAYMENT_STATUS.PAID },
+      });
+
+      if (updated.count !== 1) {
+        throw new PaymentServiceError(
+          'The order changed. Refresh before taking payment.',
+          'ORDER_CHANGED',
+          409
+        );
+      }
+
+      const payment = await tx.payment.create({
+        data: {
+          orderId: order.id,
+          batchId,
+          paymentMethod: input.paymentMethod,
+          amount: totalAmount,
+          processingFee: new Decimal(0),
+          netAmount: totalAmount,
+          status: 'PAID',
+          cashReceived,
+          changeGiven,
+          receiptNumber,
+          dailySeq,
+          externalTransactionId: input.externalTransactionId,
+          paymentMetadata: {
+            orderPayment: true,
+            orderNumber: order.orderNumber,
+            pickupNumber: formatPickupNumber(order.dailySeq),
+            notes: input.notes,
+            idempotencyKey: input.idempotencyKey,
+          },
+          processedAt: new Date(),
+          completedAt: new Date(),
+          ...processedBy,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tableName: 'payments',
+          recordId: payment.id,
+          operation: 'CREATE',
+          newValues: {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            pickupNumber: formatPickupNumber(order.dailySeq),
+            amount: totalAmount.toString(),
+            receiptNumber,
+            orderPayment: true,
+            idempotencyKey: input.idempotencyKey,
+          },
+          changedBy: input.userId,
+          changedByType: input.userType,
+          ...(input.userType === 'platform_admin'
+            ? { adminId: input.userId }
+            : input.userType === 'restaurant_owner'
+              ? { ownerId: input.userId }
+              : { staffId: input.userId }),
+        },
+      });
+
+      const pickupNumber = formatPickupNumber(order.dailySeq);
+      const response = {
+        success: true,
+        message: `Processed payment for order ${order.orderNumber}`,
+        receiptNumber,
+        ordersProcessed: 1,
+        totalPaid: totalAmount.toString(),
+        changeGiven: changeGiven?.toString() || '0',
+        payment: {
+          ...payment,
+          order: {
+            id: order.id,
+            orderNumber: order.orderNumber,
+            orderType: order.orderType,
+            pickupNumber,
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            tableId: null,
+            table: null,
+            createdAt: order.createdAt,
+            totalAmount: totalAmount.toString(),
+            subtotalAmount: order.subtotalAmount.toString(),
+            taxAmount: order.taxAmount.toString(),
+            serviceCharge: order.serviceCharge.toString(),
+            restaurant: {
+              ...order.restaurant,
+            },
+            items: order.items,
+            taxLabel: order.restaurant.taxLabel || 'Tax',
+            serviceChargeLabel:
+              order.restaurant.serviceChargeLabel || 'Service Charge',
+          },
+        },
+        payments: [
+          {
+            id: payment.id,
+            orderId: payment.orderId,
+            amount: payment.amount.toString(),
+            receiptNumber: payment.receiptNumber,
+          },
+        ],
         paymentBatchId: batchId,
       };
 

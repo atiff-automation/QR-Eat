@@ -299,7 +299,9 @@ export async function POST(
 
       // Update table status once
       try {
-        await autoUpdateTableStatus(order.tableId);
+        if (order.tableId) {
+          await autoUpdateTableStatus(order.tableId);
+        }
       } catch (error) {
         console.error('[Payment] Failed to auto-update table status:', error);
       }
@@ -446,7 +448,9 @@ export async function POST(
       // Auto-update table status after payment completion
       // This will clear the table to "available" if all orders are served
       try {
-        await autoUpdateTableStatus(order.tableId);
+        if (order.tableId) {
+          await autoUpdateTableStatus(order.tableId);
+        }
       } catch (error) {
         console.error('[Payment] Failed to auto-update table status:', error);
       }
