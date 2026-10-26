@@ -59,14 +59,16 @@ export async function shouldTableBeAvailable(
  * This function is idempotent and safe to call multiple times.
  * It will only update the table status if needed.
  *
- * @param tableId - The ID of the table to update
+ * @param tableId - The ID of the table to update, or null for takeaway
  * @param tx - Optional transaction client for atomic operations
  * @returns Promise that resolves when update is complete
  */
 export async function autoUpdateTableStatus(
-  tableId: string,
+  tableId: string | null,
   tx?: Prisma.TransactionClient
 ): Promise<void> {
+  if (!tableId) return;
+
   const db = tx || prisma;
 
   try {

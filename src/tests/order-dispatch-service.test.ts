@@ -20,6 +20,7 @@ jest.mock('@/lib/database', () => ({
     device: { findFirst: jest.fn() },
     orderEvent: { findMany: jest.fn() },
     auditLog: { create: jest.fn() },
+    table: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -55,6 +56,20 @@ const pendingOrder = {
 
 const confirmedOrder = {
   ...pendingOrder,
+  status: 'CONFIRMED',
+  version: 2,
+};
+
+const takeawayOrder = {
+  ...pendingOrder,
+  id: 'order-takeaway-1',
+  tableId: null,
+  orderNumber: 'ORD-TAKEAWAY-1',
+  table: null,
+};
+
+const confirmedTakeaway = {
+  ...takeawayOrder,
   status: 'CONFIRMED',
   version: 2,
 };
@@ -122,6 +137,30 @@ describe('confirmPendingOrder', () => {
     expect(autoUpdateTableStatus).toHaveBeenCalledWith('table-1');
   });
 
+  it('confirms a takeaway order without a table update', async () => {
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue(takeawayOrder);
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          order: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findUnique: jest.fn().mockResolvedValue(confirmedTakeaway),
+          },
+        })
+    );
+
+    const result = await confirmPendingOrder({
+      orderId: 'order-takeaway-1',
+      actor,
+    });
+
+    expect(result.order.tableId).toBeNull();
+    expect(autoUpdateTableStatus).not.toHaveBeenCalled();
+    expect(PostgresEventManager.publishOrderStatusChange).toHaveBeenCalledWith(
+      expect.objectContaining({ tableId: null })
+    );
+  });
+
   it('allows a manager override while the station is offline', async () => {
     (prisma.device.findFirst as jest.Mock).mockResolvedValue(null);
 
@@ -133,5 +172,17 @@ describe('confirmPendingOrder', () => {
 
     expect(result.replayed).toBe(false);
     expect(prisma.$transaction).toHaveBeenCalled();
+  });
+});
+
+describe('autoUpdateTableStatus', () => {
+  it('does nothing for a takeaway order with no table', async () => {
+    const actual = jest.requireActual<
+      typeof import('@/lib/table-status-manager')
+    >('@/lib/table-status-manager');
+
+    await actual.autoUpdateTableStatus(null);
+
+    expect(prisma.table.findUnique).not.toHaveBeenCalled();
   });
 });

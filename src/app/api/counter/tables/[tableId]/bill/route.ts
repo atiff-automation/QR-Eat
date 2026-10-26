@@ -71,7 +71,11 @@ export async function GET(
     });
 
     const billSessionIds = Array.from(
-      new Set(orders.map((order) => order.customerSessionId))
+      new Set(
+        orders
+          .map((order) => order.customerSessionId)
+          .filter((id): id is string => Boolean(id))
+      )
     );
     const paid = billSessionIds.length
       ? await prisma.order.aggregate({
