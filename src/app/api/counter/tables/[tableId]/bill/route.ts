@@ -107,6 +107,21 @@ export async function GET(
       (order) => order.status === 'PENDING'
     ).length;
 
+    // Exactly the orders that would block the explicit Counter table clear.
+    // Paid orders that have not been served still block: payment is not the
+    // same thing as service. The payment-success screen uses this to avoid
+    // offering an action that must fail.
+    const blockingOrderCount = await prisma.order.count({
+      where: {
+        tableId,
+        restaurantId: table.restaurantId,
+        OR: [
+          { status: { in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] } },
+          { status: 'SERVED', paymentStatus: 'PENDING' },
+        ],
+      },
+    });
+
     return NextResponse.json({
       success: true,
       table: {
@@ -130,6 +145,7 @@ export async function GET(
       serviceCharge,
       paidTotal,
       pendingCount,
+      blockingOrderCount,
       serverTime: new Date().toISOString(),
     });
   } catch (error) {
