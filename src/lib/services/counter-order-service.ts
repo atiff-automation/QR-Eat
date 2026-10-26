@@ -22,12 +22,32 @@ export const CounterOrderItemSchema = z.object({
   notes: z.string().max(300).optional().nullable(),
 });
 
-export const CounterOrderInputSchema = z.object({
-  tableId: z.string().uuid('Invalid table'),
-  items: z.array(CounterOrderItemSchema).min(1).max(100),
-  specialInstructions: z.string().max(500).optional().nullable(),
-  sendToKitchen: z.boolean().optional(),
-});
+export const CounterOrderInputSchema = z
+  .object({
+    orderType: z.enum(['DINE_IN', 'TAKEAWAY']).default('DINE_IN'),
+    tableId: z.string().uuid('Invalid table').optional().nullable(),
+    customerName: z.string().trim().max(100).optional().nullable(),
+    customerPhone: z.string().trim().max(20).optional().nullable(),
+    items: z.array(CounterOrderItemSchema).min(1).max(100),
+    specialInstructions: z.string().max(500).optional().nullable(),
+    sendToKitchen: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.orderType === 'DINE_IN' && !value.tableId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tableId'],
+        message: 'A table is required for a dine-in order.',
+      });
+    }
+    if (value.orderType === 'TAKEAWAY' && value.tableId) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['tableId'],
+        message: 'A takeaway order cannot have a table.',
+      });
+    }
+  });
 
 export type CounterOrderInput = z.infer<typeof CounterOrderInputSchema>;
 
@@ -59,9 +79,12 @@ export interface CounterOrderLine {
 export interface CounterOrderQuote {
   valid: boolean;
   issues: CounterOrderIssue[];
-  tableId: string;
-  tableNumber: string;
+  orderType: 'DINE_IN' | 'TAKEAWAY';
+  tableId: string | null;
+  tableNumber: string | null;
   tableName: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
   currency: string;
   taxLabel: string;
   serviceChargeLabel: string;
@@ -89,8 +112,8 @@ export interface CounterOrderResult {
     paymentStatus: string;
     source: string;
     totalAmount: string;
-    tableId: string;
-    tableNumber: string;
+    tableId: string | null;
+    tableNumber: string | null;
     tableName: string | null;
     createdAt: string;
   };
@@ -111,24 +134,31 @@ export class CounterOrderError extends Error {
   }
 }
 
+interface PricedRestaurant {
+  id: string;
+  name: string;
+  currency: string;
+  taxRate: Prisma.Decimal;
+  serviceChargeRate: Prisma.Decimal;
+  taxLabel: string;
+  serviceChargeLabel: string;
+  isActive: boolean;
+}
+
+interface PricedTable {
+  id: string;
+  tableNumber: string;
+  tableName: string | null;
+  status: string;
+  restaurantId: string;
+}
+
 interface PricedOrder {
-  table: {
-    id: string;
-    tableNumber: string;
-    tableName: string | null;
-    status: string;
-    restaurantId: string;
-    restaurant: {
-      id: string;
-      name: string;
-      currency: string;
-      taxRate: Prisma.Decimal;
-      serviceChargeRate: Prisma.Decimal;
-      taxLabel: string;
-      serviceChargeLabel: string;
-      isActive: boolean;
-    };
-  };
+  orderType: 'DINE_IN' | 'TAKEAWAY';
+  restaurant: PricedRestaurant;
+  table: PricedTable | null;
+  customerName: string | null;
+  customerPhone: string | null;
   lines: CounterOrderLine[];
   issues: CounterOrderIssue[];
   subtotal: number;
@@ -181,35 +211,90 @@ async function priceOrder(
     );
   }
 
-  const table = await prisma.table.findUnique({
-    where: { id: input.tableId },
-    include: {
-      restaurant: {
-        select: {
-          id: true,
-          name: true,
-          currency: true,
-          taxRate: true,
-          serviceChargeRate: true,
-          taxLabel: true,
-          serviceChargeLabel: true,
-          isActive: true,
+  const orderType = input.orderType ?? 'DINE_IN';
+  let restaurant: PricedRestaurant;
+  let table: PricedTable | null = null;
+
+  if (orderType === 'DINE_IN') {
+    if (!input.tableId) {
+      throw new CounterOrderError(
+        'A table is required for a dine-in order.',
+        'TABLE_REQUIRED',
+        400
+      );
+    }
+
+    const foundTable = await prisma.table.findUnique({
+      where: { id: input.tableId },
+      include: {
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            currency: true,
+            taxRate: true,
+            serviceChargeRate: true,
+            taxLabel: true,
+            serviceChargeLabel: true,
+            isActive: true,
+          },
         },
       },
-    },
-  });
+    });
 
-  if (!table || table.restaurantId !== actor.restaurantId) {
-    throw new CounterOrderError('Table not found', 'TABLE_NOT_FOUND', 404);
+    if (!foundTable || foundTable.restaurantId !== actor.restaurantId) {
+      throw new CounterOrderError('Table not found', 'TABLE_NOT_FOUND', 404);
+    }
+
+    restaurant = foundTable.restaurant;
+    table = {
+      id: foundTable.id,
+      tableNumber: foundTable.tableNumber,
+      tableName: foundTable.tableName,
+      status: foundTable.status,
+      restaurantId: foundTable.restaurantId,
+    };
+  } else {
+    if (input.tableId) {
+      throw new CounterOrderError(
+        'A takeaway order cannot have a table.',
+        'TABLE_NOT_ALLOWED',
+        400
+      );
+    }
+
+    const foundRestaurant = await prisma.restaurant.findUnique({
+      where: { id: actor.restaurantId },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        taxRate: true,
+        serviceChargeRate: true,
+        taxLabel: true,
+        serviceChargeLabel: true,
+        isActive: true,
+      },
+    });
+
+    if (!foundRestaurant) {
+      throw new CounterOrderError(
+        'Restaurant not found',
+        'RESTAURANT_NOT_FOUND',
+        404
+      );
+    }
+    restaurant = foundRestaurant;
   }
-  if (!table.restaurant.isActive) {
+
+  if (!restaurant.isActive) {
     throw new CounterOrderError(
       'Restaurant is currently closed',
       'RESTAURANT_CLOSED',
       409
     );
   }
-  if (!canTableAcceptOrders(table.status)) {
+  if (table && !canTableAcceptOrders(table.status)) {
     throw new CounterOrderError(
       'This table cannot accept orders right now.',
       'TABLE_NOT_ACCEPTING_ORDERS',
@@ -221,7 +306,7 @@ async function priceOrder(
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: { in: menuItemIds },
-      restaurantId: table.restaurantId,
+      restaurantId: restaurant.id,
     },
     include: {
       category: {
@@ -367,15 +452,22 @@ async function priceOrder(
     new Prisma.Decimal(0)
   );
   const taxAmount = subtotal
-    .mul(table.restaurant.taxRate)
+    .mul(restaurant.taxRate)
     .toDecimalPlaces(2, Prisma.Decimal.ROUND_FLOOR);
-  const serviceCharge = subtotal
-    .mul(table.restaurant.serviceChargeRate)
-    .toDecimalPlaces(2, Prisma.Decimal.ROUND_FLOOR);
+  const serviceCharge =
+    orderType === 'TAKEAWAY'
+      ? new Prisma.Decimal(0)
+      : subtotal
+          .mul(restaurant.serviceChargeRate)
+          .toDecimalPlaces(2, Prisma.Decimal.ROUND_FLOOR);
   const totalAmount = subtotal.plus(taxAmount).plus(serviceCharge);
 
   return {
+    orderType,
+    restaurant,
     table,
+    customerName: input.customerName?.trim() || null,
+    customerPhone: input.customerPhone?.trim() || null,
     lines,
     issues,
     subtotal: subtotal.toNumber(),
@@ -390,13 +482,16 @@ function quoteFromPriced(priced: PricedOrder): CounterOrderQuote {
   return {
     valid: priced.issues.length === 0,
     issues: priced.issues,
-    tableId: priced.table.id,
-    tableNumber: priced.table.tableNumber,
-    tableName: priced.table.tableName,
-    currency: priced.table.restaurant.currency,
-    taxLabel: priced.table.restaurant.taxLabel || 'Tax',
+    orderType: priced.orderType,
+    tableId: priced.table?.id ?? null,
+    tableNumber: priced.table?.tableNumber ?? null,
+    tableName: priced.table?.tableName ?? null,
+    customerName: priced.customerName,
+    customerPhone: priced.customerPhone,
+    currency: priced.restaurant.currency,
+    taxLabel: priced.restaurant.taxLabel || 'Tax',
     serviceChargeLabel:
-      priced.table.restaurant.serviceChargeLabel || 'Service Charge',
+      priced.restaurant.serviceChargeLabel || 'Service Charge',
     lines: priced.lines.map((line) => ({
       menuItemId: line.menuItemId,
       name: line.name,
@@ -424,9 +519,9 @@ function orderResponse(order: {
   paymentStatus: string;
   source: string;
   totalAmount: Prisma.Decimal | number | string;
-  tableId: string;
+  tableId: string | null;
   createdAt: Date;
-  table: { tableNumber: string; tableName: string | null };
+  table: { tableNumber: string; tableName: string | null } | null;
 }): CounterOrderResult['order'] {
   return {
     id: order.id,
@@ -436,8 +531,8 @@ function orderResponse(order: {
     source: order.source,
     totalAmount: asString(order.totalAmount),
     tableId: order.tableId,
-    tableNumber: order.table.tableNumber,
-    tableName: order.table.tableName,
+    tableNumber: order.table?.tableNumber ?? null,
+    tableName: order.table?.tableName ?? null,
     createdAt: order.createdAt.toISOString(),
   };
 }
@@ -532,8 +627,17 @@ export async function createCounterOrder(
     );
   }
 
+  if (!priced.table) {
+    throw new CounterOrderError(
+      'Takeaway order creation is not available in this phase.',
+      'TAKEAWAY_CREATE_NOT_READY',
+      501
+    );
+  }
+  const table = priced.table;
+
   const { number: dailySeq, formatted: orderNumber } =
-    await SequenceManager.getNextOrder(priced.table.restaurant.id);
+    await SequenceManager.getNextOrder(priced.restaurant.id);
   const sessionToken = randomUUID();
   const now = new Date();
 
@@ -544,15 +648,15 @@ export async function createCounterOrder(
     paymentStatus: string;
     source: string;
     totalAmount: Prisma.Decimal;
-    tableId: string;
+    tableId: string | null;
     createdAt: Date;
-    table: { tableNumber: string; tableName: string | null };
+    table: { tableNumber: string; tableName: string | null } | null;
   };
   try {
     createdOrder = await prisma.$transaction(async (tx) => {
       const session = await tx.customerSession.create({
         data: {
-          tableId: priced.table.id,
+          tableId: table.id,
           sessionToken,
           userAgent: COUNTER_SESSION_USER_AGENT,
           status: 'ENDED',
@@ -565,19 +669,18 @@ export async function createCounterOrder(
         data: {
           orderNumber,
           dailySeq,
-          restaurantId: priced.table.restaurant.id,
-          tableId: priced.table.id,
+          restaurantId: priced.restaurant.id,
+          tableId: table.id,
           customerSessionId: session.id,
           subtotalAmount: priced.subtotal,
           taxAmount: priced.taxAmount,
           serviceCharge: priced.serviceCharge,
           discountAmount: 0,
           totalAmount: priced.totalAmount,
-          taxRateSnapshot: priced.table.restaurant.taxRate,
-          serviceChargeRateSnapshot: priced.table.restaurant.serviceChargeRate,
-          taxLabelSnapshot: priced.table.restaurant.taxLabel,
-          serviceChargeLabelSnapshot:
-            priced.table.restaurant.serviceChargeLabel,
+          taxRateSnapshot: priced.restaurant.taxRate,
+          serviceChargeRateSnapshot: priced.restaurant.serviceChargeRate,
+          taxLabelSnapshot: priced.restaurant.taxLabel,
+          serviceChargeLabelSnapshot: priced.restaurant.serviceChargeLabel,
           status: 'PENDING',
           paymentStatus: 'PENDING',
           source: 'COUNTER',
@@ -613,7 +716,7 @@ export async function createCounterOrder(
       }
 
       await tx.table.update({
-        where: { id: priced.table.id },
+        where: { id: table.id },
         data: { status: 'OCCUPIED' },
       });
 
@@ -655,7 +758,7 @@ export async function createCounterOrder(
         operation: 'CREATE',
         newValues: {
           source: 'COUNTER',
-          tableId: priced.table.id,
+          tableId: table.id,
           itemCount: priced.lines.reduce((sum, line) => sum + line.quantity, 0),
           totalAmount: priced.totalAmount,
         },
@@ -671,8 +774,8 @@ export async function createCounterOrder(
   try {
     await PostgresEventManager.publishOrderCreated({
       orderId: createdOrder.id,
-      restaurantId: priced.table.restaurant.id,
-      tableId: priced.table.id,
+      restaurantId: priced.restaurant.id,
+      tableId: table.id,
       orderNumber: createdOrder.orderNumber,
       totalAmount: priced.totalAmount,
       timestamp: Date.now(),

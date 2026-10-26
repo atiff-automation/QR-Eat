@@ -64,6 +64,19 @@ export function estimateReadyTime(items: CartItem[]): Date {
   return readyTime;
 }
 
+/**
+ * Format the customer-facing takeaway number from the daily order sequence.
+ * The full order number remains the audit and receipt identifier.
+ */
+export function formatPickupNumber(
+  dailySeq: number | null | undefined
+): string | null {
+  if (dailySeq == null || !Number.isFinite(dailySeq) || dailySeq <= 0) {
+    return null;
+  }
+  return `#${Math.trunc(dailySeq).toString().padStart(3, '0')}`;
+}
+
 export const ORDER_STATUS = {
   PENDING: 'PENDING',
   CONFIRMED: 'CONFIRMED',

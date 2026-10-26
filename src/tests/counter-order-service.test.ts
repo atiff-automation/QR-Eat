@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import {
+  CounterOrderInputSchema,
   buildCounterOrderRequestHash,
   createCounterOrder,
   quoteCounterOrder,
@@ -9,6 +10,7 @@ import {
 jest.mock('@/lib/database', () => ({
   prisma: {
     table: { findUnique: jest.fn() },
+    restaurant: { findUnique: jest.fn() },
     menuItem: { findMany: jest.fn() },
     order: { findUnique: jest.fn() },
     orderEvent: { findMany: jest.fn() },
@@ -37,6 +39,20 @@ function table(overrides: Record<string, unknown> = {}) {
       serviceChargeLabel: 'Service Charge',
       isActive: true,
     },
+    ...overrides,
+  };
+}
+
+function restaurant(overrides: Record<string, unknown> = {}) {
+  return {
+    id: restaurantId,
+    name: 'Mario',
+    currency: 'MYR',
+    taxRate: new Prisma.Decimal('0.10'),
+    serviceChargeRate: new Prisma.Decimal('0.10'),
+    taxLabel: 'Tax',
+    serviceChargeLabel: 'Service Charge',
+    isActive: true,
     ...overrides,
   };
 }
@@ -79,6 +95,7 @@ const actor = {
 };
 
 const input = {
+  orderType: 'DINE_IN' as const,
   tableId,
   items: [{ menuItemId: itemId, quantity: 1, optionIds: [optionId] }],
 };
@@ -152,6 +169,91 @@ describe('Counter order quoting', () => {
       code: 'TABLE_NOT_ACCEPTING_ORDERS',
       statusCode: 409,
     });
+  });
+
+  it('quotes a takeaway order without a table and without service charge', async () => {
+    (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue(restaurant());
+    (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([menuItem()]);
+
+    const quote = await quoteCounterOrder(
+      {
+        orderType: 'TAKEAWAY',
+        customerName: 'Alex',
+        customerPhone: '0123456789',
+        items: [{ menuItemId: itemId, quantity: 1, optionIds: [optionId] }],
+      },
+      actor
+    );
+
+    expect(quote.valid).toBe(true);
+    expect(quote.orderType).toBe('TAKEAWAY');
+    expect(quote.tableId).toBeNull();
+    expect(quote.tableNumber).toBeNull();
+    expect(quote.customerName).toBe('Alex');
+    expect(quote.customerPhone).toBe('0123456789');
+    expect(quote.subtotal).toBe(12);
+    expect(quote.taxAmount).toBe(1.2);
+    expect(quote.serviceCharge).toBe(0);
+    expect(quote.totalAmount).toBe(13.2);
+    expect(prisma.table.findUnique).not.toHaveBeenCalled();
+  });
+
+  it('rejects a takeaway quote that includes a table', async () => {
+    await expect(
+      quoteCounterOrder({ ...input, orderType: 'TAKEAWAY' }, actor)
+    ).rejects.toMatchObject({
+      code: 'TABLE_NOT_ALLOWED',
+      statusCode: 400,
+    });
+  });
+
+  it('requires a table for a dine-in quote', async () => {
+    await expect(
+      quoteCounterOrder({ ...input, tableId: null }, actor)
+    ).rejects.toMatchObject({
+      code: 'TABLE_REQUIRED',
+      statusCode: 400,
+    });
+  });
+});
+
+describe('Counter order input schema', () => {
+  const items = [{ menuItemId: itemId, quantity: 1, optionIds: [optionId] }];
+
+  it('defaults the order type to dine-in for old clients', () => {
+    const parsed = CounterOrderInputSchema.parse({ tableId, items });
+
+    expect(parsed.orderType).toBe('DINE_IN');
+  });
+
+  it('accepts a takeaway order without a table', () => {
+    const parsed = CounterOrderInputSchema.parse({
+      orderType: 'TAKEAWAY',
+      customerName: 'Alex',
+      items,
+    });
+
+    expect(parsed.orderType).toBe('TAKEAWAY');
+    expect(parsed.tableId).toBeUndefined();
+  });
+
+  it('rejects a takeaway order with a table', () => {
+    const parsed = CounterOrderInputSchema.safeParse({
+      orderType: 'TAKEAWAY',
+      tableId,
+      items,
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it('rejects a dine-in order without a table', () => {
+    const parsed = CounterOrderInputSchema.safeParse({
+      orderType: 'DINE_IN',
+      items,
+    });
+
+    expect(parsed.success).toBe(false);
   });
 });
 
