@@ -75,29 +75,17 @@ export async function POST(request: NextRequest) {
     };
 
     try {
-      // Revoke refresh token if present
-      if (refreshToken) {
-        await RefreshTokenService.revokeRefreshToken(
-          refreshToken,
-          'user_logout'
-        );
-      }
-
-      // Verify and decode access token to get user info
+      // Verify and decode access token to get user info.
       if (currentToken) {
         const tokenPayload = await EnhancedJWTService.verifyToken(currentToken);
 
-        // Invalidate the session
         await SessionManager.invalidateSession(tokenPayload.sessionId);
-
-        // Log logout event
         await AuditLogger.logLogout(
           tokenPayload.userId,
           tokenPayload.sessionId,
           auditContext
         );
 
-        // Development logging
         if (process.env.NODE_ENV === 'development') {
           console.log('🔒 RBAC Logout successful:', {
             userId: tokenPayload.userId,
@@ -107,10 +95,32 @@ export async function POST(request: NextRequest) {
           });
         }
       }
-    } catch {
-      // Token might be invalid/expired, but we still want to clear cookies
-      // Still try to revoke refresh token if present
+
+      // The access token can be expired on a Counter that has been idle.
+      // Resolve the session from the refresh token before revoking it.
       if (refreshToken) {
+        const refreshValidation =
+          await RefreshTokenService.validateRefreshToken(refreshToken);
+        if (refreshValidation.isValid && refreshValidation.data) {
+          await SessionManager.invalidateSession(
+            refreshValidation.data.sessionId
+          );
+        }
+        await RefreshTokenService.revokeRefreshToken(
+          refreshToken,
+          'user_logout'
+        );
+      }
+    } catch {
+      // Token might be invalid/expired, but we still want to clear cookies.
+      if (refreshToken) {
+        const refreshValidation =
+          await RefreshTokenService.validateRefreshToken(refreshToken);
+        if (refreshValidation.isValid && refreshValidation.data) {
+          await SessionManager.invalidateSession(
+            refreshValidation.data.sessionId
+          );
+        }
         await RefreshTokenService.revokeRefreshToken(
           refreshToken,
           'logout_with_invalid_access_token'
