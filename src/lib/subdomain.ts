@@ -137,12 +137,16 @@ export function getSubdomainInfo(request: NextRequest): SubdomainInfo {
   const subdomain = parts[0];
   const baseDomain = parts.slice(1).join('.');
 
-  // Check if this is a main domain
-  // STRICT MATCH: Only consider it a main domain if the FULL HOST matches one of the main domains
-  // This fixes the bug where *.tabtep.app was being treated as a main domain
-  const isMainDomain = SUBDOMAIN_CONFIG.MAIN_DOMAINS.some(
-    (domain) => host === domain
-  );
+  // Check if this is a main domain.
+  // STRICT MATCH: Only consider it a main domain if the FULL HOST matches
+  // one of the known domains or the configured main domain. This keeps
+  // *.tabtep.app as a restaurant subdomain while allowing staging and other
+  // platform hosts to be the main app host.
+  const configuredMainDomain = process.env.NEXT_PUBLIC_MAIN_DOMAIN?.trim();
+  const mainDomains = configuredMainDomain
+    ? [...SUBDOMAIN_CONFIG.MAIN_DOMAINS, configuredMainDomain]
+    : SUBDOMAIN_CONFIG.MAIN_DOMAINS;
+  const isMainDomain = mainDomains.some((domain) => host === domain);
 
   return {
     subdomain: subdomain,
