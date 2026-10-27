@@ -19,8 +19,6 @@ import { usePushNotifications } from '@/lib/hooks/usePushNotifications';
 interface NotificationSettings {
   notificationSettings: {
     orderAlerts: boolean;
-    soundEnabled: boolean;
-    soundType: 'chime' | 'bell' | 'ding' | 'silent';
     desktopNotifications: boolean;
   };
 }
@@ -109,7 +107,7 @@ export function NotificationsSection({
 
   const updateSetting = (
     key: keyof NotificationSettings['notificationSettings'],
-    value: boolean | string
+    value: boolean
   ) => {
     setFormData((prev) => ({
       notificationSettings: {
@@ -176,59 +174,6 @@ export function NotificationsSection({
             />
           </button>
         </div>
-
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
-          <div>
-            <span className="text-sm font-medium text-gray-900">
-              Sound Enabled
-            </span>
-            <p className="text-xs text-gray-500 mt-0.5">
-              Play sound for notifications
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() =>
-              updateSetting(
-                'soundEnabled',
-                !formData.notificationSettings.soundEnabled
-              )
-            }
-            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-              formData.notificationSettings.soundEnabled
-                ? 'bg-green-500'
-                : 'bg-gray-200'
-            }`}
-            disabled={isLoading}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                formData.notificationSettings.soundEnabled
-                  ? 'translate-x-5'
-                  : 'translate-x-0'
-              }`}
-            />
-          </button>
-        </div>
-
-        {formData.notificationSettings.soundEnabled && (
-          <div>
-            <label className="block text-xs font-semibold uppercase text-gray-500 mb-1">
-              Sound Type
-            </label>
-            <select
-              value={formData.notificationSettings.soundType}
-              onChange={(e) => updateSetting('soundType', e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none font-medium text-gray-900"
-              disabled={isLoading}
-            >
-              <option value="chime">Chime</option>
-              <option value="bell">Bell</option>
-              <option value="ding">Ding</option>
-              <option value="silent">Silent</option>
-            </select>
-          </div>
-        )}
 
         <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-100">
           <div>
@@ -346,9 +291,7 @@ export function NotificationsSection({
                       Enable Push Notifications
                     </span>
                     <p className="text-xs text-gray-500 mt-0.5">
-                      {isIOS
-                        ? 'Receive notifications (system sound only on iOS)'
-                        : 'Receive notifications with custom sounds'}
+                      Receive browser notifications for new orders
                     </p>
                   </div>
                   <button
@@ -405,10 +348,9 @@ export function NotificationsSection({
               {/* Platform-specific Info */}
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                 <p className="text-xs text-blue-700">
-                  <strong>Note:</strong>{' '}
-                  {isIOS
-                    ? 'iOS uses system notification sounds. Custom sounds are not supported.'
-                    : 'Android supports custom notification sounds configured above.'}
+                  <strong>Note:</strong> Counter and Station alert sounds are
+                  configured on the devices. Browser notifications use your
+                  device notification settings.
                 </p>
               </div>
             </>

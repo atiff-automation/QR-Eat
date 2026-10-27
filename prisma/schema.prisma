@@ -250,7 +250,7 @@ model Restaurant {
   // Settings Fields (Phase 2 - Restaurant Settings MVP)
   taxLabel             String @default("SST (6%)")
   serviceChargeLabel   String @default("Service Charge (10%)")
-  notificationSettings Json   @default("{\"orderAlerts\":true,\"soundEnabled\":true,\"soundType\":\"chime\",\"desktopNotifications\":true}")
+  notificationSettings Json   @default("{\"orderAlerts\":true,\"desktopNotifications\":true}")
   receiptSettings      Json   @default("{\"headerText\":\"Thank you for dining with us!\",\"footerText\":\"Please come again!\",\"paperSize\":\"80mm\"}")
   paymentMethods       Json   @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
   systemPreferences    Json   @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")

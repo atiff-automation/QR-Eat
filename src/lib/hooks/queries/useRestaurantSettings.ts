@@ -37,8 +37,6 @@ export interface RestaurantSettings {
   serviceChargeLabel: string;
   operatingHours: Record<string, unknown>;
   notificationSettings: {
-    soundEnabled: boolean;
-    soundType: string;
     orderAlerts: boolean;
     desktopNotifications: boolean;
   };

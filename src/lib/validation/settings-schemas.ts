@@ -134,8 +134,6 @@ export type FinancialSettings = z.infer<typeof FinancialSettingsSchema>;
 export const NotificationSettingsSchema = z.object({
   notificationSettings: z.object({
     orderAlerts: z.boolean(),
-    soundEnabled: z.boolean(),
-    soundType: z.enum(['chime', 'bell', 'ding', 'silent']),
     desktopNotifications: z.boolean(),
   }),
 });

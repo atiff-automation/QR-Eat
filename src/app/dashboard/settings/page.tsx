@@ -61,8 +61,6 @@ interface SettingsData {
   };
   notificationSettings: {
     orderAlerts: boolean;
-    soundEnabled: boolean;
-    soundType: 'chime' | 'bell' | 'ding' | 'silent';
     desktopNotifications: boolean;
   };
   receiptSettings: {
@@ -176,9 +174,6 @@ function SettingsContent() {
         : undefined,
     notificationSettings: {
       orderAlerts: settings.notificationSettings?.orderAlerts ?? true,
-      soundEnabled: settings.notificationSettings?.soundEnabled ?? true,
-      soundType: (settings.notificationSettings?.soundType ??
-        'chime') as SettingsData['notificationSettings']['soundType'],
       desktopNotifications:
         settings.notificationSettings?.desktopNotifications ?? true,
     },
