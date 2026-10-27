@@ -8,13 +8,14 @@
 import { randomUUID, createHash } from 'crypto';
 import { prisma } from '@/lib/database';
 import {
+  SessionDeviceType,
   UserSession,
   UserRole,
   RestaurantContext,
   RBAC_CONSTANTS,
   RBACError,
 } from './types';
-import { describeDevice, sessionsToEvict } from './session-policy';
+import { describeDevice, selectSessionsToEvict } from './session-policy';
 
 // Session creation parameters
 export interface CreateSessionParams {
@@ -24,6 +25,8 @@ export interface CreateSessionParams {
   permissions: string[];
   ipAddress?: string;
   userAgent?: string;
+  deviceId?: string;
+  deviceType?: SessionDeviceType;
 }
 
 // Session update parameters
@@ -76,30 +79,64 @@ export class SessionManager {
     params: CreateSessionParams
   ): Promise<UserSession> {
     try {
-      // A user may be signed in on several devices. Keep at most the configured
-      // number of sessions and evict the oldest before creating this one.
-      await this.evictOldestSessions(
-        params.userId,
-        RBAC_CONSTANTS.MAX_SESSIONS_PER_USER
-      );
-
-      // Generate a unique session ID with enough entropy
+      // Generate a unique session ID with enough entropy.
       const rawSessionId = `${randomUUID()}-${randomUUID()}`;
       const hashedSessionId = this.hashSessionId(rawSessionId);
       const expiresAt = new Date(Date.now() + RBAC_CONSTANTS.SESSION_TIMEOUT);
+      const now = new Date();
 
-      const session = await prisma.userSession.create({
-        data: {
-          userId: params.userId,
-          sessionId: hashedSessionId,
-          currentRoleId: params.currentRoleId,
-          restaurantContextId: params.restaurantContextId,
-          permissions: params.permissions,
-          expiresAt,
-          lastActivity: new Date(),
-          ipAddress: params.ipAddress,
-          userAgent: params.userAgent,
-        },
+      // Keep the replacement and cap in one transaction. A failed insert must
+      // not remove an existing device session.
+      const session = await prisma.$transaction(async (tx) => {
+        if (params.deviceId) {
+          await tx.userSession.deleteMany({
+            where: {
+              userId: params.userId,
+              deviceId: params.deviceId,
+              expiresAt: { gt: now },
+            },
+          });
+        }
+
+        const active = await tx.userSession.findMany({
+          where: {
+            userId: params.userId,
+            expiresAt: { gt: now },
+          },
+          select: {
+            id: true,
+            lastActivity: true,
+            deviceId: true,
+            deviceType: true,
+          },
+        });
+
+        const evicted = selectSessionsToEvict(
+          active,
+          RBAC_CONSTANTS.MAX_SESSIONS_PER_USER,
+          params.deviceId
+        );
+        if (evicted.length > 0) {
+          await tx.userSession.deleteMany({
+            where: { id: { in: evicted.map((item) => item.id) } },
+          });
+        }
+
+        return tx.userSession.create({
+          data: {
+            userId: params.userId,
+            sessionId: hashedSessionId,
+            currentRoleId: params.currentRoleId,
+            restaurantContextId: params.restaurantContextId,
+            permissions: params.permissions,
+            expiresAt,
+            lastActivity: now,
+            ipAddress: params.ipAddress,
+            userAgent: params.userAgent,
+            deviceId: params.deviceId,
+            deviceType: params.deviceType,
+          },
+        });
       });
 
       return {
@@ -114,6 +151,9 @@ export class SessionManager {
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
         userAgent: session.userAgent || undefined,
+        deviceId: session.deviceId || undefined,
+        deviceType:
+          (session.deviceType as SessionDeviceType | null) || undefined,
       };
     } catch {
       throw new RBACError(
@@ -157,6 +197,9 @@ export class SessionManager {
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
         userAgent: session.userAgent || undefined,
+        deviceId: session.deviceId || undefined,
+        deviceType:
+          (session.deviceType as SessionDeviceType | null) || undefined,
       };
     } catch {
       throw new RBACError('Failed to get session', 'GET_SESSION_FAILED', 500);
@@ -223,6 +266,9 @@ export class SessionManager {
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
         userAgent: session.userAgent || undefined,
+        deviceId: session.deviceId || undefined,
+        deviceType:
+          (session.deviceType as SessionDeviceType | null) || undefined,
         currentRole: session.currentRole
           ? {
               id: session.currentRole.id,
@@ -422,45 +468,6 @@ export class SessionManager {
   }
 
   /**
-   * Evict the oldest active sessions so at most `max` remain after the next
-   * login. This is intentionally not a "logout all": other devices survive
-   * until the cap is reached.
-   */
-  static async evictOldestSessions(
-    userId: string,
-    max: number = RBAC_CONSTANTS.MAX_SESSIONS_PER_USER
-  ): Promise<number> {
-    try {
-      if (max < 1) return 0;
-      const active = await prisma.userSession.findMany({
-        where: {
-          userId,
-          expiresAt: { gt: new Date() },
-        },
-        orderBy: { createdAt: 'asc' },
-        select: { id: true },
-      });
-
-      // Leave room for the session that is about to be created.
-      const excess = sessionsToEvict(active.length, max);
-      if (excess <= 0) return 0;
-
-      const result = await prisma.userSession.deleteMany({
-        where: {
-          id: { in: active.slice(0, excess).map((session) => session.id) },
-        },
-      });
-      return result.count;
-    } catch {
-      throw new RBACError(
-        'Failed to evict old sessions',
-        'EVICT_SESSIONS_FAILED',
-        500
-      );
-    }
-  }
-
-  /**
    * Clean up expired sessions
    */
   static async cleanupExpiredSessions(): Promise<number> {
@@ -537,6 +544,9 @@ export class SessionManager {
         lastActivity: session.lastActivity,
         ipAddress: session.ipAddress || undefined,
         userAgent: session.userAgent || undefined,
+        deviceId: session.deviceId || undefined,
+        deviceType:
+          (session.deviceType as SessionDeviceType | null) || undefined,
       }));
     } catch {
       throw new RBACError(

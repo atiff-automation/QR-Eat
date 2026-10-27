@@ -15,6 +15,11 @@ import { SecurityUtils } from '@/lib/security';
 import { getRestaurantSlugFromSubdomain } from '@/lib/subdomain';
 import { EnhancedJWTService } from '@/lib/rbac/jwt';
 import { RBAC_CONSTANTS } from '@/lib/rbac/types';
+import {
+  normalizeDeviceType,
+  resolveDeviceId,
+  setDeviceCookie,
+} from '@/lib/device-id';
 
 // Rate limiting configuration
 const RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
@@ -23,7 +28,13 @@ const rateLimitMap = new Map<string, { attempts: number; resetTime: number }>();
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, restaurantSlug } = await request.json();
+    const {
+      email,
+      password,
+      restaurantSlug,
+      deviceId: suppliedDeviceId,
+      deviceType: suppliedDeviceType,
+    } = await request.json();
 
     // Validate input
     if (!email || !password) {
@@ -36,6 +47,8 @@ export async function POST(request: NextRequest) {
     // Get client information for security
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
+    const deviceType = normalizeDeviceType(suppliedDeviceType, userAgent);
+    const deviceId = resolveDeviceId(request, suppliedDeviceId, deviceType);
     const auditContext = {
       ipAddress: clientIP,
       userAgent,
@@ -105,7 +118,9 @@ export async function POST(request: NextRequest) {
         password,
         currentSlug,
         clientIP,
-        userAgent
+        userAgent,
+        deviceId || undefined,
+        deviceType
       );
     } catch (error) {
       // Increment rate limit attempts
@@ -228,6 +243,10 @@ export async function POST(request: NextRequest) {
         permissions: user.permissions.length,
         restaurantContext: user.restaurantContext?.name || 'None',
       });
+    }
+
+    if (deviceId) {
+      setDeviceCookie(response, request, deviceId);
     }
 
     return response;

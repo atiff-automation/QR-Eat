@@ -15,6 +15,7 @@ import {
   UserRole,
   RestaurantContext,
   UserType,
+  SessionDeviceType,
   RBACError,
   InvalidTokenError,
   SessionExpiredError,
@@ -78,7 +79,9 @@ export class AuthServiceV2 {
     password: string,
     restaurantSlug?: string,
     ipAddress?: string,
-    userAgent?: string
+    userAgent?: string,
+    deviceId?: string,
+    deviceType?: SessionDeviceType
   ): Promise<AuthenticationResult> {
     try {
       // Validate credentials using existing auth service
@@ -173,6 +176,8 @@ export class AuthServiceV2 {
         permissions,
         ipAddress,
         userAgent,
+        deviceId,
+        deviceType,
       };
 
       const session = await SessionManager.createSession(sessionParams);

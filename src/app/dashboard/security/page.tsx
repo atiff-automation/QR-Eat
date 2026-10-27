@@ -211,8 +211,10 @@ export default function SecurityPage() {
           </h1>
         </div>
         <p className="mt-1 text-sm text-gray-600">
-          Each web or Counter login is a separate session. Up to {maxSessions}{' '}
-          sessions are kept; signing in on a sixth device removes the oldest.
+          Each browser or Counter device keeps one active session. Up to{' '}
+          {maxSessions} active sessions are kept. A new device removes the
+          least-recently-used web session first. Counter sessions are kept when
+          possible.
         </p>
       </div>
 

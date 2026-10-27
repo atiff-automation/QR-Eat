@@ -11,12 +11,25 @@ import { SessionManager } from '@/lib/rbac/session-manager';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { SecurityUtils } from '@/lib/security';
 import { RefreshTokenService } from '@/lib/rbac/refresh-token-service';
+import { getTokenFromRequest } from '@/lib/auth-utils';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get current tokens from cookies
-    const currentToken = request.cookies.get('qr_rbac_token')?.value;
-    const refreshToken = request.cookies.get('qr_refresh_token')?.value;
+    // Native clients send a Bearer token and a refresh token in the body.
+    // Web clients use the httpOnly cookies.
+    let bodyRefreshToken: string | undefined;
+    try {
+      const body = await request.json();
+      if (typeof body?.refreshToken === 'string') {
+        bodyRefreshToken = body.refreshToken;
+      }
+    } catch {
+      // No body is valid for cookie-based logout.
+    }
+
+    const currentToken = getTokenFromRequest(request);
+    const refreshToken =
+      request.cookies.get('qr_refresh_token')?.value || bodyRefreshToken;
 
     if (!currentToken && !refreshToken) {
       // If no tokens, still return success (user might already be logged out)

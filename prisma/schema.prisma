@@ -1054,6 +1054,10 @@ model UserSession {
   lastActivity        DateTime @default(now())
   ipAddress           String?
   userAgent           String?
+  // Browser/device identity for one-session-per-device replacement.
+  // Nullable for sessions created before this migration and old clients.
+  deviceId            String?
+  deviceType          String? // 'web' | 'counter'
   createdAt           DateTime @default(now())
 
   currentRole       UserRole    @relation(fields: [currentRoleId], references: [id], onDelete: Cascade)
@@ -1064,6 +1068,8 @@ model UserSession {
   @@index([currentRoleId])
   @@index([restaurantContextId])
   @@index([expiresAt])
+  @@index([userId, deviceId])
+  @@index([userId, deviceType, lastActivity])
   @@map("user_sessions")
 }
 
