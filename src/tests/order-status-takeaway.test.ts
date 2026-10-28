@@ -41,6 +41,7 @@ const currentOrder = {
   orderType: 'TAKEAWAY',
   orderNumber: 'ORD-TAKEAWAY-1',
   status: 'READY',
+  paymentStatus: 'PAID',
   version: 1,
   restaurant: { id: 'restaurant-1' },
 };
@@ -105,5 +106,28 @@ describe('takeaway order status', () => {
       'READY',
       'SERVED'
     );
+  });
+
+  it('rejects unpaid takeaway pickup', async () => {
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      ...currentOrder,
+      paymentStatus: 'PENDING',
+    });
+
+    const response = await updateOrderStatus(
+      new NextRequest('http://localhost/api/orders/order-takeaway-1/status', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'SERVED' }),
+      }),
+      { params: Promise.resolve({ id: 'order-takeaway-1' }) }
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json.code).toBe('PAYMENT_REQUIRED');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(recordOrderStatusChanged).not.toHaveBeenCalled();
+    expect(autoUpdateTableStatus).not.toHaveBeenCalled();
   });
 });

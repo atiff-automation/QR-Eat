@@ -146,6 +146,22 @@ export async function PATCH(
       });
     }
 
+    // A takeaway order must be paid before pickup. This check is shared by
+    // every client, not only the Counter app.
+    if (
+      status === ORDER_STATUS.SERVED &&
+      currentOrder.orderType === 'TAKEAWAY' &&
+      currentOrder.paymentStatus !== 'PAID'
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Payment is required before takeaway pickup',
+          code: 'PAYMENT_REQUIRED',
+        },
+        { status: 409 }
+      );
+    }
+
     // Validate state transition
     if (!validateOrderTransition(currentOrder.status, status)) {
       return NextResponse.json(
