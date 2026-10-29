@@ -5,6 +5,16 @@ import Link from 'next/link';
 import { ApiClient } from '@/lib/api-client';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
+function formatBusinessDate(value: string): string {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString('en-MY', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
 interface ZRow {
   id: string;
   businessDate: string;
@@ -63,13 +73,13 @@ export default function ZReportsPage() {
               >
                 <div>
                   <p className="font-semibold text-gray-900">
-                    {row.businessDate}
+                    {formatBusinessDate(row.businessDate)}
                   </p>
                   <p className="text-xs text-gray-500">
                     {row.zNumber ?? 'No Z number'} · Net MYR {row.netSales}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Cash expected {row.cashExpected} · counted {row.cashCounted ?? '—'} · variance {row.cashVariance ?? '—'}
+                    Cash expected MYR {row.cashExpected} · counted MYR {row.cashCounted ?? '—'} · variance MYR {row.cashVariance ?? '—'}
                   </p>
                 </div>
                 <Link
