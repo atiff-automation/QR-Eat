@@ -1,18 +1,20 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { MoreVertical, Eye, Edit, XCircle } from 'lucide-react';
+import { MoreVertical, Eye, Edit, XCircle, RotateCcw, Ban } from 'lucide-react';
 import { useHasPermission, useAuthUser } from '@/lib/hooks/queries/useAuth';
 import { ORDER_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import type { OrderAdjustmentAction } from '@/lib/orders/order-adjustment-policy';
 
 interface OrderActionsMenuProps {
   order: {
     id: string;
     status: string;
+    paymentStatus: string;
   };
   onViewDetails: (orderId: string) => void;
   onModify: (orderId: string) => void;
-  onCancel: (orderId: string) => void;
+  onAdjust: (orderId: string, action: OrderAdjustmentAction) => void;
 }
 
 /**
@@ -31,7 +33,7 @@ export function OrderActionsMenu({
   order,
   onViewDetails,
   onModify,
-  onCancel,
+  onAdjust,
 }: OrderActionsMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,7 @@ export function OrderActionsMenu({
   // Permission checks
   const canView = useHasPermission(ORDER_PERMISSIONS.READ);
   const canWrite = useHasPermission(ORDER_PERMISSIONS.WRITE);
+  const canRefund = useHasPermission('payments:write');
 
   // Get user role information
   const { data: authData } = useAuthUser();
@@ -53,8 +56,35 @@ export function OrderActionsMenu({
     userType === 'platform_admin' ||
     userType === 'restaurant_owner' ||
     (userType === 'staff' && roleTemplate === 'manager');
-  const canCancelOrder_ =
-    canWrite && (order.status === 'PENDING' || isOwnerOrManager);
+  const adjustmentAction: OrderAdjustmentAction = (() => {
+    if (order.status === 'CANCELLED') return 'NONE';
+    if (['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(order.status)) {
+      if (order.status === 'PENDING') {
+        return canWrite || isOwnerOrManager ? 'CANCEL' : 'NONE';
+      }
+      return isOwnerOrManager ? 'CANCEL' : 'NONE';
+    }
+    if (order.status !== 'SERVED' || !isOwnerOrManager) return 'NONE';
+    if (order.paymentStatus === 'PAID') {
+      return canRefund ? 'REFUND' : 'NONE';
+    }
+    if (order.paymentStatus === 'PENDING' || order.paymentStatus === 'FAILED') {
+      return 'VOID';
+    }
+    return 'NONE';
+  })();
+  const adjustmentLabel =
+    adjustmentAction === 'VOID'
+      ? 'Void Order'
+      : adjustmentAction === 'REFUND'
+        ? 'Refund Payment'
+        : 'Cancel Order';
+  const AdjustmentIcon =
+    adjustmentAction === 'VOID'
+      ? Ban
+      : adjustmentAction === 'REFUND'
+        ? RotateCcw
+        : XCircle;
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -132,20 +162,20 @@ export function OrderActionsMenu({
             </button>
           )}
 
-          {/* Cancel Order */}
-          {canCancelOrder_ && (
+          {/* Cancel / Void / Refund */}
+          {adjustmentAction !== 'NONE' && (
             <>
               <div className="border-t border-gray-200 my-1" />
               <button
                 onClick={() => {
-                  onCancel(order.id);
+                  onAdjust(order.id, adjustmentAction);
                   setIsOpen(false);
                 }}
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
                 role="menuitem"
               >
-                <XCircle className="h-4 w-4" />
-                Cancel Order
+                <AdjustmentIcon className="h-4 w-4" />
+                {adjustmentLabel}
               </button>
             </>
           )}

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { StatusBadge } from './StatusBadge';
 import { OrderActionsMenu } from './OrderActionsMenu';
+import type { OrderAdjustmentAction } from '@/lib/orders/order-adjustment-policy';
 import { useAuthUser } from '@/lib/hooks/queries/useAuth';
 import {
   getNextOrderAction,
@@ -67,8 +68,8 @@ export interface OrderCardProps {
   onViewDetails?: (orderId: string) => void;
   /** Callback when modify is clicked */
   onModify?: (orderId: string) => void;
-  /** Callback when cancel is clicked */
-  onCancel?: (orderId: string) => void;
+  /** Callback when an adjustment action is selected */
+  onAdjust?: (orderId: string, action: OrderAdjustmentAction) => void;
   /** Whether the order is currently being updated */
   isUpdating?: boolean;
   /** Currency code for price formatting */
@@ -105,7 +106,7 @@ export function OrderCard({
   onStatusUpdate,
   onViewDetails,
   onModify,
-  onCancel,
+  onAdjust,
   isUpdating = false,
   currency = 'MYR',
 }: OrderCardProps) {
@@ -204,12 +205,12 @@ export function OrderCard({
         </div>
         <div className="flex items-center gap-2">
           <StatusBadge status={order.status} size="sm" />
-          {(onViewDetails || onModify || onCancel) && (
+          {(onViewDetails || onModify || onAdjust) && (
             <OrderActionsMenu
               order={order}
               onViewDetails={onViewDetails || (() => {})}
               onModify={onModify || (() => {})}
-              onCancel={onCancel || (() => {})}
+              onAdjust={onAdjust || (() => {})}
             />
           )}
         </div>

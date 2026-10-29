@@ -6,7 +6,8 @@ import { ApiClient, ApiClientError } from '@/lib/api-client';
 import { OrderCard, OrderSummary } from './shared/OrderCard';
 import { ViewOrderDetailsModal } from './modals/ViewOrderDetailsModal';
 import { ModifyOrderModal } from './modals/ModifyOrderModal';
-import { CancelOrderModal } from './modals/CancelOrderModal';
+import { OrderAdjustmentModal } from './modals/OrderAdjustmentModal';
+import type { OrderAdjustmentAction } from '@/lib/orders/order-adjustment-policy';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { debug } from '@/lib/debug';
@@ -70,7 +71,10 @@ export function OrdersOverview({
     null
   );
   const [modifyOrder, setModifyOrder] = useState<OrderSummary | null>(null);
-  const [cancelOrder, setCancelOrder] = useState<OrderSummary | null>(null);
+  const [adjustment, setAdjustment] = useState<{
+    order: OrderSummary;
+    action: Exclude<OrderAdjustmentAction, 'NONE'>;
+  } | null>(null);
 
   const buildOrderParams = useCallback(
     (offset: number) => {
@@ -276,9 +280,10 @@ export function OrdersOverview({
     if (order) setModifyOrder(order);
   };
 
-  const handleCancel = (orderId: string) => {
+  const handleAdjust = (orderId: string, action: OrderAdjustmentAction) => {
+    if (action === 'NONE') return;
     const order = orders.find((o) => o.id === orderId);
-    if (order) setCancelOrder(order);
+    if (order) setAdjustment({ order, action });
   };
 
   const handleModalSuccess = async () => {
@@ -588,7 +593,7 @@ export function OrdersOverview({
                 onStatusUpdate={updateOrderStatus}
                 onViewDetails={handleViewDetails}
                 onModify={handleModify}
-                onCancel={handleCancel}
+                onAdjust={handleAdjust}
                 currency={currency}
               />
             ))}
@@ -609,7 +614,7 @@ export function OrdersOverview({
                 onStatusUpdate={updateOrderStatus}
                 onViewDetails={handleViewDetails}
                 onModify={handleModify}
-                onCancel={handleCancel}
+                onAdjust={handleAdjust}
                 currency={currency}
               />
             ))}
@@ -630,7 +635,7 @@ export function OrdersOverview({
                 onStatusUpdate={updateOrderStatus}
                 onViewDetails={handleViewDetails}
                 onModify={handleModify}
-                onCancel={handleCancel}
+                onAdjust={handleAdjust}
                 currency={currency}
               />
             ))}
@@ -687,11 +692,13 @@ export function OrdersOverview({
         />
       )}
 
-      {cancelOrder && (
-        <CancelOrderModal
-          order={cancelOrder}
-          isOpen={!!cancelOrder}
-          onClose={() => setCancelOrder(null)}
+      {adjustment && (
+        <OrderAdjustmentModal
+          order={adjustment.order}
+          action={adjustment.action}
+          currency={currency}
+          isOpen={!!adjustment}
+          onClose={() => setAdjustment(null)}
           onSuccess={handleModalSuccess}
         />
       )}
