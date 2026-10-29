@@ -195,3 +195,25 @@ export const SystemPreferencesSchema = z.object({
 });
 
 export type SystemPreferences = z.infer<typeof SystemPreferencesSchema>;
+
+// ============================================================================
+// BUSINESS DAY / CASH DRAWER
+// ============================================================================
+
+export const BusinessDaySettingsSchema = z.object({
+  timezone: z.string().refine((value) => {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: value }).format();
+      return true;
+    } catch {
+      return false;
+    }
+  }, 'Invalid IANA timezone'),
+  businessDayCloseTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Use HH:mm, for example 04:00'),
+  openingFloatDefault: z.number().min(0).max(100000),
+  cashDrawerEnabled: z.boolean(),
+});
+
+export type BusinessDaySettings = z.infer<typeof BusinessDaySettingsSchema>;

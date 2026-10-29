@@ -25,6 +25,7 @@ import { FinancialSection } from '@/components/settings/FinancialSection';
 import { NotificationsSection } from '@/components/settings/NotificationsSection';
 import { PaymentMethodsSection } from '@/components/settings/PaymentMethodsSection';
 import { ReceiptSection } from '@/components/settings/ReceiptSection';
+import { BusinessDaySection } from '@/components/settings/BusinessDaySection';
 import { SystemPreferencesSection } from '@/components/settings/SystemPreferencesSection';
 import { SettingsLoadingSkeleton } from '@/components/settings/SettingsLoadingSkeleton';
 
@@ -35,6 +36,7 @@ type SectionKey =
   | 'notifications'
   | 'payments'
   | 'receipt'
+  | 'business'
   | 'system';
 
 interface SettingsData {
@@ -50,7 +52,7 @@ interface SettingsData {
   serviceChargeRate: number;
   taxLabel: string;
   serviceChargeLabel: string;
-  operatingHours: {
+  operatingHours?: {
     monday: { isOpen: boolean; slots: { open: string; close: string }[] };
     tuesday: { isOpen: boolean; slots: { open: string; close: string }[] };
     wednesday: { isOpen: boolean; slots: { open: string; close: string }[] };
@@ -78,6 +80,9 @@ interface SettingsData {
     timeFormat: '24h' | '12h';
     language: 'en' | 'ms' | 'zh';
   };
+  businessDayCloseTime: string;
+  openingFloatDefault: string;
+  cashDrawerEnabled: boolean;
 }
 
 const SECTIONS = [
@@ -110,6 +115,11 @@ const SECTIONS = [
     key: 'receipt' as SectionKey,
     label: 'Receipt',
     icon: Receipt,
+  },
+  {
+    key: 'business' as SectionKey,
+    label: 'Business Day',
+    icon: Clock,
   },
   {
     key: 'system' as SectionKey,
@@ -196,6 +206,9 @@ function SettingsContent() {
       language: (settings.systemPreferences?.language ??
         'en') as SettingsData['systemPreferences']['language'],
     },
+    businessDayCloseTime: settings.businessDayCloseTime ?? '04:00',
+    openingFloatDefault: settings.openingFloatDefault ?? '0.00',
+    cashDrawerEnabled: settings.cashDrawerEnabled ?? true,
   };
 
   const renderSection = () => {
@@ -284,6 +297,18 @@ function SettingsContent() {
           <ReceiptSection
             initialData={{
               receiptSettings: uiSettings.receiptSettings,
+            }}
+            onUpdate={() => {}}
+          />
+        );
+      case 'business':
+        return (
+          <BusinessDaySection
+            initialData={{
+              timezone: uiSettings.timezone,
+              businessDayCloseTime: uiSettings.businessDayCloseTime,
+              openingFloatDefault: uiSettings.openingFloatDefault,
+              cashDrawerEnabled: uiSettings.cashDrawerEnabled,
             }}
             onUpdate={() => {}}
           />

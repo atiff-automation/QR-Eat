@@ -255,6 +255,11 @@ model Restaurant {
   paymentMethods       Json   @default("{\"cash\":true,\"card\":true,\"ewallet\":true}")
   systemPreferences    Json   @default("{\"dateFormat\":\"DD/MM/YYYY\",\"timeFormat\":\"24h\",\"numberFormat\":\"1,234.56\"}")
 
+  // Counter business-day and close settings
+  businessDayCloseTime  String  @default("04:00")
+  openingFloatDefault   Decimal @default(0.00) @db.Decimal(10, 2)
+  cashDrawerEnabled     Boolean @default(true)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -273,6 +278,7 @@ model Restaurant {
   userSessions      UserSession[]
   pushSubscriptions PushSubscription[] // Phase 2 - Push Notifications
   dailySequences    DailySequence[]
+  businessDays      BusinessDay[]
   // Expenses Tracking Relations
   expenseCategories ExpenseCategory[]
   expenses          Expense[]
@@ -926,6 +932,37 @@ model DailySequence {
 
   @@unique([restaurantId, date])
   @@map("daily_sequences")
+}
+
+/// A deliberate open/closed business day. There is no carryover: a new day is
+/// created only after the previous day has been closed.
+model BusinessDay {
+  id             String    @id @default(uuid())
+  restaurantId   String
+  businessDate   DateTime  @db.Date
+  status         String    @default("OPEN") // OPEN | CLOSED
+  openedAt       DateTime  @default(now())
+  closedAt       DateTime?
+  closedBy       String?
+  closedByName   String?
+  closeNote      String?
+  openingFloat   Decimal   @default(0.00) @db.Decimal(10, 2)
+  countedCash    Decimal?  @db.Decimal(10, 2)
+  expectedCash   Decimal?  @db.Decimal(10, 2)
+  variance       Decimal?  @db.Decimal(10, 2)
+  zNumber        String?
+  closeIdempotencyKey String? @unique
+  snapshot       Json?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, businessDate])
+  @@unique([restaurantId, zNumber])
+  @@index([restaurantId, status])
+  @@index([restaurantId, businessDate])
+  @@map("business_days")
 }
 
 // Notifications System

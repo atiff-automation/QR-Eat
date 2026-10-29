@@ -56,6 +56,9 @@ export interface RestaurantSettings {
     numberFormat: string;
     language: string;
   };
+  businessDayCloseTime: string;
+  openingFloatDefault: string;
+  cashDrawerEnabled: boolean;
 }
 
 /**
@@ -109,6 +112,9 @@ export interface UpdateRestaurantSettingsPayload {
   receiptSettings?: RestaurantSettings['receiptSettings'];
   paymentMethods?: RestaurantSettings['paymentMethods'];
   systemPreferences?: RestaurantSettings['systemPreferences'];
+  businessDayCloseTime?: string;
+  openingFloatDefault?: number | string;
+  cashDrawerEnabled?: boolean;
 }
 
 /**

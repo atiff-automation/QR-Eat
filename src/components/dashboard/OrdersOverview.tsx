@@ -8,6 +8,7 @@ import { ViewOrderDetailsModal } from './modals/ViewOrderDetailsModal';
 import { ModifyOrderModal } from './modals/ModifyOrderModal';
 import { CancelOrderModal } from './modals/CancelOrderModal';
 import { Search, AlertTriangle, Filter } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
 import { debug } from '@/lib/debug';
 import { useCurrency } from '@/lib/hooks/queries/useRestaurantSettings';
 import { useAuthUser } from '@/lib/hooks/queries/useAuth';
@@ -30,7 +31,7 @@ interface OrderStats {
   averageOrderValue: number;
 }
 
-type TimeFilter = 'today' | 'all_time';
+type TimeFilter = 'today' | 'week' | 'all_time';
 type StatusFilter = 'ACTIVE' | 'SERVED' | 'CANCELLED' | 'ALL';
 
 export function OrdersOverview() {
@@ -43,6 +44,8 @@ export function OrdersOverview() {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
   const [lapsedCount, setLapsedCount] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchModal, setShowSearchModal] = useState(false);
@@ -63,40 +66,52 @@ export function OrdersOverview() {
   const [modifyOrder, setModifyOrder] = useState<OrderSummary | null>(null);
   const [cancelOrder, setCancelOrder] = useState<OrderSummary | null>(null);
 
-  const fetchOrders = useCallback(async () => {
-    try {
+  const buildOrderParams = useCallback(
+    (offset: number) => {
       const params: Record<string, string> = {};
 
-      // Time Filter Logic
       if (timeFilter === 'today') {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         params.startDate = today.toISOString();
+      } else if (timeFilter === 'week') {
+        const week = new Date();
+        week.setDate(week.getDate() - 7);
+        week.setHours(0, 0, 0, 0);
+        params.startDate = week.toISOString();
       }
 
-      // Status Filter Logic
       if (statusFilter === 'ACTIVE') {
-        params.status = 'all'; // Get all relevant, but exclude served/cancelled
+        params.status = 'all';
         params.excludeServed = 'true';
       } else if (statusFilter === 'ALL') {
         params.status = 'all';
-        params.excludeServed = 'false'; // Show everything
+        params.excludeServed = 'false';
       } else {
-        params.status = statusFilter; // Specific status (served, cancelled)
+        params.status = statusFilter;
         if (statusFilter === 'SERVED' || statusFilter === 'CANCELLED') {
-          params.excludeServed = 'false'; // Ensure they are returned
+          params.excludeServed = 'false';
         }
       }
 
       params.limit = DEFAULT_ORDER_LIMIT.toString();
+      params.offset = offset.toString();
+      return params;
+    },
+    [timeFilter, statusFilter]
+  );
 
+  const fetchOrders = useCallback(async () => {
+    try {
       const data = await ApiClient.get<{
         success: boolean;
         orders: OrderSummary[];
         lapsedCount?: number;
-      }>('/orders', { params });
+        pagination?: { hasMore?: boolean };
+      }>('/orders', { params: buildOrderParams(0) });
 
       setOrders(data.orders);
+      setHasMore(Boolean(data.pagination?.hasMore));
       if (data.lapsedCount !== undefined) {
         setLapsedCount(data.lapsedCount);
       }
@@ -108,7 +123,30 @@ export function OrdersOverview() {
           : 'Network error. Please try again.'
       );
     }
-  }, [timeFilter, statusFilter]);
+  }, [buildOrderParams]);
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const data = await ApiClient.get<{
+        success: boolean;
+        orders: OrderSummary[];
+        pagination?: { hasMore?: boolean };
+      }>('/orders', { params: buildOrderParams(orders.length) });
+      setOrders((prev) => [...prev, ...data.orders]);
+      setHasMore(Boolean(data.pagination?.hasMore));
+    } catch (error) {
+      debug.error('Failed to load more orders:', error);
+      setError(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Network error. Please try again.'
+      );
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [buildOrderParams, hasMore, loadingMore, orders.length]);
 
   const fetchStats = useCallback(async () => {
     try {
@@ -119,6 +157,11 @@ export function OrdersOverview() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         params.startDate = today.toISOString();
+      } else if (timeFilter === 'week') {
+        const week = new Date();
+        week.setDate(week.getDate() - 7);
+        week.setHours(0, 0, 0, 0);
+        params.startDate = week.toISOString();
       } else if (timeFilter === 'all_time') {
         params.period = 'all';
       }
@@ -383,7 +426,11 @@ export function OrdersOverview() {
                   {formatPrice(stats.totalRevenue, currency)}
                 </span>
                 <span className="text-xs text-gray-500">
-                  {timeFilter === 'today' ? 'Today' : 'All Time'}
+                  {timeFilter === 'today'
+                    ? 'Today'
+                    : timeFilter === 'week'
+                      ? '7 Days'
+                      : 'All Time'}
                 </span>
               </div>
             </div>
@@ -426,6 +473,16 @@ export function OrdersOverview() {
                 }`}
               >
                 Today
+              </button>
+              <button
+                onClick={() => setTimeFilter('week')}
+                className={`flex-1 py-1 text-xs font-semibold rounded-md transition-all ${
+                  timeFilter === 'week'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-gray-500 hover:text-gray-900'
+                }`}
+              >
+                7 Days
               </button>
               <button
                 onClick={() => setTimeFilter('all_time')}
@@ -575,6 +632,14 @@ export function OrdersOverview() {
         </section>
       )}
 
+      {hasMore && (
+        <div className="flex justify-center py-2">
+          <Button variant="outline" loading={loadingMore} onClick={loadMore}>
+            Load more orders
+          </Button>
+        </div>
+      )}
+
       {pendingOrders.length === 0 &&
         inProgressOrders.length === 0 &&
         historyOrders.length === 0 && (
@@ -589,7 +654,9 @@ export function OrdersOverview() {
               <p className="mt-1 text-sm text-gray-500">
                 {timeFilter === 'today'
                   ? 'No orders for today match your filter.'
-                  : 'No orders found in history.'}
+                  : timeFilter === 'week'
+                    ? 'No orders in the last 7 days match your filter.'
+                    : 'No orders found in history.'}
               </p>
             </div>
           </div>
