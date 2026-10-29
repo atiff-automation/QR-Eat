@@ -138,7 +138,7 @@ b5a6d56759ea9c6eddeff374c4b8566efaaa4380e1efac5a7cd85758a25bb331
 - Fresh pre-deploy backup:
   `/tmp/qr-eat-prod-before-daily-sales-deploy-20261029.dump`
 - Production deployment:
-  `fc9043a7-8bad-45d7-ac3b-cf60965b201e`
+  `a63c5929-3a54-40a2-9004-8bc20f653dae`
 - A73 installed the new APK over the previous release.
 - Verified:
   - Reports showed 12 open-order blockers.
