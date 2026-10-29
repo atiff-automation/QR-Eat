@@ -92,7 +92,7 @@ Date: 2026-10-29
 Release APK SHA-256:
 
 ```text
-b667246cc6e803ed524117bfc67a65aa76cb3b1fadabd87160a9ce35f8a12126
+5a9cdc2206afa5a7b3f7ee962945a24134e766fb8f58aa311f8cf248e11db4ac
 ```
 
 ## Legacy cleanup completed
@@ -113,19 +113,33 @@ b667246cc6e803ed524117bfc67a65aa76cb3b1fadabd87160a9ce35f8a12126
   in production.
 - Add cash in/out and no-sale tracking before introducing variance thresholds.
 
+## Detail card simplification
+
+- Removed the order history timeline from the Counter detail card and the
+  Counter detail API payload.
+- Removed kitchen-ticket status from completed/cancelled detail views.
+- Moved the paid/refund warning and customer-notified checkbox into the cancel
+  order dialog.
+- Moved Cancel order into the detail overflow menu.
+- Kept items, quantities, line prices, total, payment method and paid/unpaid
+  status as the primary information.
+- Kept receipt reprint as a secondary action.
+- Kept the richer website order detail for owner/accounting use.
+
 ## Production rollout
 
 - Fresh pre-deploy backup:
   `/tmp/qr-eat-prod-before-daily-sales-deploy-20261029.dump`
 - Production deployment:
-  `7b7c7b22-723d-41f8-b384-99d7586081cd`
+  `fc9043a7-8bad-45d7-ac3b-cf60965b201e`
 - A73 installed the new APK over the previous release.
 - Verified:
   - Reports showed 12 open-order blockers.
   - Blocker sheet listed the actual orders and supported Serve/Open.
   - Serving an order reduced the blocker count and refreshed Reports.
   - Completed loaded served orders across business dates.
-  - Completed detail showed payments, receipt number, reprint and history.
+  - Completed detail showed items, total, payment, receipt number and reprint.
+  - Order history was intentionally removed from the Counter detail card.
   - Website Daily Sales showed the current business date, open orders, items
     and filters.
 - Two old test orders were served during verification; the remaining blocker
