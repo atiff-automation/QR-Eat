@@ -9,6 +9,8 @@ import {
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { RBACError } from '@/lib/rbac/types';
+import { getOrderAdjustmentPolicy } from '@/lib/orders/order-adjustment-policy';
+import { isOrderBusinessDayClosed } from '@/lib/orders/order-business-day';
 
 export async function GET(
   request: NextRequest,
@@ -177,8 +179,23 @@ export async function GET(
       })
     );
 
+    const businessDayClosed = await isOrderBusinessDayClosed(
+      order.restaurantId,
+      order.createdAt
+    );
+    const adjustment = getOrderAdjustmentPolicy({
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      orderType: order.orderType,
+      businessDayClosed,
+      userType: context!.userType,
+      roleTemplate: context!.roleTemplate,
+      permissions: context!.permissions,
+    });
+
     return NextResponse.json({
       success: true,
+      adjustment,
       order: {
         ...order,
         modifications: modificationsWithUsers,
