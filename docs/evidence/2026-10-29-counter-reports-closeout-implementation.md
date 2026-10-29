@@ -2,6 +2,9 @@
 
 **Status:** Implemented locally; not deployed.
 **Scope:** QR-Eat server/website + Tabtep Counter Android app.
+**Server/website commit:** `59d40c7`
+**Counter commit:** `1a95b63`
+**Counter APK SHA-256:** `e296daf40340fcad937ca235965a0ebe9109ae60b9c96b45aee47397b243b2b0`
 **Plan:** `docs/COUNTER-REPORTS-CLOSEOUT-PLAN.md`
 **Counter UI plan:** `Tabtep-App/docs/COUNTER-REPORTS-UI-PLAN.md`
 
