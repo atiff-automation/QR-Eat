@@ -36,6 +36,13 @@ Also:
 - Full Jest: 388 passed, 11 skipped
 - Production build: passed
 
+## Deployment
+
+- `c379e8c8-7925-45d1-af2f-60b710c38ac5`
+- `/api/health`: 200
+- Owner login: successful
+- Dynamic upload route check: 404 as expected
+
 ## Remaining error groups
 
 | Area | Errors |
