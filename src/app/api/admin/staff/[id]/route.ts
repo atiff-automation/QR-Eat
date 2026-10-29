@@ -9,7 +9,7 @@ import {
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await getTenantContext(request);
@@ -27,7 +27,7 @@ export async function PUT(
       isActive,
       status,
     } = await request.json();
-    const staffId = params.id;
+    const { id: staffId } = await params;
 
     if (!firstName || !lastName || !email || !username || !roleId) {
       return NextResponse.json(
@@ -169,14 +169,14 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'staff', 'delete');
 
-    const staffId = params.id;
+    const { id: staffId } = await params;
 
     // Get restaurant ID based on user type
     let restaurantId: string;

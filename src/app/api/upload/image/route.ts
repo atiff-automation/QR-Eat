@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
 }
 
 // Helper function to get image dimensions (for future use)
-export async function getImageDimensions(): Promise<{
+async function getImageDimensions(): Promise<{
   width: number;
   height: number;
 }> {

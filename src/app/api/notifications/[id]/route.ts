@@ -1,7 +1,7 @@
 /**
  * Single Notification Management API
  * Handle marking individual notifications as read/unread
- * 
+ *
  * Following CLAUDE.md principles:
  * - Type Safety: Proper TypeScript types throughout
  * - Error Handling: Comprehensive error cases
@@ -13,13 +13,13 @@ import { prisma } from '@/lib/database';
 import {
   validateRBACToken,
   createErrorResponse,
-  logAccessDenied
+  logAccessDenied,
 } from '@/lib/rbac/route-helpers';
 import type { EnhancedAuthenticatedUser } from '@/lib/rbac/types';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // RBAC Authentication with proper types
@@ -34,15 +34,15 @@ export async function PATCH(
     const user: EnhancedAuthenticatedUser = authResult.user;
 
     const { isRead } = await request.json();
-    const notificationId = params.id;
+    const { id: notificationId } = await params;
 
     // Update notification only if it belongs to the current user
     const notification = await prisma.notification.findFirst({
       where: {
         id: notificationId,
         userId: user.id,
-        userType: user.currentRole.userType
-      }
+        userType: user.currentRole.userType,
+      },
     });
 
     if (!notification) {
@@ -59,15 +59,14 @@ export async function PATCH(
       where: { id: notificationId },
       data: {
         isRead,
-        readAt: isRead ? new Date() : null
-      }
+        readAt: isRead ? new Date() : null,
+      },
     });
 
     return NextResponse.json({
       success: true,
-      notification: updatedNotification
+      notification: updatedNotification,
     });
-
   } catch (error) {
     console.error('Notification update error:', error);
     return createErrorResponse('Internal server error', 500);

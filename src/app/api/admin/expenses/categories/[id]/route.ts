@@ -26,10 +26,10 @@ type UpdateCategoryInput = z.infer<typeof UpdateCategorySchema>;
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const { id: categoryId } = await params;
 
     // Authentication
     const token =
@@ -186,10 +186,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const categoryId = params.id;
+    const { id: categoryId } = await params;
 
     // Authentication
     const token =

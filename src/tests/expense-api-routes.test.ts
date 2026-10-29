@@ -510,7 +510,7 @@ describe('PUT /api/admin/expenses/[id]', () => {
     jest.clearAllMocks();
   });
 
-  const params = { id: EXPENSE_ID };
+  const params = Promise.resolve({ id: EXPENSE_ID });
 
   it('accepts non-UUID categoryId in updates', async () => {
     setupOwnerAuth();
@@ -660,7 +660,7 @@ describe('DELETE /api/admin/expenses/[id]', () => {
     jest.clearAllMocks();
   });
 
-  const params = { id: EXPENSE_ID };
+  const params = Promise.resolve({ id: EXPENSE_ID });
 
   it('allows owner to delete expense', async () => {
     setupOwnerAuth();

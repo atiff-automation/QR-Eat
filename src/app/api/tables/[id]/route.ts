@@ -8,14 +8,14 @@ import {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'tables', 'delete');
 
-    const tableId = params.id;
+    const { id: tableId } = await params;
 
     // Verify table exists and check order count
     const existingTable = await prisma.table.findUnique({

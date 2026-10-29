@@ -41,10 +41,10 @@ const PaymentRequestSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { orderId: string } }
+  { params }: { params: Promise<{ orderId: string }> }
 ) {
   try {
-    const { orderId } = params; // Destructure orderId directly from params
+    const { orderId } = await params; // Destructure orderId directly from params
 
     console.log('[API] Payment Request Received for order:', orderId);
 
