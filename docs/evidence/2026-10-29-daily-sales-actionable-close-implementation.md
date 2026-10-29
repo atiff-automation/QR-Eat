@@ -92,7 +92,7 @@ Date: 2026-10-29
 Release APK SHA-256:
 
 ```text
-5a9cdc2206afa5a7b3f7ee962945a24134e766fb8f58aa311f8cf248e11db4ac
+fa32e29bc21c77770d3ccf92330fe2f8ed31c021fd15ec946f83b7f5d3b0720a
 ```
 
 ## Legacy cleanup completed
@@ -125,6 +125,13 @@ Release APK SHA-256:
   status as the primary information.
 - Kept receipt reprint as a secondary action.
 - Kept the richer website order detail for owner/accounting use.
+- Detail title shows the full order number without the redundant `Order`
+  prefix; font is reduced for longer identifiers.
+- Pickup-chit reprint is hidden for served/cancelled takeaway orders.
+- Cancel dialog is compressed: full order number subtitle, compact paid/refund
+  warning surface, smaller reason chips, shorter notes field, and side-by-side
+  Keep order / Cancel order actions.
+- Verified on A73 at font scale 1.0 and 1.3.
 
 ## Production rollout
 
