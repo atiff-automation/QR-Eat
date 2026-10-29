@@ -49,8 +49,8 @@ Date: 2026-10-29
 
 ## Not deployed
 
-The two runtime fixes are committed with this cleanup phase. They do not require
-a schema migration.
+The two runtime fixes are committed with this cleanup phase and deployed as
+`1566eac6-968e-4e1b-9345-f58e4b2a6fcd`. No schema migration was required.
 
 ## Next cleanup steps
 
