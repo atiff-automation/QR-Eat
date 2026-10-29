@@ -940,7 +940,7 @@ model BusinessDay {
   id             String    @id @default(uuid())
   restaurantId   String
   businessDate   DateTime  @db.Date
-  status         String    @default("OPEN") // OPEN | CLOSED
+  status         String    @default("OPEN") // OPEN | CLOSING | CLOSED
   openedAt       DateTime  @default(now())
   closeStartedAt DateTime?
   closedAt       DateTime?

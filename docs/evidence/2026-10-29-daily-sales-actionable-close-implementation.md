@@ -95,11 +95,18 @@ Release APK SHA-256:
 d78a4f7dd526c3ae692262b9fc9fa35f3270a85581ca3088f4ecbcddadcd9012
 ```
 
+## Legacy cleanup completed
+
+- Removed unused `DashboardLayout-legacy-backup.tsx`.
+- Removed unused `route-legacy-backup.ts`.
+- Removed duplicate `next.config.ts`; `next.config.js` is the single active
+  config.
+- Corrected the `BusinessDay.status` comment to include `CLOSING`.
+- TypeScript baseline reduced from 570 to 556 errors; remaining errors are
+  pre-existing and outside the touched reporting files.
+
 ## Deferred cleanup
 
-- Remove or consolidate `DashboardLayout-legacy-backup.tsx`.
-- Remove or consolidate `route-legacy-backup.ts`.
-- Consolidate `next.config.js` and `next.config.ts`.
 - Decide the future of old report pages (`reports/sales`, comprehensive,
   customer, menu, operational) and the old Live Order Board.
 - Split the large Counter report/view model code after the feature is verified
