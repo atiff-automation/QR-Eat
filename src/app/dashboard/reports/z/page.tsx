@@ -11,6 +11,8 @@ interface ZRow {
   zNumber: string | null;
   closedAt: string | null;
   netSales: string;
+  cashExpected: string;
+  cashCounted: string | null;
   cashVariance: string | null;
 }
 
@@ -65,6 +67,9 @@ export default function ZReportsPage() {
                   </p>
                   <p className="text-xs text-gray-500">
                     {row.zNumber ?? 'No Z number'} · Net MYR {row.netSales}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Cash expected {row.cashExpected} · counted {row.cashCounted ?? '—'} · variance {row.cashVariance ?? '—'}
                   </p>
                 </div>
                 <Link

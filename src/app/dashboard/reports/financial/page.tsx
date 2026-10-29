@@ -30,10 +30,13 @@ export default function FinancialReportPage() {
       setError(null);
 
       // Get staff info to get restaurant ID
-      const staffData = await ApiClient.get<{
-        staff: { restaurant: { id: string } };
+      const authData = await ApiClient.get<{
+        restaurantContext?: { id?: string };
+        currentRole?: { restaurantId?: string };
       }>('/api/auth/me');
-      const restaurantId = staffData.staff.restaurant.id;
+      const restaurantId =
+        authData.restaurantContext?.id ?? authData.currentRole?.restaurantId;
+      if (!restaurantId) throw new Error('Restaurant context is missing');
 
       // Generate report
       if (format === 'csv' || format === 'pdf') {

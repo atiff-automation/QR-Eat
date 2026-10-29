@@ -420,6 +420,141 @@ export async function getCounterTopItemsLastDays(
   );
 }
 
+export async function getDailyOrdersReport(
+  restaurantId: string,
+  businessDate: BusinessDate
+) {
+  const { clock, currency } = await getRestaurantClock(restaurantId);
+  const day = await prisma.businessDay.findFirst({
+    where: {
+      restaurantId,
+      businessDate: toDbBusinessDate(businessDate),
+    },
+  });
+  const start = day?.openedAt ?? getBusinessDayStart(businessDate, clock);
+  const end = day?.closedAt ?? new Date();
+  const payments = await prisma.payment.findMany({
+    where: {
+      order: { restaurantId },
+      status: 'PAID',
+      createdAt: { gte: start, lte: end },
+    },
+    select: { orderId: true },
+  });
+  const orderIds = Array.from(new Set(payments.map((row) => row.orderId)));
+  if (orderIds.length === 0) {
+    return { businessDate, currency, orders: [], totals: emptyDailyTotals() };
+  }
+  const orders = await prisma.order.findMany({
+    where: { id: { in: orderIds }, restaurantId },
+    select: {
+      id: true,
+      orderNumber: true,
+      status: true,
+      paymentStatus: true,
+      orderType: true,
+      createdAt: true,
+      totalAmount: true,
+      subtotalAmount: true,
+      taxAmount: true,
+      serviceCharge: true,
+      discountAmount: true,
+      table: { select: { tableNumber: true, tableName: true } },
+      items: {
+        select: {
+          id: true,
+          quantity: true,
+          unitPrice: true,
+          totalAmount: true,
+          menuItem: { select: { name: true } },
+        },
+      },
+      payments: {
+        where: { status: 'PAID' },
+        select: {
+          paymentMethod: true,
+          amount: true,
+          cashReceived: true,
+          changeGiven: true,
+          receiptNumber: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'asc' },
+  });
+  const totals = orders.reduce(
+    (acc, order) => {
+      acc.orderCount += 1;
+      acc.gross += Number(order.totalAmount);
+      acc.subtotal += Number(order.subtotalAmount);
+      acc.tax += Number(order.taxAmount);
+      acc.serviceCharge += Number(order.serviceCharge);
+      acc.discounts += Number(order.discountAmount);
+      return acc;
+    },
+    {
+      orderCount: 0,
+      gross: 0,
+      subtotal: 0,
+      tax: 0,
+      serviceCharge: 0,
+      discounts: 0,
+    }
+  );
+  return {
+    businessDate,
+    currency,
+    orders: orders.map((order) => ({
+      id: order.id,
+      orderNumber: order.orderNumber,
+      status: order.status,
+      paymentStatus: order.paymentStatus,
+      orderType: order.orderType,
+      createdAt: order.createdAt.toISOString(),
+      tableNumber: order.table?.tableNumber ?? null,
+      tableName: order.table?.tableName ?? null,
+      totalAmount: money(order.totalAmount),
+      subtotalAmount: money(order.subtotalAmount),
+      taxAmount: money(order.taxAmount),
+      serviceCharge: money(order.serviceCharge),
+      discountAmount: money(order.discountAmount),
+      items: order.items.map((item) => ({
+        id: item.id,
+        name: item.menuItem.name,
+        quantity: item.quantity,
+        unitPrice: money(item.unitPrice),
+        totalAmount: money(item.totalAmount),
+      })),
+      payments: order.payments.map((payment) => ({
+        method: payment.paymentMethod,
+        amount: money(payment.amount),
+        cashReceived: payment.cashReceived ? money(payment.cashReceived) : null,
+        changeGiven: payment.changeGiven ? money(payment.changeGiven) : null,
+        receiptNumber: payment.receiptNumber,
+      })),
+    })),
+    totals: {
+      orderCount: totals.orderCount,
+      gross: money(totals.gross),
+      subtotal: money(totals.subtotal),
+      tax: money(totals.tax),
+      serviceCharge: money(totals.serviceCharge),
+      discounts: money(totals.discounts),
+    },
+  };
+}
+
+function emptyDailyTotals() {
+  return {
+    orderCount: 0,
+    gross: '0.00',
+    subtotal: '0.00',
+    tax: '0.00',
+    serviceCharge: '0.00',
+    discounts: '0.00',
+  };
+}
+
 export async function getCounterSalesPage(
   restaurantId: string,
   options: { businessDayId?: string; offset?: number; limit?: number } = {}
@@ -707,7 +842,12 @@ export async function listClosedBusinessDays(restaurantId: string, limit = 30) {
   });
   return rows.map((row) => {
     const snapshot = row.snapshot as {
-      summary?: { netSales?: string; cashVariance?: string | null };
+      summary?: {
+        netSales?: string;
+        cashExpected?: string;
+        cashCounted?: string | null;
+        cashVariance?: string | null;
+      };
     } | null;
     return {
       id: row.id,
@@ -715,6 +855,8 @@ export async function listClosedBusinessDays(restaurantId: string, limit = 30) {
       zNumber: row.zNumber,
       closedAt: row.closedAt?.toISOString() ?? null,
       netSales: snapshot?.summary?.netSales ?? '0.00',
+      cashExpected: snapshot?.summary?.cashExpected ?? '0.00',
+      cashCounted: snapshot?.summary?.cashCounted ?? null,
       cashVariance: snapshot?.summary?.cashVariance ?? null,
     };
   });

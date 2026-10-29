@@ -159,7 +159,9 @@ export interface PopularItemsParams {
 
 // Hook: Revenue Analytics
 export const useRevenueAnalytics = (params: RevenueParams) => {
-  const { restaurantId } = useAuthUser();
+  const { data: authData } = useAuthUser();
+  const restaurantId =
+    authData?.restaurantContext?.id ?? authData?.currentRole?.restaurantId;
   const { period, granularity } = params;
 
   return useQuery({
@@ -175,7 +177,7 @@ export const useRevenueAnalytics = (params: RevenueParams) => {
       const response = await ApiClient.get<{ analytics: RevenueAnalytics }>(
         `/staff/analytics/${restaurantId}/revenue?${queryParams.toString()}`
       );
-      return response.data.analytics;
+      return response.analytics;
     },
     enabled: !!restaurantId,
     staleTime: 5 * 60 * 1000,
@@ -184,7 +186,9 @@ export const useRevenueAnalytics = (params: RevenueParams) => {
 
 // Hook: Order Analytics
 export const useOrderAnalytics = (params: OrderParams) => {
-  const { restaurantId } = useAuthUser();
+  const { data: authData } = useAuthUser();
+  const restaurantId =
+    authData?.restaurantContext?.id ?? authData?.currentRole?.restaurantId;
   const { period, granularity } = params;
 
   return useQuery({
@@ -200,7 +204,7 @@ export const useOrderAnalytics = (params: OrderParams) => {
       const response = await ApiClient.get<{ analytics: OrderAnalytics }>(
         `/staff/analytics/${restaurantId}/orders?${queryParams.toString()}`
       );
-      return response.data.analytics;
+      return response.analytics;
     },
     enabled: !!restaurantId,
     staleTime: 5 * 60 * 1000,
@@ -209,7 +213,9 @@ export const useOrderAnalytics = (params: OrderParams) => {
 
 // Hook: Popular Items
 export const usePopularItems = (params: PopularItemsParams) => {
-  const { restaurantId } = useAuthUser();
+  const { data: authData } = useAuthUser();
+  const restaurantId =
+    authData?.restaurantContext?.id ?? authData?.currentRole?.restaurantId;
   const { period, limit = 10 } = params;
 
   return useQuery({
@@ -227,7 +233,7 @@ export const usePopularItems = (params: PopularItemsParams) => {
       }>(
         `/staff/analytics/${restaurantId}/popular-items?${queryParams.toString()}`
       );
-      return response.data.analytics;
+      return response.analytics;
     },
     enabled: !!restaurantId,
     staleTime: 5 * 60 * 1000,

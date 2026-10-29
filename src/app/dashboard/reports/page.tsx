@@ -268,6 +268,13 @@ export default function ReportsPage() {
             Live Order Board
           </Link>
           <Link
+            href="/dashboard/reports/daily"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+          >
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Daily Orders
+          </Link>
+          <Link
             href="/dashboard/reports/z"
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900"
           >

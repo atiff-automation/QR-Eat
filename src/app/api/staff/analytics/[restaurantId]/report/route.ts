@@ -60,6 +60,13 @@ export async function POST(
 
     const { restaurantId } = await params;
 
+    if (!authResult.user.permissions.includes('analytics:read')) {
+      return NextResponse.json(
+        { error: 'Analytics access is required' },
+        { status: 403 }
+      );
+    }
+
     // Verify staff has access to this restaurant
     const userRestaurantId = authResult.user.currentRole?.restaurantId;
     if (userRestaurantId !== restaurantId) {
