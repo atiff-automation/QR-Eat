@@ -21,10 +21,6 @@ const nextConfig = {
   },
   // Output server components external packages
   serverExternalPackages: ['jsonwebtoken'],
-  // Experimental features
-  experimental: {
-    middlewareSourceMaps: true,
-  },
   // Webpack configuration
   webpack: (config, { isServer }) => {
     // Fixes for Node.js modules in browser

@@ -25,13 +25,11 @@ export async function POST(request: NextRequest) {
           where: { email },
           include: { restaurant: true },
         });
-        tableName = 'staff';
         break;
       case 'restaurant_owner':
         user = await prisma.restaurantOwner.findUnique({
           where: { email },
         });
-        tableName = 'restaurant_owner';
         break;
       default:
         return NextResponse.json(

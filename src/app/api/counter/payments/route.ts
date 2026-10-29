@@ -131,7 +131,6 @@ export async function POST(request: NextRequest) {
         ipAddress: SecurityUtils.getClientIP(request),
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
-          paymentBatchId: result.paymentBatchId,
           receiptNumber: response.receiptNumber,
           tableId: data.tableId,
           paymentMethod: data.paymentMethod,
