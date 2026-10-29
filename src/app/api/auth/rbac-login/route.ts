@@ -341,7 +341,12 @@ export async function PATCH(request: NextRequest) {
       userAgent
     );
 
-    if (!switchResult.success) {
+    if (
+      !switchResult.success ||
+      !switchResult.token ||
+      !switchResult.user ||
+      !switchResult.session
+    ) {
       return NextResponse.json(
         { error: switchResult.error || 'Role switch failed' },
         { status: 400 }
@@ -350,7 +355,7 @@ export async function PATCH(request: NextRequest) {
 
     const { token, user, session } = switchResult;
 
-    const responseData = {
+    const responseData: Record<string, unknown> = {
       message: 'Role switched successfully',
       userType: user.userType,
       user: {

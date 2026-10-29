@@ -1,9 +1,9 @@
 /**
  * Role Switching Endpoint for RBAC System
- * 
+ *
  * This endpoint allows users to switch between their available roles
  * within a single session, implementing seamless role transitions.
- * 
+ *
  * Implements Phase 5.2.1 of RBAC Implementation Plan
  */
 
@@ -15,7 +15,7 @@ import { SecurityUtils } from '@/lib/security';
 export async function POST(request: NextRequest) {
   try {
     const { newRoleId } = await request.json();
-    
+
     if (!newRoleId) {
       return NextResponse.json(
         { error: 'Role ID is required' },
@@ -24,25 +24,23 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract session from current token
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value; // Fallback for transition
-                  
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value; // Fallback for transition
+
     if (!token) {
       return NextResponse.json(
         { error: 'No authentication token found' },
         { status: 401 }
       );
     }
-    
+
     // Validate current token
     const validation = await AuthServiceV2.validateToken(token);
-    if (!validation.isValid) {
-      return NextResponse.json(
-        { error: 'Invalid token' },
-        { status: 401 }
-      );
+    if (!validation.isValid || !validation.payload) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
     }
-    
+
     // Get client information for audit logging
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
@@ -55,7 +53,12 @@ export async function POST(request: NextRequest) {
       userAgent
     );
 
-    if (!switchResult.success) {
+    if (
+      !switchResult.success ||
+      !switchResult.token ||
+      !switchResult.user ||
+      !switchResult.session
+    ) {
       return NextResponse.json(
         { error: switchResult.error || 'Role switch failed' },
         { status: 400 }
@@ -65,7 +68,7 @@ export async function POST(request: NextRequest) {
     const { token: newToken, user, session } = switchResult;
 
     // Prepare response data
-    const responseData = {
+    const responseData: Record<string, unknown> = {
       message: 'Role switched successfully',
       user: {
         id: user.id,
@@ -74,12 +77,12 @@ export async function POST(request: NextRequest) {
         lastName: user.lastName,
         currentRole: user.currentRole,
         availableRoles: user.availableRoles,
-        permissions: user.permissions
+        permissions: user.permissions,
       },
       session: {
         id: session.sessionId,
-        expiresAt: session.expiresAt
-      }
+        expiresAt: session.expiresAt,
+      },
     };
 
     // Add restaurant context if available
@@ -107,18 +110,18 @@ export async function POST(request: NextRequest) {
         fromRole: validation.payload.currentRole.roleTemplate,
         toRole: user.currentRole.roleTemplate,
         sessionId: session.sessionId,
-        permissions: user.permissions.length
+        permissions: user.permissions.length,
       });
     }
 
     return response;
   } catch (error) {
     console.error('Role switch error:', error);
-    
+
     // Log security event for system errors
     const clientIP = SecurityUtils.getClientIP(request);
     const userAgent = request.headers.get('user-agent') || 'unknown';
-    
+
     await AuditLogger.logSecurityEvent(
       'system',
       'ROLE_SWITCH_ERROR',
@@ -129,9 +132,10 @@ export async function POST(request: NextRequest) {
         userAgent,
         metadata: {
           endpoint: 'switch-role',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown',
-          timestamp: new Date().toISOString()
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+          timestamp: new Date().toISOString(),
+        },
       }
     );
 
