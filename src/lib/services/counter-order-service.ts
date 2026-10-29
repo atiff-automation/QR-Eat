@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { SequenceManager } from '@/lib/sequence-manager';
+import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { formatPickupNumber } from '@/lib/order-utils';
 import { canTableAcceptOrders } from '@/lib/table-utils';
@@ -600,6 +601,14 @@ export async function createCounterOrder(
       'Restaurant context is required',
       'RESTAURANT_CONTEXT_REQUIRED',
       400
+    );
+  }
+
+  if (await isBusinessDayClosing(actor.restaurantId)) {
+    throw new CounterOrderError(
+      'The business day is closing. Resolve existing orders before adding new ones.',
+      'BUSINESS_DAY_CLOSING',
+      409
     );
   }
 

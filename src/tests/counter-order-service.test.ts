@@ -13,6 +13,7 @@ import { formatPickupNumber } from '@/lib/order-utils';
 jest.mock('@/lib/database', () => ({
   prisma: {
     table: { findUnique: jest.fn() },
+    businessDay: { findFirst: jest.fn() },
     restaurant: { findUnique: jest.fn() },
     menuItem: { findMany: jest.fn() },
     order: { findUnique: jest.fn() },

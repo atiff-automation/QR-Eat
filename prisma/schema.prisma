@@ -942,6 +942,7 @@ model BusinessDay {
   businessDate   DateTime  @db.Date
   status         String    @default("OPEN") // OPEN | CLOSED
   openedAt       DateTime  @default(now())
+  closeStartedAt DateTime?
   closedAt       DateTime?
   closedBy       String?
   closedByName   String?

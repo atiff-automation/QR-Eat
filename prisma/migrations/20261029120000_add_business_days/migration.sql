@@ -12,6 +12,7 @@ CREATE TABLE "business_days" (
     "businessDate" DATE NOT NULL,
     "status" TEXT NOT NULL DEFAULT 'OPEN',
     "openedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "closeStartedAt" TIMESTAMP(3),
     "closedAt" TIMESTAMP(3),
     "closedBy" TEXT,
     "closedByName" TEXT,

@@ -19,6 +19,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
+import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
@@ -184,6 +185,18 @@ export async function POST(request: NextRequest) {
       parseFloat(table.restaurant.taxRate.toString()),
       parseFloat(table.restaurant.serviceChargeRate.toString())
     );
+
+    if (await isBusinessDayClosing(table.restaurant.id)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            'The business day is closing. Please ask the counter to resolve the current day.',
+          code: 'BUSINESS_DAY_CLOSING',
+        },
+        { status: 409 }
+      );
+    }
 
     // Generate sequential order number
     const { number: dailySeq, formatted: orderNumber } =

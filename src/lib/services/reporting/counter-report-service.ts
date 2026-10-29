@@ -50,7 +50,7 @@ export interface CounterTopItem {
 
 export interface CounterDaySummary {
   businessDate: BusinessDate;
-  status: 'OPEN' | 'CLOSED';
+  status: 'OPEN' | 'CLOSING' | 'CLOSED';
   timezone: string;
   currency: string;
   asOf: string;
@@ -128,7 +128,7 @@ async function getRestaurantClock(restaurantId: string): Promise<{
 
 export async function getOpenBusinessDay(restaurantId: string) {
   const existing = await prisma.businessDay.findFirst({
-    where: { restaurantId, status: 'OPEN' },
+    where: { restaurantId, status: { in: ['OPEN', 'CLOSING'] } },
     orderBy: { businessDate: 'asc' },
   });
   if (existing) return existing;
@@ -167,7 +167,7 @@ export async function getOpenBusinessDay(restaurantId: string) {
   } catch (error) {
     // Unique race: another request created the day first.
     const raced = await prisma.businessDay.findFirst({
-      where: { restaurantId, status: 'OPEN' },
+      where: { restaurantId, status: { in: ['OPEN', 'CLOSING'] } },
       orderBy: { businessDate: 'asc' },
     });
     if (raced) return raced;
@@ -325,7 +325,7 @@ export async function getCounterDaySummary(
 
   return {
     businessDate,
-    status: businessDay.status as 'OPEN' | 'CLOSED',
+    status: businessDay.status as 'OPEN' | 'CLOSING' | 'CLOSED',
     timezone: clock.timezone,
     currency,
     asOf: new Date().toISOString(),
@@ -689,15 +689,48 @@ export async function getCounterDailyTotals(
   return result;
 }
 
+export async function startClosingBusinessDay(
+  restaurantId: string
+): Promise<CounterDaySummary> {
+  const day = await getOpenBusinessDay(restaurantId);
+  if (day.status === 'CLOSED') {
+    throw new CounterReportError(
+      'The business day is already closed',
+      'DAY_ALREADY_CLOSED',
+      409
+    );
+  }
+  if (day.status !== 'CLOSING') {
+    await prisma.businessDay.update({
+      where: { id: day.id },
+      data: { status: 'CLOSING', closeStartedAt: new Date() },
+    });
+  }
+  return getCounterDaySummary(restaurantId, day.id);
+}
+
+export async function cancelClosingBusinessDay(
+  restaurantId: string
+): Promise<CounterDaySummary> {
+  const day = await getOpenBusinessDay(restaurantId);
+  if (day.status === 'CLOSING') {
+    await prisma.businessDay.update({
+      where: { id: day.id },
+      data: { status: 'OPEN', closeStartedAt: null },
+    });
+  }
+  return getCounterDaySummary(restaurantId, day.id);
+}
+
 export async function setOpeningFloat(
   restaurantId: string,
   openingFloat: number
 ): Promise<CounterDaySummary> {
   const businessDay = await getOpenBusinessDay(restaurantId);
-  if (businessDay.status === 'CLOSED') {
+  if (businessDay.status !== 'OPEN') {
     throw new CounterReportError(
-      'The business day is already closed',
-      'DAY_ALREADY_CLOSED',
+      'The opening float can only be changed while the day is open',
+      'DAY_NOT_OPEN',
       409
     );
   }
@@ -796,7 +829,7 @@ export async function closeCounterBusinessDay(input: {
 
   const updated = await prisma.$transaction(async (tx) => {
     const changed = await tx.businessDay.updateMany({
-      where: { id: businessDay.id, status: 'OPEN' },
+      where: { id: businessDay.id, status: { in: ['OPEN', 'CLOSING'] } },
       data: {
         status: 'CLOSED',
         closedAt,
