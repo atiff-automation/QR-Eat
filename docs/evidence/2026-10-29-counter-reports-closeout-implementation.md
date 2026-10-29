@@ -115,6 +115,15 @@
 - Added a proper printer icon and a Receipt printer entry in More.
 - Changed the 7-day action label to `Close today`.
 - A73 visual checks passed at font scale 1.0 and 1.3.
+- Additional font-scale checks:
+  - Opening Float dialog at 1.0 and 1.3.
+  - Close Day dialog at 1.3.
+  - Day Closed/Z result at 1.3.
+- Website Z Reports page visual check passed; Z dates and cash values are
+  formatted consistently.
+- Final production website deployment after date formatting:
+  `99d98ab7-fe60-4243-863f-68dbe876bd5e`.
+- Final test close after visual audit: `Z-261101-005`, MYR 0.00, variance 0.00.
 
 ## Not done / next
 
