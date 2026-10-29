@@ -819,6 +819,7 @@ export async function closeCounterBusinessDay(input: {
     closedAt: closedAt.toISOString(),
     summary: {
       ...summary,
+      status: 'CLOSED' as const,
       cashExpected: money(expectedCash),
       cashCounted: money(input.countedCash),
       cashVariance: money(variance),
