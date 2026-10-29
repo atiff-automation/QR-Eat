@@ -54,7 +54,10 @@ The UI does not duplicate the policy.
 - A73:
   - `Ongoing` filter visible
   - READY order detail showed **Cancel order**
-  - Served paid order API policy returned **REFUND**
+  - Served paid order detail showed **Refund payment**
+  - Refund dialog showed `MYR 18.99`, stated the order remains served, and
+    offered Keep order / Refund
+  - The refund was not executed; Keep order was used
   - No served-paid cancel action is exposed
 
 Release APK SHA-256:
