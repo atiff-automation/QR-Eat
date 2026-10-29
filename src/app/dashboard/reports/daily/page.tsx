@@ -285,7 +285,7 @@ export default function DailySalesPage() {
                   ['all', `All ${report.orders.length}`],
                   [
                     'completed',
-                    `Completed ${report.orders.filter((o) => o.status === 'SERVED').length}`,
+                    `Done ${report.orders.filter((o) => o.status === 'SERVED').length}`,
                   ],
                   [
                     'unpaid',

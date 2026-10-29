@@ -5,7 +5,7 @@ Date: 2026-10-29
 ## Scope delivered
 
 - Business-day order list for Counter and website.
-- Completed orders view in Counter.
+- Done orders view in Counter.
 - Actionable close blockers from Reports and Close Day.
 - Daily Sales page includes all orders, paid and unpaid.
 - Payments and order history in order detail.
@@ -48,10 +48,10 @@ Date: 2026-10-29
 
 ## Counter changes
 
-- Orders now has `Live` and `Completed` tabs.
-- Completed includes served and cancelled orders with paid/unpaid/cancelled
+- Orders now has `Live` and `Done` tabs.
+- Done includes served and cancelled orders with paid/unpaid/cancelled
   filters.
-- Completed orders open the existing detail sheet; item totals, payments,
+- Done orders open the existing detail sheet; item totals, payments,
   receipt numbers, reprint and status history are visible.
 - Reports → Needs attention rows are clickable.
 - Blocker sheet lists the affected orders and supports:
@@ -92,7 +92,7 @@ Date: 2026-10-29
 Release APK SHA-256:
 
 ```text
-fa32e29bc21c77770d3ccf92330fe2f8ed31c021fd15ec946f83b7f5d3b0720a
+b5a6d56759ea9c6eddeff374c4b8566efaaa4380e1efac5a7cd85758a25bb331
 ```
 
 ## Legacy cleanup completed
@@ -144,8 +144,8 @@ fa32e29bc21c77770d3ccf92330fe2f8ed31c021fd15ec946f83b7f5d3b0720a
   - Reports showed 12 open-order blockers.
   - Blocker sheet listed the actual orders and supported Serve/Open.
   - Serving an order reduced the blocker count and refreshed Reports.
-  - Completed loaded served orders across business dates.
-  - Completed detail showed items, total, payment, receipt number and reprint.
+  - Done loaded served orders across business dates.
+  - Done detail showed items, total, payment, receipt number and reprint.
   - Order history was intentionally removed from the Counter detail card.
   - Website Daily Sales showed the current business date, open orders, items
     and filters.
