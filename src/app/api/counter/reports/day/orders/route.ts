@@ -40,6 +40,9 @@ export async function GET(request: NextRequest) {
       q: url.searchParams.get('q') || undefined,
       offset: Number.isFinite(offset) ? offset : 0,
       limit: limitParam ? Number(limitParam) : undefined,
+      allDates:
+        url.searchParams.get('allDates') === 'true' ||
+        url.searchParams.get('allDates') === '1',
     });
     return NextResponse.json({ success: true, ...report });
   } catch (error) {

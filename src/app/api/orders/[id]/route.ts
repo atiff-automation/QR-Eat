@@ -101,7 +101,8 @@ export async function GET(
         },
         orderEvents: {
           select: {
-            id: true,
+            // OrderEvent.id is a BigInt and cannot be serialized by
+            // NextResponse.json. The timeline does not need the database ID.
             type: true,
             payload: true,
             createdAt: true,

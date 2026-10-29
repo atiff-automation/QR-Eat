@@ -644,6 +644,7 @@ export async function getCounterDayOrders(
     q?: string;
     offset?: number;
     limit?: number;
+    allDates?: boolean;
   } = {}
 ): Promise<CounterDayOrdersPage> {
   const window = await getBusinessDayWindow(
@@ -661,7 +662,9 @@ export async function getCounterDayOrders(
     {
       ...dayOrderScopeWhere(scope, options.paymentStatus),
       restaurantId,
-      createdAt: { gte: window.start, lte: window.end },
+      ...(options.allDates
+        ? {}
+        : { createdAt: { gte: window.start, lte: window.end } }),
     },
     options.q
   );
@@ -669,7 +672,7 @@ export async function getCounterDayOrders(
     prisma.order.findMany({
       where,
       select: COUNTER_DAY_ORDER_SELECT,
-      orderBy: { createdAt: 'asc' },
+      orderBy: { createdAt: options.allDates ? 'desc' : 'asc' },
       skip: offset,
       ...(limit === undefined ? {} : { take: limit }),
     }),

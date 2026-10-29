@@ -92,7 +92,7 @@ Date: 2026-10-29
 Release APK SHA-256:
 
 ```text
-d78a4f7dd526c3ae692262b9fc9fa35f3270a85581ca3088f4ecbcddadcd9012
+b667246cc6e803ed524117bfc67a65aa76cb3b1fadabd87160a9ce35f8a12126
 ```
 
 ## Legacy cleanup completed
@@ -113,6 +113,25 @@ d78a4f7dd526c3ae692262b9fc9fa35f3270a85581ca3088f4ecbcddadcd9012
   in production.
 - Add cash in/out and no-sale tracking before introducing variance thresholds.
 
+## Production rollout
+
+- Fresh pre-deploy backup:
+  `/tmp/qr-eat-prod-before-daily-sales-deploy-20261029.dump`
+- Production deployment:
+  `7b7c7b22-723d-41f8-b384-99d7586081cd`
+- A73 installed the new APK over the previous release.
+- Verified:
+  - Reports showed 12 open-order blockers.
+  - Blocker sheet listed the actual orders and supported Serve/Open.
+  - Serving an order reduced the blocker count and refreshed Reports.
+  - Completed loaded served orders across business dates.
+  - Completed detail showed payments, receipt number, reprint and history.
+  - Website Daily Sales showed the current business date, open orders, items
+    and filters.
+- Two old test orders were served during verification; the remaining blocker
+  count is 10. The business day was not closed.
+
 ## Deployment status
 
-No production deployment, push or tag was made as part of this implementation.
+Production was deployed for this verification. No push, tag or version bump was
+made.
