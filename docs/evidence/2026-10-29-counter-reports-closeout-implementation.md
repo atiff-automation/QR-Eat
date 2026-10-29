@@ -4,7 +4,7 @@
 **Scope:** QR-Eat server/website + Tabtep Counter Android app.
 **Server/website commit:** `59d40c7`
 **Counter commit:** `1a95b63`
-**Counter APK SHA-256:** `b54fec1f9d6ba186993ad1270e15fee7a907b67c42a4ac794b7692c7c46fd69d`
+**Counter APK SHA-256:** `805fc7e356cfb365fd5492b4024a0f53b584dcebed987f7ecad4d1dd9dfaf8f4`
 **Plan:** `docs/COUNTER-REPORTS-CLOSEOUT-PLAN.md`
 **Counter UI plan:** `Tabtep-App/docs/COUNTER-REPORTS-UI-PLAN.md`
 
@@ -71,13 +71,37 @@
 - `./gradlew :core:model:test :core:network:test :counter:lintDebug :counter:assembleRelease` passed.
 - New Counter API report test added.
 
+## Production pilot
+
+- Production DB backup taken before migration:
+  `/tmp/qr-eat-prod-before-business-days-20261029.dump`
+- Migration applied to Railway production.
+- Railway deployment `aa5da0c7-944e-43c5-83c8-6e382c61b5c8` succeeded.
+- `/api/health` returned 200 with database CONNECTED.
+- Counter report APIs verified on `https://tabtep.app`.
+- A73 release installed: `1.5.3` / `23`, SHA-256
+  `805fc7e356cfb365fd5492b4024a0f53b584dcebed987f7ecad4d1dd9dfaf8f4`.
+- A73 verified:
+  - manager Reports screen
+  - production business-day report
+  - close-day warning/flow
+  - cash expected/counted/variance
+  - Z snapshot
+  - `Share PDF` Android share sheet
+  - thermal print job sent to the paired KPrinter
+- Production test day `2026-10-30` closed as `Z-261030-003`:
+  - one cash sale
+  - net MYR 22.99
+  - cash expected/counted MYR 22.99
+  - variance MYR 0.00
+- Website `/dashboard/reports/z` data verified for the three production test closes.
+- Website `/dashboard/reports/daily` data verified for the test sale.
+
 ## Not done / next
 
-- Migration must be applied to the target database before deployment.
-- No server/website deployment or production data changes.
-- No device installation of the new Counter build yet.
-- No A73 end-to-end close/Z test yet; requires migrated server endpoint.
 - No manager step-up (accepted decision).
 - No 24-hour business-day model.
-- Website itemised daily order export/CSV not added yet.
-- Legacy report/financial/analytics cleanup remains a follow-up.
+- Thermal paper output was sent to the paired printer; physical paper quality
+  should be checked by the operator.
+- Legacy report/financial cleanup remains a follow-up.
+- No push/tag/version bump.
