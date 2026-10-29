@@ -4,7 +4,7 @@
 **Scope:** QR-Eat server/website + Tabtep Counter Android app.
 **Server/website commit:** `59d40c7`
 **Counter commit:** `1a95b63`
-**Counter APK SHA-256:** `805fc7e356cfb365fd5492b4024a0f53b584dcebed987f7ecad4d1dd9dfaf8f4`
+**Counter APK SHA-256:** `71fea6f5cbdcac55142542f5a3daabd5afb5f0cc393b8c58122d8f78724010ab`
 **Plan:** `docs/COUNTER-REPORTS-CLOSEOUT-PLAN.md`
 **Counter UI plan:** `Tabtep-App/docs/COUNTER-REPORTS-UI-PLAN.md`
 
@@ -80,7 +80,7 @@
 - `/api/health` returned 200 with database CONNECTED.
 - Counter report APIs verified on `https://tabtep.app`.
 - A73 release installed: `1.5.3` / `23`, SHA-256
-  `805fc7e356cfb365fd5492b4024a0f53b584dcebed987f7ecad4d1dd9dfaf8f4`.
+  `71fea6f5cbdcac55142542f5a3daabd5afb5f0cc393b8c58122d8f78724010ab`.
 - A73 verified:
   - manager Reports screen
   - production business-day report
@@ -88,7 +88,8 @@
   - cash expected/counted/variance
   - Z snapshot
   - `Share PDF` Android share sheet
-  - thermal print job sent to the paired KPrinter
+  - thermal print job sent to the paired KPrinter; operator confirmed the
+    printed paper is good
 - Production test day `2026-10-30` closed as `Z-261030-003`:
   - one cash sale
   - net MYR 22.99
@@ -96,6 +97,24 @@
   - variance MYR 0.00
 - Website `/dashboard/reports/z` data verified for the three production test closes.
 - Website `/dashboard/reports/daily` data verified for the test sale.
+- Additional production visual-audit sale closed as `Z-261031-004`:
+  - net MYR 79.96
+  - cash expected/counted MYR 79.96
+  - variance MYR 0.00
+
+## Visual audit fixes
+
+- Added status/navigation bar padding to Reports and Z screens.
+- Fixed the 7-day Summary to use 7-day KPIs instead of today-only KPIs.
+- Removed today-only opening float/payment mix/unpaid cards from the 7-day
+  Summary.
+- Fixed the 7-day Sales tab to show daily totals instead of today’s
+  transactions.
+- Allowed KPI values to wrap at font scale 1.3 instead of truncating.
+- Styled the close/opening-float dialogs with the app surface and 20dp shape.
+- Added a proper printer icon and a Receipt printer entry in More.
+- Changed the 7-day action label to `Close today`.
+- A73 visual checks passed at font scale 1.0 and 1.3.
 
 ## Not done / next
 
