@@ -34,15 +34,21 @@ interface OrderStats {
 type TimeFilter = 'today' | 'week' | 'all_time';
 type StatusFilter = 'ACTIVE' | 'SERVED' | 'CANCELLED' | 'ALL';
 
-export function OrdersOverview() {
+export function OrdersOverview({
+  initialStatus = 'ACTIVE',
+  initialTimeFilter = 'today',
+}: {
+  initialStatus?: StatusFilter;
+  initialTimeFilter?: TimeFilter;
+} = {}) {
   const [orders, setOrders] = useState<OrderSummary[]>([]);
   const [stats, setStats] = useState<OrderStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   // Filter States
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>('today');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ACTIVE');
+  const [timeFilter, setTimeFilter] = useState<TimeFilter>(initialTimeFilter);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(initialStatus);
   const [lapsedCount, setLapsedCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);

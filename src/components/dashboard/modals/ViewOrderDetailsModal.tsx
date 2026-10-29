@@ -278,6 +278,14 @@ export function ViewOrderDetailsModal({
                       {formatPrice(order.serviceCharge, currency)}
                     </span>
                   </div>
+                  {Number(order.discountAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Discount</span>
+                      <span className="text-green-700">
+                        -{formatPrice(order.discountAmount, currency)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-bold text-lg border-t pt-2">
                     <span className="text-gray-900">Total</span>
                     <span className="text-blue-600">
@@ -285,6 +293,58 @@ export function ViewOrderDetailsModal({
                     </span>
                   </div>
                 </div>
+
+                {order.payments && order.payments.length > 0 && (
+                  <div className="border-t pt-4">
+                    <h3 className="mb-3 font-semibold text-gray-900">
+                      Payments
+                    </h3>
+                    <div className="space-y-2">
+                      {order.payments.map(
+                        (payment: {
+                          id: string;
+                          paymentMethod: string;
+                          amount: number | string;
+                          status: string;
+                          receiptNumber?: string | null;
+                          cashReceived?: number | string | null;
+                          changeGiven?: number | string | null;
+                        }) => (
+                          <div
+                            key={payment.id}
+                            className="flex flex-wrap justify-between gap-2 rounded-lg bg-gray-50 px-4 py-3 text-sm"
+                          >
+                            <div>
+                              <p className="font-medium capitalize text-gray-900">
+                                {payment.paymentMethod} · {payment.status}
+                              </p>
+                              {payment.receiptNumber && (
+                                <p className="text-xs text-gray-500">
+                                  Receipt {payment.receiptNumber}
+                                </p>
+                              )}
+                              {payment.cashReceived != null && (
+                                <p className="text-xs text-gray-500">
+                                  Cash{' '}
+                                  {formatPrice(payment.cashReceived, currency)}
+                                  {payment.changeGiven != null
+                                    ? ` · change ${formatPrice(
+                                        payment.changeGiven,
+                                        currency
+                                      )}`
+                                    : ''}
+                                </p>
+                              )}
+                            </div>
+                            <p className="font-semibold text-gray-900">
+                              {formatPrice(payment.amount, currency)}
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 {/* Modification History */}
                 {order.modifications && order.modifications.length > 0 && (

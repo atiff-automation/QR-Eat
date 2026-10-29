@@ -1,3 +1,4 @@
+import { OrderPaymentStatus, OrderStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import {
   addBusinessDays,
@@ -81,11 +82,113 @@ export interface CounterBlocker {
   amount?: string;
 }
 
+export type CounterDayOrderScope =
+  | 'all'
+  | 'history'
+  | 'completed'
+  | 'open'
+  | 'unpaid'
+  | 'cancelled';
+
+export interface CounterDayOrderOption {
+  id: string;
+  name: string;
+  priceModifier: string;
+}
+
+export interface CounterDayOrderItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  totalAmount: string;
+  specialInstructions: string | null;
+  options: CounterDayOrderOption[];
+}
+
+export interface CounterDayOrderPayment {
+  id: string;
+  method: string;
+  amount: string;
+  status: string;
+  receiptNumber: string | null;
+  cashReceived: string | null;
+  changeGiven: string | null;
+  createdAt: string;
+}
+
+export interface CounterDayOrder {
+  id: string;
+  orderNumber: string;
+  orderType: string;
+  tableId: string | null;
+  tableNumber: string | null;
+  tableName: string | null;
+  pickupNumber: string | null;
+  status: string;
+  paymentStatus: string;
+  source: string;
+  createdAt: string;
+  servedAt: string | null;
+  totalAmount: string;
+  subtotalAmount: string;
+  taxAmount: string;
+  serviceCharge: string;
+  discountAmount: string;
+  itemCount: number;
+  items: CounterDayOrderItem[];
+  payments: CounterDayOrderPayment[];
+  cancellationReason: string | null;
+  cancellationNotes: string | null;
+}
+
+export interface CounterDayOrderTotals {
+  orderCount: number;
+  paidCount: number;
+  unpaidCount: number;
+  openCount: number;
+  cancelledCount: number;
+  gross: string;
+  paid: string;
+  unpaid: string;
+  openTotal: string;
+  subtotal: string;
+  tax: string;
+  serviceCharge: string;
+  discounts: string;
+}
+
+export interface CounterDayOrdersPage {
+  businessDate: BusinessDate;
+  businessDayId: string;
+  timezone: string;
+  currency: string;
+  asOf: string;
+  orders: CounterDayOrder[];
+  totals: CounterDayOrderTotals;
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
+export interface CounterBlockerOrdersPage {
+  type: string;
+  label: string;
+  count: number;
+  orders: CounterDayOrder[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface CounterCloseResult {
   businessDayId: string;
   businessDate: BusinessDate;
   zNumber: string;
   closedAt: string;
+  closeNote: string | null;
   summary: CounterDaySummary;
   nextBusinessDate: BusinessDate;
 }
@@ -94,6 +197,19 @@ function money(
   value: number | string | { toString(): string } | null | undefined
 ): string {
   return Number(value ?? 0).toFixed(2);
+}
+
+export function assertVarianceReason(
+  variance: number,
+  note?: string | null
+): void {
+  if (Math.abs(variance) >= 0.005 && !note?.trim()) {
+    throw new CounterReportError(
+      'A reason is required when counted cash does not match expected cash',
+      'VARIANCE_REASON_REQUIRED',
+      400
+    );
+  }
 }
 
 async function getRestaurantClock(restaurantId: string): Promise<{
@@ -201,6 +317,431 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   });
+}
+
+const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
+  'PENDING',
+  'CONFIRMED',
+  'PREPARING',
+  'READY',
+];
+const HISTORY_ORDER_STATUSES: OrderStatus[] = ['SERVED', 'CANCELLED'];
+
+const COUNTER_DAY_ORDER_SELECT = {
+  id: true,
+  orderNumber: true,
+  orderType: true,
+  tableId: true,
+  dailySeq: true,
+  status: true,
+  paymentStatus: true,
+  source: true,
+  createdAt: true,
+  servedAt: true,
+  totalAmount: true,
+  subtotalAmount: true,
+  taxAmount: true,
+  serviceCharge: true,
+  discountAmount: true,
+  table: { select: { tableNumber: true, tableName: true } },
+  items: {
+    select: {
+      id: true,
+      quantity: true,
+      unitPrice: true,
+      totalAmount: true,
+      specialInstructions: true,
+      menuItem: { select: { name: true } },
+      selectedOptions: {
+        select: { id: true, name: true, priceModifier: true },
+      },
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
+  payments: {
+    select: {
+      id: true,
+      paymentMethod: true,
+      amount: true,
+      status: true,
+      receiptNumber: true,
+      cashReceived: true,
+      changeGiven: true,
+      createdAt: true,
+    },
+    orderBy: { createdAt: 'asc' as const },
+  },
+  modifications: {
+    select: { reason: true, reasonNotes: true, modifiedAt: true },
+    orderBy: { modifiedAt: 'desc' as const },
+    take: 1,
+  },
+} satisfies Prisma.OrderSelect;
+
+type CounterDayOrderRecord = Prisma.OrderGetPayload<{
+  select: typeof COUNTER_DAY_ORDER_SELECT;
+}>;
+
+type DayWindow = {
+  businessDay: Awaited<ReturnType<typeof getOpenBusinessDay>>;
+  businessDate: BusinessDate;
+  start: Date;
+  end: Date;
+  timezone: string;
+  currency: string;
+};
+
+async function getBusinessDayWindow(
+  restaurantId: string,
+  businessDayId?: string,
+  businessDate?: BusinessDate
+): Promise<DayWindow> {
+  const { clock, currency } = await getRestaurantClock(restaurantId);
+  let businessDay;
+  if (businessDayId) {
+    businessDay = await prisma.businessDay.findFirst({
+      where: { id: businessDayId, restaurantId },
+    });
+  } else if (businessDate) {
+    businessDay = await prisma.businessDay.findFirst({
+      where: {
+        restaurantId,
+        businessDate: toDbBusinessDate(businessDate),
+      },
+    });
+  } else {
+    businessDay = await getOpenBusinessDay(restaurantId);
+  }
+  if (!businessDay) {
+    if (!businessDate) {
+      throw new CounterReportError(
+        'No open business day',
+        'NO_BUSINESS_DAY',
+        404
+      );
+    }
+    return {
+      businessDay: {
+        id: '',
+        restaurantId,
+        businessDate: toDbBusinessDate(businessDate),
+        status: 'OPEN',
+        openedAt: getBusinessDayStart(businessDate, clock),
+        closeStartedAt: null,
+        closedAt: null,
+        closedBy: null,
+        closedByName: null,
+        closeNote: null,
+        openingFloat: new Prisma.Decimal(0),
+        countedCash: null,
+        expectedCash: null,
+        variance: null,
+        zNumber: null,
+        closeIdempotencyKey: null,
+        snapshot: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      businessDate,
+      start: getBusinessDayStart(businessDate, clock),
+      end: new Date(),
+      timezone: clock.timezone,
+      currency,
+    };
+  }
+  return {
+    businessDay,
+    businessDate: parseBusinessDateFromDb(businessDay.businessDate),
+    start: businessDay.openedAt,
+    end: businessDay.closedAt ?? new Date(),
+    timezone: clock.timezone,
+    currency,
+  };
+}
+
+function dayOrderScopeWhere(
+  scope: CounterDayOrderScope,
+  paymentStatus?: string
+): Prisma.OrderWhereInput {
+  const where: Prisma.OrderWhereInput = {};
+  if (scope === 'unpaid') {
+    where.status = 'SERVED';
+    where.paymentStatus = 'PENDING';
+    return where;
+  }
+  if (scope === 'completed') where.status = 'SERVED';
+  if (scope === 'cancelled') where.status = 'CANCELLED';
+  if (scope === 'open') where.status = { in: ACTIVE_ORDER_STATUSES };
+  if (scope === 'history') where.status = { in: HISTORY_ORDER_STATUSES };
+  if (
+    paymentStatus === 'PAID' ||
+    paymentStatus === 'PENDING' ||
+    paymentStatus === 'REFUNDED' ||
+    paymentStatus === 'FAILED'
+  ) {
+    where.paymentStatus = paymentStatus as OrderPaymentStatus;
+  }
+  return where;
+}
+
+function addDayOrderSearch(
+  where: Prisma.OrderWhereInput,
+  query?: string
+): Prisma.OrderWhereInput {
+  const q = query?.trim();
+  if (!q) return where;
+  return {
+    ...where,
+    OR: [
+      { orderNumber: { contains: q, mode: 'insensitive' } },
+      { customerName: { contains: q, mode: 'insensitive' } },
+      { customerPhone: { contains: q, mode: 'insensitive' } },
+      {
+        table: {
+          is: {
+            OR: [
+              { tableNumber: { contains: q, mode: 'insensitive' } },
+              { tableName: { contains: q, mode: 'insensitive' } },
+            ],
+          },
+        },
+      },
+    ],
+  };
+}
+
+function mapCounterDayOrder(order: CounterDayOrderRecord): CounterDayOrder {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    orderType: order.orderType,
+    tableId: order.tableId ?? null,
+    tableNumber: order.table?.tableNumber ?? null,
+    tableName: order.table?.tableName ?? null,
+    pickupNumber:
+      order.orderType === 'TAKEAWAY' && order.dailySeq
+        ? `#${String(order.dailySeq).padStart(3, '0')}`
+        : null,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    source: order.source,
+    createdAt: order.createdAt.toISOString(),
+    servedAt: order.servedAt?.toISOString() ?? null,
+    totalAmount: money(order.totalAmount),
+    subtotalAmount: money(order.subtotalAmount),
+    taxAmount: money(order.taxAmount),
+    serviceCharge: money(order.serviceCharge),
+    discountAmount: money(order.discountAmount),
+    itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
+    items: order.items.map((item) => ({
+      id: item.id,
+      name: item.menuItem.name,
+      quantity: item.quantity,
+      unitPrice: money(item.unitPrice),
+      totalAmount: money(item.totalAmount),
+      specialInstructions: item.specialInstructions,
+      options: item.selectedOptions.map((option) => ({
+        id: option.id,
+        name: option.name,
+        priceModifier: money(option.priceModifier),
+      })),
+    })),
+    payments: order.payments.map((payment) => ({
+      id: payment.id,
+      method: payment.paymentMethod,
+      amount: money(payment.amount),
+      status: payment.status,
+      receiptNumber: payment.receiptNumber,
+      cashReceived: payment.cashReceived ? money(payment.cashReceived) : null,
+      changeGiven: payment.changeGiven ? money(payment.changeGiven) : null,
+      createdAt: payment.createdAt.toISOString(),
+    })),
+    cancellationReason:
+      order.status === 'CANCELLED'
+        ? (order.modifications[0]?.reason ?? null)
+        : null,
+    cancellationNotes:
+      order.status === 'CANCELLED'
+        ? (order.modifications[0]?.reasonNotes ?? null)
+        : null,
+  };
+}
+
+async function getDayOrderTotals(
+  where: Prisma.OrderWhereInput
+): Promise<CounterDayOrderTotals> {
+  const [statusRows, paidCount, paidAgg, unpaidAgg] = await Promise.all([
+    prisma.order.groupBy({
+      by: ['status'],
+      where,
+      _count: { _all: true },
+      _sum: {
+        totalAmount: true,
+        subtotalAmount: true,
+        taxAmount: true,
+        serviceCharge: true,
+        discountAmount: true,
+      },
+    }),
+    prisma.order.count({ where: { ...where, paymentStatus: 'PAID' } }),
+    prisma.payment.aggregate({
+      where: { order: where, status: 'PAID' },
+      _sum: { amount: true },
+    }),
+    prisma.order.aggregate({
+      where: { ...where, status: 'SERVED', paymentStatus: 'PENDING' },
+      _sum: { totalAmount: true },
+      _count: { _all: true },
+    }),
+  ]);
+  const counts = new Map(
+    statusRows.map((row) => [row.status, row._count._all])
+  );
+  const sum = (value: Prisma.Decimal | null) => Number(value ?? 0);
+  const nonCancelled = statusRows.filter((row) => row.status !== 'CANCELLED');
+  const sumField = (
+    field:
+      | 'totalAmount'
+      | 'subtotalAmount'
+      | 'taxAmount'
+      | 'serviceCharge'
+      | 'discountAmount'
+  ) =>
+    nonCancelled.reduce(
+      (total, row) => total + sum(row._sum?.[field] ?? null),
+      0
+    );
+  const openTotal = statusRows
+    .filter((row) => ACTIVE_ORDER_STATUSES.includes(row.status))
+    .reduce((total, row) => total + sum(row._sum?.totalAmount ?? null), 0);
+  return {
+    orderCount: statusRows.reduce((total, row) => total + row._count._all, 0),
+    paidCount,
+    unpaidCount: unpaidAgg._count._all,
+    openCount: ACTIVE_ORDER_STATUSES.reduce(
+      (total, status) => total + (counts.get(status) ?? 0),
+      0
+    ),
+    cancelledCount: counts.get('CANCELLED') ?? 0,
+    gross: money(sumField('totalAmount')),
+    paid: money(sum(paidAgg._sum.amount)),
+    unpaid: money(sum(unpaidAgg._sum.totalAmount)),
+    openTotal: money(openTotal),
+    subtotal: money(sumField('subtotalAmount')),
+    tax: money(sumField('taxAmount')),
+    serviceCharge: money(sumField('serviceCharge')),
+    discounts: money(sumField('discountAmount')),
+  };
+}
+
+export async function getCounterDayOrders(
+  restaurantId: string,
+  options: {
+    businessDayId?: string;
+    businessDate?: BusinessDate;
+    scope?: CounterDayOrderScope;
+    paymentStatus?: string;
+    q?: string;
+    offset?: number;
+    limit?: number;
+  } = {}
+): Promise<CounterDayOrdersPage> {
+  const window = await getBusinessDayWindow(
+    restaurantId,
+    options.businessDayId,
+    options.businessDate
+  );
+  const scope = options.scope ?? 'all';
+  const offset = Math.max(options.offset ?? 0, 0);
+  const limit =
+    options.limit === undefined
+      ? undefined
+      : Math.min(Math.max(options.limit, 1), 200);
+  const where = addDayOrderSearch(
+    {
+      ...dayOrderScopeWhere(scope, options.paymentStatus),
+      restaurantId,
+      createdAt: { gte: window.start, lte: window.end },
+    },
+    options.q
+  );
+  const [orders, total, totals] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      select: COUNTER_DAY_ORDER_SELECT,
+      orderBy: { createdAt: 'asc' },
+      skip: offset,
+      ...(limit === undefined ? {} : { take: limit }),
+    }),
+    prisma.order.count({ where }),
+    getDayOrderTotals(where),
+  ]);
+  const pageLimit = limit ?? total;
+  return {
+    businessDate: window.businessDate,
+    businessDayId: window.businessDay.id,
+    timezone: window.timezone,
+    currency: window.currency,
+    asOf: new Date().toISOString(),
+    orders: orders.map(mapCounterDayOrder),
+    totals,
+    total,
+    offset,
+    limit: pageLimit,
+    hasMore: offset + orders.length < total,
+  };
+}
+
+const BLOCKER_LABELS: Record<string, string> = {
+  OPEN_ORDERS: 'Orders still in service',
+  UNPAID_ORDERS: 'Served orders still unpaid',
+  PENDING_PAYMENTS: 'Payments with uncertain status',
+};
+
+export async function getCounterBlockerOrders(
+  restaurantId: string,
+  type: string,
+  options: { offset?: number; limit?: number } = {}
+): Promise<CounterBlockerOrdersPage> {
+  if (!BLOCKER_LABELS[type]) {
+    throw new CounterReportError(
+      'Unknown blocker type',
+      'UNKNOWN_BLOCKER',
+      400
+    );
+  }
+  const offset = Math.max(options.offset ?? 0, 0);
+  const limit = Math.min(Math.max(options.limit ?? 50, 1), 200);
+  const where: Prisma.OrderWhereInput =
+    type === 'OPEN_ORDERS'
+      ? { restaurantId, status: { in: ACTIVE_ORDER_STATUSES } }
+      : type === 'UNPAID_ORDERS'
+        ? { restaurantId, status: 'SERVED', paymentStatus: 'PENDING' }
+        : {
+            restaurantId,
+            status: { not: 'CANCELLED' },
+            payments: { some: { status: 'PENDING' } },
+          };
+  const [orders, total] = await Promise.all([
+    prisma.order.findMany({
+      where,
+      select: COUNTER_DAY_ORDER_SELECT,
+      orderBy: { createdAt: 'asc' },
+      skip: offset,
+      take: limit,
+    }),
+    prisma.order.count({ where }),
+  ]);
+  return {
+    type,
+    label: BLOCKER_LABELS[type],
+    count: total,
+    orders: orders.map(mapCounterDayOrder),
+    total,
+    offset,
+    limit,
+    hasMore: offset + orders.length < total,
+  };
 }
 
 function emptyMethodTotals(): Map<string, { amount: number; count: number }> {
@@ -344,10 +885,10 @@ export async function getCounterDaySummary(
       count: value.count,
     })),
     cashExpected: money(cashExpected),
-    cashCounted: businessDay.countedCash
-      ? money(businessDay.countedCash)
-      : null,
-    cashVariance: businessDay.variance ? money(businessDay.variance) : null,
+    cashCounted:
+      businessDay.countedCash === null ? null : money(businessDay.countedCash),
+    cashVariance:
+      businessDay.variance === null ? null : money(businessDay.variance),
     openingFloat: money(businessDay.openingFloat),
     unpaidCount: servedUnpaid._count.id ?? 0,
     unpaidTotal: money(servedUnpaid._sum.totalAmount),
@@ -424,134 +965,15 @@ export async function getDailyOrdersReport(
   restaurantId: string,
   businessDate: BusinessDate
 ) {
-  const { clock, currency } = await getRestaurantClock(restaurantId);
-  const day = await prisma.businessDay.findFirst({
-    where: {
-      restaurantId,
-      businessDate: toDbBusinessDate(businessDate),
-    },
-  });
-  const start = day?.openedAt ?? getBusinessDayStart(businessDate, clock);
-  const end = day?.closedAt ?? new Date();
-  const payments = await prisma.payment.findMany({
-    where: {
-      order: { restaurantId },
-      status: 'PAID',
-      createdAt: { gte: start, lte: end },
-    },
-    select: { orderId: true },
-  });
-  const orderIds = Array.from(new Set(payments.map((row) => row.orderId)));
-  if (orderIds.length === 0) {
-    return { businessDate, currency, orders: [], totals: emptyDailyTotals() };
-  }
-  const orders = await prisma.order.findMany({
-    where: { id: { in: orderIds }, restaurantId },
-    select: {
-      id: true,
-      orderNumber: true,
-      status: true,
-      paymentStatus: true,
-      orderType: true,
-      createdAt: true,
-      totalAmount: true,
-      subtotalAmount: true,
-      taxAmount: true,
-      serviceCharge: true,
-      discountAmount: true,
-      table: { select: { tableNumber: true, tableName: true } },
-      items: {
-        select: {
-          id: true,
-          quantity: true,
-          unitPrice: true,
-          totalAmount: true,
-          menuItem: { select: { name: true } },
-        },
-      },
-      payments: {
-        where: { status: 'PAID' },
-        select: {
-          paymentMethod: true,
-          amount: true,
-          cashReceived: true,
-          changeGiven: true,
-          receiptNumber: true,
-        },
-      },
-    },
-    orderBy: { createdAt: 'asc' },
-  });
-  const totals = orders.reduce(
-    (acc, order) => {
-      acc.orderCount += 1;
-      acc.gross += Number(order.totalAmount);
-      acc.subtotal += Number(order.subtotalAmount);
-      acc.tax += Number(order.taxAmount);
-      acc.serviceCharge += Number(order.serviceCharge);
-      acc.discounts += Number(order.discountAmount);
-      return acc;
-    },
-    {
-      orderCount: 0,
-      gross: 0,
-      subtotal: 0,
-      tax: 0,
-      serviceCharge: 0,
-      discounts: 0,
-    }
-  );
-  return {
+  const page = await getCounterDayOrders(restaurantId, {
     businessDate,
-    currency,
-    orders: orders.map((order) => ({
-      id: order.id,
-      orderNumber: order.orderNumber,
-      status: order.status,
-      paymentStatus: order.paymentStatus,
-      orderType: order.orderType,
-      createdAt: order.createdAt.toISOString(),
-      tableNumber: order.table?.tableNumber ?? null,
-      tableName: order.table?.tableName ?? null,
-      totalAmount: money(order.totalAmount),
-      subtotalAmount: money(order.subtotalAmount),
-      taxAmount: money(order.taxAmount),
-      serviceCharge: money(order.serviceCharge),
-      discountAmount: money(order.discountAmount),
-      items: order.items.map((item) => ({
-        id: item.id,
-        name: item.menuItem.name,
-        quantity: item.quantity,
-        unitPrice: money(item.unitPrice),
-        totalAmount: money(item.totalAmount),
-      })),
-      payments: order.payments.map((payment) => ({
-        method: payment.paymentMethod,
-        amount: money(payment.amount),
-        cashReceived: payment.cashReceived ? money(payment.cashReceived) : null,
-        changeGiven: payment.changeGiven ? money(payment.changeGiven) : null,
-        receiptNumber: payment.receiptNumber,
-      })),
-    })),
-    totals: {
-      orderCount: totals.orderCount,
-      gross: money(totals.gross),
-      subtotal: money(totals.subtotal),
-      tax: money(totals.tax),
-      serviceCharge: money(totals.serviceCharge),
-      discounts: money(totals.discounts),
-    },
-  };
-}
-
-function emptyDailyTotals() {
+    scope: 'all',
+  });
   return {
-    orderCount: 0,
-    gross: '0.00',
-    subtotal: '0.00',
-    tax: '0.00',
-    serviceCharge: '0.00',
-    discounts: '0.00',
+    businessDate: page.businessDate,
+    currency: page.currency,
+    orders: page.orders,
+    totals: page.totals,
   };
 }
 
@@ -804,6 +1226,8 @@ export async function closeCounterBusinessDay(input: {
       summary.paymentMethods.find((row) => row.method === 'cash')?.amount ?? 0
     );
   const variance = input.countedCash - expectedCash;
+  const closeNote = input.notes?.trim() || null;
+  assertVarianceReason(variance, closeNote);
   const businessDate = summary.businessDate;
   const closedCount = await prisma.businessDay.count({
     where: { restaurantId: input.restaurantId, status: 'CLOSED' },
@@ -817,6 +1241,7 @@ export async function closeCounterBusinessDay(input: {
     businessDate,
     zNumber,
     closedAt: closedAt.toISOString(),
+    closeNote,
     summary: {
       ...summary,
       status: 'CLOSED' as const,
@@ -836,7 +1261,7 @@ export async function closeCounterBusinessDay(input: {
         closedAt,
         closedBy: input.closedBy,
         closedByName: input.closedByName,
-        closeNote: input.notes,
+        closeNote,
         countedCash: input.countedCash,
         expectedCash,
         variance,
@@ -888,6 +1313,7 @@ export async function listClosedBusinessDays(restaurantId: string, limit = 30) {
       businessDate: parseBusinessDateFromDb(row.businessDate),
       zNumber: row.zNumber,
       closedAt: row.closedAt?.toISOString() ?? null,
+      closeNote: row.closeNote,
       netSales: snapshot?.summary?.netSales ?? '0.00',
       cashExpected: snapshot?.summary?.cashExpected ?? '0.00',
       cashCounted: snapshot?.summary?.cashCounted ?? null,

@@ -55,7 +55,12 @@ export async function GET(
     doc.text(`Cash counted: ${money(result.summary.cashCounted)}`, 14, y);
     y += 6;
     doc.text(`Variance: ${money(result.summary.cashVariance)}`, 14, y);
-    y += 8;
+    y += 6;
+    if (result.closeNote) {
+      doc.text(`Variance reason: ${result.closeNote}`, 14, y);
+      y += 6;
+    }
+    y += 2;
     doc.text('Open orders at close: 0', 14, y);
     y += 6;
     doc.text('Top sellers', 14, y);

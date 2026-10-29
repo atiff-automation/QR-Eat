@@ -85,6 +85,32 @@ export async function GET(
           },
           orderBy: { modifiedAt: 'desc' },
         },
+        payments: {
+          select: {
+            id: true,
+            paymentMethod: true,
+            amount: true,
+            status: true,
+            receiptNumber: true,
+            cashReceived: true,
+            changeGiven: true,
+            createdAt: true,
+            completedAt: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
+        orderEvents: {
+          select: {
+            id: true,
+            type: true,
+            payload: true,
+            createdAt: true,
+            printStatus: true,
+            printedAt: true,
+            printError: true,
+          },
+          orderBy: { createdAt: 'asc' },
+        },
       },
     });
 

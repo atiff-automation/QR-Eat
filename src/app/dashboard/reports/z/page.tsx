@@ -24,6 +24,7 @@ interface ZRow {
   cashExpected: string;
   cashCounted: string | null;
   cashVariance: string | null;
+  closeNote: string | null;
 }
 
 export default function ZReportsPage() {
@@ -79,8 +80,15 @@ export default function ZReportsPage() {
                     {row.zNumber ?? 'No Z number'} · Net MYR {row.netSales}
                   </p>
                   <p className="text-xs text-gray-500">
-                    Cash expected MYR {row.cashExpected} · counted MYR {row.cashCounted ?? '—'} · variance MYR {row.cashVariance ?? '—'}
+                    Cash expected MYR {row.cashExpected} · counted MYR{' '}
+                    {row.cashCounted ?? '—'} · variance MYR{' '}
+                    {row.cashVariance ?? '—'}
                   </p>
+                  {row.closeNote && (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Variance reason: {row.closeNote}
+                    </p>
+                  )}
                 </div>
                 <Link
                   href={`/api/counter/business-day/close/${row.id}/pdf`}

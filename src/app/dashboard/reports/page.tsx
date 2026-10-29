@@ -272,7 +272,7 @@ export default function ReportsPage() {
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
           >
             <ClipboardList className="h-4 w-4 mr-2" />
-            Daily Orders
+            Daily Sales
           </Link>
           <Link
             href="/dashboard/reports/z"

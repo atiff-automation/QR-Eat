@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { Prisma } from '@prisma/client';
+import { OrderStatus, Prisma } from '@prisma/client';
 import {
   getTenantContext,
   requireAuth,
@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
 
     // Filter by status if provided
     if (status && status !== 'all') {
-      where.status = status;
+      where.status = status as OrderStatus;
     }
 
     // Exclude served, cancelled, and completed orders when requested (for active orders view)
