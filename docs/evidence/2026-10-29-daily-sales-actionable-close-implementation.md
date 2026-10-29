@@ -92,7 +92,7 @@ Date: 2026-10-29
 Release APK SHA-256:
 
 ```text
-3d60a81437ae64341972a3d87dbbdb23e3ef6e208a43b4690004e6d1efcd747e
+d78a4f7dd526c3ae692262b9fc9fa35f3270a85581ca3088f4ecbcddadcd9012
 ```
 
 ## Deferred cleanup
