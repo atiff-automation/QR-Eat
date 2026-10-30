@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Type-check, test and build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/qreat_test
+      JWT_SECRET: ci-only-jwt-secret-with-32-characters
+      JWT_EXPIRES_IN: 7d
+      NEXTAUTH_SECRET: ci-only-nextauth-secret
+      NEXTAUTH_URL: http://localhost:3000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      NEXT_PUBLIC_BASE_DOMAIN: example.com
+      NEXT_PUBLIC_MAIN_DOMAIN: example.com
+      BASE_DOMAIN: example.com
+      ENABLE_SUBDOMAIN_ROUTING: 'false'
+      REDIS_URL: redis://localhost:6379
+      VAPID_PUBLIC_KEY: BLVO21pc2sbfSCC9VBodNjK3AqRSQF5jXeQAJKK1383yuRMekJ8w8Wd8o8to_fowCAAOsAp9dqAnDRvVcx4bWyM
+      VAPID_PRIVATE_KEY: jP7C-Cl_uqyJfRVuX28RS90lyjOC5e07Mbou9v6yEzw
+      VAPID_SUBJECT: mailto:ci@example.com
+      NEXT_PUBLIC_VAPID_PUBLIC_KEY: BLVO21pc2sbfSCC9VBodNjK3AqRSQF5jXeQAJKK1383yuRMekJ8w8Wd8o8to_fowCAAOsAp9dqAnDRvVcx4bWyM
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Type-check
+        run: npm run type-check
+
+      - name: Test
+        run: npm test -- --runInBand
+
+      - name: Build
+        run: npm run build

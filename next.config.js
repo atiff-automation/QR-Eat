@@ -5,10 +5,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Disable TypeScript checks during build for legacy code compatibility
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   // Keep old report bookmarks working after the legacy stack was removed.
   async redirects() {
     return [
