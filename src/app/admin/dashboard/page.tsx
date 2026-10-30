@@ -46,7 +46,6 @@ export default function AdminDashboardPage() {
       _count?: {
         staff: number;
         tables: number;
-        orders: number;
         menuItems: number;
       };
     }>
@@ -102,7 +101,6 @@ export default function AdminDashboardPage() {
           _count?: {
             staff: number;
             tables: number;
-            orders: number;
             menuItems: number;
           };
         }>;
@@ -195,12 +193,6 @@ export default function AdminDashboardPage() {
       current: false,
     },
     { name: 'Users', href: '/admin/users', icon: Users, current: false },
-    {
-      name: 'Analytics',
-      href: '/admin/analytics',
-      icon: BarChart3,
-      current: false,
-    },
     {
       name: 'Settings',
       href: '/admin/settings',
@@ -499,9 +491,6 @@ export default function AdminDashboardPage() {
                                       </span>
                                       <span>
                                         Tables: {restaurant._count.tables}
-                                      </span>
-                                      <span>
-                                        Orders: {restaurant._count.orders}
                                       </span>
                                     </>
                                   )}

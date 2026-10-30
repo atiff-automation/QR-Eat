@@ -1,6 +1,6 @@
 /**
  * Admin Role Template Management API
- * 
+ *
  * This endpoint provides comprehensive role template management for platform administrators.
  * It allows viewing, updating, and managing role templates and their associated permissions.
  */
@@ -11,7 +11,7 @@ import { PermissionManager } from '@/lib/rbac/permissions';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
-import { RBAC_CONSTANTS } from '@/lib/rbac/types';
+import { RBAC_CONSTANTS, isValidRoleTemplate } from '@/lib/rbac/types';
 
 // GET /api/admin/role-templates - Get all role templates with permissions
 export async function GET(request: NextRequest) {
@@ -21,20 +21,27 @@ export async function GET(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['role_templates:read'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 100 }
+      rateLimit: { windowMs: 60000, maxRequests: 100 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    
+
     // Get query parameters
     const url = new URL(request.url);
     const template = url.searchParams.get('template');
     const includeStats = url.searchParams.get('includeStats') === 'true';
-    
+
     // Get all role templates with their permissions
     const roleTemplates = await prisma.rolePermission.findMany({
       where: template ? { roleTemplate: template } : {},
@@ -45,25 +52,25 @@ export async function GET(request: NextRequest) {
             permissionKey: true,
             description: true,
             category: true,
-            isActive: true
-          }
-        }
-      }
+            isActive: true,
+          },
+        },
+      },
     });
-    
+
     // Group by role template
     const templatesMap = new Map<string, any>();
-    
-    roleTemplates.forEach(rp => {
+
+    roleTemplates.forEach((rp) => {
       if (!templatesMap.has(rp.roleTemplate)) {
         templatesMap.set(rp.roleTemplate, {
           template: rp.roleTemplate,
           permissions: [],
           permissionCount: 0,
-          categories: new Set()
+          categories: new Set(),
         });
       }
-      
+
       if (rp.permission.isActive) {
         const templateData = templatesMap.get(rp.roleTemplate);
         templateData.permissions.push(rp.permission);
@@ -71,43 +78,53 @@ export async function GET(request: NextRequest) {
         templateData.categories.add(rp.permission.category);
       }
     });
-    
+
     // Convert to array and add metadata
-    const formattedTemplates = Array.from(templatesMap.values()).map(template => ({
-      ...template,
-      categories: Array.from(template.categories),
-      description: RBAC_CONSTANTS.ROLE_DESCRIPTIONS[template.template] || 'Custom role template'
-    }));
-    
+    const formattedTemplates = Array.from(templatesMap.values()).map(
+      (template) => {
+        const templateName = template.template as string;
+
+        return {
+          ...template,
+          categories: Array.from(template.categories),
+          description: isValidRoleTemplate(templateName)
+            ? RBAC_CONSTANTS.ROLE_DESCRIPTIONS[templateName]
+            : 'Custom role template',
+        };
+      }
+    );
+
     // Add usage statistics if requested
     if (includeStats) {
       for (const template of formattedTemplates) {
         const userCount = await prisma.userRole.count({
-          where: { 
+          where: {
             roleTemplate: template.template,
-            isActive: true
-          }
+            isActive: true,
+          },
         });
-        
+
+        const lastRole = await prisma.userRole.findFirst({
+          where: { roleTemplate: template.template },
+          orderBy: { updatedAt: 'desc' },
+          select: { updatedAt: true },
+        });
+
         template.usage = {
           userCount,
-          lastUsed: await prisma.userRole.findFirst({
-            where: { roleTemplate: template.template },
-            orderBy: { updatedAt: 'desc' },
-            select: { updatedAt: true }
-          })?.updatedAt || null
+          lastUsed: lastRole?.updatedAt ?? null,
         };
       }
     }
-    
+
     return NextResponse.json({
       templates: formattedTemplates,
       availableTemplates: RBAC_CONSTANTS.ROLE_TEMPLATES,
       meta: {
         requestedBy: context.user.id,
         requestedAt: new Date().toISOString(),
-        totalTemplates: formattedTemplates.length
-      }
+        totalTemplates: formattedTemplates.length,
+      },
     });
   } catch (error) {
     console.error('Role template management API error:', error);
@@ -126,16 +143,23 @@ export async function PUT(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['role_templates:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 50 }
+      rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
     const { template, permissions, action = 'replace' } = await request.json();
-    
+
     // Validate input
     if (!template || !Array.isArray(permissions)) {
       return NextResponse.json(
@@ -143,7 +167,7 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Validate template exists
     if (!RBAC_CONSTANTS.ROLE_TEMPLATES.includes(template)) {
       return NextResponse.json(
@@ -151,52 +175,62 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Get current permissions for this template
     const currentRolePermissions = await prisma.rolePermission.findMany({
       where: { roleTemplate: template },
-      include: { permission: true }
+      include: { permission: true },
     });
-    
-    const currentPermissions = currentRolePermissions.map(rp => rp.permission.permissionKey);
-    
+
+    const currentPermissions = currentRolePermissions.map(
+      (rp) => rp.permission.permissionKey
+    );
+
     // Validate all permissions exist
     const validPermissions = await prisma.permission.findMany({
-      where: { 
+      where: {
         permissionKey: { in: permissions },
-        isActive: true
-      }
+        isActive: true,
+      },
     });
-    
+
     if (validPermissions.length !== permissions.length) {
-      const invalidPermissions = permissions.filter(p => 
-        !validPermissions.some(vp => vp.permissionKey === p)
+      const invalidPermissions = permissions.filter(
+        (p) => !validPermissions.some((vp) => vp.permissionKey === p)
       );
       return NextResponse.json(
-        { 
+        {
           error: 'Some permissions do not exist or are inactive',
-          invalidPermissions
+          invalidPermissions,
         },
         { status: 400 }
       );
     }
-    
+
     // Update permissions based on action
     let permissionsToAdd: string[] = [];
     let permissionsToRemove: string[] = [];
-    
+
     if (action === 'replace') {
       // Replace all permissions
-      permissionsToAdd = permissions.filter(p => !currentPermissions.includes(p));
-      permissionsToRemove = currentPermissions.filter(p => !permissions.includes(p));
+      permissionsToAdd = permissions.filter(
+        (p) => !currentPermissions.includes(p)
+      );
+      permissionsToRemove = currentPermissions.filter(
+        (p) => !permissions.includes(p)
+      );
     } else if (action === 'add') {
       // Add new permissions
-      permissionsToAdd = permissions.filter(p => !currentPermissions.includes(p));
+      permissionsToAdd = permissions.filter(
+        (p) => !currentPermissions.includes(p)
+      );
     } else if (action === 'remove') {
       // Remove permissions
-      permissionsToRemove = permissions.filter(p => currentPermissions.includes(p));
+      permissionsToRemove = permissions.filter((p) =>
+        currentPermissions.includes(p)
+      );
     }
-    
+
     // Perform database operations in transaction
     await prisma.$transaction(async (tx) => {
       // Remove permissions
@@ -204,36 +238,36 @@ export async function PUT(request: NextRequest) {
         await tx.rolePermission.deleteMany({
           where: {
             roleTemplate: template,
-            permissionKey: { in: permissionsToRemove }
-          }
+            permissionKey: { in: permissionsToRemove },
+          },
         });
       }
-      
+
       // Add permissions
       if (permissionsToAdd.length > 0) {
         await tx.rolePermission.createMany({
-          data: permissionsToAdd.map(permissionKey => ({
+          data: permissionsToAdd.map((permissionKey) => ({
             roleTemplate: template,
             permissionKey,
-            grantedAt: new Date()
-          }))
+            grantedAt: new Date(),
+          })),
         });
       }
     });
-    
+
     // Clear permission cache
     PermissionManager.clearTemplateCache(template);
-    
+
     // Clear cache for all users with this role template
     const usersWithTemplate = await prisma.userRole.findMany({
       where: { roleTemplate: template, isActive: true },
-      select: { userId: true }
+      select: { userId: true },
     });
-    
-    usersWithTemplate.forEach(user => {
+
+    usersWithTemplate.forEach((user) => {
       PermissionManager.clearUserCache(user.userId);
     });
-    
+
     // Log audit trail
     await AuditLogger.logSecurityEvent(
       context.user.id,
@@ -248,11 +282,11 @@ export async function PUT(request: NextRequest) {
           action,
           permissionsAdded: permissionsToAdd,
           permissionsRemoved: permissionsToRemove,
-          affectedUsers: usersWithTemplate.length
-        }
+          affectedUsers: usersWithTemplate.length,
+        },
       }
     );
-    
+
     // Get updated template data
     const updatedRolePermissions = await prisma.rolePermission.findMany({
       where: { roleTemplate: template },
@@ -261,24 +295,24 @@ export async function PUT(request: NextRequest) {
           select: {
             permissionKey: true,
             description: true,
-            category: true
-          }
-        }
-      }
+            category: true,
+          },
+        },
+      },
     });
-    
+
     return NextResponse.json({
       message: 'Role template updated successfully',
       template: {
         name: template,
-        permissions: updatedRolePermissions.map(rp => rp.permission),
+        permissions: updatedRolePermissions.map((rp) => rp.permission),
         permissionCount: updatedRolePermissions.length,
-        affectedUsers: usersWithTemplate.length
+        affectedUsers: usersWithTemplate.length,
       },
       changes: {
         added: permissionsToAdd,
-        removed: permissionsToRemove
-      }
+        removed: permissionsToRemove,
+      },
     });
   } catch (error) {
     console.error('Role template update error:', error);
@@ -297,16 +331,23 @@ export async function POST(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['role_templates:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 10 }
+      rateLimit: { windowMs: 60000, maxRequests: 10 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
     const { template, permissions, description } = await request.json();
-    
+
     // Validate input
     if (!template || !Array.isArray(permissions)) {
       return NextResponse.json(
@@ -314,57 +355,60 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Validate template name format
     if (!/^[a-z_]+$/.test(template)) {
       return NextResponse.json(
-        { error: 'Template name must contain only lowercase letters and underscores' },
+        {
+          error:
+            'Template name must contain only lowercase letters and underscores',
+        },
         { status: 400 }
       );
     }
-    
+
     // Check if template already exists
     const existingTemplate = await prisma.rolePermission.findFirst({
-      where: { roleTemplate: template }
+      where: { roleTemplate: template },
     });
-    
+
     if (existingTemplate) {
       return NextResponse.json(
         { error: 'Role template already exists' },
         { status: 409 }
       );
     }
-    
+
     // Validate all permissions exist
     const validPermissions = await prisma.permission.findMany({
-      where: { 
+      where: {
         permissionKey: { in: permissions },
-        isActive: true
-      }
+        isActive: true,
+      },
     });
-    
+
     if (validPermissions.length !== permissions.length) {
-      const invalidPermissions = permissions.filter(p => 
-        !validPermissions.some(vp => vp.permissionKey === p)
+      const invalidPermissions = permissions.filter(
+        (p) => !validPermissions.some((vp) => vp.permissionKey === p)
       );
       return NextResponse.json(
-        { 
+        {
           error: 'Some permissions do not exist or are inactive',
-          invalidPermissions
+          invalidPermissions,
         },
         { status: 400 }
       );
     }
-    
+
     // Create role template permissions
     await prisma.rolePermission.createMany({
-      data: permissions.map(permissionKey => ({
+      data: permissions.map((permissionKey) => ({
         roleTemplate: template,
         permissionKey,
-        grantedAt: new Date()
-      }))
+        grantedAt: new Date(),
+      })),
     });
-    
+
     // Log audit trail
     await AuditLogger.logSecurityEvent(
       context.user.id,
@@ -378,24 +422,27 @@ export async function POST(request: NextRequest) {
           template,
           permissions,
           description,
-          permissionCount: permissions.length
-        }
+          permissionCount: permissions.length,
+        },
       }
     );
-    
-    return NextResponse.json({
-      message: 'Role template created successfully',
-      template: {
-        name: template,
-        permissions: validPermissions.map(p => ({
-          permissionKey: p.permissionKey,
-          description: p.description,
-          category: p.category
-        })),
-        permissionCount: permissions.length,
-        description
-      }
-    }, { status: 201 });
+
+    return NextResponse.json(
+      {
+        message: 'Role template created successfully',
+        template: {
+          name: template,
+          permissions: validPermissions.map((p) => ({
+            permissionKey: p.permissionKey,
+            description: p.description,
+            category: p.category,
+          })),
+          permissionCount: permissions.length,
+          description,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Role template creation error:', error);
     return NextResponse.json(

@@ -11,7 +11,7 @@ import { PermissionManager } from '@/lib/rbac/permissions';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
-import { RBAC_CONSTANTS } from '@/lib/rbac/types';
+import { RBAC_CONSTANTS, isValidRoleTemplate } from '@/lib/rbac/types';
 
 // GET /api/admin/role-templates/[template] - Get specific role template
 export async function GET(
@@ -29,6 +29,13 @@ export async function GET(
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
+    }
+
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { context } = authResult;
@@ -106,9 +113,10 @@ export async function GET(
     // Get template metadata
     const templateInfo = {
       name: template,
-      description:
-        RBAC_CONSTANTS.ROLE_DESCRIPTIONS[template] || 'Custom role template',
-      isBuiltIn: RBAC_CONSTANTS.ROLE_TEMPLATES.includes(template),
+      description: isValidRoleTemplate(template)
+        ? RBAC_CONSTANTS.ROLE_DESCRIPTIONS[template]
+        : 'Custom role template',
+      isBuiltIn: isValidRoleTemplate(template),
       permissions: rolePermissions
         .filter((rp) => rp.permission.isActive)
         .map((rp) => rp.permission),
@@ -164,6 +172,13 @@ export async function PUT(
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
+    }
+
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { context } = authResult;
@@ -336,6 +351,13 @@ export async function DELETE(
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
     const { template } = await params;
 
@@ -352,7 +374,7 @@ export async function DELETE(
     }
 
     // Check if it's a built-in template
-    if (RBAC_CONSTANTS.ROLE_TEMPLATES.includes(template)) {
+    if (isValidRoleTemplate(template)) {
       return NextResponse.json(
         { error: 'Cannot delete built-in role templates' },
         { status: 403 }

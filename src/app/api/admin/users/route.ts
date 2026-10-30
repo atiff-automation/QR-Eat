@@ -1,6 +1,6 @@
 /**
  * Enhanced Admin User Role Management API
- * 
+ *
  * This endpoint provides comprehensive user role management with RBAC integration
  * while maintaining backward compatibility with existing admin functionality.
  */
@@ -22,29 +22,37 @@ export async function GET(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['users:read'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 100 }
+      rateLimit: { windowMs: 60000, maxRequests: 100 },
     });
 
     let context;
-    if (rbacResult.isAuthorized) {
+    if (rbacResult.isAuthorized && rbacResult.context) {
       context = rbacResult.context;
     } else {
       // Fallback to modern RBAC authentication
-      const token = request.cookies.get('qr_rbac_token')?.value ||
-                    request.cookies.get('qr_auth_token')?.value;
+      const token =
+        request.cookies.get('qr_rbac_token')?.value ||
+        request.cookies.get('qr_auth_token')?.value;
 
       if (!token) {
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
       }
 
       const authResult = await AuthServiceV2.validateToken(token);
 
       if (!authResult.isValid || !authResult.user) {
-        return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
       }
 
       // Only platform admins can view all users
-      const userType = authResult.user.currentRole?.userType || authResult.user.userType;
+      const userType =
+        authResult.user.currentRole?.userType || authResult.user.userType;
       if (userType !== 'platform_admin') {
         return NextResponse.json(
           { error: 'Only platform administrators can view all users' },
@@ -60,11 +68,18 @@ export async function GET(request: NextRequest) {
           firstName: authResult.user.firstName,
           lastName: authResult.user.lastName,
           userType: 'platform_admin',
-          isActive: true
-        }
+          isActive: true,
+        },
       };
     }
-    
+
+    if (!context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     // Get query parameters
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
@@ -73,7 +88,7 @@ export async function GET(request: NextRequest) {
     const userType = url.searchParams.get('userType');
     const includeRoles = url.searchParams.get('includeRoles') === 'true';
     const includeInactive = url.searchParams.get('includeInactive') === 'true';
-    
+
     // Fetch all platform admins
     const platformAdmins = await prisma.platformAdmin.findMany({
       where: includeInactive ? {} : { isActive: true },
@@ -84,9 +99,9 @@ export async function GET(request: NextRequest) {
         lastName: true,
         isActive: true,
         lastLoginAt: true,
-        createdAt: true
+        createdAt: true,
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     // Fetch all restaurant owners with their restaurants
@@ -107,11 +122,11 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             slug: true,
-            isActive: true
-          }
-        }
+            isActive: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     // Fetch all staff with their restaurants
@@ -133,66 +148,78 @@ export async function GET(request: NextRequest) {
             id: true,
             name: true,
             slug: true,
-            isActive: true
-          }
-        }
+            isActive: true,
+          },
+        },
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     // Combine all users with their types
     const allUsers = [
-      ...platformAdmins.map(admin => ({
+      ...platformAdmins.map((admin) => ({
         ...admin,
-        userType: 'platform_admin' as const
+        userType: 'platform_admin' as const,
       })),
-      ...restaurantOwners.map(owner => ({
+      ...restaurantOwners.map((owner) => ({
         ...owner,
-        userType: 'restaurant_owner' as const
+        userType: 'restaurant_owner' as const,
       })),
-      ...staff.map(staffMember => ({
+      ...staff.map((staffMember) => ({
         ...staffMember,
-        userType: 'staff' as const
-      }))
+        userType: 'staff' as const,
+      })),
     ];
 
     // Add RBAC role information if requested
     if (includeRoles) {
       for (const user of allUsers) {
         const userRoles = await prisma.userRole.findMany({
-          where: { 
+          where: {
             userId: user.id,
-            ...(includeInactive ? {} : { isActive: true })
+            ...(includeInactive ? {} : { isActive: true }),
           },
           include: {
             restaurant: {
               select: {
                 id: true,
                 name: true,
-                slug: true
-              }
-            }
-          }
+                slug: true,
+              },
+            },
+          },
         });
 
-        // Get user permissions
-        const permissions = await PermissionManager.getUserPermissions(user.id);
+        // Get permissions for every role assigned to this user.
+        const permissions = Array.from(
+          new Set(
+            (
+              await Promise.all(
+                userRoles.map((role) =>
+                  PermissionManager.computeRolePermissions(role)
+                )
+              )
+            ).flat()
+          )
+        );
 
-        user.rbacData = {
-          roles: userRoles.map(role => ({
-            id: role.id,
-            roleTemplate: role.roleTemplate,
-            userType: role.userType,
-            restaurantId: role.restaurantId,
-            restaurant: role.restaurant,
-            customPermissions: role.customPermissions as string[] || [],
-            isActive: role.isActive,
-            createdAt: role.createdAt,
-            updatedAt: role.updatedAt
-          })),
-          permissions,
-          permissionCount: permissions.length
-        };
+        Object.assign(user, {
+          rbacData: {
+            roles: userRoles.map((role) => ({
+              id: role.id,
+              roleTemplate: role.roleTemplate,
+              userType: role.userType,
+              restaurantId: role.restaurantId,
+              restaurant: role.restaurant,
+              customPermissions: (role.customPermissions as string[]) || [],
+              isActive: role.isActive,
+              createdAt: role.createdAt,
+              updatedAt: role.updatedAt,
+            })),
+            permissions,
+            permissionCount: permissions.length,
+          },
+        });
       }
     }
 
@@ -200,34 +227,46 @@ export async function GET(request: NextRequest) {
     let filteredUsers = allUsers;
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredUsers = allUsers.filter(user => 
-        user.email.toLowerCase().includes(searchLower) ||
-        user.firstName.toLowerCase().includes(searchLower) ||
-        user.lastName.toLowerCase().includes(searchLower) ||
-        (user.userType && user.userType.toLowerCase().includes(searchLower))
+      filteredUsers = allUsers.filter(
+        (user) =>
+          user.email.toLowerCase().includes(searchLower) ||
+          user.firstName.toLowerCase().includes(searchLower) ||
+          user.lastName.toLowerCase().includes(searchLower) ||
+          (user.userType && user.userType.toLowerCase().includes(searchLower))
       );
     }
 
     // Apply user type filter if provided
     if (userType) {
-      filteredUsers = filteredUsers.filter(user => user.userType === userType);
+      filteredUsers = filteredUsers.filter(
+        (user) => user.userType === userType
+      );
     }
 
     // Sort by creation date (newest first)
-    filteredUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    filteredUsers.sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
 
     // Apply pagination
     const totalCount = filteredUsers.length;
-    const paginatedUsers = filteredUsers.slice((page - 1) * limit, page * limit);
+    const paginatedUsers = filteredUsers.slice(
+      (page - 1) * limit,
+      page * limit
+    );
 
     // Get summary statistics
     const summary = {
       total: totalCount,
-      platformAdmins: allUsers.filter(u => u.userType === 'platform_admin').length,
-      restaurantOwners: allUsers.filter(u => u.userType === 'restaurant_owner').length,
-      staff: allUsers.filter(u => u.userType === 'staff').length,
-      active: allUsers.filter(u => u.isActive).length,
-      inactive: allUsers.filter(u => !u.isActive).length
+      platformAdmins: allUsers.filter((u) => u.userType === 'platform_admin')
+        .length,
+      restaurantOwners: allUsers.filter(
+        (u) => u.userType === 'restaurant_owner'
+      ).length,
+      staff: allUsers.filter((u) => u.userType === 'staff').length,
+      active: allUsers.filter((u) => u.isActive).length,
+      inactive: allUsers.filter((u) => !u.isActive).length,
     };
 
     // Get RBAC statistics if roles are included
@@ -236,15 +275,15 @@ export async function GET(request: NextRequest) {
       const roleTemplateStats = await prisma.userRole.groupBy({
         by: ['roleTemplate'],
         _count: true,
-        where: { isActive: true }
+        where: { isActive: true },
       });
 
       rbacStats = {
         totalRoles: await prisma.userRole.count({ where: { isActive: true } }),
-        roleTemplateDistribution: roleTemplateStats.map(stat => ({
+        roleTemplateDistribution: roleTemplateStats.map((stat) => ({
           template: stat.roleTemplate,
-          count: stat._count
-        }))
+          count: stat._count,
+        })),
       };
     }
 
@@ -255,7 +294,7 @@ export async function GET(request: NextRequest) {
         page,
         limit,
         totalCount,
-        totalPages: Math.ceil(totalCount / limit)
+        totalPages: Math.ceil(totalCount / limit),
       },
       summary,
       ...(includeRoles && { rbacStats }),
@@ -263,13 +302,12 @@ export async function GET(request: NextRequest) {
         requestedBy: context.user.id,
         requestedAt: new Date().toISOString(),
         includeRoles,
-        includeInactive
-      }
+        includeInactive,
+      },
     });
-
   } catch (error) {
     console.error('Failed to fetch users:', error);
-    
+
     // Log error for security monitoring
     await AuditLogger.logSecurityEvent(
       'system',
@@ -281,15 +319,21 @@ export async function GET(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           endpoint: 'admin/users',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown'
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+        },
       }
     );
 
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch users',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : 'Unknown error'
+            : undefined,
       },
       { status: 500 }
     );
@@ -304,16 +348,24 @@ export async function POST(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['users:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 20 }
+      rateLimit: { windowMs: 60000, maxRequests: 20 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    const { userId, userType, roleTemplate, restaurantId, customPermissions } = await request.json();
-    
+    const { userId, userType, roleTemplate, restaurantId, customPermissions } =
+      await request.json();
+
     // Validate input
     if (!userId || !userType || !roleTemplate) {
       return NextResponse.json(
@@ -321,15 +373,12 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Validate user type
     if (!['platform_admin', 'restaurant_owner', 'staff'].includes(userType)) {
-      return NextResponse.json(
-        { error: 'Invalid user type' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Invalid user type' }, { status: 400 });
     }
-    
+
     // Validate role template
     if (!RBAC_CONSTANTS.ROLE_TEMPLATES.includes(roleTemplate)) {
       return NextResponse.json(
@@ -337,29 +386,31 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Validate restaurant requirement
     if (userType === 'restaurant_owner' || userType === 'staff') {
       if (!restaurantId) {
         return NextResponse.json(
-          { error: 'Restaurant ID is required for restaurant owners and staff' },
+          {
+            error: 'Restaurant ID is required for restaurant owners and staff',
+          },
           { status: 400 }
         );
       }
-      
+
       // Verify restaurant exists
       const restaurant = await prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { id: true, isActive: true }
+        select: { id: true, isActive: true },
       });
-      
+
       if (!restaurant) {
         return NextResponse.json(
           { error: 'Restaurant not found' },
           { status: 404 }
         );
       }
-      
+
       if (!restaurant.isActive) {
         return NextResponse.json(
           { error: 'Restaurant is inactive' },
@@ -367,47 +418,47 @@ export async function POST(request: NextRequest) {
         );
       }
     }
-    
+
     // Check if user already has this role
     const existingRole = await prisma.userRole.findFirst({
       where: {
         userId,
         userType,
         roleTemplate,
-        restaurantId: restaurantId || null
-      }
+        restaurantId: restaurantId || null,
+      },
     });
-    
+
     if (existingRole) {
       return NextResponse.json(
         { error: 'User already has this role' },
         { status: 409 }
       );
     }
-    
+
     // Validate custom permissions if provided
     if (customPermissions && customPermissions.length > 0) {
       const validPermissions = await prisma.permission.findMany({
         where: {
           permissionKey: { in: customPermissions },
-          isActive: true
-        }
+          isActive: true,
+        },
       });
-      
+
       if (validPermissions.length !== customPermissions.length) {
-        const invalidPermissions = customPermissions.filter(p => 
-          !validPermissions.some(vp => vp.permissionKey === p)
+        const invalidPermissions = customPermissions.filter(
+          (p: string) => !validPermissions.some((vp) => vp.permissionKey === p)
         );
         return NextResponse.json(
-          { 
+          {
             error: 'Some custom permissions are invalid',
-            invalidPermissions
+            invalidPermissions,
           },
           { status: 400 }
         );
       }
     }
-    
+
     // Create user role
     const newUserRole = await prisma.userRole.create({
       data: {
@@ -416,22 +467,22 @@ export async function POST(request: NextRequest) {
         roleTemplate,
         restaurantId: restaurantId || null,
         customPermissions: customPermissions || [],
-        isActive: true
+        isActive: true,
       },
       include: {
         restaurant: {
           select: {
             id: true,
             name: true,
-            slug: true
-          }
-        }
-      }
+            slug: true,
+          },
+        },
+      },
     });
-    
+
     // Clear user's permission cache
     PermissionManager.clearUserCache(userId);
-    
+
     // Log audit trail
     await AuditLogger.logUserRoleChange(
       context.user.id,
@@ -443,33 +494,36 @@ export async function POST(request: NextRequest) {
         roleTemplate,
         restaurantId,
         customPermissions: customPermissions || [],
-        isActive: true
+        isActive: true,
       },
       {
         ipAddress: SecurityUtils.getClientIP(request),
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           newRoleId: newUserRole.id,
-          assignedBy: context.user.id
-        }
+          assignedBy: context.user.id,
+        },
       }
     );
-    
-    return NextResponse.json({
-      success: true,
-      message: 'User role created successfully',
-      userRole: {
-        id: newUserRole.id,
-        userId: newUserRole.userId,
-        userType: newUserRole.userType,
-        roleTemplate: newUserRole.roleTemplate,
-        restaurantId: newUserRole.restaurantId,
-        restaurant: newUserRole.restaurant,
-        customPermissions: newUserRole.customPermissions as string[],
-        isActive: newUserRole.isActive,
-        createdAt: newUserRole.createdAt
-      }
-    }, { status: 201 });
+
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'User role created successfully',
+        userRole: {
+          id: newUserRole.id,
+          userId: newUserRole.userId,
+          userType: newUserRole.userType,
+          roleTemplate: newUserRole.roleTemplate,
+          restaurantId: newUserRole.restaurantId,
+          restaurant: newUserRole.restaurant,
+          customPermissions: newUserRole.customPermissions as string[],
+          isActive: newUserRole.isActive,
+          createdAt: newUserRole.createdAt,
+        },
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('User role creation error:', error);
     return NextResponse.json(
@@ -487,16 +541,24 @@ export async function PUT(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['users:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 50 }
+      rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    const { roleId, roleTemplate, customPermissions, isActive } = await request.json();
-    
+    const { roleId, roleTemplate, customPermissions, isActive } =
+      await request.json();
+
     // Validate input
     if (!roleId) {
       return NextResponse.json(
@@ -504,7 +566,7 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Get current role
     const currentRole = await prisma.userRole.findUnique({
       where: { id: roleId },
@@ -513,19 +575,19 @@ export async function PUT(request: NextRequest) {
           select: {
             id: true,
             name: true,
-            slug: true
-          }
-        }
-      }
+            slug: true,
+          },
+        },
+      },
     });
-    
+
     if (!currentRole) {
       return NextResponse.json(
         { error: 'User role not found' },
         { status: 404 }
       );
     }
-    
+
     // Validate role template if provided
     if (roleTemplate && !RBAC_CONSTANTS.ROLE_TEMPLATES.includes(roleTemplate)) {
       return NextResponse.json(
@@ -533,30 +595,30 @@ export async function PUT(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Validate custom permissions if provided
     if (customPermissions && customPermissions.length > 0) {
       const validPermissions = await prisma.permission.findMany({
         where: {
           permissionKey: { in: customPermissions },
-          isActive: true
-        }
+          isActive: true,
+        },
       });
-      
+
       if (validPermissions.length !== customPermissions.length) {
-        const invalidPermissions = customPermissions.filter(p => 
-          !validPermissions.some(vp => vp.permissionKey === p)
+        const invalidPermissions = customPermissions.filter(
+          (p: string) => !validPermissions.some((vp) => vp.permissionKey === p)
         );
         return NextResponse.json(
-          { 
+          {
             error: 'Some custom permissions are invalid',
-            invalidPermissions
+            invalidPermissions,
           },
           { status: 400 }
         );
       }
     }
-    
+
     // Update user role
     const updatedUserRole = await prisma.userRole.update({
       where: { id: roleId },
@@ -564,22 +626,22 @@ export async function PUT(request: NextRequest) {
         ...(roleTemplate && { roleTemplate }),
         ...(customPermissions && { customPermissions }),
         ...(isActive !== undefined && { isActive }),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       },
       include: {
         restaurant: {
           select: {
             id: true,
             name: true,
-            slug: true
-          }
-        }
-      }
+            slug: true,
+          },
+        },
+      },
     });
-    
+
     // Clear user's permission cache
     PermissionManager.clearUserCache(currentRole.userId);
-    
+
     // Log audit trail
     await AuditLogger.logUserRoleChange(
       context.user.id,
@@ -587,11 +649,15 @@ export async function PUT(request: NextRequest) {
       'UPDATE',
       {
         id: roleId,
-        userType: currentRole.userType,
+        userType: currentRole.userType as
+          | 'platform_admin'
+          | 'restaurant_owner'
+          | 'staff',
         roleTemplate: roleTemplate || currentRole.roleTemplate,
-        restaurantId: currentRole.restaurantId,
-        customPermissions: customPermissions || currentRole.customPermissions as string[],
-        isActive: isActive !== undefined ? isActive : currentRole.isActive
+        restaurantId: currentRole.restaurantId ?? undefined,
+        customPermissions:
+          customPermissions || (currentRole.customPermissions as string[]),
+        isActive: isActive !== undefined ? isActive : currentRole.isActive,
       },
       {
         ipAddress: SecurityUtils.getClientIP(request),
@@ -599,17 +665,22 @@ export async function PUT(request: NextRequest) {
         metadata: {
           roleId,
           changes: {
-            roleTemplate: roleTemplate !== currentRole.roleTemplate ? 
-              { from: currentRole.roleTemplate, to: roleTemplate } : undefined,
-            customPermissions: customPermissions ? 
-              { from: currentRole.customPermissions, to: customPermissions } : undefined,
-            isActive: isActive !== currentRole.isActive ? 
-              { from: currentRole.isActive, to: isActive } : undefined
-          }
-        }
+            roleTemplate:
+              roleTemplate !== currentRole.roleTemplate
+                ? { from: currentRole.roleTemplate, to: roleTemplate }
+                : undefined,
+            customPermissions: customPermissions
+              ? { from: currentRole.customPermissions, to: customPermissions }
+              : undefined,
+            isActive:
+              isActive !== currentRole.isActive
+                ? { from: currentRole.isActive, to: isActive }
+                : undefined,
+          },
+        },
       }
     );
-    
+
     return NextResponse.json({
       success: true,
       message: 'User role updated successfully',
@@ -622,8 +693,8 @@ export async function PUT(request: NextRequest) {
         restaurant: updatedUserRole.restaurant,
         customPermissions: updatedUserRole.customPermissions as string[],
         isActive: updatedUserRole.isActive,
-        updatedAt: updatedUserRole.updatedAt
-      }
+        updatedAt: updatedUserRole.updatedAt,
+      },
     });
   } catch (error) {
     console.error('User role update error:', error);
@@ -642,16 +713,23 @@ export async function DELETE(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['users:delete'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 10 }
+      rateLimit: { windowMs: 60000, maxRequests: 10 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
     const { roleId } = await request.json();
-    
+
     // Validate input
     if (!roleId) {
       return NextResponse.json(
@@ -659,43 +737,43 @@ export async function DELETE(request: NextRequest) {
         { status: 400 }
       );
     }
-    
+
     // Get current role
     const currentRole = await prisma.userRole.findUnique({
-      where: { id: roleId }
+      where: { id: roleId },
     });
-    
+
     if (!currentRole) {
       return NextResponse.json(
         { error: 'User role not found' },
         { status: 404 }
       );
     }
-    
+
     // Check if user has other roles
     const otherRoles = await prisma.userRole.findMany({
-      where: { 
+      where: {
         userId: currentRole.userId,
         id: { not: roleId },
-        isActive: true
-      }
+        isActive: true,
+      },
     });
-    
+
     if (otherRoles.length === 0) {
       return NextResponse.json(
         { error: 'Cannot delete the only role for a user' },
         { status: 409 }
       );
     }
-    
+
     // Delete user role
     await prisma.userRole.delete({
-      where: { id: roleId }
+      where: { id: roleId },
     });
-    
+
     // Clear user's permission cache
     PermissionManager.clearUserCache(currentRole.userId);
-    
+
     // Log audit trail
     await AuditLogger.logUserRoleChange(
       context.user.id,
@@ -703,30 +781,33 @@ export async function DELETE(request: NextRequest) {
       'DELETE',
       {
         id: roleId,
-        userType: currentRole.userType,
+        userType: currentRole.userType as
+          | 'platform_admin'
+          | 'restaurant_owner'
+          | 'staff',
         roleTemplate: currentRole.roleTemplate,
-        restaurantId: currentRole.restaurantId,
+        restaurantId: currentRole.restaurantId ?? undefined,
         customPermissions: currentRole.customPermissions as string[],
-        isActive: currentRole.isActive
+        isActive: currentRole.isActive,
       },
       {
         ipAddress: SecurityUtils.getClientIP(request),
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           roleId,
-          deletedBy: context.user.id
-        }
+          deletedBy: context.user.id,
+        },
       }
     );
-    
+
     return NextResponse.json({
       success: true,
       message: 'User role deleted successfully',
       deletedRole: {
         id: roleId,
         userId: currentRole.userId,
-        roleTemplate: currentRole.roleTemplate
-      }
+        roleTemplate: currentRole.roleTemplate,
+      },
     });
   } catch (error) {
     console.error('User role deletion error:', error);

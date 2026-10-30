@@ -1,6 +1,6 @@
 /**
  * Bulk User Role Operations API
- * 
+ *
  * Handles bulk operations on user roles including:
  * - Bulk role assignments
  * - Bulk role removals
@@ -31,23 +31,30 @@ export async function POST(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['users:write', 'users:bulk'],
       auditLog: true,
-      rateLimit: { windowMs: 300000, maxRequests: 3 } // Very strict rate limiting for bulk operations
+      rateLimit: { windowMs: 300000, maxRequests: 3 }, // Very strict rate limiting for bulk operations
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    const { 
-      operation, 
-      userIds, 
-      userType, 
-      roleTemplate, 
-      restaurantId, 
-      customPermissions, 
+    const {
+      operation,
+      userIds,
+      userType,
+      roleTemplate,
+      restaurantId,
+      customPermissions,
       reason,
-      action
+      action,
     } = await request.json();
 
     // Handle special get_bulk action for fetching user details
@@ -68,8 +75,8 @@ export async function POST(request: NextRequest) {
             email: true,
             firstName: true,
             lastName: true,
-            isActive: true
-          }
+            isActive: true,
+          },
         }),
         prisma.restaurantOwner.findMany({
           where: { id: { in: userIds } },
@@ -78,8 +85,8 @@ export async function POST(request: NextRequest) {
             email: true,
             firstName: true,
             lastName: true,
-            isActive: true
-          }
+            isActive: true,
+          },
         }),
         prisma.staff.findMany({
           where: { id: { in: userIds } },
@@ -88,25 +95,36 @@ export async function POST(request: NextRequest) {
             email: true,
             firstName: true,
             lastName: true,
-            isActive: true
-          }
-        })
+            isActive: true,
+          },
+        }),
       ]);
 
       const allUsers = [
-        ...platformAdmins.map(u => ({ ...u, userType: 'platform_admin' as const })),
-        ...restaurantOwners.map(u => ({ ...u, userType: 'restaurant_owner' as const })),
-        ...staff.map(u => ({ ...u, userType: 'staff' as const }))
+        ...platformAdmins.map((u) => ({
+          ...u,
+          userType: 'platform_admin' as const,
+        })),
+        ...restaurantOwners.map((u) => ({
+          ...u,
+          userType: 'restaurant_owner' as const,
+        })),
+        ...staff.map((u) => ({ ...u, userType: 'staff' as const })),
       ];
 
       return NextResponse.json({
         success: true,
-        users: allUsers
+        users: allUsers,
       });
     }
 
     // Validate bulk operation input
-    if (!operation || !userIds || !Array.isArray(userIds) || userIds.length === 0) {
+    if (
+      !operation ||
+      !userIds ||
+      !Array.isArray(userIds) ||
+      userIds.length === 0
+    ) {
       return NextResponse.json(
         { error: 'Operation type and user IDs array are required' },
         { status: 400 }
@@ -120,18 +138,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const validOperations = ['assign', 'remove', 'update', 'activate', 'deactivate'];
+    const validOperations = [
+      'assign',
+      'remove',
+      'update',
+      'activate',
+      'deactivate',
+    ];
     if (!validOperations.includes(operation)) {
       return NextResponse.json(
-        { error: `Invalid operation. Valid operations: ${validOperations.join(', ')}` },
+        {
+          error: `Invalid operation. Valid operations: ${validOperations.join(', ')}`,
+        },
         { status: 400 }
       );
     }
 
     // Validate required fields for assign/update operations
-    if ((operation === 'assign' || operation === 'update') && (!userType || !roleTemplate)) {
+    if (
+      (operation === 'assign' || operation === 'update') &&
+      (!userType || !roleTemplate)
+    ) {
       return NextResponse.json(
-        { error: 'User type and role template are required for assign/update operations' },
+        {
+          error:
+            'User type and role template are required for assign/update operations',
+        },
         { status: 400 }
       );
     }
@@ -145,8 +177,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate restaurant requirement
-    if ((operation === 'assign' || operation === 'update') && 
-        (userType === 'restaurant_owner' || userType === 'staff') && !restaurantId) {
+    if (
+      (operation === 'assign' || operation === 'update') &&
+      (userType === 'restaurant_owner' || userType === 'staff') &&
+      !restaurantId
+    ) {
       return NextResponse.json(
         { error: 'Restaurant ID is required for restaurant owners and staff' },
         { status: 400 }
@@ -157,16 +192,16 @@ export async function POST(request: NextRequest) {
     if (restaurantId) {
       const restaurant = await prisma.restaurant.findUnique({
         where: { id: restaurantId },
-        select: { id: true, isActive: true }
+        select: { id: true, isActive: true },
       });
-      
+
       if (!restaurant) {
         return NextResponse.json(
           { error: 'Restaurant not found' },
           { status: 404 }
         );
       }
-      
+
       if (!restaurant.isActive) {
         return NextResponse.json(
           { error: 'Restaurant is inactive' },
@@ -180,18 +215,18 @@ export async function POST(request: NextRequest) {
       const validPermissions = await prisma.permission.findMany({
         where: {
           permissionKey: { in: customPermissions },
-          isActive: true
-        }
+          isActive: true,
+        },
       });
-      
+
       if (validPermissions.length !== customPermissions.length) {
-        const invalidPermissions = customPermissions.filter(p => 
-          !validPermissions.some(vp => vp.permissionKey === p)
+        const invalidPermissions = customPermissions.filter(
+          (p: string) => !validPermissions.some((vp) => vp.permissionKey === p)
         );
         return NextResponse.json(
-          { 
+          {
             error: 'Some custom permissions are invalid',
-            invalidPermissions
+            invalidPermissions,
           },
           { status: 400 }
         );
@@ -202,28 +237,23 @@ export async function POST(request: NextRequest) {
     const [platformAdmins, restaurantOwners, staff] = await Promise.all([
       prisma.platformAdmin.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, firstName: true, lastName: true, email: true }
+        select: { id: true, firstName: true, lastName: true, email: true },
       }),
       prisma.restaurantOwner.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, firstName: true, lastName: true, email: true }
+        select: { id: true, firstName: true, lastName: true, email: true },
       }),
       prisma.staff.findMany({
         where: { id: { in: userIds } },
-        select: { id: true, firstName: true, lastName: true, email: true }
-      })
+        select: { id: true, firstName: true, lastName: true, email: true },
+      }),
     ]);
 
-    const allUsers = [
-      ...platformAdmins,
-      ...restaurantOwners,
-      ...staff
-    ];
+    const allUsers = [...platformAdmins, ...restaurantOwners, ...staff];
 
-    const userMap = new Map(allUsers.map(user => [
-      user.id, 
-      `${user.firstName} ${user.lastName}`
-    ]));
+    const userMap = new Map(
+      allUsers.map((user) => [user.id, `${user.firstName} ${user.lastName}`])
+    );
 
     // Process bulk operation
     const results: BulkOperationResult[] = [];
@@ -231,7 +261,7 @@ export async function POST(request: NextRequest) {
 
     for (const userId of userIds) {
       const userName = userMap.get(userId) || 'Unknown User';
-      
+
       try {
         switch (operation) {
           case 'assign':
@@ -241,20 +271,20 @@ export async function POST(request: NextRequest) {
                 userId,
                 userType,
                 roleTemplate,
-                restaurantId: restaurantId || null
-              }
+                restaurantId: restaurantId || null,
+              },
             });
-            
+
             if (existingRole) {
               results.push({
                 userId,
                 userName,
                 success: false,
-                error: 'User already has this role'
+                error: 'User already has this role',
               });
               continue;
             }
-            
+
             // Create new role
             await prisma.userRole.create({
               data: {
@@ -263,48 +293,48 @@ export async function POST(request: NextRequest) {
                 roleTemplate,
                 restaurantId: restaurantId || null,
                 customPermissions: customPermissions || [],
-                isActive: true
-              }
+                isActive: true,
+              },
             });
             break;
 
           case 'remove':
             // Remove all active roles for the user
             await prisma.userRole.updateMany({
-              where: { 
+              where: {
                 userId,
-                isActive: true
+                isActive: true,
               },
-              data: { isActive: false }
+              data: { isActive: false },
             });
             break;
 
           case 'update':
             // Update existing roles
             await prisma.userRole.updateMany({
-              where: { 
+              where: {
                 userId,
-                isActive: true
+                isActive: true,
               },
               data: {
                 ...(roleTemplate && { roleTemplate }),
                 ...(customPermissions && { customPermissions }),
-                updatedAt: operationTimestamp
-              }
+                updatedAt: operationTimestamp,
+              },
             });
             break;
 
           case 'activate':
             await prisma.userRole.updateMany({
               where: { userId },
-              data: { isActive: true, updatedAt: operationTimestamp }
+              data: { isActive: true, updatedAt: operationTimestamp },
             });
             break;
 
           case 'deactivate':
             await prisma.userRole.updateMany({
               where: { userId },
-              data: { isActive: false, updatedAt: operationTimestamp }
+              data: { isActive: false, updatedAt: operationTimestamp },
             });
             break;
         }
@@ -323,7 +353,7 @@ export async function POST(request: NextRequest) {
             roleTemplate: roleTemplate || 'bulk_operation',
             restaurantId: restaurantId || null,
             customPermissions: customPermissions || [],
-            isActive: operation === 'activate' || operation === 'assign'
+            isActive: operation === 'activate' || operation === 'assign',
           },
           {
             ipAddress: SecurityUtils.getClientIP(request),
@@ -332,32 +362,31 @@ export async function POST(request: NextRequest) {
               bulkOperation: true,
               operationType: operation,
               reason: reason || 'Bulk operation',
-              totalUsersInBatch: userIds.length
-            }
+              totalUsersInBatch: userIds.length,
+            },
           }
         );
 
         results.push({
           userId,
           userName,
-          success: true
+          success: true,
         });
-
       } catch (error) {
         console.error(`Bulk operation failed for user ${userId}:`, error);
         results.push({
           userId,
           userName,
           success: false,
-          error: error instanceof Error ? error.message : 'Unknown error'
+          error: error instanceof Error ? error.message : 'Unknown error',
         });
       }
     }
 
     // Log bulk operation summary
-    const successCount = results.filter(r => r.success).length;
-    const failureCount = results.filter(r => !r.success).length;
-    
+    const successCount = results.filter((r) => r.success).length;
+    const failureCount = results.filter((r) => !r.success).length;
+
     await AuditLogger.logSecurityEvent(
       context.user.id,
       'BULK_ROLE_OPERATION',
@@ -374,8 +403,8 @@ export async function POST(request: NextRequest) {
           reason: reason || 'No reason provided',
           roleTemplate,
           userType,
-          restaurantId
-        }
+          restaurantId,
+        },
       }
     );
 
@@ -387,13 +416,12 @@ export async function POST(request: NextRequest) {
         successful: successCount,
         failed: failureCount,
         operation,
-        timestamp: operationTimestamp.toISOString()
-      }
+        timestamp: operationTimestamp.toISOString(),
+      },
     });
-
   } catch (error) {
     console.error('Bulk operation error:', error);
-    
+
     // Log error for security monitoring
     await AuditLogger.logSecurityEvent(
       'system',
@@ -405,15 +433,21 @@ export async function POST(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           endpoint: 'admin/users/bulk',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown'
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+        },
       }
     );
 
     return NextResponse.json(
-      { 
+      {
         error: 'Bulk operation failed',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : 'Unknown error'
+            : undefined,
       },
       { status: 500 }
     );

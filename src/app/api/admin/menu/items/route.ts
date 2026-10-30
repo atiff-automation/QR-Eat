@@ -215,8 +215,10 @@ export async function POST(request: NextRequest) {
         imageUrl: validatedData.imageUrl || null,
         preparationTime: validatedData.preparationTime,
         calories: validatedData.calories,
-        allergens: Sanitizer.sanitizeArray(validatedData.allergens),
-        dietaryInfo: Sanitizer.sanitizeArray(validatedData.dietaryInfo),
+        allergens: Sanitizer.sanitizeArray(validatedData.allergens) as string[],
+        dietaryInfo: Sanitizer.sanitizeArray(
+          validatedData.dietaryInfo
+        ) as string[],
         isAvailable: validatedData.isAvailable,
         isFeatured: validatedData.isFeatured,
         displayOrder: nextDisplayOrder,
@@ -256,7 +258,7 @@ export async function POST(request: NextRequest) {
     console.error('Create menu item error:', error);
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: 'Invalid data', details: error.errors },
+        { error: 'Invalid data', details: error.issues },
         { status: 400 }
       );
     }

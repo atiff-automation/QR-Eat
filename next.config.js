@@ -47,6 +47,11 @@ const nextConfig = {
         destination: '/dashboard/reports',
         permanent: true,
       },
+      {
+        source: '/admin/analytics',
+        destination: '/admin/dashboard',
+        permanent: true,
+      },
     ];
   },
   // Environment variables
