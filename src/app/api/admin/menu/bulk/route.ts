@@ -5,8 +5,9 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 export async function PATCH(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -34,7 +35,8 @@ export async function PATCH(request: NextRequest) {
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
+    const hasMenuPermission =
+      authResult.user.permissions.includes('menu:write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -56,9 +58,9 @@ export async function PATCH(request: NextRequest) {
       where: {
         id: { in: itemIds },
         category: {
-          restaurantId
-        }
-      }
+          restaurantId,
+        },
+      },
     });
 
     if (items.length !== itemIds.length) {
@@ -73,28 +75,28 @@ export async function PATCH(request: NextRequest) {
       case 'enable':
         result = await prisma.menuItem.updateMany({
           where: { id: { in: itemIds } },
-          data: { isAvailable: true }
+          data: { isAvailable: true },
         });
         break;
 
       case 'disable':
         result = await prisma.menuItem.updateMany({
           where: { id: { in: itemIds } },
-          data: { isAvailable: false }
+          data: { isAvailable: false },
         });
         break;
 
       case 'feature':
         result = await prisma.menuItem.updateMany({
           where: { id: { in: itemIds } },
-          data: { isFeatured: true }
+          data: { isFeatured: true },
         });
         break;
 
       case 'unfeature':
         result = await prisma.menuItem.updateMany({
           where: { id: { in: itemIds } },
-          data: { isFeatured: false }
+          data: { isFeatured: false },
         });
         break;
 
@@ -108,7 +110,7 @@ export async function PATCH(request: NextRequest) {
 
         // Verify category belongs to restaurant
         const category = await prisma.menuCategory.findUnique({
-          where: { id: updateData.categoryId }
+          where: { id: updateData.categoryId },
         });
 
         if (!category || category.restaurantId !== restaurantId) {
@@ -120,7 +122,7 @@ export async function PATCH(request: NextRequest) {
 
         result = await prisma.menuItem.updateMany({
           where: { id: { in: itemIds } },
-          data: { categoryId: updateData.categoryId }
+          data: { categoryId: updateData.categoryId },
         });
         break;
 
@@ -133,25 +135,27 @@ export async function PATCH(request: NextRequest) {
         }
 
         const { type, value } = updateData.priceAdjustment;
-        
+
         // Get current prices
         const currentItems = await prisma.menuItem.findMany({
           where: { id: { in: itemIds } },
-          select: { id: true, price: true }
+          select: { id: true, price: true },
         });
 
         // Calculate new prices
-        const updates = currentItems.map(item => {
-          let newPrice = item.price;
+        const updates = currentItems.map((item) => {
+          const currentPrice = Number(item.price);
+          let newPrice = currentPrice;
+
           if (type === 'percentage') {
-            newPrice = item.price * (1 + value / 100);
+            newPrice = currentPrice * (1 + Number(value) / 100);
           } else if (type === 'fixed') {
-            newPrice = item.price + value;
+            newPrice = currentPrice + Number(value);
           }
-          
+
           return prisma.menuItem.update({
             where: { id: item.id },
-            data: { price: Math.max(0, newPrice) } // Ensure price doesn't go negative
+            data: { price: Math.max(0, newPrice) },
           });
         });
 
@@ -160,13 +164,9 @@ export async function PATCH(request: NextRequest) {
         break;
 
       case 'delete':
-        // First delete variations
-        await prisma.menuItemVariation.deleteMany({
-          where: { menuItemId: { in: itemIds } }
-        });
-
+        // Variation groups/options cascade with the menu item.
         result = await prisma.menuItem.deleteMany({
-          where: { id: { in: itemIds } }
+          where: { id: { in: itemIds } },
         });
         break;
 
@@ -181,9 +181,8 @@ export async function PATCH(request: NextRequest) {
       success: true,
       operation,
       affectedItems: result.count || itemIds.length,
-      message: `Bulk ${operation} completed successfully`
+      message: `Bulk ${operation} completed successfully`,
     });
-
   } catch (error) {
     console.error('Failed to perform bulk operation:', error);
     return NextResponse.json(
@@ -196,8 +195,9 @@ export async function PATCH(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -225,7 +225,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
+    const hasMenuPermission =
+      authResult.user.permissions.includes('menu:write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -253,12 +254,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify all categories belong to restaurant
-    const categoryIds = [...new Set(items.map(item => item.categoryId))];
+    const categoryIds = [...new Set(items.map((item) => item.categoryId))];
     const categories = await prisma.menuCategory.findMany({
       where: {
         id: { in: categoryIds },
-        restaurantId
-      }
+        restaurantId,
+      },
     });
 
     if (categories.length !== categoryIds.length) {
@@ -285,8 +286,8 @@ export async function POST(request: NextRequest) {
             dietaryInfo: item.dietaryInfo || [],
             isAvailable: item.isAvailable !== false,
             isFeatured: item.isFeatured || false,
-            displayOrder: item.displayOrder || (index + 1)
-          }
+            displayOrder: item.displayOrder || index + 1,
+          },
         });
       })
     );
@@ -294,9 +295,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       items: createdItems,
-      message: `${createdItems.length} menu items created successfully`
+      message: `${createdItems.length} menu items created successfully`,
     });
-
   } catch (error) {
     console.error('Failed to bulk create menu items:', error);
     return NextResponse.json(

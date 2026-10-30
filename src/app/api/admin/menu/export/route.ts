@@ -5,7 +5,8 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
@@ -34,6 +35,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { name: true },
+    });
+
     const url = new URL(request.url);
     const format = url.searchParams.get('format') || 'json'; // json, csv
     const categoryId = url.searchParams.get('categoryId');
@@ -41,8 +47,8 @@ export async function GET(request: NextRequest) {
 
     const whereClause: any = {
       category: {
-        restaurantId
-      }
+        restaurantId,
+      },
     };
 
     if (categoryId) {
@@ -59,22 +65,19 @@ export async function GET(request: NextRequest) {
         category: {
           select: {
             id: true,
-            name: true
-          }
+            name: true,
+          },
         },
         variationGroups: {
           orderBy: { displayOrder: 'asc' },
           include: {
             options: {
-              orderBy: { displayOrder: 'asc' }
-            }
-          }
-        }
+              orderBy: { displayOrder: 'asc' },
+            },
+          },
+        },
       },
-      orderBy: [
-        { category: { displayOrder: 'asc' } },
-        { displayOrder: 'asc' }
-      ]
+      orderBy: [{ category: { displayOrder: 'asc' } }, { displayOrder: 'asc' }],
     });
 
     if (format === 'csv') {
@@ -92,10 +95,10 @@ export async function GET(request: NextRequest) {
         'Available',
         'Featured',
         'Display Order',
-        'Variation Groups Count'
+        'Variation Groups Count',
       ];
 
-      const csvRows = menuItems.map(item => [
+      const csvRows = menuItems.map((item) => [
         item.id,
         `"${item.name.replace(/"/g, '""')}"`,
         item.description ? `"${item.description.replace(/"/g, '""')}"` : '',
@@ -108,19 +111,19 @@ export async function GET(request: NextRequest) {
         item.isAvailable ? 'Yes' : 'No',
         item.isFeatured ? 'Yes' : 'No',
         item.displayOrder,
-        item.variationGroups.length
+        item.variationGroups.length,
       ]);
 
       const csvContent = [
         csvHeaders.join(','),
-        ...csvRows.map(row => row.join(','))
+        ...csvRows.map((row) => row.join(',')),
       ].join('\n');
 
       return new Response(csvContent, {
         headers: {
           'Content-Type': 'text/csv',
-          'Content-Disposition': `attachment; filename="menu-export-${new Date().toISOString().split('T')[0]}.csv"`
-        }
+          'Content-Disposition': `attachment; filename="menu-export-${new Date().toISOString().split('T')[0]}.csv"`,
+        },
       });
     }
 
@@ -129,21 +132,22 @@ export async function GET(request: NextRequest) {
       exportDate: new Date().toISOString(),
       restaurant: {
         id: restaurantId,
-        name: authResult.user.currentRole?.restaurantName
+        name: restaurant?.name ?? null,
       },
       summary: {
         totalItems: menuItems.length,
-        activeItems: menuItems.filter(item => item.isAvailable).length,
-        featuredItems: menuItems.filter(item => item.isFeatured).length,
-        categories: [...new Set(menuItems.map(item => item.category.name))].length
+        activeItems: menuItems.filter((item) => item.isAvailable).length,
+        featuredItems: menuItems.filter((item) => item.isFeatured).length,
+        categories: [...new Set(menuItems.map((item) => item.category.name))]
+          .length,
       },
-      menuItems: menuItems.map(item => ({
+      menuItems: menuItems.map((item) => ({
         id: item.id,
         name: item.name,
         description: item.description,
         category: {
           id: item.category.id,
-          name: item.category.name
+          name: item.category.name,
         },
         price: item.price,
         imageUrl: item.imageUrl,
@@ -154,39 +158,38 @@ export async function GET(request: NextRequest) {
         isAvailable: item.isAvailable,
         isFeatured: item.isFeatured,
         displayOrder: item.displayOrder,
-        variationGroups: item.variationGroups.map(group => ({
+        variationGroups: item.variationGroups.map((group) => ({
           id: group.id,
           name: group.name,
           minSelections: group.minSelections,
           maxSelections: group.maxSelections,
           displayOrder: group.displayOrder,
-          options: group.options.map(opt => ({
+          options: group.options.map((opt) => ({
             id: opt.id,
             name: opt.name,
             priceModifier: opt.priceModifier,
             displayOrder: opt.displayOrder,
-            isAvailable: opt.isAvailable
-          }))
+            isAvailable: opt.isAvailable,
+          })),
         })),
         createdAt: item.createdAt,
-        updatedAt: item.updatedAt
-      }))
+        updatedAt: item.updatedAt,
+      })),
     };
 
     if (format === 'download') {
       return new Response(JSON.stringify(exportData, null, 2), {
         headers: {
           'Content-Type': 'application/json',
-          'Content-Disposition': `attachment; filename="menu-export-${new Date().toISOString().split('T')[0]}.json"`
-        }
+          'Content-Disposition': `attachment; filename="menu-export-${new Date().toISOString().split('T')[0]}.json"`,
+        },
       });
     }
 
     return NextResponse.json({
       success: true,
-      data: exportData
+      data: exportData,
     });
-
   } catch (error) {
     console.error('Failed to export menu:', error);
     return NextResponse.json(

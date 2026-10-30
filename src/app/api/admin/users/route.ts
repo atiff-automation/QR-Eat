@@ -728,7 +728,16 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { context } = authResult;
-    const { roleId } = await request.json();
+    let roleId = new URL(request.url).searchParams.get('roleId');
+
+    if (!roleId) {
+      try {
+        const body = (await request.json()) as { roleId?: string };
+        roleId = body.roleId || null;
+      } catch {
+        roleId = null;
+      }
+    }
 
     // Validate input
     if (!roleId) {

@@ -22,7 +22,7 @@ export async function GET(
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:read'],
+      requiredPermissions: ['users:read'],
       auditLog: false,
       rateLimit: { windowMs: 60000, maxRequests: 200 },
     });
@@ -165,7 +165,7 @@ export async function PUT(
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:write'],
+      requiredPermissions: ['users:write'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
@@ -342,7 +342,7 @@ export async function DELETE(
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:delete'],
+      requiredPermissions: ['users:delete'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 10 },
     });

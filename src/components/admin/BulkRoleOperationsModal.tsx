@@ -1,6 +1,6 @@
 /**
  * Bulk Role Operations Modal Component
- * 
+ *
  * Allows platform administrators to perform bulk operations on user roles:
  * - Assign roles to multiple users
  * - Remove roles from multiple users
@@ -28,7 +28,7 @@ import {
   Activity,
   UserCheck,
   UserX,
-  RotateCcw
+  RotateCcw,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
@@ -79,11 +79,11 @@ interface BulkRoleOperationsModalProps {
   onOperationComplete: () => void;
 }
 
-export function BulkRoleOperationsModal({ 
-  isOpen, 
-  onClose, 
-  selectedUserIds, 
-  onOperationComplete 
+export function BulkRoleOperationsModal({
+  isOpen,
+  onClose,
+  selectedUserIds,
+  onOperationComplete,
 }: BulkRoleOperationsModalProps) {
   const { hasPermission } = useRole();
   const [users, setUsers] = useState<User[]>([]);
@@ -92,17 +92,21 @@ export function BulkRoleOperationsModal({
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
-  
+
   // Operation state
-  const [operation, setOperation] = useState<'assign' | 'remove' | 'update' | 'activate' | 'deactivate'>('assign');
+  const [operation, setOperation] = useState<
+    'assign' | 'remove' | 'update' | 'activate' | 'deactivate'
+  >('assign');
   const [selectedRoleTemplate, setSelectedRoleTemplate] = useState<string>('');
   const [selectedUserType, setSelectedUserType] = useState<string>('');
   const [selectedRestaurant, setSelectedRestaurant] = useState<string>('');
   const [customPermissions, setCustomPermissions] = useState<string[]>([]);
   const [reason, setReason] = useState<string>('');
-  
+
   // Results state
-  const [operationResults, setOperationResults] = useState<BulkOperationResult[]>([]);
+  const [operationResults, setOperationResults] = useState<
+    BulkOperationResult[]
+  >([]);
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
@@ -119,25 +123,19 @@ export function BulkRoleOperationsModal({
       const templatesResult = await ApiClient.get<{
         templates: RoleTemplate[];
       }>('/api/admin/role-templates');
-      if (templatesResult.ok && templatesResult.data) {
-        setRoleTemplates(templatesResult.data.templates || []);
-      }
+      setRoleTemplates(templatesResult.templates || []);
 
       // Fetch restaurants
       const restaurantsResult = await ApiClient.get<{
         restaurants: Restaurant[];
       }>('/api/admin/restaurants');
-      if (restaurantsResult.ok && restaurantsResult.data) {
-        setRestaurants(restaurantsResult.data.restaurants || []);
-      }
+      setRestaurants(restaurantsResult.restaurants || []);
 
       // Fetch permissions
       const permissionsResult = await ApiClient.get<{
         permissions: Permission[];
       }>('/api/admin/permissions');
-      if (permissionsResult.ok && permissionsResult.data) {
-        setPermissions(permissionsResult.data.permissions || []);
-      }
+      setPermissions(permissionsResult.permissions || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -151,9 +149,9 @@ export function BulkRoleOperationsModal({
     try {
       const data = await ApiClient.post<{
         users: User[];
-      }>('/api/admin/users', {
+      }>('/api/admin/users/bulk', {
         userIds: selectedUserIds,
-        action: 'get_bulk'
+        action: 'get_bulk',
       });
 
       setUsers(data.users || []);
@@ -172,8 +170,14 @@ export function BulkRoleOperationsModal({
         return;
       }
 
-      if ((selectedUserType === 'restaurant_owner' || selectedUserType === 'staff') && !selectedRestaurant) {
-        alert('Restaurant selection is required for restaurant owners and staff');
+      if (
+        (selectedUserType === 'restaurant_owner' ||
+          selectedUserType === 'staff') &&
+        !selectedRestaurant
+      ) {
+        alert(
+          'Restaurant selection is required for restaurant owners and staff'
+        );
         return;
       }
     }
@@ -185,13 +189,14 @@ export function BulkRoleOperationsModal({
       const payload = {
         operation,
         userIds: selectedUserIds,
-        ...(operation === 'assign' || operation === 'update') && {
+        ...((operation === 'assign' || operation === 'update') && {
           userType: selectedUserType,
           roleTemplate: selectedRoleTemplate,
           restaurantId: selectedRestaurant || null,
-          customPermissions: customPermissions.length > 0 ? customPermissions : null
-        },
-        reason
+          customPermissions:
+            customPermissions.length > 0 ? customPermissions : null,
+        }),
+        reason,
       };
 
       const data = await ApiClient.post<{
@@ -220,24 +225,31 @@ export function BulkRoleOperationsModal({
 
   const handleCustomPermissionToggle = (permissionKey: string) => {
     if (customPermissions.includes(permissionKey)) {
-      setCustomPermissions(customPermissions.filter(p => p !== permissionKey));
+      setCustomPermissions(
+        customPermissions.filter((p) => p !== permissionKey)
+      );
     } else {
       setCustomPermissions([...customPermissions, permissionKey]);
     }
   };
 
   const getSelectedTemplatePermissions = () => {
-    const template = roleTemplates.find(t => t.template === selectedRoleTemplate);
+    const template = roleTemplates.find(
+      (t) => t.template === selectedRoleTemplate
+    );
     return template?.permissions || [];
   };
 
-  const groupedPermissions = permissions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, Permission[]>);
+  const groupedPermissions = permissions.reduce(
+    (acc, permission) => {
+      if (!acc[permission.category]) {
+        acc[permission.category] = [];
+      }
+      acc[permission.category].push(permission);
+      return acc;
+    },
+    {} as Record<string, Permission[]>
+  );
 
   const getOperationIcon = (op: string) => {
     switch (op) {
@@ -287,9 +299,10 @@ export function BulkRoleOperationsModal({
   const exportResults = () => {
     const csvContent = [
       'User ID,User Name,Email,Success,Error',
-      ...operationResults.map(result => 
-        `${result.userId},"${result.userName}","${users.find(u => u.id === result.userId)?.email || 'Unknown'}",${result.success ? 'Yes' : 'No'},"${result.error || ''}"`
-      )
+      ...operationResults.map(
+        (result) =>
+          `${result.userId},"${result.userName}","${users.find((u) => u.id === result.userId)?.email || 'Unknown'}",${result.success ? 'Yes' : 'No'},"${result.error || ''}"`
+      ),
     ].join('\n');
 
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -306,7 +319,10 @@ export function BulkRoleOperationsModal({
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={onClose}
+        ></div>
 
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-6xl sm:w-full">
           {/* Header */}
@@ -318,7 +334,8 @@ export function BulkRoleOperationsModal({
                   Bulk Role Operations
                 </h3>
                 <p className="text-sm text-gray-500">
-                  Perform bulk operations on {selectedUserIds.length} selected users
+                  Perform bulk operations on {selectedUserIds.length} selected
+                  users
                 </p>
               </div>
               <button
@@ -339,7 +356,9 @@ export function BulkRoleOperationsModal({
             /* Results View */
             <div className="px-6 py-4">
               <div className="mb-4 flex items-center justify-between">
-                <h4 className="text-lg font-medium text-gray-900">Operation Results</h4>
+                <h4 className="text-lg font-medium text-gray-900">
+                  Operation Results
+                </h4>
                 <div className="flex items-center space-x-2">
                   <button
                     onClick={exportResults}
@@ -362,13 +381,13 @@ export function BulkRoleOperationsModal({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="text-center">
                     <div className="text-2xl font-bold text-green-600">
-                      {operationResults.filter(r => r.success).length}
+                      {operationResults.filter((r) => r.success).length}
                     </div>
                     <div className="text-sm text-gray-600">Successful</div>
                   </div>
                   <div className="text-center">
                     <div className="text-2xl font-bold text-red-600">
-                      {operationResults.filter(r => !r.success).length}
+                      {operationResults.filter((r) => !r.success).length}
                     </div>
                     <div className="text-sm text-gray-600">Failed</div>
                   </div>
@@ -386,7 +405,9 @@ export function BulkRoleOperationsModal({
                   <div
                     key={result.userId}
                     className={`p-3 rounded-lg border ${
-                      result.success ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'
+                      result.success
+                        ? 'border-green-200 bg-green-50'
+                        : 'border-red-200 bg-red-50'
                     }`}
                   >
                     <div className="flex items-center justify-between">
@@ -399,7 +420,9 @@ export function BulkRoleOperationsModal({
                         <span className="font-medium">{result.userName}</span>
                       </div>
                       {!result.success && result.error && (
-                        <span className="text-sm text-red-600">{result.error}</span>
+                        <span className="text-sm text-red-600">
+                          {result.error}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -412,23 +435,32 @@ export function BulkRoleOperationsModal({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Selected Users */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Selected Users ({users.length})</h4>
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">
+                    Selected Users ({users.length})
+                  </h4>
                   <div className="border border-gray-200 rounded-lg max-h-64 overflow-y-auto">
                     {users.map((user) => (
-                      <div key={user.id} className="p-3 border-b border-gray-200 last:border-b-0">
+                      <div
+                        key={user.id}
+                        className="p-3 border-b border-gray-200 last:border-b-0"
+                      >
                         <div className="flex items-center">
                           <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center">
                             <span className="text-xs font-medium text-white">
-                              {user.firstName.charAt(0)}{user.lastName.charAt(0)}
+                              {user.firstName.charAt(0)}
+                              {user.lastName.charAt(0)}
                             </span>
                           </div>
                           <div className="ml-3">
                             <div className="text-sm font-medium text-gray-900">
                               {user.firstName} {user.lastName}
                             </div>
-                            <div className="text-xs text-gray-500">{user.email}</div>
                             <div className="text-xs text-gray-500">
-                              {user.userType.replace('_', ' ')} • {user.isActive ? 'Active' : 'Inactive'}
+                              {user.email}
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {user.userType.replace('_', ' ')} •{' '}
+                              {user.isActive ? 'Active' : 'Inactive'}
                             </div>
                           </div>
                         </div>
@@ -439,8 +471,10 @@ export function BulkRoleOperationsModal({
 
                 {/* Right Column - Operation Configuration */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Operation Configuration</h4>
-                  
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">
+                    Operation Configuration
+                  </h4>
+
                   <div className="space-y-4">
                     {/* Operation Type */}
                     <div>
@@ -448,7 +482,15 @@ export function BulkRoleOperationsModal({
                         Operation Type
                       </label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        {(['assign', 'remove', 'update', 'activate', 'deactivate'] as const).map((op) => (
+                        {(
+                          [
+                            'assign',
+                            'remove',
+                            'update',
+                            'activate',
+                            'deactivate',
+                          ] as const
+                        ).map((op) => (
                           <label
                             key={op}
                             className={`flex items-center p-3 border rounded-lg cursor-pointer ${
@@ -462,13 +504,17 @@ export function BulkRoleOperationsModal({
                               name="operation"
                               value={op}
                               checked={operation === op}
-                              onChange={(e) => setOperation(e.target.value as any)}
+                              onChange={(e) =>
+                                setOperation(e.target.value as any)
+                              }
                               className="sr-only"
                             />
                             <div className="flex items-center">
                               {getOperationIcon(op)}
                               <div className="ml-2">
-                                <div className="text-sm font-medium capitalize">{op}</div>
+                                <div className="text-sm font-medium capitalize">
+                                  {op}
+                                </div>
                                 <div className="text-xs text-gray-500">
                                   {getOperationDescription(op)}
                                 </div>
@@ -488,12 +534,18 @@ export function BulkRoleOperationsModal({
                           </label>
                           <select
                             value={selectedUserType}
-                            onChange={(e) => setSelectedUserType(e.target.value)}
+                            onChange={(e) =>
+                              setSelectedUserType(e.target.value)
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           >
                             <option value="">Select user type</option>
-                            <option value="platform_admin">Platform Admin</option>
-                            <option value="restaurant_owner">Restaurant Owner</option>
+                            <option value="platform_admin">
+                              Platform Admin
+                            </option>
+                            <option value="restaurant_owner">
+                              Restaurant Owner
+                            </option>
                             <option value="staff">Staff</option>
                           </select>
                         </div>
@@ -504,20 +556,27 @@ export function BulkRoleOperationsModal({
                           </label>
                           <select
                             value={selectedRoleTemplate}
-                            onChange={(e) => setSelectedRoleTemplate(e.target.value)}
+                            onChange={(e) =>
+                              setSelectedRoleTemplate(e.target.value)
+                            }
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                             disabled={!selectedUserType}
                           >
                             <option value="">Select role template</option>
                             {roleTemplates.map((template) => (
-                              <option key={template.template} value={template.template}>
-                                {template.template.replace('_', ' ')} ({template.permissionCount} permissions)
+                              <option
+                                key={template.template}
+                                value={template.template}
+                              >
+                                {template.template.replace('_', ' ')} (
+                                {template.permissionCount} permissions)
                               </option>
                             ))}
                           </select>
                         </div>
 
-                        {(selectedUserType === 'restaurant_owner' || selectedUserType === 'staff') && (
+                        {(selectedUserType === 'restaurant_owner' ||
+                          selectedUserType === 'staff') && (
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
                               Restaurant Context
@@ -525,16 +584,23 @@ export function BulkRoleOperationsModal({
                             </label>
                             <select
                               value={selectedRestaurant}
-                              onChange={(e) => setSelectedRestaurant(e.target.value)}
+                              onChange={(e) =>
+                                setSelectedRestaurant(e.target.value)
+                              }
                               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                               required
                             >
                               <option value="">Select restaurant</option>
-                              {restaurants.filter(r => r.isActive).map((restaurant) => (
-                                <option key={restaurant.id} value={restaurant.id}>
-                                  {restaurant.name}
-                                </option>
-                              ))}
+                              {restaurants
+                                .filter((r) => r.isActive)
+                                .map((restaurant) => (
+                                  <option
+                                    key={restaurant.id}
+                                    value={restaurant.id}
+                                  >
+                                    {restaurant.name}
+                                  </option>
+                                ))}
                             </select>
                           </div>
                         )}
@@ -563,9 +629,13 @@ export function BulkRoleOperationsModal({
           {/* Footer */}
           <div className="bg-gray-50 px-6 py-4 flex items-center justify-between">
             <div className="text-sm text-gray-600">
-              {processing ? 'Processing...' : showResults ? 'Operation completed' : `${selectedUserIds.length} users selected`}
+              {processing
+                ? 'Processing...'
+                : showResults
+                  ? 'Operation completed'
+                  : `${selectedUserIds.length} users selected`}
             </div>
-            
+
             <div className="flex items-center space-x-3">
               <button
                 onClick={onClose}
@@ -573,7 +643,7 @@ export function BulkRoleOperationsModal({
               >
                 {showResults ? 'Close' : 'Cancel'}
               </button>
-              
+
               {!showResults && hasPermission('users:write') && (
                 <button
                   onClick={handleBulkOperation}

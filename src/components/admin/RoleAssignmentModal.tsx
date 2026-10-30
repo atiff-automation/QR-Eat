@@ -1,6 +1,6 @@
 /**
  * Role Assignment Modal Component
- * 
+ *
  * Allows platform administrators to assign, update, and remove roles for users.
  * Includes role template selection, restaurant context, and custom permissions.
  */
@@ -19,7 +19,7 @@ import {
   Check,
   AlertTriangle,
   User,
-  Settings
+  Settings,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
@@ -83,11 +83,11 @@ interface RoleAssignmentModalProps {
   onRoleUpdated: () => void;
 }
 
-export function RoleAssignmentModal({ 
-  isOpen, 
-  onClose, 
-  user, 
-  onRoleUpdated 
+export function RoleAssignmentModal({
+  isOpen,
+  onClose,
+  user,
+  onRoleUpdated,
 }: RoleAssignmentModalProps) {
   const { hasPermission } = useRole();
   const [roleTemplates, setRoleTemplates] = useState<RoleTemplate[]>([]);
@@ -95,7 +95,7 @@ export function RoleAssignmentModal({
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   // Form state
   const [selectedUserType, setSelectedUserType] = useState<string>('');
   const [selectedRoleTemplate, setSelectedRoleTemplate] = useState<string>('');
@@ -119,25 +119,19 @@ export function RoleAssignmentModal({
       const templatesResult = await ApiClient.get<{
         templates: RoleTemplate[];
       }>('/api/admin/role-templates');
-      if (templatesResult.ok && templatesResult.data) {
-        setRoleTemplates(templatesResult.data.templates || []);
-      }
+      setRoleTemplates(templatesResult.templates || []);
 
       // Fetch restaurants
       const restaurantsResult = await ApiClient.get<{
         restaurants: Restaurant[];
       }>('/api/admin/restaurants');
-      if (restaurantsResult.ok && restaurantsResult.data) {
-        setRestaurants(restaurantsResult.data.restaurants || []);
-      }
+      setRestaurants(restaurantsResult.restaurants || []);
 
       // Fetch permissions
       const permissionsResult = await ApiClient.get<{
         permissions: Permission[];
       }>('/api/admin/permissions');
-      if (permissionsResult.ok && permissionsResult.data) {
-        setPermissions(permissionsResult.data.permissions || []);
-      }
+      setPermissions(permissionsResult.permissions || []);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -173,13 +167,14 @@ export function RoleAssignmentModal({
         userType: selectedUserType,
         roleTemplate: selectedRoleTemplate,
         restaurantId: selectedRestaurant || null,
-        customPermissions: customPermissions.length > 0 ? customPermissions : null,
+        customPermissions:
+          customPermissions.length > 0 ? customPermissions : null,
       };
 
       const data = editingRoleId
         ? await ApiClient.put<{ error?: string }>('/api/admin/users', {
             roleId: editingRoleId,
-            ...payload
+            ...payload,
           })
         : await ApiClient.post<{ error?: string }>('/api/admin/users', payload);
 
@@ -204,9 +199,9 @@ export function RoleAssignmentModal({
     }
 
     try {
-      await ApiClient.delete<{ error?: string }>('/api/admin/users', {
-        roleId
-      });
+      await ApiClient.delete<{ error?: string }>(
+        `/api/admin/users?roleId=${encodeURIComponent(roleId)}`
+      );
 
       onRoleUpdated();
       resetForm();
@@ -222,33 +217,44 @@ export function RoleAssignmentModal({
 
   const handleCustomPermissionToggle = (permissionKey: string) => {
     if (customPermissions.includes(permissionKey)) {
-      setCustomPermissions(customPermissions.filter(p => p !== permissionKey));
+      setCustomPermissions(
+        customPermissions.filter((p) => p !== permissionKey)
+      );
     } else {
       setCustomPermissions([...customPermissions, permissionKey]);
     }
   };
 
   const getSelectedTemplatePermissions = () => {
-    const template = roleTemplates.find(t => t.template === selectedRoleTemplate);
+    const template = roleTemplates.find(
+      (t) => t.template === selectedRoleTemplate
+    );
     return template?.permissions || [];
   };
 
-  const groupedPermissions = permissions.reduce((acc, permission) => {
-    if (!acc[permission.category]) {
-      acc[permission.category] = [];
-    }
-    acc[permission.category].push(permission);
-    return acc;
-  }, {} as Record<string, Permission[]>);
+  const groupedPermissions = permissions.reduce(
+    (acc, permission) => {
+      if (!acc[permission.category]) {
+        acc[permission.category] = [];
+      }
+      acc[permission.category].push(permission);
+      return acc;
+    },
+    {} as Record<string, Permission[]>
+  );
 
-  const requiresRestaurant = selectedUserType === 'restaurant_owner' || selectedUserType === 'staff';
+  const requiresRestaurant =
+    selectedUserType === 'restaurant_owner' || selectedUserType === 'staff';
 
   if (!isOpen || !user) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" onClick={onClose}></div>
+        <div
+          className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"
+          onClick={onClose}
+        ></div>
 
         <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
           {/* Header */}
@@ -281,33 +287,45 @@ export function RoleAssignmentModal({
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Left Column - Current Roles */}
                 <div>
-                  <h4 className="text-sm font-medium text-gray-900 mb-4">Current Roles</h4>
+                  <h4 className="text-sm font-medium text-gray-900 mb-4">
+                    Current Roles
+                  </h4>
                   <div className="space-y-3">
                     {user.rbacData?.roles && user.rbacData.roles.length > 0 ? (
                       user.rbacData.roles.map((role) => (
                         <div
                           key={role.id}
                           className={`p-4 border rounded-lg ${
-                            editingRoleId === role.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'
+                            editingRoleId === role.id
+                              ? 'border-blue-500 bg-blue-50'
+                              : 'border-gray-200'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <div className="flex items-center">
-                                {role.userType === 'platform_admin' && <Shield className="h-4 w-4 text-purple-600 mr-2" />}
-                                {role.userType === 'restaurant_owner' && <Building2 className="h-4 w-4 text-blue-600 mr-2" />}
-                                {role.userType === 'staff' && <Users className="h-4 w-4 text-green-600 mr-2" />}
+                                {role.userType === 'platform_admin' && (
+                                  <Shield className="h-4 w-4 text-purple-600 mr-2" />
+                                )}
+                                {role.userType === 'restaurant_owner' && (
+                                  <Building2 className="h-4 w-4 text-blue-600 mr-2" />
+                                )}
+                                {role.userType === 'staff' && (
+                                  <Users className="h-4 w-4 text-green-600 mr-2" />
+                                )}
                                 <span className="font-medium text-sm">
                                   {role.roleTemplate.replace('_', ' ')}
                                 </span>
                               </div>
                               <div className="text-xs text-gray-500 mt-1">
                                 {role.userType.replace('_', ' ')}
-                                {role.restaurant && ` • ${role.restaurant.name}`}
+                                {role.restaurant &&
+                                  ` • ${role.restaurant.name}`}
                               </div>
                               {role.customPermissions.length > 0 && (
                                 <div className="text-xs text-blue-600 mt-1">
-                                  +{role.customPermissions.length} custom permissions
+                                  +{role.customPermissions.length} custom
+                                  permissions
                                 </div>
                               )}
                             </div>
@@ -344,7 +362,7 @@ export function RoleAssignmentModal({
                   <h4 className="text-sm font-medium text-gray-900 mb-4">
                     {editingRoleId ? 'Edit Role' : 'Assign New Role'}
                   </h4>
-                  
+
                   <div className="space-y-4">
                     {/* User Type */}
                     <div>
@@ -359,7 +377,9 @@ export function RoleAssignmentModal({
                       >
                         <option value="">Select user type</option>
                         <option value="platform_admin">Platform Admin</option>
-                        <option value="restaurant_owner">Restaurant Owner</option>
+                        <option value="restaurant_owner">
+                          Restaurant Owner
+                        </option>
                         <option value="staff">Staff</option>
                       </select>
                     </div>
@@ -371,14 +391,20 @@ export function RoleAssignmentModal({
                       </label>
                       <select
                         value={selectedRoleTemplate}
-                        onChange={(e) => setSelectedRoleTemplate(e.target.value)}
+                        onChange={(e) =>
+                          setSelectedRoleTemplate(e.target.value)
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                         disabled={!selectedUserType}
                       >
                         <option value="">Select role template</option>
                         {roleTemplates.map((template) => (
-                          <option key={template.template} value={template.template}>
-                            {template.template.replace('_', ' ')} ({template.permissionCount} permissions)
+                          <option
+                            key={template.template}
+                            value={template.template}
+                          >
+                            {template.template.replace('_', ' ')} (
+                            {template.permissionCount} permissions)
                           </option>
                         ))}
                       </select>
@@ -389,20 +415,26 @@ export function RoleAssignmentModal({
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                           Restaurant Context
-                          {requiresRestaurant && <span className="text-red-500">*</span>}
+                          {requiresRestaurant && (
+                            <span className="text-red-500">*</span>
+                          )}
                         </label>
                         <select
                           value={selectedRestaurant}
-                          onChange={(e) => setSelectedRestaurant(e.target.value)}
+                          onChange={(e) =>
+                            setSelectedRestaurant(e.target.value)
+                          }
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                           required={requiresRestaurant}
                         >
                           <option value="">Select restaurant</option>
-                          {restaurants.filter(r => r.isActive).map((restaurant) => (
-                            <option key={restaurant.id} value={restaurant.id}>
-                              {restaurant.name}
-                            </option>
-                          ))}
+                          {restaurants
+                            .filter((r) => r.isActive)
+                            .map((restaurant) => (
+                              <option key={restaurant.id} value={restaurant.id}>
+                                {restaurant.name}
+                              </option>
+                            ))}
                         </select>
                       </div>
                     )}
@@ -415,14 +447,16 @@ export function RoleAssignmentModal({
                         </label>
                         <div className="bg-gray-50 p-3 rounded-md max-h-32 overflow-y-auto">
                           <div className="flex flex-wrap gap-1">
-                            {getSelectedTemplatePermissions().map((permission) => (
-                              <span
-                                key={permission}
-                                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800"
-                              >
-                                {permission}
-                              </span>
-                            ))}
+                            {getSelectedTemplatePermissions().map(
+                              (permission) => (
+                                <span
+                                  key={permission}
+                                  className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800"
+                                >
+                                  {permission}
+                                </span>
+                              )
+                            )}
                           </div>
                         </div>
                       </div>
@@ -435,51 +469,72 @@ export function RoleAssignmentModal({
                           Additional Custom Permissions
                         </label>
                         <div className="border border-gray-300 rounded-md max-h-48 overflow-y-auto">
-                          {Object.entries(groupedPermissions).map(([category, categoryPermissions]) => (
-                            <div key={category} className="p-3 border-b border-gray-200 last:border-b-0">
-                              <h5 className="font-medium text-sm text-gray-900 mb-2 capitalize">
-                                {category}
-                              </h5>
-                              <div className="space-y-2">
-                                {categoryPermissions.map((permission) => {
-                                  const isTemplatePermission = getSelectedTemplatePermissions().includes(permission.permissionKey);
-                                  const isCustomSelected = customPermissions.includes(permission.permissionKey);
-                                  
-                                  return (
-                                    <label
-                                      key={permission.id}
-                                      className={`flex items-center space-x-2 p-2 rounded cursor-pointer ${
-                                        isTemplatePermission 
-                                          ? 'bg-blue-50 opacity-50 cursor-not-allowed' 
-                                          : isCustomSelected 
-                                            ? 'bg-green-50' 
-                                            : 'hover:bg-gray-50'
-                                      }`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={isTemplatePermission || isCustomSelected}
-                                        onChange={() => !isTemplatePermission && handleCustomPermissionToggle(permission.permissionKey)}
-                                        disabled={isTemplatePermission}
-                                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                                      />
-                                      <div className="flex-1">
-                                        <div className="text-sm font-medium">
-                                          {permission.permissionKey}
-                                          {isTemplatePermission && (
-                                            <span className="ml-2 text-xs text-blue-600">(from template)</span>
-                                          )}
+                          {Object.entries(groupedPermissions).map(
+                            ([category, categoryPermissions]) => (
+                              <div
+                                key={category}
+                                className="p-3 border-b border-gray-200 last:border-b-0"
+                              >
+                                <h5 className="font-medium text-sm text-gray-900 mb-2 capitalize">
+                                  {category}
+                                </h5>
+                                <div className="space-y-2">
+                                  {categoryPermissions.map((permission) => {
+                                    const isTemplatePermission =
+                                      getSelectedTemplatePermissions().includes(
+                                        permission.permissionKey
+                                      );
+                                    const isCustomSelected =
+                                      customPermissions.includes(
+                                        permission.permissionKey
+                                      );
+
+                                    return (
+                                      <label
+                                        key={permission.id}
+                                        className={`flex items-center space-x-2 p-2 rounded cursor-pointer ${
+                                          isTemplatePermission
+                                            ? 'bg-blue-50 opacity-50 cursor-not-allowed'
+                                            : isCustomSelected
+                                              ? 'bg-green-50'
+                                              : 'hover:bg-gray-50'
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={
+                                            isTemplatePermission ||
+                                            isCustomSelected
+                                          }
+                                          onChange={() =>
+                                            !isTemplatePermission &&
+                                            handleCustomPermissionToggle(
+                                              permission.permissionKey
+                                            )
+                                          }
+                                          disabled={isTemplatePermission}
+                                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                        />
+                                        <div className="flex-1">
+                                          <div className="text-sm font-medium">
+                                            {permission.permissionKey}
+                                            {isTemplatePermission && (
+                                              <span className="ml-2 text-xs text-blue-600">
+                                                (from template)
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="text-xs text-gray-500">
+                                            {permission.description}
+                                          </div>
                                         </div>
-                                        <div className="text-xs text-gray-500">
-                                          {permission.description}
-                                        </div>
-                                      </div>
-                                    </label>
-                                  );
-                                })}
+                                      </label>
+                                    );
+                                  })}
+                                </div>
                               </div>
-                            </div>
-                          ))}
+                            )
+                          )}
                         </div>
                       </div>
                     )}
@@ -499,7 +554,7 @@ export function RoleAssignmentModal({
                 </div>
               )}
             </div>
-            
+
             <div className="flex items-center space-x-3">
               <button
                 onClick={onClose}
@@ -507,7 +562,7 @@ export function RoleAssignmentModal({
               >
                 Cancel
               </button>
-              
+
               {editingRoleId && (
                 <button
                   onClick={resetForm}
@@ -516,11 +571,16 @@ export function RoleAssignmentModal({
                   Add New Role
                 </button>
               )}
-              
+
               {hasPermission('users:write') && (
                 <button
                   onClick={handleSaveRole}
-                  disabled={saving || !selectedUserType || !selectedRoleTemplate || (requiresRestaurant && !selectedRestaurant)}
+                  disabled={
+                    saving ||
+                    !selectedUserType ||
+                    !selectedRoleTemplate ||
+                    (requiresRestaurant && !selectedRestaurant)
+                  }
                   className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? (

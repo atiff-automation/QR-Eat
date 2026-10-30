@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     // Apply RBAC middleware - only platform admins can access
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:read'],
+      requiredPermissions: ['users:read'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 100 },
     });
@@ -141,7 +141,7 @@ export async function PUT(request: NextRequest) {
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:write'],
+      requiredPermissions: ['users:write'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
@@ -329,7 +329,7 @@ export async function POST(request: NextRequest) {
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['role_templates:write'],
+      requiredPermissions: ['users:write'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 10 },
     });

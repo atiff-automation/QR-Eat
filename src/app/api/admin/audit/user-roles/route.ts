@@ -1,37 +1,112 @@
 /**
  * User Role Audit History API
- * 
- * Provides comprehensive audit trail for user role changes including:
- * - Role assignments and removals
- * - Permission modifications
- * - Status changes
- * - Administrative actions
+ *
+ * Reads role-change events from the canonical RBAC log. Role changes are
+ * written by AuditLogger.logUserRoleChange into `rbac_logs`, with the target
+ * user stored in metadata.targetUserId.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { RBACMiddleware } from '@/middleware/rbac-middleware';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { prisma } from '@/lib/database';
 import { SecurityUtils } from '@/lib/security';
 
+type RoleAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'ACTIVATE' | 'DEACTIVATE';
+type Severity = 'low' | 'medium' | 'high';
+
+const SYSTEM_ACTOR = {
+  id: 'system',
+  email: 'system@system.local',
+  firstName: 'System',
+  lastName: 'Admin',
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined;
+}
+
+function stringArray(value: unknown): string[] | undefined {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : undefined;
+}
+
+function roleAction(action: string): RoleAction {
+  const suffix = action.startsWith('USER_ROLE_')
+    ? action.slice('USER_ROLE_'.length)
+    : action;
+
+  if (
+    suffix === 'CREATE' ||
+    suffix === 'UPDATE' ||
+    suffix === 'DELETE' ||
+    suffix === 'ACTIVATE' ||
+    suffix === 'DEACTIVATE'
+  ) {
+    return suffix;
+  }
+
+  return 'UPDATE';
+}
+
+function actionSeverity(action: RoleAction): Severity {
+  if (action === 'DELETE' || action === 'DEACTIVATE') return 'high';
+  if (action === 'UPDATE') return 'medium';
+  return 'low';
+}
+
+function buildWhere(
+  userId: string,
+  action: string | null,
+  startDate: string | null,
+  endDate: string | null
+): Prisma.RBACLogWhereInput {
+  const where: Prisma.RBACLogWhereInput = {
+    metadata: { path: ['targetUserId'], equals: userId },
+    action:
+      action && action !== 'all'
+        ? `USER_ROLE_${action}`
+        : { startsWith: 'USER_ROLE_' },
+  };
+
+  if (startDate || endDate) {
+    where.createdAt = {
+      ...(startDate ? { gte: new Date(startDate) } : {}),
+      ...(endDate ? { lte: new Date(`${endDate}T23:59:59.999Z`) } : {}),
+    };
+  }
+
+  return where;
+}
+
 // GET /api/admin/audit/user-roles - Get user role audit history
 export async function GET(request: NextRequest) {
   try {
-    // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['audit:read'],
+      requiredPermissions: ['users:read'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 50 }
+      rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    
-    // Get query parameters
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');
     const action = url.searchParams.get('action');
@@ -49,150 +124,156 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user exists
-    const targetUser = await prisma.platformAdmin.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true }
-    }) || await prisma.restaurantOwner.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true }
-    }) || await prisma.staff.findUnique({
-      where: { id: userId },
-      select: { id: true, email: true, firstName: true, lastName: true }
-    });
+    const targetUser =
+      (await prisma.platformAdmin.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      })) ||
+      (await prisma.restaurantOwner.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      })) ||
+      (await prisma.staff.findUnique({
+        where: { id: userId },
+        select: { id: true, email: true, firstName: true, lastName: true },
+      }));
 
     if (!targetUser) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Build filter conditions
-    const whereConditions: any = {
-      entityType: 'user_role',
-      entityId: userId
-    };
+    const where = buildWhere(userId, action, startDate, endDate);
+    const [logs, totalCount] = await Promise.all([
+      prisma.rBACLog.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      prisma.rBACLog.count({ where }),
+    ]);
 
-    if (action && action !== 'all') {
-      whereConditions.action = action;
-    }
+    const actorIds = [...new Set(logs.map((log) => log.userId))];
+    const [admins, owners, staff] = await Promise.all([
+      actorIds.length
+        ? prisma.platformAdmin.findMany({
+            where: { id: { in: actorIds } },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          })
+        : Promise.resolve([]),
+      actorIds.length
+        ? prisma.restaurantOwner.findMany({
+            where: { id: { in: actorIds } },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          })
+        : Promise.resolve([]),
+      actorIds.length
+        ? prisma.staff.findMany({
+            where: { id: { in: actorIds } },
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
-    if (severity && severity !== 'all') {
-      whereConditions.severity = severity;
-    }
+    const actorMap = new Map(
+      [...admins, ...owners, ...staff].map((actor) => [actor.id, actor])
+    );
 
-    if (startDate || endDate) {
-      whereConditions.timestamp = {};
-      if (startDate) {
-        whereConditions.timestamp.gte = new Date(startDate);
-      }
-      if (endDate) {
-        whereConditions.timestamp.lte = new Date(endDate + 'T23:59:59.999Z');
-      }
-    }
-
-    // Fetch audit entries
-    const auditEntries = await prisma.auditLog.findMany({
-      where: whereConditions,
-      include: {
-        performedBy: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true
-          }
-        }
-      },
-      orderBy: { timestamp: 'desc' },
-      skip: (page - 1) * limit,
-      take: limit
-    });
-
-    // Get total count for pagination
-    const totalCount = await prisma.auditLog.count({
-      where: whereConditions
-    });
-
-    // Transform audit entries to role history format
-    const roleHistory = auditEntries.map(entry => {
-      const details = typeof entry.details === 'object' ? entry.details as any : {};
-      const metadata = typeof entry.metadata === 'object' ? entry.metadata as any : {};
+    let entries = logs.map((log) => {
+      const metadata = isRecord(log.metadata) ? log.metadata : {};
+      const roleDetails = isRecord(metadata.roleDetails)
+        ? metadata.roleDetails
+        : {};
+      const changes = isRecord(metadata.changes) ? metadata.changes : undefined;
+      const restaurant = isRecord(roleDetails.restaurant)
+        ? roleDetails.restaurant
+        : undefined;
+      const role = roleAction(log.action);
+      const performedBy = actorMap.get(log.userId) || SYSTEM_ACTOR;
 
       return {
-        id: entry.id,
-        userId: entry.entityId,
-        action: entry.action,
-        actionType: entry.category || 'role_assignment',
-        performedBy: entry.performedBy || {
-          id: 'system',
-          email: 'system@system.local',
-          firstName: 'System',
-          lastName: 'Admin'
-        },
-        timestamp: entry.timestamp,
+        id: log.id,
+        userId: stringValue(metadata.targetUserId) || userId,
+        action: role,
+        actionType: 'role_assignment' as const,
+        performedBy,
+        timestamp: log.createdAt.toISOString(),
         details: {
-          roleTemplate: details.roleTemplate,
-          userType: details.userType,
-          restaurantId: details.restaurantId,
-          restaurant: details.restaurant,
-          changes: details.changes,
-          customPermissions: details.customPermissions,
-          reason: details.reason
+          roleTemplate: stringValue(roleDetails.roleTemplate),
+          userType: stringValue(roleDetails.userType),
+          restaurantId: stringValue(roleDetails.restaurantId),
+          restaurant: restaurant
+            ? {
+                id: stringValue(restaurant.id) || '',
+                name: stringValue(restaurant.name) || '',
+                slug: stringValue(restaurant.slug) || '',
+              }
+            : undefined,
+          changes: changes
+            ? {
+                before: isRecord(changes.before) ? changes.before : undefined,
+                after: isRecord(changes.after) ? changes.after : undefined,
+              }
+            : undefined,
+          customPermissions: stringArray(roleDetails.customPermissions),
+          reason: stringValue(metadata.reason),
         },
         metadata: {
-          ipAddress: metadata.ipAddress || 'unknown',
-          userAgent: metadata.userAgent || 'unknown',
-          sessionId: metadata.sessionId,
-          source: metadata.source || 'admin_panel'
+          ipAddress: log.ipAddress || 'unknown',
+          userAgent: log.userAgent || 'unknown',
+          sessionId: log.sessionId || undefined,
+          source: 'admin_panel' as const,
         },
-        severity: entry.severity
+        severity: actionSeverity(role),
       };
     });
 
-    // Apply search filter if provided
-    let filteredHistory = roleHistory;
+    if (severity && severity !== 'all') {
+      entries = entries.filter((entry) => entry.severity === severity);
+    }
+
     if (search) {
       const searchLower = search.toLowerCase();
-      filteredHistory = roleHistory.filter(entry => 
-        entry.performedBy.email.toLowerCase().includes(searchLower) ||
-        entry.performedBy.firstName.toLowerCase().includes(searchLower) ||
-        entry.performedBy.lastName.toLowerCase().includes(searchLower) ||
-        entry.details.roleTemplate?.toLowerCase().includes(searchLower) ||
-        entry.details.restaurant?.name.toLowerCase().includes(searchLower) ||
-        entry.action.toLowerCase().includes(searchLower)
+      entries = entries.filter(
+        (entry) =>
+          entry.performedBy.email.toLowerCase().includes(searchLower) ||
+          entry.performedBy.firstName.toLowerCase().includes(searchLower) ||
+          entry.performedBy.lastName.toLowerCase().includes(searchLower) ||
+          entry.details.roleTemplate?.toLowerCase().includes(searchLower) ||
+          entry.details.restaurant?.name.toLowerCase().includes(searchLower) ||
+          entry.action.toLowerCase().includes(searchLower)
       );
     }
 
-    // Get summary statistics
-    const summary = {
-      totalEntries: totalCount,
-      actionBreakdown: await prisma.auditLog.groupBy({
-        by: ['action'],
-        where: { entityType: 'user_role', entityId: userId },
-        _count: true
-      }),
-      severityBreakdown: await prisma.auditLog.groupBy({
-        by: ['severity'],
-        where: { entityType: 'user_role', entityId: userId },
-        _count: true
-      }),
-      dateRange: {
-        earliest: await prisma.auditLog.findFirst({
-          where: { entityType: 'user_role', entityId: userId },
-          orderBy: { timestamp: 'asc' },
-          select: { timestamp: true }
-        }),
-        latest: await prisma.auditLog.findFirst({
-          where: { entityType: 'user_role', entityId: userId },
-          orderBy: { timestamp: 'desc' },
-          select: { timestamp: true }
-        })
-      }
-    };
+    const actionBreakdown = Object.entries(
+      entries.reduce<Record<string, number>>((breakdown, entry) => {
+        breakdown[entry.action] = (breakdown[entry.action] || 0) + 1;
+        return breakdown;
+      }, {})
+    ).map(([entryAction, count]) => ({ action: entryAction, count }));
 
-    // Log audit access
+    const severityBreakdown = Object.entries(
+      entries.reduce<Record<string, number>>((breakdown, entry) => {
+        breakdown[entry.severity] = (breakdown[entry.severity] || 0) + 1;
+        return breakdown;
+      }, {})
+    ).map(([entrySeverity, count]) => ({ severity: entrySeverity, count }));
+
     await AuditLogger.logSecurityEvent(
       context.user.id,
       'AUDIT_ACCESS',
@@ -203,33 +284,32 @@ export async function GET(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           targetUserId: userId,
-          filters: {
-            action,
-            severity,
-            startDate,
-            endDate,
-            search
-          }
-        }
+          filters: { action, severity, startDate, endDate, search },
+        },
       }
     );
 
     return NextResponse.json({
       success: true,
-      entries: filteredHistory,
+      entries,
       pagination: {
         page,
         limit,
-        totalCount: filteredHistory.length,
-        totalPages: Math.ceil(filteredHistory.length / limit)
+        totalCount,
+        totalPages: Math.ceil(totalCount / limit),
       },
-      summary,
-      targetUser: {
-        id: targetUser.id,
-        email: targetUser.email,
-        firstName: targetUser.firstName,
-        lastName: targetUser.lastName
+      summary: {
+        totalEntries: totalCount,
+        actionBreakdown,
+        severityBreakdown,
+        dateRange: {
+          earliest: logs.length
+            ? logs[logs.length - 1].createdAt.toISOString()
+            : null,
+          latest: logs.length ? logs[0].createdAt.toISOString() : null,
+        },
       },
+      targetUser,
       meta: {
         requestedBy: context.user.id,
         requestedAt: new Date().toISOString(),
@@ -237,15 +317,13 @@ export async function GET(request: NextRequest) {
           action,
           severity,
           dateRange: { startDate, endDate },
-          search
-        }
-      }
+          search,
+        },
+      },
     });
-
   } catch (error) {
     console.error('Failed to fetch role audit history:', error);
-    
-    // Log error for security monitoring
+
     await AuditLogger.logSecurityEvent(
       'system',
       'AUDIT_FETCH_ERROR',
@@ -256,15 +334,21 @@ export async function GET(request: NextRequest) {
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           endpoint: 'audit/user-roles',
-          errorType: error instanceof Error ? error.constructor.name : 'Unknown'
-        }
+          errorType:
+            error instanceof Error ? error.constructor.name : 'Unknown',
+        },
       }
     );
 
     return NextResponse.json(
-      { 
+      {
         error: 'Failed to fetch role audit history',
-        details: process.env.NODE_ENV === 'development' ? error.message : undefined
+        details:
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : 'Unknown error'
+            : undefined,
       },
       { status: 500 }
     );

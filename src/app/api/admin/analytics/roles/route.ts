@@ -20,13 +20,20 @@ export async function GET(request: NextRequest) {
     // Apply RBAC middleware
     const authResult = await RBACMiddleware.protect(request, {
       allowedUserTypes: ['platform_admin'],
-      requiredPermissions: ['analytics:read'],
+      requiredPermissions: ['users:read'],
       auditLog: true,
       rateLimit: { windowMs: 60000, maxRequests: 30 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
+    }
+
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { context } = authResult;
@@ -200,19 +207,20 @@ export async function GET(request: NextRequest) {
       }
 
       // Process custom permissions
-      if (
-        userRole.customPermissions &&
-        Array.isArray(userRole.customPermissions)
-      ) {
-        for (const permission of userRole.customPermissions) {
-          const current = permissionUsage.get(permission) || {
-            userCount: 0,
-            roleCount: 0,
-            category: 'custom',
-          };
-          current.userCount += 1;
-          permissionUsage.set(permission, current);
-        }
+      const customPermissions = Array.isArray(userRole.customPermissions)
+        ? userRole.customPermissions.filter(
+            (permission): permission is string => typeof permission === 'string'
+          )
+        : [];
+
+      for (const permission of customPermissions) {
+        const current = permissionUsage.get(permission) || {
+          userCount: 0,
+          roleCount: 0,
+          category: 'custom',
+        };
+        current.userCount += 1;
+        permissionUsage.set(permission, current);
       }
     }
 
@@ -389,17 +397,35 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Check for inactive users with active roles
-    const inactiveUsersWithRoles = await prisma.userRole.count({
-      where: {
-        isActive: true,
-        OR: [
-          { user: { platformAdmin: { isActive: false } } },
-          { user: { restaurantOwner: { isActive: false } } },
-          { user: { staff: { isActive: false } } },
-        ],
-      },
+    // Check for inactive users with active roles. UserRole stores the user
+    // type and ID directly, so compare active assignments against inactive
+    // user IDs from each auth table.
+    const activeAssignments = await prisma.userRole.findMany({
+      where: { isActive: true },
+      select: { userId: true, userType: true },
     });
+    const [inactiveAdmins, inactiveOwners, inactiveStaff] = await Promise.all([
+      prisma.platformAdmin.findMany({
+        where: { isActive: false },
+        select: { id: true },
+      }),
+      prisma.restaurantOwner.findMany({
+        where: { isActive: false },
+        select: { id: true },
+      }),
+      prisma.staff.findMany({
+        where: { isActive: false },
+        select: { id: true },
+      }),
+    ]);
+    const inactiveUserKeys = new Set([
+      ...inactiveAdmins.map((user) => `platform_admin:${user.id}`),
+      ...inactiveOwners.map((user) => `restaurant_owner:${user.id}`),
+      ...inactiveStaff.map((user) => `staff:${user.id}`),
+    ]);
+    const inactiveUsersWithRoles = activeAssignments.filter((assignment) =>
+      inactiveUserKeys.has(`${assignment.userType}:${assignment.userId}`)
+    ).length;
 
     if (inactiveUsersWithRoles > 0) {
       securityInsights.push({
@@ -445,18 +471,16 @@ export async function GET(request: NextRequest) {
             isActive: true,
           },
         }),
-        prisma.auditLog.count({
+        prisma.rBACLog.count({
           where: {
-            action: 'DELETE',
-            entityType: 'user_role',
-            timestamp: { gte: intervalStart, lt: intervalEnd },
+            action: 'USER_ROLE_DELETE',
+            createdAt: { gte: intervalStart, lt: intervalEnd },
           },
         }),
-        prisma.auditLog.count({
+        prisma.rBACLog.count({
           where: {
-            action: 'UPDATE',
-            entityType: 'user_role',
-            timestamp: { gte: intervalStart, lt: intervalEnd },
+            action: 'USER_ROLE_UPDATE',
+            createdAt: { gte: intervalStart, lt: intervalEnd },
           },
         }),
       ]);
@@ -545,7 +569,11 @@ export async function GET(request: NextRequest) {
       {
         error: 'Failed to fetch role analytics',
         details:
-          process.env.NODE_ENV === 'development' ? error.message : undefined,
+          process.env.NODE_ENV === 'development'
+            ? error instanceof Error
+              ? error.message
+              : 'Unknown error'
+            : undefined,
       },
       { status: 500 }
     );

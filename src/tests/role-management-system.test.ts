@@ -116,6 +116,13 @@ jest.mock('@/lib/database', () => ({
       count: jest.fn(),
       groupBy: jest.fn(),
     },
+    rBACLog: {
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+      create: jest.fn(),
+      count: jest.fn(),
+      groupBy: jest.fn(),
+    },
   },
 }));
 
@@ -459,21 +466,36 @@ describe('Role Management System Tests', () => {
         email: 'test@example.com',
       });
 
-      (prisma.auditLog.findMany as jest.Mock).mockResolvedValue([
+      (prisma.rBACLog.findMany as jest.Mock).mockResolvedValue([
         {
           id: 'audit-1',
-          action: 'CREATE',
-          entityType: 'user_role',
-          timestamp: new Date(),
+          userId: 'admin-123',
+          action: 'USER_ROLE_CREATE',
+          resource: 'user_management',
+          metadata: {
+            targetUserId: 'user-123',
+            roleDetails: {
+              roleTemplate: 'manager',
+              userType: 'staff',
+              customPermissions: [],
+            },
+          },
+          createdAt: new Date(),
+          ipAddress: '127.0.0.1',
+          userAgent: 'test-agent',
         },
       ]);
+      (prisma.rBACLog.count as jest.Mock).mockResolvedValue(1);
+      (prisma.platformAdmin.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.restaurantOwner.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.staff.findMany as jest.Mock).mockResolvedValue([]);
 
       const { GET } = AuditUserRolesRoute as any;
       const request = mockRequest('GET', null, { userId: 'user-123' });
       const response = await GET(request);
 
       expect(response.status).toBe(200);
-      expect(prisma.auditLog.findMany).toHaveBeenCalled();
+      expect(prisma.rBACLog.findMany).toHaveBeenCalled();
     });
 
     it('should generate role analytics successfully', async () => {
@@ -495,7 +517,10 @@ describe('Role Management System Tests', () => {
         },
       ]);
       (prisma.restaurant.findMany as jest.Mock).mockResolvedValue([]);
-      (prisma.auditLog.count as jest.Mock).mockResolvedValue(0);
+      (prisma.rBACLog.count as jest.Mock).mockResolvedValue(0);
+      (prisma.platformAdmin.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.restaurantOwner.findMany as jest.Mock).mockResolvedValue([]);
+      (prisma.staff.findMany as jest.Mock).mockResolvedValue([]);
 
       (prisma.rolePermission.findMany as jest.Mock).mockResolvedValue([
         {

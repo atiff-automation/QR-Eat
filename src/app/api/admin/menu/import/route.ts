@@ -5,8 +5,9 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
-                  request.cookies.get('qr_auth_token')?.value;
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
+      request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
       return NextResponse.json(
@@ -34,7 +35,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const hasMenuPermission = authResult.user.currentRole?.permissions.menu?.includes('write');
+    const hasMenuPermission =
+      authResult.user.permissions.includes('menu:write');
     if (!hasMenuPermission) {
       return NextResponse.json(
         { error: 'Insufficient permissions' },
@@ -42,7 +44,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { csvData, mapping } = await request.json();
+    type ImportRow = Record<string, string | undefined>;
+    type ImportMapping = Record<string, string>;
+
+    const body = (await request.json()) as {
+      csvData?: ImportRow[];
+      mapping?: ImportMapping;
+    };
+    const { csvData, mapping } = body;
 
     if (!csvData || !Array.isArray(csvData) || csvData.length === 0) {
       return NextResponse.json(
@@ -61,34 +70,53 @@ export async function POST(request: NextRequest) {
     const results = {
       success: 0,
       failed: 0,
-      errors: []
+      errors: [] as string[],
     };
 
-    const categoryCache = new Map();
+    const categoryCache = new Map<string, string>();
+    const nameColumn = mapping.name;
+    const priceColumn = mapping.price;
+    const categoryColumn = mapping.category;
 
     // Process each row
     for (let i = 0; i < csvData.length; i++) {
       const row = csvData[i];
-      
+      if (!row) continue;
+
+      const cell = (column?: string): string | undefined =>
+        column ? row[column] : undefined;
+
       try {
         // Extract data based on mapping
-        const name = row[mapping.name]?.trim();
-        const price = parseFloat(row[mapping.price]);
-        const categoryName = row[mapping.category]?.trim();
-        const description = mapping.description ? row[mapping.description]?.trim() : null;
-        const preparationTime = mapping.preparationTime ? 
-          parseInt(row[mapping.preparationTime]) || 15 : 15;
-        const calories = mapping.calories && row[mapping.calories] ? 
-          parseInt(row[mapping.calories]) : null;
-        const allergens = mapping.allergens && row[mapping.allergens] ? 
-          row[mapping.allergens].split(',').map(a => a.trim()).filter(Boolean) : [];
-        const dietaryInfo = mapping.dietaryInfo && row[mapping.dietaryInfo] ? 
-          row[mapping.dietaryInfo].split(',').map(d => d.trim()).filter(Boolean) : [];
+        const name = cell(nameColumn)?.trim();
+        const price = parseFloat(cell(priceColumn) ?? '');
+        const categoryName = cell(categoryColumn)?.trim();
+        const description = cell(mapping.description)?.trim() ?? null;
+        const preparationTime =
+          parseInt(cell(mapping.preparationTime) ?? '') || 15;
+        const caloriesValue = cell(mapping.calories);
+        const calories = caloriesValue ? parseInt(caloriesValue) : null;
+        const allergensValue = cell(mapping.allergens);
+        const allergens = allergensValue
+          ? allergensValue
+              .split(',')
+              .map((a: string) => a.trim())
+              .filter(Boolean)
+          : [];
+        const dietaryValue = cell(mapping.dietaryInfo);
+        const dietaryInfo = dietaryValue
+          ? dietaryValue
+              .split(',')
+              .map((d: string) => d.trim())
+              .filter(Boolean)
+          : [];
 
         // Validate required fields
         if (!name || isNaN(price) || !categoryName) {
           results.failed++;
-          results.errors.push(`Row ${i + 1}: Missing required fields (name, price, category)`);
+          results.errors.push(
+            `Row ${i + 1}: Missing required fields (name, price, category)`
+          );
           continue;
         }
 
@@ -98,8 +126,8 @@ export async function POST(request: NextRequest) {
           let category = await prisma.menuCategory.findFirst({
             where: {
               name: categoryName,
-              restaurantId
-            }
+              restaurantId,
+            },
           });
 
           if (!category) {
@@ -110,8 +138,8 @@ export async function POST(request: NextRequest) {
                 name: categoryName,
                 description: `Auto-created category for ${categoryName}`,
                 displayOrder: await getNextCategoryDisplayOrder(restaurantId),
-                isActive: true
-              }
+                isActive: true,
+              },
             });
           }
 
@@ -122,7 +150,7 @@ export async function POST(request: NextRequest) {
         // Get next display order
         const lastItem = await prisma.menuItem.findFirst({
           where: { categoryId },
-          orderBy: { displayOrder: 'desc' }
+          orderBy: { displayOrder: 'desc' },
         });
         const displayOrder = (lastItem?.displayOrder || 0) + 1;
 
@@ -140,24 +168,24 @@ export async function POST(request: NextRequest) {
             dietaryInfo,
             isAvailable: true,
             isFeatured: false,
-            displayOrder
-          }
+            displayOrder,
+          },
         });
 
         results.success++;
-
       } catch (error) {
         results.failed++;
-        results.errors.push(`Row ${i + 1}: ${error.message}`);
+        results.errors.push(
+          `Row ${i + 1}: ${error instanceof Error ? error.message : 'Unknown error'}`
+        );
       }
     }
 
     return NextResponse.json({
       success: true,
       results,
-      message: `Import completed: ${results.success} items created, ${results.failed} failed`
+      message: `Import completed: ${results.success} items created, ${results.failed} failed`,
     });
-
   } catch (error) {
     console.error('Failed to import menu items:', error);
     return NextResponse.json(
@@ -167,10 +195,12 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function getNextCategoryDisplayOrder(restaurantId: string): Promise<number> {
+async function getNextCategoryDisplayOrder(
+  restaurantId: string
+): Promise<number> {
   const lastCategory = await prisma.menuCategory.findFirst({
     where: { restaurantId },
-    orderBy: { displayOrder: 'desc' }
+    orderBy: { displayOrder: 'desc' },
   });
   return (lastCategory?.displayOrder || 0) + 1;
 }
