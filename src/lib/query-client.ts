@@ -126,35 +126,6 @@ export const queryKeys = {
     orders: (tableId: string) => ['tables', tableId, 'orders'] as const,
   },
 
-  // Reports & Analytics
-  reports: {
-    all: ['reports'] as const,
-    sales: (params?: Record<string, unknown>) =>
-      ['reports', 'sales', params] as const,
-    operational: (params?: Record<string, unknown>) =>
-      ['reports', 'operational', params] as const,
-    menu: (params?: Record<string, unknown>) =>
-      ['reports', 'menu', params] as const,
-    financial: (params?: Record<string, unknown>) =>
-      ['reports', 'financial', params] as const,
-    customer: (params?: Record<string, unknown>) =>
-      ['reports', 'customer', params] as const,
-    comprehensive: (params?: Record<string, unknown>) =>
-      ['reports', 'comprehensive', params] as const,
-    byType: (type: string, params?: Record<string, unknown>) =>
-      ['reports', type, params] as const,
-  },
-
-  // Analytics
-  analytics: {
-    revenue: (period: string, granularity: string) =>
-      ['analytics', 'revenue', period, granularity] as const,
-    orders: (period: string, granularity: string) =>
-      ['analytics', 'orders', period, granularity] as const,
-    popularItems: (period: string, limit: number) =>
-      ['analytics', 'popular-items', period, limit] as const,
-  },
-
   // Expenses
   expenses: {
     all: ['expenses'] as const,

@@ -9,6 +9,46 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Keep old report bookmarks working after the legacy stack was removed.
+  async redirects() {
+    return [
+      {
+        source: '/dashboard/reports/comprehensive',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/reports/customer',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/reports/financial',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/reports/menu',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/reports/operational',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/reports/sales',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+      {
+        source: '/dashboard/analytics/:path*',
+        destination: '/dashboard/reports',
+        permanent: true,
+      },
+    ];
+  },
   // Environment variables
   env: {
     ENABLE_SUBDOMAIN_ROUTING: process.env.ENABLE_SUBDOMAIN_ROUTING,

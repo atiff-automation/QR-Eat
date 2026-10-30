@@ -1,301 +1,128 @@
-'use client';
-
-import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   ClipboardList,
-  DollarSign,
-  UtensilsCrossed,
+  FileText,
   TrendingUp,
-  BarChart3,
-  Heart,
-  Star,
-  Settings,
-  Users,
   Monitor,
   ChefHat,
-  FileText,
+  Receipt,
 } from 'lucide-react';
-import { ApiClient, ApiClientError } from '@/lib/api-client';
+
+const reportCards = [
+  {
+    href: '/dashboard/reports/daily',
+    icon: ClipboardList,
+    iconClassName: 'bg-blue-100 text-blue-600',
+    title: 'Daily Sales',
+    description:
+      'Business-day sales, orders, payments and refunds in one view.',
+  },
+  {
+    href: '/dashboard/reports/z',
+    icon: FileText,
+    iconClassName: 'bg-slate-100 text-slate-700',
+    title: 'Z Reports',
+    description: 'Close-day snapshots and printable end-of-day reports.',
+  },
+  {
+    href: '/dashboard/reports/profit-loss',
+    icon: TrendingUp,
+    iconClassName: 'bg-emerald-100 text-emerald-600',
+    title: 'Profit & Loss',
+    description: 'Revenue, COGS, operating expenses and net profit.',
+  },
+];
+
+const quickActions = [
+  {
+    href: '/dashboard/orders/live',
+    icon: Monitor,
+    className: 'bg-blue-600 hover:bg-blue-700',
+    label: 'Live Order Board',
+  },
+  {
+    href: '/dashboard/reports/daily',
+    icon: ClipboardList,
+    className: 'bg-indigo-600 hover:bg-indigo-700',
+    label: 'Daily Sales',
+  },
+  {
+    href: '/dashboard/reports/z',
+    icon: FileText,
+    className: 'bg-slate-800 hover:bg-slate-900',
+    label: 'Z Reports',
+  },
+  {
+    href: '/dashboard/kitchen',
+    icon: ChefHat,
+    className: 'bg-green-600 hover:bg-green-700',
+    label: 'Kitchen Display',
+  },
+  {
+    href: '/dashboard/expenses',
+    icon: Receipt,
+    className: 'bg-amber-600 hover:bg-amber-700',
+    label: 'Expenses',
+  },
+];
 
 export default function ReportsPage() {
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Get staff info to get restaurant ID
-    const fetchStaff = async () => {
-      try {
-        await ApiClient.get('/api/auth/me');
-      } catch (error) {
-        if (error instanceof ApiClientError) {
-          console.error('Error fetching staff info:', error.message);
-        } else {
-          console.error('Error fetching staff info:', error);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchStaff();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gray-200 rounded w-64 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">
-          Analytics & Reports
-        </h1>
+        <h1 className="text-2xl font-bold text-gray-900 mb-2">Reports</h1>
         <p className="text-gray-600">
-          Access comprehensive analytics and generate detailed reports for your
-          restaurant.
+          Daily sales, Z reports and profit &amp; loss for your restaurant.
         </p>
       </div>
 
-      {/* Analytics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {/* Order Analytics */}
-        <Link
-          href="/dashboard/analytics/orders"
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-              <ClipboardList className="h-5 w-5 text-blue-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Order Analytics
-              </h3>
-              <p className="text-sm text-gray-500">Track order performance</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Order trends</span>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Peak hours analysis</span>
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Table performance</span>
-              <ClipboardList className="h-4 w-4 text-purple-600" />
-            </div>
-          </div>
-        </Link>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {reportCards.map((card) => {
+          const Icon = card.icon;
 
-        {/* Revenue Analytics */}
-        <Link
-          href="/dashboard/analytics/revenue"
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
-              <DollarSign className="h-5 w-5 text-green-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Revenue Analytics
-              </h3>
-              <p className="text-sm text-gray-500">Financial performance</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Revenue trends</span>
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Category breakdown</span>
-              <UtensilsCrossed className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Growth analysis</span>
-              <TrendingUp className="h-4 w-4 text-purple-600" />
-            </div>
-          </div>
-        </Link>
-
-        {/* Popular Items */}
-        <Link
-          href="/dashboard/analytics/popular-items"
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
-        >
-          <div className="flex items-center mb-4">
-            <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-              <UtensilsCrossed className="h-5 w-5 text-purple-600" />
-            </div>
-            <div className="ml-4">
-              <h3 className="text-lg font-semibold text-gray-900">
-                Popular Items
-              </h3>
-              <p className="text-sm text-gray-500">Menu performance</p>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Top selling items</span>
-              <Star className="h-4 w-4 text-green-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Trending items</span>
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-600">Customer favorites</span>
-              <Heart className="h-4 w-4 text-red-600" />
-            </div>
-          </div>
-        </Link>
+          return (
+            <Link
+              key={card.href}
+              href={card.href}
+              className="bg-white p-6 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition-shadow"
+            >
+              <div className="flex items-center mb-4">
+                <div
+                  className={`w-10 h-10 rounded-lg flex items-center justify-center ${card.iconClassName}`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="ml-4">
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    {card.title}
+                  </h2>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">{card.description}</p>
+            </Link>
+          );
+        })}
       </div>
 
-      {/* Report Generation */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Generate Reports
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <Link
-            href="/dashboard/reports/sales"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <TrendingUp className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">Sales Report</h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              Comprehensive sales analysis with trends and breakdowns
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/reports/menu"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <UtensilsCrossed className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">Menu Report</h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              Menu item performance and recommendations
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/reports/financial"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <DollarSign className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">Financial Report</h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              Revenue, tax, and payment method analysis
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/reports/operational"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <Settings className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">Operational Report</h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              Order processing and operational efficiency
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/reports/customer"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <Users className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">Customer Report</h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              Customer behavior and session analysis
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/reports/comprehensive"
-            className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-          >
-            <div className="flex items-center mb-2">
-              <BarChart3 className="h-4 w-4 mr-2" />
-              <h3 className="font-medium text-gray-900">
-                Comprehensive Report
-              </h3>
-            </div>
-            <p className="text-sm text-gray-600">
-              All-in-one executive summary report
-            </p>
-          </Link>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
           Quick Actions
         </h2>
         <div className="flex flex-wrap gap-3">
-          <Link
-            href="/dashboard/orders/live"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-          >
-            <Monitor className="h-4 w-4 mr-2" />
-            Live Order Board
-          </Link>
-          <Link
-            href="/dashboard/reports/daily"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
-          >
-            <ClipboardList className="h-4 w-4 mr-2" />
-            Daily Sales
-          </Link>
-          <Link
-            href="/dashboard/reports/z"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-slate-800 hover:bg-slate-900"
-          >
-            <FileText className="h-4 w-4 mr-2" />Z Reports
-          </Link>
-          <Link
-            href="/dashboard/kitchen"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700"
-          >
-            <ChefHat className="h-4 w-4 mr-2" />
-            Kitchen Display
-          </Link>
-          <button
-            onClick={() =>
-              window.open('/dashboard/reports/comprehensive', '_blank')
-            }
-            className="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            Export Today&apos;s Report
-          </button>
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white ${action.className}`}
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {action.label}
+              </Link>
+            );
+          })}
         </div>
       </div>
     </div>

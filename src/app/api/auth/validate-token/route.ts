@@ -7,12 +7,10 @@ const ROUTE_PERMISSIONS = {
   '/dashboard/tables': 'tables:read',
   '/dashboard/kitchen': 'orders:kitchen',
   '/dashboard/staff': 'staff:read',
-  '/dashboard/analytics': 'analytics:read',
   '/dashboard/settings': 'settings:read',
   '/api/orders': 'orders:read',
   '/api/tables': 'tables:read',
   '/api/admin/staff': 'staff:read',
-  '/api/staff/analytics': 'analytics:read',
   '/api/menu': 'menu:read',
   '/api/analytics': 'analytics:read',
 } as const;
