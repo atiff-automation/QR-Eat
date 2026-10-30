@@ -18,10 +18,12 @@ import {
 // Permission cache for better performance
 interface PermissionCache {
   templatePermissions: Map<string, string[]>;
+  userPermissions: Map<string, string[]>;
 }
 
 const cache: PermissionCache = {
   templatePermissions: new Map(),
+  userPermissions: new Map(),
 };
 
 export class PermissionManager {

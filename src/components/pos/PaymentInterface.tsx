@@ -160,7 +160,7 @@ export function PaymentInterface({
 
   console.log('[PaymentInterface] Payment setup:', {
     orderId: order.id,
-    tableId: order.tableId,
+    tableId: order.tableId!,
     relatedOrdersCount: relatedOrders.length,
     relatedOrderIds: relatedOrders.map((o) => o.id),
     isTablePayment,
@@ -179,7 +179,7 @@ export function PaymentInterface({
       const result = isTablePayment
         ? await import('@/lib/services/payment-service').then((m) =>
             m.processTablePayment(
-              order.tableId,
+              order.tableId!,
               {
                 paymentMethod: 'cash',
                 cashReceived: data.cashReceived,
@@ -224,7 +224,7 @@ export function PaymentInterface({
       const result = isTablePayment
         ? await import('@/lib/services/payment-service').then((m) =>
             m.processTablePayment(
-              order.tableId,
+              order.tableId!,
               {
                 paymentMethod: selectedMethod,
               },

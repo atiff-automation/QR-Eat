@@ -108,10 +108,10 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.PLATFORM_ADMIN;
-          mustChangePassword =
-            ('mustChangePassword' in authenticatedUser.user &&
-              authenticatedUser.user.mustChangePassword) ||
-            false;
+          mustChangePassword = Boolean(
+            'mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword
+          );
           break;
         case UserType.RESTAURANT_OWNER:
           userId = authenticatedUser.user.id;
@@ -119,10 +119,10 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.RESTAURANT_OWNER;
-          mustChangePassword =
-            ('mustChangePassword' in authenticatedUser.user &&
-              authenticatedUser.user.mustChangePassword) ||
-            false;
+          mustChangePassword = Boolean(
+            'mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword
+          );
           break;
         case UserType.STAFF:
           userId = authenticatedUser.user.id;
@@ -130,10 +130,10 @@ export class AuthServiceV2 {
           firstName = authenticatedUser.user.firstName;
           lastName = authenticatedUser.user.lastName;
           userType = UserType.STAFF;
-          mustChangePassword =
-            ('mustChangePassword' in authenticatedUser.user &&
-              authenticatedUser.user.mustChangePassword) ||
-            false;
+          mustChangePassword = Boolean(
+            'mustChangePassword' in authenticatedUser.user &&
+              authenticatedUser.user.mustChangePassword
+          );
           break;
         default:
           throw new RBACError('Invalid user type', 'INVALID_USER_TYPE', 400);
@@ -201,9 +201,7 @@ export class AuthServiceV2 {
       // Generate JWT token
       const token = await EnhancedJWTService.generateToken(
         enhancedUser,
-        session.sessionId,
-        ipAddress,
-        userAgent
+        session.sessionId
       );
 
       // Update last login time
@@ -334,9 +332,7 @@ export class AuthServiceV2 {
       // Generate new token
       const newToken = await EnhancedJWTService.generateToken(
         enhancedUser,
-        sessionId,
-        ipAddress,
-        userAgent
+        sessionId
       );
 
       // Log role switch
@@ -474,11 +470,7 @@ export class AuthServiceV2 {
     userAgent?: string
   ): Promise<string> {
     try {
-      return await EnhancedJWTService.refreshToken(
-        currentToken,
-        ipAddress,
-        userAgent
-      );
+      return await EnhancedJWTService.refreshToken(currentToken);
     } catch (error) {
       if (error instanceof RBACError) {
         throw error;
@@ -546,9 +538,7 @@ export class AuthServiceV2 {
       // Generate new JWT token with existing session context
       const newToken = await EnhancedJWTService.generateToken(
         enhancedUser,
-        sessionId,
-        ipAddress,
-        userAgent
+        sessionId
       );
 
       // Update session last activity

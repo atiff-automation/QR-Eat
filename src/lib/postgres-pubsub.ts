@@ -242,10 +242,8 @@ class PostgresPubSubManager extends EventEmitter {
    *
    * @see cloudedocs/SSE_REAL_TIME_SYSTEM_FIX.md - Phase 1: Lazy Initialization
    */
-  async notify(
-    channel: string,
-    payload: Record<string, unknown>
-  ): Promise<void> {
+  async notify<T extends object>(channel: string, payload: T): Promise<void> {
+    const payloadRecord = payload as Record<string, unknown>;
     // Lazy initialization: Initialize if not already initialized
     if (!this.notifyClient) {
       console.log('⚡ [PubSub] Lazy initialization triggered by notify()');
@@ -280,13 +278,12 @@ class PostgresPubSubManager extends EventEmitter {
         console.log(`📢 [PubSub] Event published successfully:`, {
           channel,
           eventType:
-            payload.type ||
+            payloadRecord.type ||
             (channel.includes('order_created')
               ? 'order_created'
               : 'order_status_changed'),
-          eventId: (payload as { orderId?: string }).orderId || 'unknown',
-          timestamp:
-            (payload as { timestamp?: number }).timestamp || Date.now(),
+          eventId: payloadRecord.orderId || 'unknown',
+          timestamp: payloadRecord.timestamp || Date.now(),
           attempt: attempt + 1,
         });
 
@@ -327,7 +324,7 @@ class PostgresPubSubManager extends EventEmitter {
       {
         channel,
         error: lastError?.message,
-        eventId: (payload as { orderId?: string }).orderId || 'unknown',
+        eventId: payloadRecord.orderId || 'unknown',
       }
     );
     console.error('⚠️  [PubSub] Event payload:', payload);

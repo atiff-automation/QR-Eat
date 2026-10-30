@@ -270,7 +270,10 @@ export async function GET(request: NextRequest) {
 }
 
 function groupSalesByPeriod(
-  orders: (Order & { totalAmount: Prisma.Decimal })[],
+  orders: Array<{
+    totalAmount: Prisma.Decimal | number | string;
+    createdAt: Date;
+  }>,
   groupBy: string
 ) {
   const groupedData = new Map<

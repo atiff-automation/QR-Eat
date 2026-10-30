@@ -1,12 +1,15 @@
 /**
  * Example RBAC-Protected API Endpoint
- * 
+ *
  * This endpoint demonstrates how to use the RBAC middleware to protect API routes
  * with role-based access control.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { RBACMiddleware, rbacMiddlewareConfigs } from '@/middleware/rbac-middleware';
+import {
+  RBACMiddleware,
+  rbacMiddlewareConfigs,
+} from '@/middleware/rbac-middleware';
 import { prisma } from '@/lib/database';
 
 // GET /api/rbac-protected/restaurant-management
@@ -18,18 +21,25 @@ export async function GET(request: NextRequest) {
       allowedUserTypes: ['restaurant_owner', 'platform_admin'],
       requiredPermissions: ['restaurant:read'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 100 }
+      rateLimit: { windowMs: 60000, maxRequests: 100 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    
+
     // Get restaurants based on user type
     let restaurants;
-    
+
     if (context.user.userType === 'platform_admin') {
       // Platform admin can see all restaurants
       restaurants = await prisma.restaurant.findMany({
@@ -40,18 +50,18 @@ export async function GET(request: NextRequest) {
               email: true,
               firstName: true,
               lastName: true,
-              companyName: true
-            }
+              companyName: true,
+            },
           },
           _count: {
             select: {
               staff: true,
               menuItems: true,
-              orders: true
-            }
-          }
+              orders: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
     } else if (context.user.userType === 'restaurant_owner') {
       // Restaurant owner can only see their own restaurants
@@ -64,18 +74,18 @@ export async function GET(request: NextRequest) {
               email: true,
               firstName: true,
               lastName: true,
-              companyName: true
-            }
+              companyName: true,
+            },
           },
           _count: {
             select: {
               staff: true,
               menuItems: true,
-              orders: true
-            }
-          }
+              orders: true,
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       });
     } else {
       return NextResponse.json(
@@ -90,8 +100,8 @@ export async function GET(request: NextRequest) {
         total: restaurants.length,
         userType: context.user.userType,
         permissions: context.permissions,
-        currentRole: context.currentRole.roleTemplate
-      }
+        currentRole: context.currentRole.roleTemplate,
+      },
     });
   } catch (error) {
     console.error('Restaurant management API error:', error);
@@ -111,15 +121,23 @@ export async function POST(request: NextRequest) {
       allowedUserTypes: ['restaurant_owner', 'platform_admin'],
       requiredPermissions: ['restaurant:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 50 }
+      rateLimit: { windowMs: 60000, maxRequests: 50 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    const { name, description, address, phone, email, timezone, currency } = await request.json();
+    const { name, description, address, phone, email, timezone, currency } =
+      await request.json();
 
     // Validate input
     if (!name || !address || !phone || !email) {
@@ -131,18 +149,18 @@ export async function POST(request: NextRequest) {
 
     // Create restaurant
     let restaurant;
-    
+
     if (context.user.userType === 'platform_admin') {
       // Platform admin can create restaurants for any owner
       const { ownerId } = await request.json();
-      
+
       if (!ownerId) {
         return NextResponse.json(
           { error: 'Owner ID is required for platform admin' },
           { status: 400 }
         );
       }
-      
+
       restaurant = await prisma.restaurant.create({
         data: {
           name,
@@ -153,8 +171,11 @@ export async function POST(request: NextRequest) {
           timezone: timezone || 'UTC',
           currency: currency || 'USD',
           ownerId,
-          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
-          isActive: true
+          slug: name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, ''),
+          isActive: true,
         },
         include: {
           owner: {
@@ -163,10 +184,10 @@ export async function POST(request: NextRequest) {
               email: true,
               firstName: true,
               lastName: true,
-              companyName: true
-            }
-          }
-        }
+              companyName: true,
+            },
+          },
+        },
       });
     } else if (context.user.userType === 'restaurant_owner') {
       // Restaurant owner can only create restaurants for themselves
@@ -180,8 +201,11 @@ export async function POST(request: NextRequest) {
           timezone: timezone || 'UTC',
           currency: currency || 'USD',
           ownerId: context.user.id,
-          slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, ''),
-          isActive: true
+          slug: name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, ''),
+          isActive: true,
         },
         include: {
           owner: {
@@ -190,10 +214,10 @@ export async function POST(request: NextRequest) {
               email: true,
               firstName: true,
               lastName: true,
-              companyName: true
-            }
-          }
-        }
+              companyName: true,
+            },
+          },
+        },
       });
     } else {
       return NextResponse.json(
@@ -202,10 +226,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
-      message: 'Restaurant created successfully',
-      restaurant
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: 'Restaurant created successfully',
+        restaurant,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Restaurant creation API error:', error);
     return NextResponse.json(
@@ -224,15 +251,32 @@ export async function PUT(request: NextRequest) {
       allowedUserTypes: ['restaurant_owner', 'platform_admin'],
       requiredPermissions: ['restaurant:write'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 100 }
+      rateLimit: { windowMs: 60000, maxRequests: 100 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
     }
 
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
     const { context } = authResult;
-    const { restaurantId, name, description, address, phone, email, timezone, currency, isActive } = await request.json();
+    const {
+      restaurantId,
+      name,
+      description,
+      address,
+      phone,
+      email,
+      timezone,
+      currency,
+      isActive,
+    } = await request.json();
 
     if (!restaurantId) {
       return NextResponse.json(
@@ -250,10 +294,10 @@ export async function PUT(request: NextRequest) {
             id: true,
             email: true,
             firstName: true,
-            lastName: true
-          }
-        }
-      }
+            lastName: true,
+          },
+        },
+      },
     });
 
     if (!restaurant) {
@@ -264,7 +308,10 @@ export async function PUT(request: NextRequest) {
     }
 
     // Authorization check
-    if (context.user.userType === 'restaurant_owner' && restaurant.ownerId !== context.user.id) {
+    if (
+      context.user.userType === 'restaurant_owner' &&
+      restaurant.ownerId !== context.user.id
+    ) {
       return NextResponse.json(
         { error: 'You can only update your own restaurants' },
         { status: 403 }
@@ -282,7 +329,7 @@ export async function PUT(request: NextRequest) {
         ...(email && { email }),
         ...(timezone && { timezone }),
         ...(currency && { currency }),
-        ...(isActive !== undefined && { isActive })
+        ...(isActive !== undefined && { isActive }),
       },
       include: {
         owner: {
@@ -291,15 +338,15 @@ export async function PUT(request: NextRequest) {
             email: true,
             firstName: true,
             lastName: true,
-            companyName: true
-          }
-        }
-      }
+            companyName: true,
+          },
+        },
+      },
     });
 
     return NextResponse.json({
       message: 'Restaurant updated successfully',
-      restaurant: updatedRestaurant
+      restaurant: updatedRestaurant,
     });
   } catch (error) {
     console.error('Restaurant update API error:', error);
@@ -319,11 +366,18 @@ export async function DELETE(request: NextRequest) {
       allowedUserTypes: ['platform_admin'],
       requiredPermissions: ['restaurant:delete'],
       auditLog: true,
-      rateLimit: { windowMs: 60000, maxRequests: 20 }
+      rateLimit: { windowMs: 60000, maxRequests: 20 },
     });
 
     if (!authResult.isAuthorized) {
       return authResult.response!;
+    }
+
+    if (!authResult.context) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { context } = authResult;
@@ -344,10 +398,10 @@ export async function DELETE(request: NextRequest) {
           select: {
             staff: true,
             orders: true,
-            menuItems: true
-          }
-        }
-      }
+            menuItems: true,
+          },
+        },
+      },
     });
 
     if (!restaurant) {
@@ -362,13 +416,12 @@ export async function DELETE(request: NextRequest) {
       where: { id: restaurantId },
       data: {
         isActive: false,
-        deletedAt: new Date()
-      }
+      },
     });
 
     return NextResponse.json({
       message: 'Restaurant deleted successfully',
-      restaurant: updatedRestaurant
+      restaurant: updatedRestaurant,
     });
   } catch (error) {
     console.error('Restaurant deletion API error:', error);

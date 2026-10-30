@@ -288,9 +288,12 @@ function TablesContent() {
   // Payment Handler - Callback when payment is successful
   const handlePaymentComplete = () => {
     // Remove the cache for this specific table's orders to prevent flicker
-    queryClient.removeQueries({
-      queryKey: queryKeys.tables.orders(selectedOrders[0]?.tableId),
-    });
+    const tableId = selectedOrders[0]?.tableId;
+    if (tableId) {
+      queryClient.removeQueries({
+        queryKey: queryKeys.tables.orders(tableId),
+      });
+    }
     // Refresh the main table list
     queryClient.invalidateQueries({ queryKey: queryKeys.tables.all });
     setShowPaymentInterface(false);

@@ -142,7 +142,7 @@ export function NotificationBell() {
                                 </span>
                                 <span className="text-xs text-gray-500">
                                   {new Date(
-                                    notification.metadata.completedAt
+                                    notification.metadata.completedAt as string
                                   ).toLocaleString()}
                                 </span>
                               </div>
@@ -151,7 +151,7 @@ export function NotificationBell() {
                                 <button
                                   onClick={() =>
                                     handlePasswordReset(
-                                      notification.metadata.staffId,
+                                      notification.metadata?.staffId as string,
                                       notification.id
                                     )
                                   }

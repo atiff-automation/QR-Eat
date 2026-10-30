@@ -9,6 +9,7 @@
  */
 
 import 'server-only';
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { EVENT_CONFIG } from './event-config';
 import type { OrderEvent } from '@/types/events';
@@ -19,7 +20,7 @@ import type { OrderEvent } from '@/types/events';
 
 export interface EventPersistenceOptions {
   eventType: string;
-  eventData: OrderEvent;
+  eventData: object;
   restaurantId: string;
 }
 
@@ -47,7 +48,7 @@ export class EventPersistenceService {
       const pendingEvent = await prisma.pendingEvent.create({
         data: {
           eventType,
-          eventData: eventData as unknown as Record<string, unknown>,
+          eventData: eventData as Prisma.InputJsonValue,
           restaurantId,
         },
       });
@@ -110,7 +111,7 @@ export class EventPersistenceService {
     Array<{
       id: string;
       eventType: string;
-      eventData: OrderEvent;
+      eventData: object;
       createdAt: Date;
     }>
   > {

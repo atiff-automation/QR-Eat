@@ -161,7 +161,7 @@ export async function POST(
             ...metadata,
             completed: true,
             completedAt: new Date().toISOString(),
-            completedBy: authResult.user.id,
+            completedBy: authResult.user!.id,
           };
 
           return prisma.notification.update({

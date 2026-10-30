@@ -11,12 +11,12 @@ interface PasswordResetModalProps {
   temporaryPassword: string;
 }
 
-export function PasswordResetModal({ 
-  isOpen, 
-  onClose, 
-  staffName, 
-  staffEmail, 
-  temporaryPassword 
+export function PasswordResetModal({
+  isOpen,
+  onClose,
+  staffName,
+  staffEmail,
+  temporaryPassword,
 }: PasswordResetModalProps) {
   const [copied, setCopied] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -29,7 +29,9 @@ export function PasswordResetModal({
     } catch (error) {
       console.error('Failed to copy password:', error);
       // Fallback: select the text
-      const passwordElement = document.getElementById('temp-password');
+      const passwordElement = document.getElementById(
+        'temp-password'
+      ) as HTMLInputElement | null;
       if (passwordElement) {
         passwordElement.select();
         document.execCommand('copy');
@@ -67,7 +69,8 @@ export function PasswordResetModal({
                   Password reset successfully!
                 </h3>
                 <p className="mt-1 text-sm text-green-700">
-                  New temporary password has been generated for <strong>{staffName}</strong>.
+                  New temporary password has been generated for{' '}
+                  <strong>{staffName}</strong>.
                 </p>
               </div>
             </div>
@@ -112,8 +115,8 @@ export function PasswordResetModal({
               <button
                 onClick={handleCopy}
                 className={`px-3 py-2 border border-gray-300 rounded-md text-sm font-medium transition-colors ${
-                  copied 
-                    ? 'bg-green-100 text-green-700 border-green-300' 
+                  copied
+                    ? 'bg-green-100 text-green-700 border-green-300'
                     : 'bg-white text-gray-700 hover:bg-gray-50'
                 }`}
               >
@@ -138,7 +141,9 @@ export function PasswordResetModal({
               <ul className="mt-1 list-disc list-inside space-y-1">
                 <li>Share this temporary password with {staffName}</li>
                 <li>They must change it when they log in</li>
-                <li>The password is only temporary and expires after first use</li>
+                <li>
+                  The password is only temporary and expires after first use
+                </li>
               </ul>
             </div>
           </div>

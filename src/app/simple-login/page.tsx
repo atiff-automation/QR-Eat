@@ -27,7 +27,6 @@ export default function SimpleLoginPage() {
 
       // ✅ Initialize token expiration tracking for automatic refresh
       if (response.tokenExpiration?.accessToken) {
-        ApiClient.setTokenExpiration(response.tokenExpiration.accessToken);
         console.log(
           '✅ Token expiration set:',
           response.tokenExpiration.accessToken

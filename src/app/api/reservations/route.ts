@@ -165,10 +165,10 @@ export async function POST(request: NextRequest) {
     if (tableId) {
       const table = await prisma.table.findUnique({
         where: { id: tableId },
-        select: { capacity: true, isActive: true },
+        select: { capacity: true, status: true },
       });
 
-      if (!table || !table.isActive) {
+      if (!table || table.status === 'INACTIVE') {
         return NextResponse.json(
           { error: 'Table not available' },
           { status: 400 }

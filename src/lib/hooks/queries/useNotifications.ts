@@ -113,7 +113,12 @@ export function useNotifications() {
 export function useMarkNotificationAsRead() {
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, string>({
+  return useMutation<
+    void,
+    Error,
+    string,
+    { previousNotifications?: NotificationsResponse }
+  >({
     mutationFn: async (notificationId: string) => {
       await ApiClient.patch(`/notifications/${notificationId}`, {
         isRead: true,

@@ -114,6 +114,27 @@ export interface ReceiptData {
 
 // ...
 
+export interface CashPaymentFormProps {
+  totalAmount: number;
+  onSubmit: (data: { cashReceived: number }) => void;
+  onCancel: () => void;
+  isProcessing: boolean;
+  currency?: string;
+}
+
+export interface PaymentMethodSelectorProps {
+  onSelect: (method: PaymentMethod) => void;
+}
+
+export interface TableOrdersResponse {
+  success: boolean;
+  orders: OrderWithDetails[];
+  tableTotal: number;
+  paidTotal: number;
+  tableId?: string;
+  tableNumber?: string;
+}
+
 export interface PaymentInterfaceProps {
   order: OrderWithDetails;
   relatedOrders?: OrderWithDetails[];

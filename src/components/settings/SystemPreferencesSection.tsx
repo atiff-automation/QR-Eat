@@ -42,7 +42,13 @@ export function SystemPreferencesSection({
     // setIsLoading(true); // Derived from mutation
 
     try {
-      await updateSettingsMutation.mutateAsync(formData);
+      await updateSettingsMutation.mutateAsync({
+        ...formData,
+        systemPreferences: {
+          numberFormat: '1,234.56',
+          ...formData.systemPreferences,
+        },
+      });
 
       setSuccess('System preferences updated successfully!');
       if (onUpdate) onUpdate();
