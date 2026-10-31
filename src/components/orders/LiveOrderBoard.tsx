@@ -16,6 +16,9 @@ interface LiveOrder {
   customerName?: string | null;
   customerPhone?: string | null;
   status: string;
+  recalled?: boolean;
+  recalledAt?: string | null;
+  recallReason?: string | null;
   totalAmount: number;
   estimatedCompletion: string | null;
   timeRemaining: number | null;
@@ -126,6 +129,11 @@ export function LiveOrderBoard({
 
           return updated;
         });
+        break;
+
+      case 'order_recalled':
+      case 'order_recall_cleared':
+        fetchLiveOrders();
         break;
 
       case 'order_item_status_changed':
@@ -404,9 +412,13 @@ export function LiveOrderBoard({
                   )}
                 </div>
                 <span
-                  className={`px-3 py-1 text-xs font-medium rounded-full border ${getStatusColor(order.status, order.isOverdue)}`}
+                  className={`px-3 py-1 text-xs font-medium rounded-full border ${
+                    order.recalled
+                      ? 'bg-amber-100 text-amber-800 border-amber-200'
+                      : getStatusColor(order.status, order.isOverdue)
+                  }`}
                 >
-                  {order.status.toUpperCase()}
+                  {order.recalled ? 'RECALLED' : order.status.toUpperCase()}
                 </span>
               </div>
 
@@ -447,6 +459,14 @@ export function LiveOrderBoard({
                 )}
               </div>
 
+              {order.recalled && (
+                <div className="mb-4 rounded bg-amber-50 p-2 text-xs text-amber-800">
+                  Kitchen recalled this ticket
+                  {order.recallReason ? `: ${order.recallReason}` : '.'} Serving
+                  is blocked; payment remains allowed.
+                </div>
+              )}
+
               {/* Preparation Progress */}
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-1">
@@ -478,7 +498,7 @@ export function LiveOrderBoard({
               </div>
 
               {/* Action Button */}
-              {getNextStatus(order.status) && (
+              {!order.recalled && getNextStatus(order.status) && (
                 <button
                   onClick={() =>
                     updateOrderStatus(order.id, getNextStatus(order.status)!)

@@ -21,6 +21,8 @@ export const PG_EVENTS = {
   ORDER_STATUS_CHANGED: 'order_status_changed',
   ORDER_CREATED: 'order_created',
   ORDER_ITEM_STATUS_CHANGED: 'order_item_status_changed',
+  ORDER_RECALLED: 'order_recalled',
+  ORDER_RECALL_CLEARED: 'order_recall_cleared',
   KITCHEN_NOTIFICATION: 'kitchen_notification',
   RESTAURANT_NOTIFICATION: 'restaurant_notification',
   PAYMENT_COMPLETED: 'payment_completed',
@@ -57,6 +59,18 @@ export interface OrderItemStatusChangedEvent {
   restaurantId: string;
   oldStatus: string;
   newStatus: string;
+  timestamp: number;
+}
+
+export interface OrderRecallEvent {
+  orderId: string;
+  orderNumber: string;
+  restaurantId: string;
+  stationId: string;
+  recalledAt: string;
+  clearedAt?: string;
+  reason: string | null;
+  version: number;
   timestamp: number;
 }
 
@@ -506,6 +520,36 @@ export class PostgresEventManager {
       await pgPubSub.notify(PG_EVENTS.ORDER_ITEM_STATUS_CHANGED, event);
     } catch (error) {
       console.error('Failed to publish item status change:', error);
+    }
+  }
+
+  /** Publish a kitchen recall to the generic web stream. */
+  static async publishOrderRecalled(event: OrderRecallEvent): Promise<void> {
+    try {
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_RECALLED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+      await pgPubSub.notify(PG_EVENTS.ORDER_RECALLED, event);
+    } catch (error) {
+      console.error('Failed to publish order recall:', error);
+    }
+  }
+
+  /** Publish a recall clear to the generic web stream. */
+  static async publishOrderRecallCleared(
+    event: OrderRecallEvent
+  ): Promise<void> {
+    try {
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_RECALL_CLEARED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+      await pgPubSub.notify(PG_EVENTS.ORDER_RECALL_CLEARED, event);
+    } catch (error) {
+      console.error('Failed to publish recall clear:', error);
     }
   }
 

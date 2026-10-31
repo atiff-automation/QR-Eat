@@ -19,6 +19,8 @@ export const ORDER_EVENT_TYPES = {
   ITEM_STATUS_CHANGED: 'order.item.status.changed',
   STATUS_CHANGED: 'order.status.changed',
   CANCELLED: 'order.cancelled',
+  RECALLED: 'order.recalled',
+  RECALL_CLEARED: 'order.recall.cleared',
 } as const;
 
 export interface StationOrderItem {
@@ -60,6 +62,23 @@ export interface OrderStatusPayload {
   from: string;
   to: string;
   version: number;
+}
+
+export interface OrderRecallPayload {
+  orderNumber: string;
+  tableName: string;
+  orderType: string;
+  pickupNumber: string | null;
+  customerName: string | null;
+  fulfillmentLabel: string;
+  stationId: string;
+  recalledAt: string;
+  reason: string | null;
+  version: number;
+}
+
+export interface OrderRecallClearedPayload extends OrderRecallPayload {
+  clearedAt: string;
 }
 
 export interface OrderItemsAddedPayload extends OrderCreatedPayload {
@@ -367,6 +386,83 @@ export async function recordOrderStatusChanged(
   });
 
   return stationIds.length;
+}
+
+async function recallPayload(
+  orderId: string,
+  stationId: string,
+  recalledAt: Date,
+  reason: string | null
+): Promise<OrderRecallPayload> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { table: { select: { tableNumber: true, tableName: true } } },
+  });
+  if (!order) throw new Error(`Order ${orderId} not found`);
+
+  return {
+    orderNumber: order.orderNumber,
+    tableName: orderLabel(order),
+    ...orderFulfillment(order),
+    stationId,
+    recalledAt: recalledAt.toISOString(),
+    reason,
+    version: order.version,
+  };
+}
+
+/** One station event; recall never prints a new ticket. */
+export async function recordOrderRecalled(
+  orderId: string,
+  stationId: string,
+  recalledAt: Date,
+  reason: string | null
+): Promise<void> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { restaurantId: true },
+  });
+  if (!order) throw new Error(`Order ${orderId} not found`);
+
+  const payload = await recallPayload(orderId, stationId, recalledAt, reason);
+  await prisma.orderEvent.create({
+    data: {
+      restaurantId: order.restaurantId,
+      stationId,
+      orderId,
+      type: ORDER_EVENT_TYPES.RECALLED,
+      payload: payload as unknown as Prisma.InputJsonValue,
+    },
+  });
+}
+
+/** One station event when the last recalled item is READY again. */
+export async function recordOrderRecallCleared(
+  orderId: string,
+  stationId: string,
+  recalledAt: Date,
+  clearedAt: Date,
+  reason: string | null
+): Promise<void> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { restaurantId: true },
+  });
+  if (!order) throw new Error(`Order ${orderId} not found`);
+
+  const payload: OrderRecallClearedPayload = {
+    ...(await recallPayload(orderId, stationId, recalledAt, reason)),
+    clearedAt: clearedAt.toISOString(),
+  };
+  await prisma.orderEvent.create({
+    data: {
+      restaurantId: order.restaurantId,
+      stationId,
+      orderId,
+      type: ORDER_EVENT_TYPES.RECALL_CLEARED,
+      payload: payload as unknown as Prisma.InputJsonValue,
+    },
+  });
 }
 
 /**

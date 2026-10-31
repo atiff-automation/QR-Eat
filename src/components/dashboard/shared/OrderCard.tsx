@@ -33,6 +33,9 @@ export interface OrderSummary {
   serviceCharge: number;
   createdAt: string;
   readyAt?: string;
+  recalled?: boolean;
+  recalledAt?: string | null;
+  recallReason?: string | null;
   estimatedReadyTime?: string;
   version: number; // For optimistic locking
   hasModifications?: boolean; // Modification indicator
@@ -111,7 +114,8 @@ export function OrderCard({
   currency = 'MYR',
 }: OrderCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
-  const nextAction = getNextOrderAction(order.status);
+  const nextAction = order.recalled ? null : getNextOrderAction(order.status);
+  const recalled = order.recalled ?? Boolean(order.recalledAt);
   const itemSummary = getOrderSummary(order.items);
   const borderColor = getStatusBorderColor(order.status);
   const totalQty = order.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -123,7 +127,7 @@ export function OrderCard({
     order.items.some((item) => Boolean(item.status)) &&
     ['CONFIRMED', 'PREPARING', 'READY'].includes(order.status);
 
-  const isReady = order.status === 'READY';
+  const isReady = order.status === 'READY' && !recalled;
   const readyMinutes = Math.max(
     0,
     Math.floor(
@@ -204,7 +208,13 @@ export function OrderCard({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <StatusBadge status={order.status} size="sm" />
+          {recalled ? (
+            <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800">
+              RECALLED
+            </span>
+          ) : (
+            <StatusBadge status={order.status} size="sm" />
+          )}
           {(onViewDetails || onModify || onAdjust) && (
             <OrderActionsMenu
               order={order}
@@ -215,6 +225,17 @@ export function OrderCard({
           )}
         </div>
       </div>
+
+      {recalled && (
+        <div className="mb-2 flex items-start gap-1 rounded bg-amber-50 px-2 py-1 text-xs text-amber-800">
+          <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+          <span>
+            Kitchen recalled this ticket
+            {order.recallReason ? `: ${order.recallReason}` : '.'} Payment is
+            still allowed; serving is blocked.
+          </span>
+        </div>
+      )}
 
       {/* Modification Indicator */}
       {order.hasModifications && (
@@ -331,7 +352,11 @@ export function OrderCard({
       {/* No Action Available (Served/Cancelled or role not allowed) */}
       {(!nextAction || !canPerformNextAction) && (
         <div className="text-center py-2 text-sm text-gray-500">
-          {nextAction ? 'Waiting for the right role' : 'No actions available'}
+          {recalled
+            ? 'Kitchen recalled this ticket — serving is blocked'
+            : nextAction
+              ? 'Waiting for the right role'
+              : 'No actions available'}
         </div>
       )}
     </div>

@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
       confirmedOrders,
       preparingOrders,
       readyOrders,
+      recalledOrders,
       servedOrders,
       cancelledOrders,
       orderTotals,
@@ -89,7 +90,20 @@ export async function GET(request: NextRequest) {
       prisma.order.count({ where: { ...where, status: 'PENDING' } }),
       prisma.order.count({ where: { ...where, status: 'CONFIRMED' } }),
       prisma.order.count({ where: { ...where, status: 'PREPARING' } }),
-      prisma.order.count({ where: { ...where, status: 'READY' } }),
+      prisma.order.count({
+        where: {
+          ...where,
+          status: 'READY',
+          orderRecalls: { none: { resolvedAt: null } },
+        },
+      }),
+      prisma.order.count({
+        where: {
+          ...where,
+          status: 'READY',
+          orderRecalls: { some: { resolvedAt: null } },
+        },
+      }),
       prisma.order.count({ where: { ...where, status: 'SERVED' } }),
       prisma.order.count({ where: { ...where, status: 'CANCELLED' } }),
 
@@ -186,6 +200,7 @@ export async function GET(request: NextRequest) {
       confirmedOrders,
       preparingOrders,
       readyOrders,
+      recalledOrders,
       servedOrders,
       cancelledOrders,
       totalRevenue: Number(totalRevenue),

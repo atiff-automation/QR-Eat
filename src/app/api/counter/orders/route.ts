@@ -12,6 +12,11 @@ import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
 import { formatPickupNumber } from '@/lib/order-utils';
 import {
+  ACTIVE_RECALL_SELECT,
+  recallCapability,
+  recallFields,
+} from '@/lib/counter/recall';
+import {
   CounterOrderError,
   CounterOrderInputSchema,
   createCounterOrder,
@@ -192,6 +197,7 @@ export async function GET(request: NextRequest) {
         totalAmount: true,
         createdAt: true,
         readyAt: true,
+        orderRecalls: ACTIVE_RECALL_SELECT,
         table: { select: { tableNumber: true, tableName: true } },
         items: { select: { quantity: true } },
         orderEvents: {
@@ -210,6 +216,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       scope,
+      ...recallCapability(),
       orders: orders.map((order) => {
         const ticket = aggregateTicketStatus(order.orderEvents);
         const ageFrom =
@@ -232,6 +239,7 @@ export async function GET(request: NextRequest) {
           itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
           createdAt: order.createdAt.toISOString(),
           readyAt: order.readyAt?.toISOString() ?? null,
+          ...recallFields(order.orderRecalls),
           ageSeconds: Math.max(0, Math.floor((now - ageFrom.getTime()) / 1000)),
           ticketStatus: ticket.aggregate,
           ticketPrintedAt: ticket.printedAt?.toISOString() ?? null,

@@ -37,6 +37,23 @@ export async function PATCH(
     const { status, estimatedReadyTime } = await request.json();
     const { id: orderId } = await params;
 
+    if (status === ORDER_STATUS.SERVED) {
+      const activeRecall = await prisma.stationOrderRecall.findFirst({
+        where: { orderId, resolvedAt: null },
+        select: { id: true },
+      });
+      if (activeRecall) {
+        return NextResponse.json(
+          {
+            error:
+              'This ticket was recalled by the kitchen and cannot be served',
+            code: 'ORDER_RECALLED',
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     // Validate status
     const validStatuses = Object.values(ORDER_STATUS);
     if (!validStatuses.includes(status)) {

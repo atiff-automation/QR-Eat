@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
+import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
 
 export async function GET(request: NextRequest) {
   try {
     // Verify authentication using RBAC system
-    const token = request.cookies.get('qr_rbac_token')?.value ||
+    const token =
+      request.cookies.get('qr_rbac_token')?.value ||
       request.cookies.get('qr_auth_token')?.value;
 
     if (!token) {
@@ -39,13 +41,14 @@ export async function GET(request: NextRequest) {
     const status = url.searchParams.get('status');
 
     // Build where clause
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const whereClause: any = {
-      restaurantId: restaurantId
+      restaurantId: restaurantId,
     };
 
     if (since) {
       whereClause.updatedAt = {
-        gte: new Date(since)
+        gte: new Date(since),
       };
     }
 
@@ -60,14 +63,14 @@ export async function GET(request: NextRequest) {
         table: {
           select: {
             tableNumber: true,
-            tableName: true
-          }
+            tableName: true,
+          },
         },
         customerSession: {
           select: {
             customerName: true,
-            customerPhone: true
-          }
+            customerPhone: true,
+          },
         },
         items: {
           include: {
@@ -77,36 +80,43 @@ export async function GET(request: NextRequest) {
                 preparationTime: true,
                 category: {
                   select: {
-                    name: true
-                  }
-                }
-              }
-            }
-          }
-        }
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+        orderRecalls: ACTIVE_RECALL_SELECT,
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
 
     // Calculate real-time metrics
     const now = new Date();
-    const ordersWithMetrics = liveOrders.map(order => {
+    const ordersWithMetrics = liveOrders.map(({ orderRecalls, ...order }) => {
       let estimatedCompletion = null;
       let timeRemaining = null;
       let isOverdue = false;
 
       if (order.estimatedReadyTime) {
         estimatedCompletion = order.estimatedReadyTime;
-        timeRemaining = Math.max(0, Math.round((estimatedCompletion.getTime() - now.getTime()) / 60000));
-        isOverdue = now > estimatedCompletion && !['SERVED', 'CANCELLED'].includes(order.status);
+        timeRemaining = Math.max(
+          0,
+          Math.round((estimatedCompletion.getTime() - now.getTime()) / 60000)
+        );
+        isOverdue =
+          now > estimatedCompletion &&
+          !['SERVED', 'CANCELLED'].includes(order.status);
       }
 
       return {
         ...order,
+        ...recallFields(orderRecalls),
         estimatedCompletion,
         timeRemaining,
         isOverdue,
-        preparationProgress: calculatePreparationProgress(order, now)
+        preparationProgress: calculatePreparationProgress(order, now),
       };
     });
 
@@ -117,9 +127,8 @@ export async function GET(request: NextRequest) {
       success: true,
       orders: ordersWithMetrics,
       metrics: kitchenMetrics,
-      timestamp: now.toISOString()
+      timestamp: now.toISOString(),
     });
-
   } catch (error) {
     console.error('Failed to fetch live orders:', error);
     return NextResponse.json(
@@ -129,19 +138,26 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function calculatePreparationProgress(order: any, now: Date): number {
   if (!order.confirmedAt || ['SERVED', 'CANCELLED'].includes(order.status)) {
     return order.status === 'SERVED' ? 100 : 0;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const totalEstimatedTime = order.items.reduce((total: number, item: any) => {
     return total + (item.menuItem.preparationTime || 0);
   }, 0);
 
   if (totalEstimatedTime === 0) return 0;
 
-  const elapsedTime = Math.round((now.getTime() - order.confirmedAt.getTime()) / 60000);
-  const progress = Math.min(100, Math.max(0, (elapsedTime / totalEstimatedTime) * 100));
+  const elapsedTime = Math.round(
+    (now.getTime() - order.confirmedAt.getTime()) / 60000
+  );
+  const progress = Math.min(
+    100,
+    Math.max(0, (elapsedTime / totalEstimatedTime) * 100)
+  );
 
   return Math.round(progress);
 }
@@ -157,12 +173,12 @@ async function getKitchenMetrics(restaurantId: string) {
     where: {
       restaurantId,
       status: {
-        in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY']
-      }
+        in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'],
+      },
     },
     _count: {
-      id: true
-    }
+      id: true,
+    },
   });
 
   // Average preparation time today
@@ -171,26 +187,31 @@ async function getKitchenMetrics(restaurantId: string) {
       restaurantId,
       status: 'SERVED',
       servedAt: {
-        gte: startOfDay
+        gte: startOfDay,
       },
       confirmedAt: {
-        not: null
-      }
+        not: null,
+      },
     },
     select: {
       confirmedAt: true,
-      readyAt: true
-    }
+      readyAt: true,
+    },
   });
 
-  const avgPrepTime = completedOrdersToday.length > 0
-    ? completedOrdersToday.reduce((sum, order) => {
-      if (order.confirmedAt && order.readyAt) {
-        return sum + (order.readyAt.getTime() - order.confirmedAt.getTime());
-      }
-      return sum;
-    }, 0) / completedOrdersToday.length / 60000 // Convert to minutes
-    : 0;
+  const avgPrepTime =
+    completedOrdersToday.length > 0
+      ? completedOrdersToday.reduce((sum, order) => {
+          if (order.confirmedAt && order.readyAt) {
+            return (
+              sum + (order.readyAt.getTime() - order.confirmedAt.getTime())
+            );
+          }
+          return sum;
+        }, 0) /
+        completedOrdersToday.length /
+        60000 // Convert to minutes
+      : 0;
 
   // Orders completed in last hour
   const lastHour = new Date(now.getTime() - 60 * 60 * 1000);
@@ -199,18 +220,24 @@ async function getKitchenMetrics(restaurantId: string) {
       restaurantId,
       status: 'SERVED',
       servedAt: {
-        gte: lastHour
-      }
-    }
+        gte: lastHour,
+      },
+    },
   });
 
   return {
-    activeOrders: activeOrdersCounts.reduce((acc, item) => {
-      acc[item.status] = item._count.id;
-      return acc;
-    }, {} as Record<string, number>),
+    activeOrders: activeOrdersCounts.reduce(
+      (acc, item) => {
+        acc[item.status] = item._count.id;
+        return acc;
+      },
+      {} as Record<string, number>
+    ),
     averagePreparationTime: Math.round(avgPrepTime),
     ordersCompletedLastHour: ordersLastHour,
-    totalActiveOrders: activeOrdersCounts.reduce((sum, item) => sum + item._count.id, 0)
+    totalActiveOrders: activeOrdersCounts.reduce(
+      (sum, item) => sum + item._count.id,
+      0
+    ),
   };
 }

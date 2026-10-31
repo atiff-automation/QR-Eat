@@ -7,6 +7,7 @@ import {
   requirePermission,
   createCurrentRestaurantFilter,
 } from '@/lib/tenant-context';
+import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
 
 export async function GET(request: NextRequest) {
   try {
@@ -110,6 +111,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        orderRecalls: ACTIVE_RECALL_SELECT,
         // Include restaurant data for platform admins
         restaurant: context!.isAdmin
           ? {
@@ -133,7 +135,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      orders,
+      orders: orders.map(({ orderRecalls, ...order }) => ({
+        ...order,
+        ...recallFields(orderRecalls),
+      })),
       lapsedCount, // Return the safety metric
       pagination: {
         total: totalCount,

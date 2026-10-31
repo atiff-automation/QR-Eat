@@ -26,6 +26,7 @@ interface OrderStats {
   confirmedOrders: number;
   preparingOrders: number;
   readyOrders: number;
+  recalledOrders?: number;
   servedOrders: number;
   cancelledOrders: number;
   totalRevenue: number;
@@ -418,7 +419,8 @@ export function OrdersOverview({
                   {stats.pendingOrders +
                     stats.confirmedOrders +
                     stats.preparingOrders +
-                    stats.readyOrders}
+                    stats.readyOrders +
+                    (stats.recalledOrders ?? 0)}
                 </span>
                 <span className="text-xs text-gray-500">Active</span>
               </div>
@@ -430,6 +432,15 @@ export function OrdersOverview({
                 </span>
                 <span className="text-xs text-gray-500">Pending</span>
               </div>
+
+              {(stats.recalledOrders ?? 0) > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-base font-bold text-amber-600">
+                    {stats.recalledOrders}
+                  </span>
+                  <span className="text-xs text-gray-500">Recalled</span>
+                </div>
+              )}
 
               {/* Revenue with Time Label */}
               <div className="flex items-center gap-1.5 ml-auto">

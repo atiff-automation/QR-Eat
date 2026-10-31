@@ -3,6 +3,8 @@ import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { getTokenFromRequest } from '@/lib/auth-utils';
 import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
+import { isRecallEnabled } from '@/lib/recall';
+import { recallFields } from '@/lib/counter/recall';
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,7 +61,15 @@ export async function GET(request: NextRequest) {
           in: ['CONFIRMED', 'PREPARING', 'READY'],
         },
       },
-      include: ORDER_WITH_DETAILS_INCLUDE,
+      include: {
+        ...ORDER_WITH_DETAILS_INCLUDE,
+        orderRecalls: {
+          where: { resolvedAt: null },
+          select: { recalledAt: true, reason: true, stationId: true },
+          orderBy: { recalledAt: 'desc' },
+          take: 1,
+        },
+      },
       orderBy: {
         createdAt: 'asc',
       },
@@ -67,7 +77,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      orders,
+      recallEnabled: isRecallEnabled(),
+      orders: orders.map(({ orderRecalls, ...order }) => ({
+        ...order,
+        ...recallFields(orderRecalls),
+      })),
     });
   } catch (error) {
     console.error('Failed to fetch kitchen orders:', error);

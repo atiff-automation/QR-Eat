@@ -11,6 +11,7 @@ import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { RBACError } from '@/lib/rbac/types';
 import { getOrderAdjustmentPolicy } from '@/lib/orders/order-adjustment-policy';
 import { isOrderBusinessDayClosed } from '@/lib/orders/order-business-day';
+import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
 
 export async function GET(
   request: NextRequest,
@@ -48,6 +49,7 @@ export async function GET(
             customerPhone: true,
           },
         },
+        orderRecalls: ACTIVE_RECALL_SELECT,
         items: {
           include: {
             menuItem: {
@@ -198,6 +200,7 @@ export async function GET(
       adjustment,
       order: {
         ...order,
+        ...recallFields(order.orderRecalls),
         modifications: modificationsWithUsers,
       },
     });

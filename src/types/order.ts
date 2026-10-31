@@ -37,6 +37,9 @@ export interface Order {
   confirmedAt?: string;
   readyAt?: string;
   servedAt?: string;
+  recalled?: boolean;
+  recalledAt?: string | null;
+  recallReason?: string | null;
   table?: {
     tableNumber: string;
     tableName?: string;

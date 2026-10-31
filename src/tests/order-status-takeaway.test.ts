@@ -14,6 +14,7 @@ jest.mock('@/lib/tenant-context', () => ({
 jest.mock('@/lib/database', () => ({
   prisma: {
     order: { findUnique: jest.fn() },
+    stationOrderRecall: { findFirst: jest.fn() },
     auditLog: { create: jest.fn() },
     $transaction: jest.fn(),
   },
@@ -69,6 +70,7 @@ describe('takeaway order status', () => {
       permissions: {},
     });
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(currentOrder);
+    (prisma.stationOrderRecall.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.auditLog.create as jest.Mock).mockResolvedValue({});
     (recordOrderStatusChanged as jest.Mock).mockResolvedValue(1);
     (autoUpdateTableStatus as jest.Mock).mockResolvedValue(undefined);
@@ -106,6 +108,27 @@ describe('takeaway order status', () => {
       'READY',
       'SERVED'
     );
+  });
+
+  it('blocks serving a recalled ticket', async () => {
+    (prisma.stationOrderRecall.findFirst as jest.Mock).mockResolvedValue({
+      id: 'recall-1',
+    });
+
+    const response = await updateOrderStatus(
+      new NextRequest('http://localhost/api/orders/order-takeaway-1/status', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'SERVED' }),
+      }),
+      { params: Promise.resolve({ id: 'order-takeaway-1' }) }
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json.code).toBe('ORDER_RECALLED');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(recordOrderStatusChanged).not.toHaveBeenCalled();
   });
 
   it('rejects unpaid takeaway pickup', async () => {

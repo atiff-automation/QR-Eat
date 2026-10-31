@@ -287,6 +287,7 @@ model Restaurant {
   stations    Station[]
   devices     Device[]
   orderEvents OrderEvent[]
+  orderRecalls StationOrderRecall[]
 
   @@index([ownerId])
   @@index([slug])
@@ -715,6 +716,7 @@ model Order {
   transactionFee  TransactionFee?
   modifications   OrderModification[] // New relation
   orderEvents     OrderEvent[]
+  orderRecalls    StationOrderRecall[]
 
   @@index([restaurantId])
   @@index([tableId])
@@ -1410,6 +1412,7 @@ model Station {
   categories  StationCategory[]
   devices     Device[]
   orderEvents OrderEvent[]
+  orderRecalls StationOrderRecall[]
 
   @@unique([restaurantId, name])
   @@index([restaurantId])
@@ -1499,4 +1502,32 @@ model Device {
   @@index([restaurantId])
   @@index([stationId])
   @@map("devices")
+}
+
+/// A kitchen recall for one order at one station.
+///
+/// Recall is not an order-status reversal: the order stays READY so payment,
+/// reporting and customer-visible state do not move backwards. The active row
+/// tells the station to work the ticket again; `resolvedAt` is set when every
+/// station item is READY again. Rows are kept as an audit trail.
+model StationOrderRecall {
+  id             String    @id @default(uuid())
+  restaurantId   String
+  stationId      String
+  orderId        String
+  recalledAt     DateTime  @default(now())
+  recalledBy     String?
+  reason         String?
+  idempotencyKey String?
+  resolvedAt     DateTime?
+  updatedAt      DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  station    Station    @relation(fields: [stationId], references: [id], onDelete: Cascade)
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, stationId])
+  @@index([stationId, resolvedAt])
+  @@index([restaurantId, recalledAt])
+  @@map("station_order_recalls")
 }

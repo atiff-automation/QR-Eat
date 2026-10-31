@@ -14,6 +14,7 @@ import { OrderStatus, Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { authenticateDevice } from '@/lib/device-auth';
 import { orderFulfillment, resolveRouting } from '@/lib/order-events';
+import { getRecallWindowMinutes, isRecallEnabled } from '@/lib/recall';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -52,6 +53,11 @@ export async function GET(request: NextRequest) {
           orderBy: { createdAt: 'asc' },
           include: {
             table: { select: { tableNumber: true, tableName: true } },
+            orderRecalls: {
+              where: { stationId: station.id, resolvedAt: null },
+              select: { recalledAt: true, reason: true },
+              take: 1,
+            },
             items: {
               include: {
                 menuItem: { select: { name: true, categoryId: true } },
@@ -94,6 +100,8 @@ export async function GET(request: NextRequest) {
           ...fulfillment,
           status: order.status,
           version: order.version,
+          recalledAt: order.orderRecalls[0]?.recalledAt.toISOString() ?? null,
+          recallReason: order.orderRecalls[0]?.reason ?? null,
           createdAt: order.createdAt.toISOString(),
           orderNote: order.specialInstructions,
           stationSubtotal: subtotal.toFixed(2),
@@ -123,6 +131,8 @@ export async function GET(request: NextRequest) {
       station: { id: station.id, name: station.name },
       categories: categories.map((row) => row.category),
       cursor: snapshot.cursor,
+      recallEnabled: isRecallEnabled(),
+      recallWindowMinutes: getRecallWindowMinutes(),
       orders,
     });
   } catch (error) {

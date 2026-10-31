@@ -63,6 +63,8 @@ export const SSE_EVENT_TYPES = {
   ORDER_CREATED: 'order_created',
   ORDER_STATUS_CHANGED: 'order_status_changed',
   ORDER_ITEM_STATUS_CHANGED: 'order_item_status_changed',
+  ORDER_RECALLED: 'order_recalled',
+  ORDER_RECALL_CLEARED: 'order_recall_cleared',
   KITCHEN_NOTIFICATION: 'kitchen_notification',
   RESTAURANT_NOTIFICATION: 'restaurant_notification',
   TABLE_STATUS_CHANGED: 'table_status_changed',

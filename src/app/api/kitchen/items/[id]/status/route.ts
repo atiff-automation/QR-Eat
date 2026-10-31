@@ -6,8 +6,13 @@ import { verifyStaffSession } from '@/lib/device-auth';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
   recordOrderItemStatusChanged,
+  recordOrderRecallCleared,
   recordOrderStatusChanged,
 } from '@/lib/order-events';
+import {
+  clearRecallIfStationReady,
+  hasActiveRecallForItem,
+} from '@/lib/recall';
 
 export async function PATCH(
   request: NextRequest,
@@ -135,11 +140,22 @@ export async function PATCH(
     // D41: kitchen actions only make sense after manager/owner confirmation.
     // A PENDING order has no kitchen ticket, and a closed order must not be
     // mutated.
-    if (!['CONFIRMED', 'PREPARING'].includes(currentItem.order.status)) {
-      return NextResponse.json(
-        { error: 'Order is not in a kitchen-action state' },
-        { status: 409 }
+    const orderInKitchenState = ['CONFIRMED', 'PREPARING'].includes(
+      currentItem.order.status
+    );
+    if (!orderInKitchenState) {
+      // A recalled READY order is the one exception: the kitchen is working it
+      // again even though the customer-facing order status is still READY.
+      const recalled = await hasActiveRecallForItem(
+        currentItem.orderId,
+        itemId
       );
+      if (!recalled) {
+        return NextResponse.json(
+          { error: 'Order is not in a kitchen-action state' },
+          { status: 409 }
+        );
+      }
     }
 
     // Update the order item status
@@ -197,6 +213,58 @@ export async function PATCH(
     const restaurantIdForStatus = orderItem.order.restaurantId;
     const tableIdForStatus = orderItem.order.tableId;
     const orderNumberForStatus = orderItem.order.orderNumber;
+
+    // Re-bumping the last recalled item clears the recall without changing the
+    // order status. This runs before the normal transition helpers because a
+    // recalled order is already READY.
+    if (status === 'READY') {
+      const recalls = await prisma.stationOrderRecall.findMany({
+        where: { orderId: orderIdForStatus, resolvedAt: null },
+        select: { stationId: true },
+      });
+
+      for (const recall of recalls) {
+        const cleared = await clearRecallIfStationReady(
+          orderIdForStatus,
+          restaurantIdForStatus,
+          recall.stationId
+        );
+        if (!cleared) continue;
+
+        try {
+          await recordOrderRecallCleared(
+            orderIdForStatus,
+            recall.stationId,
+            cleared.recalledAt,
+            cleared.clearedAt,
+            cleared.reason
+          );
+        } catch (eventError) {
+          console.error(
+            `[recall] FAILED to record clear event for ${orderIdForStatus}:`,
+            eventError
+          );
+        }
+
+        await PostgresEventManager.publishOrderRecallCleared({
+          orderId: orderIdForStatus,
+          orderNumber: orderNumberForStatus,
+          restaurantId: restaurantIdForStatus,
+          stationId: recall.stationId,
+          recalledAt: cleared.recalledAt.toISOString(),
+          clearedAt: cleared.clearedAt.toISOString(),
+          reason: cleared.reason,
+          version:
+            (
+              await prisma.order.findUnique({
+                where: { id: orderIdForStatus },
+                select: { version: true },
+              })
+            )?.version ?? 0,
+          timestamp: Date.now(),
+        });
+      }
+    }
 
     const transitionToPreparing = async () => {
       if (orderItem.order.status !== 'CONFIRMED') return;

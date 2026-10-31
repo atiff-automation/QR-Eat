@@ -8,6 +8,11 @@ import {
 import { counterAccessDenied } from '@/lib/counter/access';
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import { formatPickupNumber } from '@/lib/order-utils';
+import {
+  ACTIVE_RECALL_SELECT,
+  recallCapability,
+  recallFields,
+} from '@/lib/counter/recall';
 
 const PRINT_TICKET_TYPES = ['order.created', 'order.items.added'];
 const OPEN_STATUSES = ['CONFIRMED', 'PREPARING', 'READY'] as const;
@@ -66,6 +71,7 @@ export async function GET(request: NextRequest) {
         totalAmount: true,
         createdAt: true,
         readyAt: true,
+        orderRecalls: ACTIVE_RECALL_SELECT,
         items: {
           select: {
             quantity: true,
@@ -117,6 +123,7 @@ export async function GET(request: NextRequest) {
         payable,
         createdAt: order.createdAt.toISOString(),
         readyAt: order.readyAt?.toISOString() ?? null,
+        ...recallFields(order.orderRecalls),
         ageSeconds: Math.max(
           0,
           Math.floor((now - order.createdAt.getTime()) / 1000)
@@ -134,12 +141,14 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      ...recallCapability(),
       summary: {
         openCount: rows.length,
         unpaidCount: payableOrders.length,
         readyUnpaidCount: payableOrders.filter(
-          (order) => order.status === 'READY'
+          (order) => order.status === 'READY' && !order.recalled
         ).length,
+        recalledCount: rows.filter((order) => order.recalled).length,
         pendingConfirmCount: rows.filter((order) => order.status === 'PENDING')
           .length,
         paidWaitingCount: rows.filter(

@@ -6,6 +6,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
+import { ACTIVE_RECALL_SELECT } from '@/lib/counter/recall';
 
 /**
  * Counter table grid: active/ready counts and unpaid total in one response.
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
             paymentStatus: true,
             totalAmount: true,
             createdAt: true,
+            orderRecalls: ACTIVE_RECALL_SELECT,
           },
           orderBy: { createdAt: 'desc' },
         },
@@ -57,7 +59,10 @@ export async function GET(request: NextRequest) {
           activeStatuses.has(order.status)
         ).length;
         const readyCount = table.orders.filter(
-          (order) => order.status === 'READY'
+          (order) => order.status === 'READY' && order.orderRecalls.length === 0
+        ).length;
+        const recalledCount = table.orders.filter(
+          (order) => order.orderRecalls.length > 0
         ).length;
         const pendingCount = table.orders.filter(
           (order) => order.status === 'PENDING'
@@ -73,6 +78,7 @@ export async function GET(request: NextRequest) {
           currentOrders: activeOrders,
           pendingCount,
           readyCount,
+          recalledCount,
           unpaidTotal: unpaidTotal.toFixed(2),
           lastOrderAt: table.orders[0]?.createdAt?.toISOString() || null,
         };

@@ -19,6 +19,10 @@ interface KitchenOrder {
   customerName?: string | null;
   customerPhone?: string | null;
   status: string;
+  version: number;
+  recalled?: boolean;
+  recalledAt?: string | null;
+  recallReason?: string | null;
   totalAmount: number;
   createdAt: string;
   confirmedAt?: string;
@@ -51,6 +55,10 @@ interface KitchenOrder {
 
 export function KitchenDisplayBoard() {
   const [orders, setOrders] = useState<KitchenOrder[]>([]);
+  const [recallEnabled, setRecallEnabled] = useState(false);
+  const [recallTarget, setRecallTarget] = useState<KitchenOrder | null>(null);
+  const [recallReason, setRecallReason] = useState('');
+  const [recallBusy, setRecallBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sseConnected, setSseConnected] = useState(false);
@@ -169,6 +177,11 @@ export function KitchenDisplayBoard() {
         fetchKitchenOrders();
         break;
 
+      case 'order_recalled':
+      case 'order_recall_cleared':
+        fetchKitchenOrders();
+        break;
+
       case 'order_item_status_changed':
         console.log('Kitchen item status changed:', {
           orderId: data.data.orderId,
@@ -268,10 +281,12 @@ export function KitchenDisplayBoard() {
 
   const fetchKitchenOrders = async () => {
     try {
-      const data = await ApiClient.get<{ orders: KitchenOrder[] }>(
-        '/kitchen/orders'
-      );
+      const data = await ApiClient.get<{
+        orders: KitchenOrder[];
+        recallEnabled?: boolean;
+      }>('/kitchen/orders');
       setOrders(data.orders);
+      setRecallEnabled(Boolean(data.recallEnabled));
       setError('');
     } catch (error) {
       console.error('Failed to fetch kitchen orders:', error);
@@ -282,6 +297,64 @@ export function KitchenDisplayBoard() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openRecall = (order: KitchenOrder) => {
+    setRecallTarget(order);
+    setRecallReason('');
+  };
+
+  const closeRecall = () => {
+    if (recallBusy) return;
+    setRecallTarget(null);
+    setRecallReason('');
+  };
+
+  const submitRecall = async () => {
+    const order = recallTarget;
+    if (!order || recallBusy) return;
+    setRecallBusy(true);
+    try {
+      await ApiClient.post(
+        `/api/orders/${order.id}/recall`,
+        {
+          expectedVersion: order.version,
+          reason: recallReason.trim() || undefined,
+        },
+        {
+          headers: {
+            'Idempotency-Key': crypto.randomUUID(),
+          },
+        }
+      );
+      setOrders((prev) =>
+        prev.map((row) =>
+          row.id === order.id
+            ? {
+                ...row,
+                recalled: true,
+                recalledAt: new Date().toISOString(),
+                recallReason: recallReason.trim() || null,
+                items: row.items.map((item) => ({
+                  ...item,
+                  status: 'PREPARING',
+                })),
+              }
+            : row
+        )
+      );
+      toast.success('Ticket recalled to the kitchen.');
+      setRecallTarget(null);
+      setRecallReason('');
+    } catch (error) {
+      toast.error(
+        error instanceof ApiClientError
+          ? error.message
+          : 'Could not recall the ticket.'
+      );
+    } finally {
+      setRecallBusy(false);
     }
   };
 
@@ -366,6 +439,7 @@ export function KitchenDisplayBoard() {
   const getDisplayStatus = (
     order: KitchenOrder
   ): 'CONFIRMED' | 'PREPARING' | 'READY' | 'SERVED' => {
+    if (order.recalled) return 'PREPARING';
     // If all items are READY or SERVED, treat as READY (for this station)
     const allReady = order.items.every((item) =>
       ['READY', 'SERVED'].includes(item.status)
@@ -534,6 +608,14 @@ export function KitchenDisplayBoard() {
                   </div>
                 </div>
 
+                {order.recalled && (
+                  <div className="mb-3 rounded border border-amber-600/50 bg-amber-900/30 p-2 text-sm text-amber-200">
+                    <span className="font-bold">RECALLED</span>
+                    {order.recallReason ? `: ${order.recallReason}` : ''}
+                    {' · '}work the ticket and bump it again
+                  </div>
+                )}
+
                 {/* Items List */}
                 <div className="space-y-3 md:space-y-2 flex-grow mb-4">
                   {sortedItems.map((item) => (
@@ -619,6 +701,100 @@ export function KitchenDisplayBoard() {
             );
           })}
       </div>
+
+      {groupedOrders.ready.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-gray-400">
+            Ready at the pass
+          </h2>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {groupedOrders.ready.map((order) => (
+              <div
+                key={`ready-${order.id}`}
+                className="rounded-lg border-l-4 border-green-600 bg-gray-900 p-3 md:bg-gray-800"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <div className="text-xl font-bold text-white">
+                      {order.dailySeq
+                        ? `#${String(order.dailySeq).padStart(3, '0')}`
+                        : order.orderNumber}
+                    </div>
+                    <div className="text-xs text-blue-300">
+                      {getOrderPrimaryLabel(order)}
+                    </div>
+                  </div>
+                  <span className="rounded bg-green-900/60 px-2 py-1 text-xs font-bold text-green-300">
+                    READY
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-gray-400">
+                  {order.items.length} item{order.items.length === 1 ? '' : 's'}
+                </div>
+                <button
+                  onClick={() => openRecall(order)}
+                  disabled={!recallEnabled}
+                  className="mt-3 w-full rounded-lg border border-amber-500 py-2 text-sm font-bold text-amber-300 disabled:cursor-not-allowed disabled:opacity-50"
+                  title={
+                    recallEnabled
+                      ? 'Return this ticket to the kitchen'
+                      : 'Recall is not enabled on this server'
+                  }
+                >
+                  Recall
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {recallTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-md rounded-xl bg-gray-900 p-5 text-white shadow-2xl">
+            <h2 className="text-xl font-bold">Recall this ticket?</h2>
+            <p className="mt-2 text-sm text-gray-300">
+              {recallTarget.dailySeq
+                ? `#${String(recallTarget.dailySeq).padStart(3, '0')}`
+                : recallTarget.orderNumber}{' '}
+              will return to the kitchen board with its items marked PREPARING.
+              The order stays READY; payment remains allowed, but serving and
+              pickup are blocked until it is re-bumped.
+            </p>
+            <label className="mt-4 block text-xs font-bold uppercase tracking-wide text-gray-400">
+              Reason (optional)
+            </label>
+            <textarea
+              value={recallReason}
+              onChange={(event) =>
+                setRecallReason(event.target.value.slice(0, 280))
+              }
+              rows={3}
+              placeholder="e.g. missing garnish"
+              className="mt-1 w-full rounded-lg border border-gray-700 bg-gray-950 p-2 text-sm text-white outline-none focus:border-amber-500"
+            />
+            <div className="mt-1 text-right text-xs text-gray-500">
+              {recallReason.length}/280
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <button
+                onClick={closeRecall}
+                disabled={recallBusy}
+                className="rounded-lg px-4 py-2 text-sm font-bold text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitRecall}
+                disabled={recallBusy}
+                className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {recallBusy ? 'Recalling…' : 'Yes, recall'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {orders.length === 0 && !loading && (
         <div className="text-center py-12">

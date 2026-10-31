@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withTenantContext } from '@/lib/database';
 import { getTenantContext } from '@/lib/tenant-context';
+import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,7 +21,12 @@ export async function GET(request: NextRequest) {
     const offset = parseInt(searchParams.get('offset') || '0');
 
     // Execute query with RLS enforcement
-    const result = await withTenantContext<{ orders: any[]; totalCount: number }>(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await withTenantContext<{
+      orders: any[];
+      totalCount: number;
+    }>(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       context as any,
       async (tx) => {
         const whereClause: Record<string, string> = {};
@@ -50,6 +56,7 @@ export async function GET(request: NextRequest) {
                 selectedOptions: true,
               },
             },
+            orderRecalls: ACTIVE_RECALL_SELECT,
           },
           orderBy: {
             createdAt: 'desc',
@@ -67,7 +74,17 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({
-      orders: result.orders,
+      orders: result.orders.map(
+        ({
+          orderRecalls,
+          ...order
+        }: {
+          orderRecalls?: Array<{ recalledAt: Date; reason: string | null }>;
+        }) => ({
+          ...order,
+          ...recallFields(orderRecalls),
+        })
+      ),
       pagination: {
         total: result.totalCount,
         limit,
