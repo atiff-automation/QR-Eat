@@ -41,3 +41,8 @@ test_cookies.txt
 # Scripts (include only what's needed)
 scripts/test-*.sh
 scripts/debug-*.sh
+
+# Unrelated local prototype / notes (not part of this service)
+QR-Eat-Kitchen-App/
+README_PROJECT_OVERVIEW_QREAT.md
+test-sse.js
