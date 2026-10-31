@@ -370,9 +370,11 @@ export function KitchenDisplayBoard() {
         }))
       );
 
-      await ApiClient.patch(`/kitchen/items/${itemId}/status`, {
-        status: newStatus,
-      });
+      await ApiClient.patch(
+        `/kitchen/items/${itemId}/status`,
+        { status: newStatus },
+        { headers: { 'Idempotency-Key': crypto.randomUUID() } }
+      );
       console.log(
         '[KitchenDisplay] Item status updated successfully, waiting for SSE confirmation'
       );
@@ -495,9 +497,11 @@ export function KitchenDisplayBoard() {
       // first item starts; do not PATCH the order separately.
       await Promise.all(
         items.map((item) =>
-          ApiClient.patch(`/kitchen/items/${item.id}/status`, {
-            status: newStatus,
-          })
+          ApiClient.patch(
+            `/kitchen/items/${item.id}/status`,
+            { status: newStatus },
+            { headers: { 'Idempotency-Key': crypto.randomUUID() } }
+          )
         )
       );
 

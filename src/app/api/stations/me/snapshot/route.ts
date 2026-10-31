@@ -15,6 +15,7 @@ import { prisma } from '@/lib/database';
 import { authenticateDevice } from '@/lib/device-auth';
 import { orderFulfillment, resolveRouting } from '@/lib/order-events';
 import { getRecallWindowMinutes, isRecallEnabled } from '@/lib/recall';
+import { normalizeStationSettings } from '@/lib/station-settings';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -100,6 +101,7 @@ export async function GET(request: NextRequest) {
           ...fulfillment,
           status: order.status,
           version: order.version,
+          confirmedAt: order.confirmedAt?.toISOString() ?? null,
           recalledAt: order.orderRecalls[0]?.recalledAt.toISOString() ?? null,
           recallReason: order.orderRecalls[0]?.reason ?? null,
           createdAt: order.createdAt.toISOString(),
@@ -133,6 +135,7 @@ export async function GET(request: NextRequest) {
       cursor: snapshot.cursor,
       recallEnabled: isRecallEnabled(),
       recallWindowMinutes: getRecallWindowMinutes(),
+      settings: normalizeStationSettings(station.settings),
       orders,
     });
   } catch (error) {

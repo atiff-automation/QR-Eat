@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import { mergeStationSettings } from '@/lib/station-settings';
 
 const UpdateStationSchema = z
   .object({
@@ -21,6 +22,14 @@ const UpdateStationSchema = z
     isActive: z.boolean().optional(),
     sortOrder: z.number().int().min(0).max(1000).optional(),
     categoryIds: z.array(z.string().uuid()).max(200).optional(),
+    settings: z
+      .object({
+        warnMinutes: z.number().int().min(1).max(120).optional(),
+        lateMinutes: z.number().int().min(2).max(180).optional(),
+        density: z.enum(['compact', 'normal']).optional(),
+        textScale: z.enum(['small', 'normal', 'large']).optional(),
+      })
+      .optional(),
   })
   .refine((value) => Object.keys(value).length > 0, {
     message: 'No fields to update',
@@ -140,7 +149,8 @@ export async function PATCH(
       );
     }
 
-    const { name, isDefault, isActive, sortOrder, categoryIds } = parsed.data;
+    const { name, isDefault, isActive, sortOrder, categoryIds, settings } =
+      parsed.data;
 
     const existing = await prisma.station.findFirst({
       where: { id, restaurantId: auth.restaurantId },
@@ -224,6 +234,14 @@ export async function PATCH(
           ...(isDefault !== undefined ? { isDefault } : {}),
           ...(isActive !== undefined ? { isActive } : {}),
           ...(sortOrder !== undefined ? { sortOrder } : {}),
+          ...(settings !== undefined
+            ? {
+                settings: mergeStationSettings(
+                  existing.settings,
+                  settings
+                ) as unknown as Prisma.InputJsonValue,
+              }
+            : {}),
         },
         include: stationInclude,
       });

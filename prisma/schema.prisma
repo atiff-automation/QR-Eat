@@ -284,9 +284,9 @@ model Restaurant {
   expenses          Expense[]
 
   // Android station devices
-  stations    Station[]
-  devices     Device[]
-  orderEvents OrderEvent[]
+  stations     Station[]
+  devices      Device[]
+  orderEvents  OrderEvent[]
   orderRecalls StationOrderRecall[]
 
   @@index([ownerId])
@@ -1405,6 +1405,8 @@ model Station {
   isDefault    Boolean  @default(false) // fallback for unmapped categories
   isActive     Boolean  @default(true)
   sortOrder    Int      @default(0)
+  /// Station presentation/policy defaults. JSON keeps additions migration-free.
+  settings     Json     @default("{\"warnMinutes\":5,\"lateMinutes\":10,\"density\":\"normal\",\"textScale\":\"normal\"}")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -1530,4 +1532,21 @@ model StationOrderRecall {
   @@index([stationId, resolvedAt])
   @@index([restaurantId, recalledAt])
   @@map("station_order_recalls")
+}
+
+/// Durable receipt for an idempotent order mutation.
+model OrderActionReceipt {
+  id             String   @id @default(uuid())
+  restaurantId   String
+  action         String
+  idempotencyKey String
+  orderId        String?
+  statusCode     Int      @default(200)
+  response       Json
+  createdAt      DateTime @default(now())
+
+  @@unique([restaurantId, action, idempotencyKey])
+  @@index([orderId])
+  @@index([createdAt])
+  @@map("order_action_receipts")
 }

@@ -13,6 +13,12 @@ import {
   clearRecallIfStationReady,
   hasActiveRecallForItem,
 } from '@/lib/recall';
+import {
+  findReceipt,
+  idempotencyKeyFrom,
+  ORDER_ACTION,
+  saveReceipt,
+} from '@/lib/order-idempotency';
 
 export async function PATCH(
   request: NextRequest,
@@ -135,6 +141,20 @@ export async function PATCH(
       currentItem.order.restaurantId !== userRestaurantId
     ) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+    }
+
+    const idempotencyKey = idempotencyKeyFrom(request);
+    if (idempotencyKey && userRestaurantId) {
+      const replay = await findReceipt(
+        userRestaurantId,
+        ORDER_ACTION.ITEM_STATUS,
+        idempotencyKey
+      );
+      if (replay) {
+        return NextResponse.json(replay.body, {
+          status: replay.statusCode,
+        });
+      }
     }
 
     // D41: kitchen actions only make sense after manager/owner confirmation.
@@ -362,10 +382,32 @@ export async function PATCH(
       }
     }
 
-    return NextResponse.json({
+    const responseBody = {
       success: true,
       orderItem,
-    });
+    };
+
+    if (idempotencyKey && userRestaurantId) {
+      try {
+        await saveReceipt({
+          restaurantId: userRestaurantId,
+          action: ORDER_ACTION.ITEM_STATUS,
+          key: idempotencyKey,
+          orderId: orderItem.order.id,
+          statusCode: 200,
+          body: JSON.parse(JSON.stringify(responseBody)),
+        });
+      } catch (receiptError) {
+        // The item mutation already committed. A receipt failure must be loud
+        // but must not turn a successful kitchen action into a 500.
+        console.error(
+          `[idempotency] FAILED to save item receipt for ${orderItem.order.id}:`,
+          receiptError
+        );
+      }
+    }
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Failed to update order item status:', error);
     return NextResponse.json(
