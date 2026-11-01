@@ -53,6 +53,11 @@ enum CustomerSessionStatus {
   EXPIRED
 }
 
+enum DiningSessionStatus {
+  OPEN
+  CLOSED
+}
+
 enum OrderItemStatus {
   PENDING
   PREPARING
@@ -266,6 +271,7 @@ model Restaurant {
   owner             RestaurantOwner      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   subscription      Subscription?
   tables            Table[]
+  diningSessions    DiningSession[]
   menuItems         MenuItem[]
   categories        MenuCategory[]
   orders            Order[]
@@ -303,16 +309,39 @@ model Table {
   capacity            Int         @default(4)
   status              TableStatus @default(AVAILABLE)
   locationDescription String?
+  activeDiningSessionId String?   @unique
   createdAt           DateTime    @default(now())
   updatedAt           DateTime    @updatedAt
 
-  restaurant       Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  orders           Order[]
-  customerSessions CustomerSession[]
-  reservations     Reservation[]
+  restaurant          Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders              Order[]
+  customerSessions    CustomerSession[]
+  reservations        Reservation[]
+  activeDiningSession DiningSession?    @relation("ActiveDiningSession", fields: [activeDiningSessionId], references: [id], onDelete: SetNull)
+  diningSessions      DiningSession[]   @relation("TableDiningSessions")
 
   @@unique([restaurantId, tableNumber])
   @@map("tables")
+}
+
+model DiningSession {
+  id           String              @id @default(uuid())
+  restaurantId String
+  tableId      String
+  status       DiningSessionStatus @default(OPEN)
+  openedAt     DateTime            @default(now())
+  closedAt     DateTime?
+  openedBy     String?
+  closedBy     String?
+
+  restaurant     Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  table          Table      @relation("TableDiningSessions", fields: [tableId], references: [id], onDelete: Cascade)
+  activeForTable Table?     @relation("ActiveDiningSession")
+  orders         Order[]
+
+  @@index([tableId, status])
+  @@index([restaurantId, openedAt])
+  @@map("dining_sessions")
 }
 
 model MenuCategory {
@@ -665,6 +694,7 @@ model Order {
   restaurantId        String
   tableId             String?
   customerSessionId   String?
+  diningSessionId     String?
   customerName        String?
   customerPhone       String?
   subtotalAmount      Decimal            @default(0.00) @db.Decimal(10, 2)
@@ -705,6 +735,7 @@ model Order {
   restaurant      Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   table           Table?              @relation(fields: [tableId], references: [id], onDelete: Cascade)
   customerSession CustomerSession?    @relation(fields: [customerSessionId], references: [id], onDelete: Cascade)
+  diningSession   DiningSession?      @relation(fields: [diningSessionId], references: [id], onDelete: SetNull)
   takenByStaff    Staff?              @relation(fields: [takenBy], references: [id])
   items           OrderItem[]
   payments        Payment[]
@@ -717,6 +748,7 @@ model Order {
 
   @@index([restaurantId])
   @@index([tableId])
+  @@index([diningSessionId])
   @@index([status])
   @@index([paymentStatus])
   @@index([createdAt])
