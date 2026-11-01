@@ -409,6 +409,9 @@ function isPublicApiRoute(pathname: string): boolean {
     // Station devices authenticate with a device token, not a staff session.
     // Both handlers verify the device credential themselves.
     '/api/devices/token',
+    // Pairing: the short code *is* the credential, so there is no session to
+    // check. The handler owns the single-use redemption and its rate of use.
+    '/api/devices/pair',
     '/api/events/station',
     '/api/stations/me/snapshot',
     '/api/stations/me/settings',
