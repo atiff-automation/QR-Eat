@@ -2,8 +2,12 @@
 nixPkgs = ["nodejs_20", "openssl"]
 
 [phases.install]
+# --include=dev is required, not optional. NODE_ENV=production is injected into
+# every phase, and npm treats that as --omit=dev, so the type check in
+# `next build` loses @types/react-dom and fails on the first react-dom import.
+# Builds only appeared to work while BuildKit reused a cached npm layer.
 cmds = [
-  "npm ci --legacy-peer-deps"
+  "npm ci --legacy-peer-deps --include=dev"
 ]
 
 [phases.build]
