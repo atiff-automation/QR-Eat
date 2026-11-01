@@ -5,6 +5,9 @@ process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test_db';
 process.env.JWT_SECRET = 'test-jwt-secret-key-for-testing-only';
 process.env.REDIS_URL = 'redis://localhost:6379';
 process.env.NODE_ENV = 'test';
+// `src/middleware.ts` resolves the base domain at import time.
+process.env.NEXT_PUBLIC_BASE_DOMAIN = 'tabtep.app';
+process.env.NEXT_PUBLIC_MAIN_DOMAIN = 'tabtep.app';
 
 // Mock Redis
 jest.mock('ioredis', () => {

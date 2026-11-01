@@ -386,9 +386,13 @@ function isPublicRoute(pathname: string): boolean {
 }
 
 /**
- * Check if an API route is public and doesn't require authentication
+ * Check if an API route is public and doesn't require authentication.
+ *
+ * Exported so the pairing allow-list can be regression-tested: a route that
+ * belongs here but is missing returns `401` before its handler ever runs, and
+ * the handler's own tests cannot see that.
  */
-function isPublicApiRoute(pathname: string): boolean {
+export function isPublicApiRoute(pathname: string): boolean {
   const publicApiRoutes = [
     '/api/auth/login',
     '/api/auth/rbac-login',
