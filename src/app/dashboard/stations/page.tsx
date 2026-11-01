@@ -5,9 +5,7 @@ import { useRole } from '@/components/rbac/RoleProvider';
 import { ApiClient, ApiClientError } from '@/lib/api-client';
 import {
   AlertTriangle,
-  Check,
   CheckCircle2,
-  Copy,
   MonitorSmartphone,
   Plus,
   RefreshCw,
@@ -41,6 +39,8 @@ interface Device {
   appVersion: string | null;
   deviceModel: string | null;
   isActive: boolean;
+  pairedAt: string | null;
+  hasPendingCode: boolean;
   lastSeenAt: string | null;
   lastPrintAt: string | null;
   station: { id: string; name: string; isActive: boolean };
@@ -54,10 +54,17 @@ interface Category {
 
 interface ProvisionResult {
   deviceId: string;
-  deviceSecret: string;
+  pairingCode: string;
   name: string;
   station: { id: string; name: string };
   restaurant: { id: string; name: string };
+}
+
+/** The code currently on screen. One panel serves create, reissue and reveal. */
+interface CodePanel {
+  deviceId: string;
+  deviceName: string;
+  code: string;
 }
 
 function relativeTime(value: string | null): string {
@@ -147,8 +154,8 @@ export default function StationsPage() {
   const [deviceName, setDeviceName] = useState('');
   const [deviceStationId, setDeviceStationId] = useState('');
   const [provisioning, setProvisioning] = useState(false);
-  const [provisioned, setProvisioned] = useState<ProvisionResult | null>(null);
-  const [copied, setCopied] = useState(false);
+  const [codePanel, setCodePanel] = useState<CodePanel | null>(null);
+  const [codeBusyId, setCodeBusyId] = useState<string | null>(null);
   const [revokeTarget, setRevokeTarget] = useState<Device | null>(null);
   const [revoking, setRevoking] = useState(false);
 
@@ -269,9 +276,13 @@ export default function StationsPage() {
           platform: 'android',
         }
       );
-      setProvisioned(result);
+      setCodePanel({
+        deviceId: result.deviceId,
+        deviceName: result.name,
+        code: result.pairingCode,
+      });
       setDeviceName('');
-      setNotice('Device provisioned. Save the secret now.');
+      setNotice('Device created. Type its code into the station setup screen.');
       await load();
     } catch (err) {
       setError(
@@ -301,14 +312,53 @@ export default function StationsPage() {
     }
   };
 
-  const copySecret = async () => {
-    if (!provisioned) return;
+  const createCode = async (device: Device) => {
+    setCodeBusyId(device.id);
+    setError('');
     try {
-      await navigator.clipboard.writeText(provisioned.deviceSecret);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1500);
-    } catch {
-      setError('Clipboard unavailable. Select and copy the secret manually.');
+      const result = await ApiClient.post<{
+        deviceId: string;
+        pairingCode: string;
+      }>(`/devices/${device.id}/code`, {});
+      setCodePanel({
+        deviceId: result.deviceId,
+        deviceName: device.name,
+        code: result.pairingCode,
+      });
+      setNotice(`Pairing code created for ${device.name}.`);
+      await load();
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Could not create a pairing code.'
+      );
+    } finally {
+      setCodeBusyId(null);
+    }
+  };
+
+  const revealCode = async (device: Device) => {
+    setCodeBusyId(device.id);
+    setError('');
+    try {
+      const result = await ApiClient.get<{
+        deviceId: string;
+        pairingCode: string;
+      }>(`/devices/${device.id}/code`);
+      setCodePanel({
+        deviceId: result.deviceId,
+        deviceName: device.name,
+        code: result.pairingCode,
+      });
+    } catch (err) {
+      setError(
+        err instanceof ApiClientError
+          ? err.message
+          : 'Could not read the pairing code.'
+      );
+    } finally {
+      setCodeBusyId(null);
     }
   };
 
@@ -325,7 +375,7 @@ export default function StationsPage() {
           </h1>
           <p className="mt-2 text-sm text-amber-800">
             Stations and devices are managed by the restaurant owner. A manager
-            can run the floor but cannot reveal device credentials.
+            can run the floor but cannot create pairing codes.
           </p>
         </div>
       </div>
@@ -530,10 +580,11 @@ export default function StationsPage() {
             </div>
 
             <div className="rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
-              <h3 className="font-semibold text-gray-900">Provision a phone</h3>
+              <h3 className="font-semibold text-gray-900">Add a device</h3>
               <p className="mt-1 text-sm text-gray-600">
-                The secret is shown once. Enter it in the station Setup screen.
-                Revoking a device invalidates its token.
+                Creates a single-use pairing code. Type it into the station
+                setup screen. The code never expires; revoking the device is
+                what takes it off the kitchen.
               </p>
               <div className="mt-3 space-y-3">
                 <input
@@ -560,59 +611,36 @@ export default function StationsPage() {
                   loading={provisioning}
                 >
                   {!provisioning && <Plus className="mr-2 h-4 w-4" />}
-                  Provision device
+                  Create device
                 </Button>
               </div>
             </div>
 
-            {provisioned && (
+            {codePanel && (
               <div className="rounded-xl border-2 border-blue-300 bg-blue-50 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <h3 className="font-semibold text-blue-900">
-                      Device secret — show once
+                      Pairing code
                     </h3>
                     <p className="mt-1 text-xs text-blue-800">
-                      Enter these values in the station Setup screen. The secret
-                      cannot be retrieved again.
+                      Type this into the station setup screen. It works once.
+                      The code never expires, so it is safe to set up later.
                     </p>
                   </div>
                   <button
-                    onClick={() => setProvisioned(null)}
-                    aria-label="Dismiss secret"
+                    onClick={() => setCodePanel(null)}
+                    aria-label="Dismiss pairing code"
                   >
                     <X className="h-4 w-4 text-blue-700" />
                   </button>
                 </div>
-                <dl className="mt-3 space-y-2 text-sm">
-                  <div>
-                    <dt className="text-xs font-semibold uppercase text-blue-700">
-                      Device ID
-                    </dt>
-                    <dd className="break-all rounded bg-white p-2 font-mono text-xs text-gray-900">
-                      {provisioned.deviceId}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs font-semibold uppercase text-blue-700">
-                      Device secret
-                    </dt>
-                    <dd className="flex items-center gap-2 break-all rounded bg-white p-2 font-mono text-xs text-gray-900">
-                      <span className="flex-1">{provisioned.deviceSecret}</span>
-                      <button
-                        onClick={() => void copySecret()}
-                        className="inline-flex h-8 items-center gap-1 rounded border border-gray-200 px-2 text-[11px] font-semibold text-gray-700"
-                      >
-                        {copied ? (
-                          <Check className="h-3.5 w-3.5" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5" />
-                        )}
-                        {copied ? 'Copied' : 'Copy'}
-                      </button>
-                    </dd>
-                  </div>
-                </dl>
+                <p className="mt-3 select-all rounded bg-white p-3 text-center font-mono text-2xl font-semibold tracking-[0.25em] text-gray-900">
+                  {codePanel.code}
+                </p>
+                <p className="mt-2 text-xs text-blue-800">
+                  {codePanel.deviceName}
+                </p>
               </div>
             )}
 
@@ -637,15 +665,27 @@ export default function StationsPage() {
                             className={`rounded px-2 py-0.5 text-[10px] font-bold uppercase ${
                               device.isActive
                                 ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-500'
+                                : device.hasPendingCode
+                                  ? 'bg-amber-100 text-amber-700'
+                                  : 'bg-gray-100 text-gray-500'
                             }`}
                           >
-                            {device.isActive ? 'Active' : 'Revoked'}
+                            {device.isActive
+                              ? 'Paired'
+                              : device.hasPendingCode
+                                ? 'Unpaired'
+                                : 'Revoked'}
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-gray-500">
                           {device.station.name} · {device.platform}
                           {device.appVersion ? ` · v${device.appVersion}` : ''}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {device.pairedAt
+                            ? `Paired ${relativeTime(device.pairedAt)}`
+                            : 'Never paired'}
+                          {device.deviceModel ? ` · ${device.deviceModel}` : ''}
                         </p>
                         <p className="mt-1 text-xs text-gray-500">
                           Last seen {relativeTime(device.lastSeenAt)} · last
@@ -663,10 +703,27 @@ export default function StationsPage() {
                           Revoke
                         </Button>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-400">
-                          <ShieldCheck className="h-3.5 w-3.5" />
-                          inactive
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          {device.hasPendingCode && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              loading={codeBusyId === device.id}
+                              onClick={() => void revealCode(device)}
+                            >
+                              <ShieldCheck className="mr-1 h-3.5 w-3.5" />
+                              Show code
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            loading={codeBusyId === device.id}
+                            onClick={() => void createCode(device)}
+                          >
+                            {device.hasPendingCode ? 'New code' : 'Create code'}
+                          </Button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -681,7 +738,7 @@ export default function StationsPage() {
           title="Revoke device?"
           message={
             revokeTarget
-              ? `Revoke "${revokeTarget.name}"? The station will need a new device secret.`
+              ? `Revoke "${revokeTarget.name}"? The tablet stops working until you create a new pairing code.`
               : ''
           }
           onConfirm={() => void revokeDevice()}
