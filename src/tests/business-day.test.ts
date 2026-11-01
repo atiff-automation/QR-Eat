@@ -4,6 +4,7 @@ import {
   getBusinessDate,
   getBusinessDayEnd,
   getBusinessDayStart,
+  getNextBusinessDateAfterClose,
 } from '@/lib/time/business-day';
 
 describe('business day helpers', () => {
@@ -23,6 +24,36 @@ describe('business day helpers', () => {
     const end = getBusinessDayEnd('2026-10-29', clock);
     expect(start.toISOString()).toBe('2026-10-28T20:00:00.000Z');
     expect(end.toISOString()).toBe('2026-10-29T20:00:00.000Z');
+  });
+
+  it('opens the next sequential day after a normal close', () => {
+    expect(
+      getNextBusinessDateAfterClose(
+        '2026-10-28',
+        new Date('2026-10-29T12:00:00.000Z'), // 20:00 MYT
+        clock
+      )
+    ).toBe('2026-10-29');
+  });
+
+  it('jumps to the current business date after a late close', () => {
+    expect(
+      getNextBusinessDateAfterClose(
+        '2026-10-28',
+        new Date('2026-11-01T04:00:00.000Z'), // 12:00 MYT
+        clock
+      )
+    ).toBe('2026-11-01');
+  });
+
+  it('keeps the next day while closing before the cutoff', () => {
+    expect(
+      getNextBusinessDateAfterClose(
+        '2026-10-28',
+        new Date('2026-10-28T17:30:00.000Z'), // 01:30 MYT
+        clock
+      )
+    ).toBe('2026-10-29');
   });
 
   it('adds days without timezone drift', () => {

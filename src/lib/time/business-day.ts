@@ -141,6 +141,22 @@ export function getBusinessDayEnd(
 }
 
 /**
+ * Date to open after closing a business day.
+ *
+ * Normal close: the next sequential business date.
+ * Late close: jump to the current business date instead of reopening an old one.
+ */
+export function getNextBusinessDateAfterClose(
+  businessDate: BusinessDate,
+  closedAt: Date,
+  clock: BusinessDayClock
+): BusinessDate {
+  const sequentialDate = addBusinessDays(businessDate, 1);
+  const currentDate = getBusinessDate(closedAt, clock);
+  return currentDate > sequentialDate ? currentDate : sequentialDate;
+}
+
+/**
  * Range used by reports.
  * - open day: from its opening instant until now
  * - closed day: from its opening instant until closedAt

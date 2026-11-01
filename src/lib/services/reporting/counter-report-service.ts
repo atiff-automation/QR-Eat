@@ -7,6 +7,7 @@ import {
   formatBusinessDate,
   getBusinessDate,
   getBusinessDayStart,
+  getNextBusinessDateAfterClose,
   parseBusinessDateFromDb,
   toDbBusinessDate,
 } from '@/lib/time/business-day';
@@ -1200,7 +1201,7 @@ export async function closeCounterBusinessDay(input: {
     return existingByKey.snapshot as unknown as CounterCloseResult;
   }
 
-  const { openingFloat } = await getRestaurantClock(input.restaurantId);
+  const { clock, openingFloat } = await getRestaurantClock(input.restaurantId);
   const businessDay = await getOpenBusinessDay(input.restaurantId);
   if (businessDay.status === 'CLOSED') {
     throw new CounterReportError(
@@ -1239,9 +1240,15 @@ export async function closeCounterBusinessDay(input: {
     closedCount + 1
   ).padStart(3, '0')}`;
   const closedAt = new Date();
+  const nextBusinessDate = getNextBusinessDateAfterClose(
+    businessDate,
+    closedAt,
+    clock
+  );
   const snapshot = {
     businessDayId: businessDay.id,
     businessDate,
+    nextBusinessDate,
     zNumber,
     closedAt: closedAt.toISOString(),
     closeNote,
@@ -1253,7 +1260,6 @@ export async function closeCounterBusinessDay(input: {
       cashVariance: money(variance),
       openingFloat: money(summary.openingFloat),
     },
-    nextBusinessDate: addBusinessDays(businessDate, 1),
   } satisfies CounterCloseResult;
 
   const updated = await prisma.$transaction(async (tx) => {
@@ -1284,7 +1290,7 @@ export async function closeCounterBusinessDay(input: {
     await tx.businessDay.create({
       data: {
         restaurantId: input.restaurantId,
-        businessDate: toDbBusinessDate(addBusinessDays(businessDate, 1)),
+        businessDate: toDbBusinessDate(nextBusinessDate),
         status: 'OPEN',
         openedAt: closedAt,
         openingFloat: openingFloat,
