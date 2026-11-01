@@ -131,37 +131,26 @@ Run it twice to get two different secrets for `JWT_SECRET` and `NEXTAUTH_SECRET`
 
 ### Step 1: Run Migrations
 
-After first successful deployment:
+**Migrations run on boot.** `npm start` is
+`prisma migrate deploy && next start`, so every deployment applies pending
+migrations before the server listens. There is no separate step, and no need to
+temporarily change the start command.
 
-1. In Railway dashboard, click on your **web service**
-2. Click "Deployments" tab
-3. Find your latest deployment, click the three dots (⋯)
-4. Select "View Logs"
-5. Click on the deployment
-6. In the deployment view, go to "Settings" → "Deploy"
-7. Under "Custom Start Command", temporarily change to:
-   ```bash
-   npx prisma migrate deploy && npm run start
-   ```
-8. Trigger a new deployment (Settings → "Restart")
-9. **After migrations complete**, change start command back to:
-   ```bash
-   npm run start
-   ```
+Why it works this way: the previous flow left migrations to whoever remembered
+to run them, which is how `device_pairing_code` sat unapplied in dev for a
+while. A failed migration now stops the service from starting, which is the
+failure you want — loud, not a code/DB mismatch discovered later.
 
-**Alternative: Use Railway CLI**
+Take a database dump before deploying a schema change:
 
 ```bash
-# Install Railway CLI
-npm i -g @railway/cli
+railway connect Postgres --tunnel-only -P 15432   # prints a localhost URL
+/usr/lib/postgresql/17/bin/pg_dump "$URL" -Fc -f ~/Desktop/Tabtep-backups/pre-<change>.dump
+```
 
-# Login
-railway login
+Manual run, if you ever need it:
 
-# Link to your project
-railway link
-
-# Run migration
+```bash
 railway run npx prisma migrate deploy
 ```
 
@@ -173,8 +162,8 @@ To add initial admin user and test data:
 # Using Railway CLI
 railway run npm run db:seed
 
-# Or via temporary start command (same process as migrations)
-npx prisma db seed && npm run start
+# Or against the tunneled URL
+DATABASE_URL=<tunnel-url> npx prisma db seed
 ```
 
 ---
