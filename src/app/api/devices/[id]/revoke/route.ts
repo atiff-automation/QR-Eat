@@ -48,6 +48,9 @@ export async function POST(
       where: { id },
       data: {
         isActive: false,
+        // Revoking also drops any unused pairing code: a revoked device must
+        // not be re-claimable without the owner deliberately issuing a new one.
+        pairingCode: null,
         tokenVersion: { increment: 1 },
       },
       select: { id: true, name: true, isActive: true, tokenVersion: true },

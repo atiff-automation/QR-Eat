@@ -29,6 +29,7 @@ const deviceSelect = {
   appVersion: true,
   deviceModel: true,
   isActive: true,
+  pairedAt: true,
   lastSeenAt: true,
   lastPrintAt: true,
   createdAt: true,
@@ -97,8 +98,11 @@ export async function PATCH(
         ...(name !== undefined ? { name } : {}),
         ...(stationId !== undefined ? { stationId } : {}),
         ...(isActive !== undefined ? { isActive } : {}),
-        // Disabling is a revocation: never leave a live token behind.
-        ...(isActive === false ? { tokenVersion: { increment: 1 } } : {}),
+        // Disabling is a revocation: never leave a live token or a claimable
+        // pairing code behind.
+        ...(isActive === false
+          ? { tokenVersion: { increment: 1 }, pairingCode: null }
+          : {}),
       },
       select: deviceSelect,
     });

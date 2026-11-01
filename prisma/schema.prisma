@@ -1487,6 +1487,8 @@ model Device {
   secretHash        String // bcrypt hash of the one-time device secret
   tokenVersion      Int       @default(1) // bump to invalidate issued device tokens
   isActive          Boolean   @default(true)
+  pairingCode       String?   @unique // single-use, non-expiring; null once paired
+  pairedAt          DateTime?
   lastSeenAt        DateTime?
   lastPrintAt       DateTime?
   lastEventId       BigInt    @default(0) // per-device delivery cursor

@@ -1,8 +1,12 @@
 /**
  * Provision a station device.
  *
- * Called once per install by a signed-in owner/manager. Returns the device
- * secret exactly once; the server stores only its bcrypt hash.
+ * Called once per install by a signed-in owner/manager. Returns a single-use
+ * pairing code (D63); the device secret is minted later, when the tablet
+ * redeems that code, and is never shown to the owner.
+ *
+ * The row is created inactive. An unpaired device is simply an inactive device,
+ * so the existing revocation semantics already prevent it from authenticating.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,6 +15,7 @@ import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
 import { generateDeviceSecret, hashDeviceSecret } from '@/lib/device-auth';
+import { formatPairingCode, generatePairingCode } from '@/lib/pairing-code';
 
 const ProvisionSchema = z.object({
   name: z.string().trim().min(1, 'Device name is required').max(60),
@@ -73,7 +78,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const deviceSecret = generateDeviceSecret();
+    // A throwaway secret keeps `secretHash` non-null while the device cannot
+    // authenticate. The real secret is minted in `POST /devices/pair`.
+    const placeholderSecret = generateDeviceSecret();
+    const pairingCode = generatePairingCode();
 
     const device = await prisma.device.create({
       data: {
@@ -83,7 +91,9 @@ export async function POST(request: NextRequest) {
         platform: platform ?? 'android',
         appVersion: appVersion ?? null,
         deviceModel: deviceModel ?? null,
-        secretHash: await hashDeviceSecret(deviceSecret),
+        secretHash: await hashDeviceSecret(placeholderSecret),
+        pairingCode,
+        isActive: false,
       },
       select: {
         id: true,
@@ -96,8 +106,8 @@ export async function POST(request: NextRequest) {
       {
         success: true,
         deviceId: device.id,
-        deviceSecret,
         name: device.name,
+        pairingCode: formatPairingCode(pairingCode),
         station,
         restaurant,
       },

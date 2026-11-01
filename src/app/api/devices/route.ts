@@ -1,7 +1,9 @@
 /**
  * Device listing for the owner console.
  *
- * Never returns `secretHash`. Secrets are shown once, at provisioning time.
+ * Never returns `secretHash` and never returns the pairing code: the code is
+ * readable only on demand (`GET /devices/{id}/code`) so it is on screen only
+ * while the owner is deliberately showing it.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -16,6 +18,7 @@ const deviceSelect = {
   appVersion: true,
   deviceModel: true,
   isActive: true,
+  pairedAt: true,
   lastSeenAt: true,
   lastPrintAt: true,
   createdAt: true,
@@ -42,11 +45,17 @@ export async function GET(request: NextRequest) {
 
     const devices = await prisma.device.findMany({
       where: { restaurantId },
-      select: deviceSelect,
+      select: { ...deviceSelect, pairingCode: true },
       orderBy: [{ createdAt: 'desc' }],
     });
 
-    return NextResponse.json({ success: true, devices });
+    return NextResponse.json({
+      success: true,
+      devices: devices.map(({ pairingCode, ...device }) => ({
+        ...device,
+        hasPendingCode: pairingCode !== null,
+      })),
+    });
   } catch (error) {
     console.error('List devices error:', error);
     return NextResponse.json(
