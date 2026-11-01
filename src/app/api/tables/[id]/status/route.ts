@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { Table } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import {
   getTenantContext,
@@ -6,6 +7,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import { closeDiningSession } from '@/lib/dining-session';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 export async function PATCH(
@@ -52,30 +54,85 @@ export async function PATCH(
       statusType: typeof status,
     });
 
-    // Update the table status
-    const updatedTable = await prisma.table.update({
-      where: { id: tableId },
-      data: {
-        status,
-        updatedAt: new Date(),
-      },
-    });
+    let updatedTable: Table;
+
+    if (status === 'AVAILABLE') {
+      const blockingOrders = await prisma.order.count({
+        where: {
+          tableId,
+          restaurantId: currentTable.restaurantId,
+          OR: [
+            {
+              status: {
+                in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'],
+              },
+            },
+            { status: 'SERVED', paymentStatus: 'PENDING' },
+          ],
+        },
+      });
+
+      if (blockingOrders > 0) {
+        return NextResponse.json(
+          {
+            error:
+              'Table still has active or unpaid orders. Serve and pay them before clearing.',
+            code: 'TABLE_NOT_CLEAR',
+          },
+          { status: 409 }
+        );
+      }
+
+      updatedTable = await prisma.$transaction(async (tx) => {
+        const closedSession = await closeDiningSession(tx, tableId, {
+          userId: context!.userId,
+        });
+
+        const updated = await tx.table.findUnique({ where: { id: tableId } });
+        if (!updated) {
+          throw new Error('Table disappeared while clearing');
+        }
+
+        await tx.auditLog.create({
+          data: {
+            tableName: 'tables',
+            recordId: tableId,
+            operation: 'UPDATE',
+            oldValues: {
+              status: currentTable.status,
+              diningSessionId: closedSession?.id ?? null,
+            },
+            newValues: { status },
+            changedBy: context!.userId,
+          },
+        });
+
+        return updated;
+      });
+    } else {
+      updatedTable = await prisma.table.update({
+        where: { id: tableId },
+        data: {
+          status,
+          updatedAt: new Date(),
+        },
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          tableName: 'tables',
+          recordId: tableId,
+          operation: 'UPDATE',
+          oldValues: { status: currentTable.status },
+          newValues: { status },
+          changedBy: context!.userId,
+        },
+      });
+    }
 
     console.log('✅ [TABLE STATUS] Update successful:', {
       tableId,
       finalStatus: updatedTable.status,
-    });
-
-    // Log the status change
-    await prisma.auditLog.create({
-      data: {
-        tableName: 'tables',
-        recordId: tableId,
-        operation: 'UPDATE',
-        oldValues: { status: currentTable.status },
-        newValues: { status },
-        changedBy: context!.userId,
-      },
     });
 
     // Real-time notification: Publish table status change

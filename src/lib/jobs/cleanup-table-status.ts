@@ -34,8 +34,9 @@ export interface CleanupResult {
 /**
  * Clean up table statuses across all restaurants
  *
- * Finds tables marked as 'OCCUPIED' but with no active orders,
- * and marks them as 'AVAILABLE'.
+ * Finds orphaned tables marked as 'OCCUPIED' with no active dining session and
+ * no active orders, and marks them as 'AVAILABLE'. Tables with an open dining
+ * session are left for the explicit staff clear path.
  *
  * @returns Promise resolving to cleanup results
  */
@@ -60,6 +61,7 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
         tableNumber: true,
         status: true,
         restaurantId: true,
+        activeDiningSessionId: true,
       },
     });
 
@@ -73,8 +75,10 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
       try {
         const shouldBeAvailable = await shouldTableBeAvailable(table.id);
 
-        if (shouldBeAvailable) {
-          // Table should be available but is marked as occupied - fix it
+        // A table with an open dining session is cleared by staff. Never let
+        // the daily repair job bypass the explicit bill close.
+        if (shouldBeAvailable && !table.activeDiningSessionId) {
+          // Table is an orphan (no session and no active orders) - fix it
           await prisma.table.update({
             where: { id: table.id },
             data: {

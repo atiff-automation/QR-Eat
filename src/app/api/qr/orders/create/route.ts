@@ -22,6 +22,7 @@ import { SequenceManager } from '@/lib/sequence-manager';
 import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { getTableCart, clearTableCart } from '@/lib/table-session';
+import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
 import {
@@ -205,51 +206,61 @@ export async function POST(request: NextRequest) {
     // Estimate ready time
     const estimatedReadyTime = estimateReadyTime(orderItems);
 
-    // Update customer session with customer info if provided
-    if (customerInfo) {
-      await prisma.customerSession.update({
-        where: { id: tableCart.sessionId },
+    // The kitchen ticket is deliberately NOT created here. Unpaid QR orders
+    // wait in the owner/manager PENDING queue; the station ticket is emitted
+    // when the order becomes CONFIRMED (D41). The legacy owner notification
+    // below still announces the pending order to the dashboard.
+
+    const previousTableStatus = table.status;
+
+    // Create the order, items and table/session transition atomically. The
+    // dining-session helper locks the table row so concurrent QR orders reuse
+    // one current sitting.
+    const order = await prisma.$transaction(async (tx) => {
+      if (customerInfo) {
+        await tx.customerSession.update({
+          where: { id: tableCart.sessionId },
+          data: {
+            customerName: customerInfo.name,
+            customerPhone: customerInfo.phone,
+            customerEmail: customerInfo.email,
+          },
+        });
+      }
+
+      const diningSession = await ensureOpenDiningSession(tx, tableId);
+
+      const created = await tx.order.create({
         data: {
-          customerName: customerInfo.name,
-          customerPhone: customerInfo.phone,
-          customerEmail: customerInfo.email,
+          orderNumber,
+          dailySeq,
+          restaurantId: table.restaurant.id,
+          tableId,
+          customerSessionId: tableCart.sessionId,
+          diningSessionId: diningSession.id,
+          subtotalAmount: totals.subtotal,
+          taxAmount: totals.taxAmount,
+          serviceCharge: totals.serviceCharge,
+          discountAmount: 0,
+          totalAmount: totals.totalAmount,
+
+          // Snapshot rates and labels for integrity
+          taxRateSnapshot: table.restaurant.taxRate,
+          serviceChargeRateSnapshot: table.restaurant.serviceChargeRate,
+          taxLabelSnapshot: table.restaurant.taxLabel,
+          serviceChargeLabelSnapshot: table.restaurant.serviceChargeLabel,
+
+          status: 'PENDING',
+          paymentStatus: 'PENDING',
+          specialInstructions,
+          estimatedReadyTime,
         },
       });
-    }
 
-    // Create order
-    const order = await prisma.order.create({
-      data: {
-        orderNumber,
-        dailySeq,
-        restaurantId: table.restaurant.id,
-        tableId,
-        customerSessionId: tableCart.sessionId,
-        subtotalAmount: totals.subtotal,
-        taxAmount: totals.taxAmount,
-        serviceCharge: totals.serviceCharge,
-        discountAmount: 0,
-        totalAmount: totals.totalAmount,
-
-        // Snapshot rates and labels for integrity
-        taxRateSnapshot: table.restaurant.taxRate,
-        serviceChargeRateSnapshot: table.restaurant.serviceChargeRate,
-        taxLabelSnapshot: table.restaurant.taxLabel,
-        serviceChargeLabelSnapshot: table.restaurant.serviceChargeLabel,
-
-        status: 'PENDING',
-        paymentStatus: 'PENDING',
-        specialInstructions,
-        estimatedReadyTime,
-      },
-    });
-
-    // Create order items from cart
-    await Promise.all(
-      tableCart.items.map(async (cartItem) => {
-        const orderItem = await prisma.orderItem.create({
+      for (const cartItem of tableCart.items) {
+        const orderItem = await tx.orderItem.create({
           data: {
-            orderId: order.id,
+            orderId: created.id,
             menuItemId: cartItem.menuItemId,
             quantity: cartItem.quantity,
             unitPrice: cartItem.unitPrice,
@@ -261,7 +272,7 @@ export async function POST(request: NextRequest) {
 
         // Create order item options snapshots
         if (cartItem.selectedOptions && cartItem.selectedOptions.length > 0) {
-          await prisma.orderItemOption.createMany({
+          await tx.orderItemOption.createMany({
             data: cartItem.selectedOptions.map((opt) => ({
               orderItemId: orderItem.id,
               name: opt.name,
@@ -269,26 +280,14 @@ export async function POST(request: NextRequest) {
             })),
           });
         }
+      }
 
-        return orderItem;
-      })
-    );
+      // ensureOpenDiningSession owns the table occupancy transition.
 
-    // The kitchen ticket is deliberately NOT created here. Unpaid QR orders
-    // wait in the owner/manager PENDING queue; the station ticket is emitted
-    // when the order becomes CONFIRMED (D41). The legacy owner notification
-    // below still announces the pending order to the dashboard.
-
-    // Update table status to occupied when order is placed
-    // This is the PRIMARY trigger for marking a table as occupied
-    const previousTableStatus = table.status;
+      return created;
+    });
 
     if (previousTableStatus !== 'OCCUPIED') {
-      await prisma.table.update({
-        where: { id: tableId },
-        data: { status: 'OCCUPIED' },
-      });
-
       console.log(
         `[OrderCreate] Table ${table.tableNumber} (${tableId}) marked as occupied (was: ${previousTableStatus})`
       );

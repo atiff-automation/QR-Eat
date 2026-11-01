@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { SequenceManager } from '@/lib/sequence-manager';
+import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { formatPickupNumber } from '@/lib/order-utils';
@@ -672,12 +673,14 @@ export async function createCounterOrder(
     customerPhone: string | null;
     totalAmount: Prisma.Decimal;
     tableId: string | null;
+    diningSessionId: string | null;
     createdAt: Date;
     table: { tableNumber: string; tableName: string | null } | null;
   };
   try {
     createdOrder = await prisma.$transaction(async (tx) => {
       let customerSessionId: string | null = null;
+      let diningSessionId: string | null = null;
 
       if (!isTakeaway) {
         if (!table) {
@@ -698,6 +701,11 @@ export async function createCounterOrder(
           },
         });
         customerSessionId = session.id;
+
+        const diningSession = await ensureOpenDiningSession(tx, table.id, {
+          userId: actor.userId,
+        });
+        diningSessionId = diningSession.id;
       }
 
       const order = await tx.order.create({
@@ -707,6 +715,7 @@ export async function createCounterOrder(
           restaurantId: priced.restaurant.id,
           tableId: table?.id ?? null,
           customerSessionId,
+          diningSessionId,
           customerName: priced.customerName,
           customerPhone: priced.customerPhone,
           subtotalAmount: priced.subtotal,
@@ -755,12 +764,7 @@ export async function createCounterOrder(
         });
       }
 
-      if (!isTakeaway && table) {
-        await tx.table.update({
-          where: { id: table.id },
-          data: { status: 'OCCUPIED' },
-        });
-      }
+      // ensureOpenDiningSession owns the table occupancy transition.
 
       return order;
     });
@@ -803,6 +807,7 @@ export async function createCounterOrder(
           orderType: priced.orderType,
           tableId: table?.id ?? null,
           pickupNumber: formatPickupNumber(dailySeq),
+          diningSessionId: createdOrder.diningSessionId,
           customerName: priced.customerName,
           itemCount: priced.lines.reduce((sum, line) => sum + line.quantity, 0),
           totalAmount: priced.totalAmount,

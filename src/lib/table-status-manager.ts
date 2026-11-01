@@ -54,10 +54,12 @@ export async function shouldTableBeAvailable(
 }
 
 /**
- * Automatically update table status based on order states
+ * Keep the table occupied while orders are active.
  *
- * This function is idempotent and safe to call multiple times.
- * It will only update the table status if needed.
+ * Manual clear owns the OCCUPIED -> AVAILABLE transition. This function must
+ * not auto-clear a table after paid+served: the bill remains open until staff
+ * explicitly clears it. The daily cleanup job may still repair orphan tables
+ * that have no open dining session.
  *
  * @param tableId - The ID of the table to update, or null for takeaway
  * @param tx - Optional transaction client for atomic operations
@@ -86,34 +88,9 @@ export async function autoUpdateTableStatus(
     // Check if table should be available
     const shouldBeAvailable = await shouldTableBeAvailable(tableId, tx);
 
-    // Only update if status needs to change
-    if (shouldBeAvailable && table.status === 'OCCUPIED') {
-      await db.table.update({
-        where: { id: tableId },
-        data: {
-          status: 'AVAILABLE',
-          updatedAt: new Date(),
-        },
-      });
-
-      console.log(
-        `[TableStatusManager] Auto-cleared table ${table.tableNumber} (${tableId}) to available`
-      );
-
-      // Publish real-time update
-      // PubSub is outside transaction as it's a side effect
-      // Ideally run this AFTER transaction commits, but for now we run it here
-      await PostgresEventManager.publishTableStatusChange({
-        tableId,
-        restaurantId: table.restaurantId,
-        previousStatus: table.status,
-        newStatus: 'AVAILABLE',
-        updatedBy: 'system',
-        timestamp: Date.now(),
-      });
-    } else if (!shouldBeAvailable && table.status === 'AVAILABLE') {
-      // Edge case: Table is available but has active orders
-      // This shouldn't happen in normal flow, but we'll fix it
+    if (!shouldBeAvailable && table.status === 'AVAILABLE') {
+      // Edge case: Table is available but has active orders.
+      // This should not happen in normal flow, but we fix it.
       await db.table.update({
         where: { id: tableId },
         data: {

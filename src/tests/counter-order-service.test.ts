@@ -7,8 +7,13 @@ import {
   quoteCounterOrder,
 } from '@/lib/services/counter-order-service';
 import { SequenceManager } from '@/lib/sequence-manager';
+import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { formatPickupNumber } from '@/lib/order-utils';
+
+jest.mock('@/lib/dining-session', () => ({
+  ensureOpenDiningSession: jest.fn(),
+}));
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -428,6 +433,9 @@ describe('Counter takeaway creation', () => {
       formatted: 'ORD-TEST-042',
     });
     (prisma.auditLog.create as jest.Mock).mockResolvedValue({});
+    (ensureOpenDiningSession as jest.Mock).mockResolvedValue({
+      id: 'dining-session-1',
+    });
     (PostgresEventManager.publishOrderCreated as jest.Mock).mockResolvedValue(
       undefined
     );
@@ -453,6 +461,7 @@ describe('Counter takeaway creation', () => {
     expect(result.order.customerName).toBe('Alex');
     expect(tx.customerSession.create).not.toHaveBeenCalled();
     expect(tx.table.update).not.toHaveBeenCalled();
+    expect(ensureOpenDiningSession).not.toHaveBeenCalled();
     expect(tx.orderItem.create).toHaveBeenCalledTimes(1);
     expect(tx.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -460,6 +469,7 @@ describe('Counter takeaway creation', () => {
           orderType: 'TAKEAWAY',
           tableId: null,
           customerSessionId: null,
+          diningSessionId: null,
           customerName: 'Alex',
           customerPhone: '0123456789',
         }),
@@ -497,13 +507,19 @@ describe('Counter takeaway creation', () => {
     expect(result.order.orderType).toBe('DINE_IN');
     expect(result.order.tableId).toBe(tableId);
     expect(tx.customerSession.create).toHaveBeenCalledTimes(1);
-    expect(tx.table.update).toHaveBeenCalledTimes(1);
+    expect(tx.table.update).not.toHaveBeenCalled();
+    expect(ensureOpenDiningSession).toHaveBeenCalledWith(
+      tx,
+      tableId,
+      expect.objectContaining({ userId: actor.userId })
+    );
     expect(tx.order.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
           orderType: 'DINE_IN',
           tableId,
           customerSessionId: 'session-1',
+          diningSessionId: 'dining-session-1',
         }),
       })
     );

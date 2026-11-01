@@ -7,6 +7,7 @@ import {
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
+import { closeDiningSession } from '@/lib/dining-session';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 
 /**
@@ -76,20 +77,35 @@ export async function POST(
       );
     }
 
-    const updated = await prisma.table.update({
-      where: { id: tableId },
-      data: { status: 'AVAILABLE', updatedAt: new Date() },
-    });
+    const result = await prisma.$transaction(async (tx) => {
+      const closedSession = await closeDiningSession(tx, tableId, {
+        userId: context!.userId,
+      });
 
-    await prisma.auditLog.create({
-      data: {
-        tableName: 'tables',
-        recordId: tableId,
-        operation: 'UPDATE',
-        oldValues: { status: table.status, action: 'counter_clear' },
-        newValues: { status: 'AVAILABLE' },
-        changedBy: context!.userId,
-      },
+      const updated = await tx.table.findUnique({
+        where: { id: tableId },
+        select: { id: true, tableNumber: true, status: true },
+      });
+      if (!updated) {
+        throw new Error('Table disappeared while clearing');
+      }
+
+      await tx.auditLog.create({
+        data: {
+          tableName: 'tables',
+          recordId: tableId,
+          operation: 'UPDATE',
+          oldValues: {
+            status: table.status,
+            action: 'counter_clear',
+            diningSessionId: closedSession?.id ?? null,
+          },
+          newValues: { status: 'AVAILABLE' },
+          changedBy: context!.userId,
+        },
+      });
+
+      return { updated, closedSession };
     });
 
     await PostgresEventManager.publishTableStatusChange({
@@ -104,9 +120,10 @@ export async function POST(
     return NextResponse.json({
       success: true,
       table: {
-        id: updated.id,
-        tableNumber: updated.tableNumber,
-        status: updated.status,
+        id: result.updated.id,
+        tableNumber: result.updated.tableNumber,
+        status: result.updated.status,
+        closedDiningSessionId: result.closedSession?.id ?? null,
       },
     });
   } catch (error) {
