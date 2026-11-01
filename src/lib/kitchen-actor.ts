@@ -1,24 +1,49 @@
 /**
  * Shared authority for kitchen mutations.
  *
- * Web uses RBAC; Station uses a staff session bound to a device. A staff
- * session's device station is authoritative, so a body field cannot widen the
- * scope of a kitchen action.
+ * Web uses RBAC. Station devices authenticate with their device token: the
+ * station is the kitchen actor, and the device's station is authoritative.
+ * Staff sessions remain temporarily supported while the Station app moves to
+ * station authentication.
  */
 
 import type { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { getTenantContext } from '@/lib/tenant-context';
 import { getTokenFromRequest } from '@/lib/auth-utils';
-import { verifyStaffSession } from '@/lib/device-auth';
+import { authenticateDevice, verifyStaffSession } from '@/lib/device-auth';
+
+export type KitchenActorType = 'web' | 'staff' | 'station';
 
 export interface KitchenActor {
   restaurantId: string;
+  actorType: KitchenActorType;
   actorId?: string;
   actorName?: string;
   canRecall: boolean;
   isManager: boolean;
-  deviceStationId?: string;
+  deviceId?: string;
+  stationId?: string;
+}
+
+export interface KitchenActorAudit {
+  actorType: KitchenActorType;
+  actorId?: string;
+  actorName?: string;
+  staffId?: string;
+  staffName?: string;
+  deviceId?: string;
+}
+
+export function kitchenActorAudit(actor: KitchenActor): KitchenActorAudit {
+  return {
+    actorType: actor.actorType,
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    staffId: actor.actorType === 'staff' ? actor.actorId : undefined,
+    staffName: actor.actorType === 'staff' ? actor.actorName : undefined,
+    deviceId: actor.deviceId,
+  };
 }
 
 export async function resolveKitchenActor(
@@ -33,6 +58,7 @@ export async function resolveKitchenActor(
       return context.restaurantId
         ? {
             restaurantId: context.restaurantId,
+            actorType: 'web',
             actorId: context.userId,
             canRecall: true,
             isManager: true,
@@ -51,12 +77,32 @@ export async function resolveKitchenActor(
     if (!context.restaurantId || (!isManager && !canKitchen)) return null;
     return {
       restaurantId: context.restaurantId,
+      actorType: 'web',
       actorId: context.userId,
       canRecall: true,
       isManager,
     };
   }
 
+  // A station device is a first-class kitchen actor. authenticateDevice
+  // re-checks the live device, restaurant and station rows on every call, so
+  // revocation is immediate.
+  const deviceAuth = await authenticateDevice(request);
+  if (deviceAuth.ok) {
+    return {
+      restaurantId: deviceAuth.device.restaurantId,
+      actorType: 'station',
+      actorId: deviceAuth.device.id,
+      actorName: deviceAuth.device.name || deviceAuth.station.name,
+      canRecall: true,
+      isManager: false,
+      deviceId: deviceAuth.device.id,
+      stationId: deviceAuth.device.stationId,
+    };
+  }
+
+  // Transitional: the current Station app still opens a staff session. Remove
+  // this branch after the KDS switch and the old APK are gone.
   const session = verifyStaffSession(token);
   if (!session) return null;
 
@@ -98,10 +144,12 @@ export async function resolveKitchenActor(
 
   return {
     restaurantId: staff.restaurantId,
+    actorType: 'staff',
     actorId: staff.id,
     actorName: `${staff.firstName} ${staff.lastName}`.trim(),
     canRecall: true,
     isManager,
-    deviceStationId: device.stationId,
+    deviceId: session.deviceId,
+    stationId: device.stationId,
   };
 }

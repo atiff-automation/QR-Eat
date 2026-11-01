@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
 import { getTenantContext } from '@/lib/tenant-context';
+import { authenticateDevice } from '@/lib/device-auth';
 import { resolveOrderStationIds, stationItemIds } from '@/lib/recall';
 import { recordOrderRecalled } from '@/lib/order-events';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
@@ -23,6 +24,7 @@ jest.mock('@/lib/auth-utils', () => ({
 }));
 
 jest.mock('@/lib/device-auth', () => ({
+  authenticateDevice: jest.fn(),
   verifyStaffSession: jest.fn(),
 }));
 
@@ -93,6 +95,11 @@ describe('POST /api/orders/[id]/recall', () => {
       },
     };
 
+    (authenticateDevice as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 401,
+      error: 'Invalid device token',
+    });
     (getTenantContext as jest.Mock).mockResolvedValue({
       userId: 'owner-1',
       userType: 'restaurant_owner',
@@ -135,7 +142,8 @@ describe('POST /api/orders/[id]/recall', () => {
       'order-1',
       'station-1',
       expect.any(Date),
-      null
+      null,
+      expect.objectContaining({ actorType: 'web' })
     );
     expect(PostgresEventManager.publishOrderRecalled).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -242,6 +250,78 @@ describe('POST /api/orders/[id]/recall', () => {
 
     expect(response.status).toBe(409);
     expect(json.code).toBe('RECALL_ALREADY_ACTIVE');
+  });
+
+  it('recalls for a device-bound station actor', async () => {
+    (getTenantContext as jest.Mock).mockResolvedValue(null);
+    (authenticateDevice as jest.Mock).mockResolvedValue({
+      ok: true,
+      device: {
+        id: 'device-1',
+        restaurantId: 'restaurant-1',
+        stationId: 'station-1',
+        name: 'Grill Station',
+        isActive: true,
+      },
+      station: { id: 'station-1', name: 'Grill', isActive: true },
+      restaurant: { id: 'restaurant-1', isActive: true },
+    });
+
+    const response = await recallOrder(makeRequest(), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.success).toBe(true);
+    expect(recordOrderRecalled).toHaveBeenCalledWith(
+      'order-1',
+      'station-1',
+      expect.any(Date),
+      null,
+      expect.objectContaining({
+        actorType: 'station',
+        deviceId: 'device-1',
+      })
+    );
+    expect(tx.stationOrderRecall.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        create: expect.objectContaining({
+          recalledBy: null,
+          recalledByDeviceId: 'device-1',
+        }),
+      })
+    );
+  });
+
+  it('rejects a device actor recalling another station', async () => {
+    (getTenantContext as jest.Mock).mockResolvedValue(null);
+    (authenticateDevice as jest.Mock).mockResolvedValue({
+      ok: true,
+      device: {
+        id: 'device-1',
+        restaurantId: 'restaurant-1',
+        stationId: 'station-1',
+        name: 'Grill Station',
+        isActive: true,
+      },
+      station: { id: 'station-1', name: 'Grill', isActive: true },
+      restaurant: { id: 'restaurant-1', isActive: true },
+    });
+    (resolveOrderStationIds as jest.Mock).mockResolvedValue([
+      'station-1',
+      'station-2',
+    ]);
+
+    const response = await recallOrder(
+      makeRequest({ stationId: 'station-2' }),
+      { params: Promise.resolve({ id: 'order-1' }) }
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('RECALL_NOT_ALLOWED');
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('requires a station for a multi-station order', async () => {

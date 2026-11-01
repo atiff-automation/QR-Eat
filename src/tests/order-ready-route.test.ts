@@ -25,6 +25,14 @@ jest.mock('@/lib/database', () => ({
 }));
 
 jest.mock('@/lib/kitchen-actor', () => ({
+  kitchenActorAudit: jest.fn((actor) => ({
+    actorType: actor.actorType,
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    staffId: actor.actorType === 'staff' ? actor.actorId : undefined,
+    staffName: actor.actorType === 'staff' ? actor.actorName : undefined,
+    deviceId: actor.deviceId,
+  })),
   resolveKitchenActor: jest.fn(),
 }));
 
@@ -109,11 +117,13 @@ describe('POST /api/orders/[id]/ready', () => {
 
     (resolveKitchenActor as jest.Mock).mockResolvedValue({
       restaurantId: 'restaurant-1',
+      actorType: 'staff',
       actorId: 'staff-1',
       actorName: 'Kitchen One',
       canRecall: true,
       isManager: false,
-      deviceStationId: 'station-1',
+      deviceId: 'device-1',
+      stationId: 'station-1',
     });
     (prisma.order.findUnique as jest.Mock).mockResolvedValue(order);
     (prisma.orderItem.findMany as jest.Mock).mockResolvedValue([
@@ -156,7 +166,10 @@ describe('POST /api/orders/[id]/ready', () => {
       'item-1',
       'PREPARING',
       'READY',
-      expect.objectContaining({ staffId: 'staff-1' })
+      expect.objectContaining({
+        actorType: 'staff',
+        staffId: 'staff-1',
+      })
     );
     expect(recordOrderStatusChanged).toHaveBeenCalledWith(
       'order-1',
@@ -193,6 +206,35 @@ describe('POST /api/orders/[id]/ready', () => {
     expect(response.status).toBe(409);
     expect(json.code).toBe('VERSION_CONFLICT');
     expect(saveReceipt).not.toHaveBeenCalled();
+  });
+
+  it('marks ready for a device-bound station actor', async () => {
+    (resolveKitchenActor as jest.Mock).mockResolvedValue({
+      restaurantId: 'restaurant-1',
+      actorType: 'station',
+      actorId: 'device-1',
+      actorName: 'Kitchen Station',
+      canRecall: true,
+      isManager: false,
+      deviceId: 'device-1',
+      stationId: 'station-1',
+    });
+
+    const response = await markOrderReady(request(), {
+      params: Promise.resolve({ id: 'order-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(recordOrderItemStatusChanged).toHaveBeenCalledWith(
+      'order-1',
+      'item-1',
+      'PREPARING',
+      'READY',
+      expect.objectContaining({
+        actorType: 'station',
+        deviceId: 'device-1',
+      })
+    );
   });
 
   it('clears an active recall after the rebump', async () => {

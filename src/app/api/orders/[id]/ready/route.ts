@@ -9,7 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { resolveKitchenActor } from '@/lib/kitchen-actor';
+import { kitchenActorAudit, resolveKitchenActor } from '@/lib/kitchen-actor';
 import {
   clearRecallIfStationReady,
   resolveOrderStationIds,
@@ -117,16 +117,16 @@ export async function POST(
       );
     }
 
-    let stationId = requestedStation ?? actor.deviceStationId;
-    if (actor.deviceStationId) {
-      if (stationId && stationId !== actor.deviceStationId) {
+    let stationId = requestedStation ?? actor.stationId;
+    if (actor.stationId) {
+      if (stationId && stationId !== actor.stationId) {
         return error(
-          'Kitchen staff can only act on their own station',
+          'Station-bound kitchen actors can only act on their own station',
           'KITCHEN_NOT_ALLOWED',
           403
         );
       }
-      stationId = actor.deviceStationId;
+      stationId = actor.stationId;
     }
     if (!stationId) {
       if (stationIds.length !== 1) {
@@ -229,7 +229,7 @@ export async function POST(
           item.id,
           item.status,
           'READY',
-          { staffId: actor.actorId, staffName: actor.actorName }
+          kitchenActorAudit(actor)
         );
         await PostgresEventManager.publishOrderItemStatusChange({
           orderId: order.id,
@@ -283,7 +283,8 @@ export async function POST(
             stationId,
             cleared.recalledAt,
             cleared.clearedAt,
-            cleared.reason
+            cleared.reason,
+            kitchenActorAudit(actor)
           );
           await PostgresEventManager.publishOrderRecallCleared({
             orderId: order.id,

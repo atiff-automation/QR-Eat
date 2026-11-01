@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
-import { getTokenFromRequest } from '@/lib/auth-utils';
-import { verifyStaffSession } from '@/lib/device-auth';
+import { kitchenActorAudit, resolveKitchenActor } from '@/lib/kitchen-actor';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
   recordOrderItemStatusChanged,
@@ -12,6 +10,7 @@ import {
 import {
   clearRecallIfStationReady,
   hasActiveRecallForItem,
+  stationItemIds,
 } from '@/lib/recall';
 import {
   findReceipt,
@@ -25,68 +24,8 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // Verify authentication using RBAC system
-    // Supports both cookie auth (web) and ?token= query param (mobile)
-    const token = getTokenFromRequest(request);
-
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
-    }
-
-    let actorId: string | undefined;
-    let actorName: string | undefined;
-    let userRestaurantId: string | undefined;
-    let canKitchen = false;
-
-    const authResult = await AuthServiceV2.validateToken(token);
-
-    if (authResult.isValid && authResult.user) {
-      actorId = authResult.user.id;
-      actorName =
-        `${authResult.user.firstName} ${authResult.user.lastName}`.trim();
-      userRestaurantId = authResult.user.currentRole?.restaurantId;
-      canKitchen = authResult.user.permissions.some(
-        (permission) =>
-          permission === 'orders:kitchen' || permission === 'kitchen:write'
-      );
-    } else {
-      const session = verifyStaffSession(token);
-      if (!session) {
-        return NextResponse.json(
-          { error: 'Authentication required' },
-          { status: 401 }
-        );
-      }
-
-      const staff = await prisma.staff.findUnique({
-        where: { id: session.staffId },
-        include: { role: { select: { permissions: true } } },
-      });
-
-      if (
-        !staff ||
-        !staff.isActive ||
-        staff.restaurantId !== session.restaurantId
-      ) {
-        return NextResponse.json(
-          { error: 'Staff session is not valid for this restaurant' },
-          { status: 403 }
-        );
-      }
-
-      actorId = staff.id;
-      actorName = `${staff.firstName} ${staff.lastName}`.trim();
-      userRestaurantId = staff.restaurantId;
-
-      const permissions = staff.role.permissions as Record<string, unknown>;
-      const kitchen = permissions.kitchen;
-      canKitchen = Array.isArray(kitchen) && kitchen.includes('write');
-    }
-
-    if (!canKitchen) {
+    const actor = await resolveKitchenActor(request);
+    if (!actor) {
       return NextResponse.json(
         { error: 'Kitchen access required' },
         { status: 403 }
@@ -136,17 +75,29 @@ export async function PATCH(
     // Check ownership before mutating. The old code updated the row first and
     // rejected afterwards, which let a kitchen user from another restaurant
     // change the item before the 403.
-    if (
-      !userRestaurantId ||
-      currentItem.order.restaurantId !== userRestaurantId
-    ) {
+    if (currentItem.order.restaurantId !== actor.restaurantId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Device-bound actors can only touch items routed to their own station.
+    if (actor.stationId) {
+      const stationItems = await stationItemIds(
+        currentItem.orderId,
+        actor.restaurantId,
+        actor.stationId
+      );
+      if (!stationItems.includes(itemId)) {
+        return NextResponse.json(
+          { error: 'This item belongs to another station' },
+          { status: 403 }
+        );
+      }
+    }
+
     const idempotencyKey = idempotencyKeyFrom(request);
-    if (idempotencyKey && userRestaurantId) {
+    if (idempotencyKey) {
       const replay = await findReceipt(
-        userRestaurantId,
+        actor.restaurantId,
         ORDER_ACTION.ITEM_STATUS,
         idempotencyKey
       );
@@ -207,10 +158,7 @@ export async function PATCH(
         itemId,
         currentItem.status,
         status,
-        {
-          staffId: actorId,
-          staffName: actorName,
-        }
+        kitchenActorAudit(actor)
       );
     } catch (eventError) {
       console.error(
@@ -257,7 +205,8 @@ export async function PATCH(
             recall.stationId,
             cleared.recalledAt,
             cleared.clearedAt,
-            cleared.reason
+            cleared.reason,
+            kitchenActorAudit(actor)
           );
         } catch (eventError) {
           console.error(
@@ -387,10 +336,10 @@ export async function PATCH(
       orderItem,
     };
 
-    if (idempotencyKey && userRestaurantId) {
+    if (idempotencyKey) {
       try {
         await saveReceipt({
-          restaurantId: userRestaurantId,
+          restaurantId: actor.restaurantId,
           action: ORDER_ACTION.ITEM_STATUS,
           key: idempotencyKey,
           orderId: orderItem.order.id,

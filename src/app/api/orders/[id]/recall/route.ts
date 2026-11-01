@@ -9,7 +9,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { resolveKitchenActor, type KitchenActor } from '@/lib/kitchen-actor';
+import {
+  kitchenActorAudit,
+  resolveKitchenActor,
+  type KitchenActor,
+} from '@/lib/kitchen-actor';
 import {
   getRecallWindowMinutes,
   isRecallEnabled,
@@ -140,16 +144,16 @@ export async function POST(
       );
     }
 
-    let stationId = requestedStation ?? actor.deviceStationId;
-    if (actor.deviceStationId) {
-      if (stationId && stationId !== actor.deviceStationId) {
+    let stationId = requestedStation ?? actor.stationId;
+    if (actor.stationId) {
+      if (stationId && stationId !== actor.stationId) {
         return errorResponse(
-          'Kitchen staff can only recall their own station',
+          'Station-bound kitchen actors can only recall their own station',
           'RECALL_NOT_ALLOWED',
           403
         );
       }
-      stationId = actor.deviceStationId;
+      stationId = actor.stationId;
     }
 
     if (!stationId) {
@@ -236,13 +240,17 @@ export async function POST(
           stationId,
           orderId,
           recalledAt: now,
-          recalledBy: actor.actorId ?? null,
+          recalledBy:
+            actor.actorType === 'station' ? null : (actor.actorId ?? null),
+          recalledByDeviceId: actor.deviceId ?? null,
           reason,
           idempotencyKey,
         },
         update: {
           recalledAt: now,
-          recalledBy: actor.actorId ?? null,
+          recalledBy:
+            actor.actorType === 'station' ? null : (actor.actorId ?? null),
+          recalledByDeviceId: actor.deviceId ?? null,
           reason,
           idempotencyKey,
           resolvedAt: null,
@@ -258,7 +266,13 @@ export async function POST(
     });
 
     try {
-      await recordOrderRecalled(order.id, stationId, now, reason);
+      await recordOrderRecalled(
+        order.id,
+        stationId,
+        now,
+        reason,
+        kitchenActorAudit(actor)
+      );
     } catch (eventError) {
       console.error(
         `[recall] FAILED to record recall event for ${order.id}:`,

@@ -75,6 +75,12 @@ export interface OrderRecallPayload {
   recalledAt: string;
   reason: string | null;
   version: number;
+  actorType?: 'web' | 'staff' | 'station';
+  actorId?: string;
+  actorName?: string;
+  staffId?: string;
+  staffName?: string;
+  deviceId?: string;
 }
 
 export interface OrderRecallClearedPayload extends OrderRecallPayload {
@@ -98,13 +104,21 @@ export interface OrderItemStatusPayload {
   from: string;
   to: string;
   version: number;
+  actorType?: 'web' | 'staff' | 'station';
+  actorId?: string;
+  actorName?: string;
   staffId?: string;
   staffName?: string;
+  deviceId?: string;
 }
 
 export interface ItemStatusActor {
+  actorType?: 'web' | 'staff' | 'station';
+  actorId?: string;
+  actorName?: string;
   staffId?: string;
   staffName?: string;
+  deviceId?: string;
 }
 
 interface Routing {
@@ -392,7 +406,8 @@ async function recallPayload(
   orderId: string,
   stationId: string,
   recalledAt: Date,
-  reason: string | null
+  reason: string | null,
+  actor?: ItemStatusActor
 ): Promise<OrderRecallPayload> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -408,6 +423,13 @@ async function recallPayload(
     recalledAt: recalledAt.toISOString(),
     reason,
     version: order.version,
+    ...(actor?.actorType ? { actorType: actor.actorType } : {}),
+    ...(actor?.actorId ? { actorId: actor.actorId } : {}),
+    ...(actor?.actorName ? { actorName: actor.actorName } : {}),
+    ...(actor?.staffId
+      ? { staffId: actor.staffId, staffName: actor.staffName }
+      : {}),
+    ...(actor?.deviceId ? { deviceId: actor.deviceId } : {}),
   };
 }
 
@@ -416,7 +438,8 @@ export async function recordOrderRecalled(
   orderId: string,
   stationId: string,
   recalledAt: Date,
-  reason: string | null
+  reason: string | null,
+  actor?: ItemStatusActor
 ): Promise<void> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -424,7 +447,13 @@ export async function recordOrderRecalled(
   });
   if (!order) throw new Error(`Order ${orderId} not found`);
 
-  const payload = await recallPayload(orderId, stationId, recalledAt, reason);
+  const payload = await recallPayload(
+    orderId,
+    stationId,
+    recalledAt,
+    reason,
+    actor
+  );
   await prisma.orderEvent.create({
     data: {
       restaurantId: order.restaurantId,
@@ -442,7 +471,8 @@ export async function recordOrderRecallCleared(
   stationId: string,
   recalledAt: Date,
   clearedAt: Date,
-  reason: string | null
+  reason: string | null,
+  actor?: ItemStatusActor
 ): Promise<void> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -451,7 +481,7 @@ export async function recordOrderRecallCleared(
   if (!order) throw new Error(`Order ${orderId} not found`);
 
   const payload: OrderRecallClearedPayload = {
-    ...(await recallPayload(orderId, stationId, recalledAt, reason)),
+    ...(await recallPayload(orderId, stationId, recalledAt, reason, actor)),
     clearedAt: clearedAt.toISOString(),
   };
   await prisma.orderEvent.create({
@@ -611,9 +641,13 @@ export async function recordOrderItemStatusChanged(
     from,
     to,
     version: item.order.version,
+    ...(actor?.actorType ? { actorType: actor.actorType } : {}),
+    ...(actor?.actorId ? { actorId: actor.actorId } : {}),
+    ...(actor?.actorName ? { actorName: actor.actorName } : {}),
     ...(actor?.staffId
       ? { staffId: actor.staffId, staffName: actor.staffName }
       : {}),
+    ...(actor?.deviceId ? { deviceId: actor.deviceId } : {}),
   };
 
   await prisma.orderEvent.createMany({

@@ -1513,16 +1513,17 @@ model Device {
 /// tells the station to work the ticket again; `resolvedAt` is set when every
 /// station item is READY again. Rows are kept as an audit trail.
 model StationOrderRecall {
-  id             String    @id @default(uuid())
-  restaurantId   String
-  stationId      String
-  orderId        String
-  recalledAt     DateTime  @default(now())
-  recalledBy     String?
-  reason         String?
-  idempotencyKey String?
-  resolvedAt     DateTime?
-  updatedAt      DateTime  @updatedAt
+  id                 String    @id @default(uuid())
+  restaurantId       String
+  stationId          String
+  orderId            String
+  recalledAt         DateTime  @default(now())
+  recalledBy         String?
+  recalledByDeviceId String?
+  reason             String?
+  idempotencyKey     String?
+  resolvedAt         DateTime?
+  updatedAt          DateTime  @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   station    Station    @relation(fields: [stationId], references: [id], onDelete: Cascade)

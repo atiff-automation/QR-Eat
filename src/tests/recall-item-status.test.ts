@@ -1,10 +1,11 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/database';
-import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import {
   hasActiveRecallForItem,
   clearRecallIfStationReady,
+  stationItemIds,
 } from '@/lib/recall';
+import { resolveKitchenActor } from '@/lib/kitchen-actor';
 import {
   recordOrderItemStatusChanged,
   recordOrderRecallCleared,
@@ -28,17 +29,22 @@ jest.mock('@/lib/auth-utils', () => ({
   getTokenFromRequest: jest.fn(() => 'staff-token'),
 }));
 
-jest.mock('@/lib/rbac/auth-service', () => ({
-  AuthServiceV2: { validateToken: jest.fn() },
-}));
-
-jest.mock('@/lib/device-auth', () => ({
-  verifyStaffSession: jest.fn(),
+jest.mock('@/lib/kitchen-actor', () => ({
+  kitchenActorAudit: jest.fn((actor) => ({
+    actorType: actor.actorType,
+    actorId: actor.actorId,
+    actorName: actor.actorName,
+    staffId: actor.actorType === 'staff' ? actor.actorId : undefined,
+    staffName: actor.actorType === 'staff' ? actor.actorName : undefined,
+    deviceId: actor.deviceId,
+  })),
+  resolveKitchenActor: jest.fn(),
 }));
 
 jest.mock('@/lib/recall', () => ({
   hasActiveRecallForItem: jest.fn(),
   clearRecallIfStationReady: jest.fn(),
+  stationItemIds: jest.fn(),
 }));
 
 jest.mock('@/lib/order-events', () => ({
@@ -92,15 +98,15 @@ function request() {
 describe('kitchen item status during recall', () => {
   beforeEach(() => {
     process.env.RECALL_ENABLED = 'true';
-    (AuthServiceV2.validateToken as jest.Mock).mockResolvedValue({
-      isValid: true,
-      user: {
-        id: 'staff-1',
-        firstName: 'Kitchen',
-        lastName: 'One',
-        permissions: ['kitchen:write'],
-        currentRole: { restaurantId: 'restaurant-1' },
-      },
+    (resolveKitchenActor as jest.Mock).mockResolvedValue({
+      restaurantId: 'restaurant-1',
+      actorType: 'staff',
+      actorId: 'staff-1',
+      actorName: 'Kitchen One',
+      canRecall: true,
+      isManager: false,
+      deviceId: 'device-1',
+      stationId: 'station-1',
     });
     (prisma.orderItem.findUnique as jest.Mock).mockResolvedValue(currentItem);
     (prisma.orderItem.update as jest.Mock).mockResolvedValue(updatedItem);
@@ -116,6 +122,7 @@ describe('kitchen item status during recall', () => {
       { stationId: 'station-1' },
     ]);
     (hasActiveRecallForItem as jest.Mock).mockResolvedValue(true);
+    (stationItemIds as jest.Mock).mockResolvedValue(['item-1']);
     (clearRecallIfStationReady as jest.Mock).mockResolvedValue(null);
     (recordOrderItemStatusChanged as jest.Mock).mockResolvedValue(1);
     (recordOrderRecallCleared as jest.Mock).mockResolvedValue(undefined);
@@ -149,6 +156,58 @@ describe('kitchen item status during recall', () => {
     expect(prisma.orderItem.update).not.toHaveBeenCalled();
   });
 
+  it('allows a device actor to update an item on its own station', async () => {
+    (resolveKitchenActor as jest.Mock).mockResolvedValue({
+      restaurantId: 'restaurant-1',
+      actorType: 'station',
+      actorId: 'device-1',
+      actorName: 'Kitchen Station',
+      canRecall: true,
+      isManager: false,
+      deviceId: 'device-1',
+      stationId: 'station-1',
+    });
+
+    const response = await updateItemStatus(request(), {
+      params: Promise.resolve({ id: 'item-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(recordOrderItemStatusChanged).toHaveBeenCalledWith(
+      'order-1',
+      'item-1',
+      'PREPARING',
+      'READY',
+      expect.objectContaining({
+        actorType: 'station',
+        deviceId: 'device-1',
+      })
+    );
+  });
+
+  it('rejects an item outside the station actor scope', async () => {
+    (resolveKitchenActor as jest.Mock).mockResolvedValue({
+      restaurantId: 'restaurant-1',
+      actorType: 'station',
+      actorId: 'device-1',
+      actorName: 'Kitchen Station',
+      canRecall: true,
+      isManager: false,
+      deviceId: 'device-1',
+      stationId: 'station-1',
+    });
+    (stationItemIds as jest.Mock).mockResolvedValue(['another-item']);
+
+    const response = await updateItemStatus(request(), {
+      params: Promise.resolve({ id: 'item-1' }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.error).toContain('another station');
+    expect(prisma.orderItem.update).not.toHaveBeenCalled();
+  });
+
   it('clears the recall when the last item is ready', async () => {
     (clearRecallIfStationReady as jest.Mock).mockResolvedValue({
       id: 'recall-1',
@@ -167,7 +226,8 @@ describe('kitchen item status during recall', () => {
       'station-1',
       expect.any(Date),
       expect.any(Date),
-      'garnish'
+      'garnish',
+      expect.objectContaining({ actorType: 'staff' })
     );
     expect(PostgresEventManager.publishOrderRecallCleared).toHaveBeenCalledWith(
       expect.objectContaining({
