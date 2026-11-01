@@ -271,7 +271,7 @@ export function PaymentInterface({
         <div className="relative w-full max-w-sm bg-white rounded-3xl shadow-2xl mx-4 max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-out">
           {/* Header - Compact */}
           <div className="flex items-center justify-between p-4 pb-3 border-b border-gray-100">
-            <h2 className="text-lg font-bold text-gray-900">Process Payment</h2>
+            <h2 className="text-lg font-bold text-gray-900">Record payment</h2>
             <button
               onClick={onClose}
               className="p-2 hover:bg-gray-100 rounded-full transition-colors"

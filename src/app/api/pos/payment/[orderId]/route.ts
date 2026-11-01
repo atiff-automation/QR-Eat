@@ -1,5 +1,5 @@
 /**
- * POS API - Process Payment
+ * POS API - Record payment
  *
  * Following CLAUDE.md principles:
  * - Type Safety

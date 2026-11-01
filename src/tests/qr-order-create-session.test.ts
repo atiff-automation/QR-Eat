@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
-import { getTableCart, clearTableCart } from '@/lib/table-session';
+import { getTableCart, clearTableCart } from '@/lib/customer-session';
 import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
@@ -19,7 +19,7 @@ jest.mock('@/lib/database', () => ({
   },
 }));
 
-jest.mock('@/lib/table-session', () => ({
+jest.mock('@/lib/customer-session', () => ({
   getTableCart: jest.fn(),
   clearTableCart: jest.fn(),
 }));

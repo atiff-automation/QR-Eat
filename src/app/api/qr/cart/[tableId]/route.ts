@@ -8,7 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getTableCart } from '@/lib/table-session';
+import { getTableCart } from '@/lib/customer-session';
 import { z } from 'zod';
 
 // ============================================================================

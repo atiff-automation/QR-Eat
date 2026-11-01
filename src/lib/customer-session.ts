@@ -40,7 +40,7 @@ const UpdateCartItemSchema = z.object({
 // Types
 // ============================================================================
 
-export interface TableSession {
+export interface CustomerSessionRecord {
   id: string;
   tableId: string;
   sessionToken: string;
@@ -114,7 +114,7 @@ type CartItemWithDetails = {
 
 export async function createCustomerSession(
   tableId: string
-): Promise<TableSession> {
+): Promise<CustomerSessionRecord> {
   try {
     const validTableId = z.string().uuid().parse(tableId);
     const sessionToken = generateSessionToken();
@@ -140,15 +140,9 @@ export async function createCustomerSession(
   }
 }
 
-export async function getOrCreateTableSession(
+export async function getCustomerSession(
   tableId: string
-): Promise<TableSession> {
-  return createCustomerSession(tableId);
-}
-
-export async function getTableSession(
-  tableId: string
-): Promise<TableSession | null> {
+): Promise<CustomerSessionRecord | null> {
   try {
     const validTableId = z.string().uuid().parse(tableId);
     const session = await prisma.customerSession.findFirst({
@@ -161,14 +155,14 @@ export async function getTableSession(
     });
     return session;
   } catch (error) {
-    console.error('Error in getTableSession:', error);
+    console.error('Error in getCustomerSession:', error);
     return null;
   }
 }
 
 export async function getCustomerSessionById(
   sessionId: string
-): Promise<TableSession | null> {
+): Promise<CustomerSessionRecord | null> {
   try {
     const session = await prisma.customerSession.findUnique({
       where: {
@@ -181,25 +175,6 @@ export async function getCustomerSessionById(
   } catch (error) {
     console.error('Error in getCustomerSessionById:', error);
     return null;
-  }
-}
-
-export async function endTableSession(tableId: string): Promise<void> {
-  try {
-    const validTableId = z.string().uuid().parse(tableId);
-    await prisma.customerSession.updateMany({
-      where: {
-        tableId: validTableId,
-        status: SESSION_STATUS.ACTIVE,
-      },
-      data: {
-        status: SESSION_STATUS.ENDED,
-        endedAt: new Date(),
-      },
-    });
-  } catch (error) {
-    console.error('Error in endTableSession:', error);
-    throw new Error('Failed to end table session');
   }
 }
 
@@ -235,7 +210,7 @@ export async function addToTableCart(
     }
 
     // Get or create session
-    let session: TableSession | null = null;
+    let session: CustomerSessionRecord | null = null;
     if (sessionId) {
       session = await getCustomerSessionById(sessionId);
     }
@@ -435,7 +410,7 @@ export async function getTableCart(
     const validTableId = z.string().uuid().parse(tableId);
 
     // Session resolution logic
-    let session: TableSession | null = null;
+    let session: CustomerSessionRecord | null = null;
     if (sessionId) {
       session = await getCustomerSessionById(sessionId);
     }
@@ -530,7 +505,7 @@ export async function removeFromCart(cartItemId: string): Promise<void> {
 export async function clearTableCart(tableId: string): Promise<void> {
   try {
     const validTableId = z.string().uuid().parse(tableId);
-    const session = await getTableSession(validTableId);
+    const session = await getCustomerSession(validTableId);
     if (!session) return;
 
     await prisma.cartItem.deleteMany({

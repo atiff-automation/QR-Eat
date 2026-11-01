@@ -209,7 +209,7 @@ export function TableDetailModal({
                 >
                   <CreditCard className="w-4 h-4" />
                   <span>
-                    Process Payment - {formatPrice(tableTotal, currency)}
+                    Record payment - {formatPrice(tableTotal, currency)}
                   </span>
                 </button>
               </PermissionGuard>

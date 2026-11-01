@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { updateCartItem, removeFromCart } from '@/lib/table-session';
+import { updateCartItem, removeFromCart } from '@/lib/customer-session';
 import { z } from 'zod';
 import { CART_LIMITS } from '@/lib/session-constants';
 

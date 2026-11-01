@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
-import { addToTableCart } from '@/lib/table-session';
+import { addToTableCart } from '@/lib/customer-session';
 
 jest.mock('@/lib/database', () => ({
   prisma: {

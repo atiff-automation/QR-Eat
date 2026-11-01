@@ -120,7 +120,7 @@ export function getOrderStatusDisplay(status: string): {
   switch (status) {
     case ORDER_STATUS.PENDING:
       return {
-        label: 'Pending Confirmation',
+        label: 'Pending',
         color: 'text-yellow-600 bg-yellow-100',
       };
     case ORDER_STATUS.CONFIRMED:
@@ -129,7 +129,7 @@ export function getOrderStatusDisplay(status: string): {
       return { label: 'Preparing', color: 'text-orange-600 bg-orange-100' };
     case ORDER_STATUS.READY:
       return {
-        label: 'Ready for Pickup',
+        label: 'Ready',
         color: 'text-green-600 bg-green-100',
       };
     case ORDER_STATUS.SERVED:

@@ -21,7 +21,7 @@ import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
-import { getTableCart, clearTableCart } from '@/lib/table-session';
+import { getTableCart, clearTableCart } from '@/lib/customer-session';
 import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { z } from 'zod';
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
     const menuItemsMap = new Map(menuItems.map((item) => [item.id, item]));
 
     // Convert cart items to CartItem format for calculation
-    // We cast to any here because table-session returns a subset of VariationOption
+    // We cast to any here because customer-session returns a subset of VariationOption
     // but strict typing isn't needed for calculation, which uses .totalPrice
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const orderItems: any[] = tableCart.items.map((item) => {
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
         unitPrice: item.unitPrice,
         totalPrice: item.subtotal,
         specialInstructions: item.specialInstructions || undefined,
-        // Map table-session options to the structure expected by types (roughly)
+        // Map customer-session options to the structure expected by types (roughly)
         selectedOptions: item.selectedOptions,
       };
     });

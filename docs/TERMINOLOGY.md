@@ -256,36 +256,36 @@ into the bill UI change.
 
 ### P0 — must be correct before the new bill ships
 
-- [ ] Add `CounterFormat.orderStatusLabel(status, orderType)`.
-- [ ] Add `CounterFormat.paymentStatusLabel(status)`.
-- [ ] Add `CounterFormat.paymentMethodLabel(method)`.
-- [ ] Add `CounterFormat.tableStateLabel(status)`.
-- [ ] Extract one shared `CounterStatusPill` + `CounterStatusTone`; use it in the table bill, takeaway bill and takeaway rows.
-- [ ] Replace raw status pills in the Counter with these helpers.
-- [ ] Fix receipt `Payment:` to use the method label.
-- [ ] Use `E-Wallet` in Counter, web, receipts and reports.
-- [ ] Separate table state, bill state and kitchen state on table cards.
-- [ ] Close the dining session when the table becomes `AVAILABLE`.
+- [x] Add `CounterFormat.orderStatusLabel(status, orderType)`.
+- [x] Add `CounterFormat.paymentStatusLabel(status)`.
+- [x] Add `CounterFormat.paymentMethodLabel(method)`.
+- [x] Add `CounterFormat.tableStateLabel(status)`.
+- [x] Extract one shared `CounterStatusPill` + `CounterStatusTone`; use it in the table bill, takeaway bill and takeaway rows.
+- [x] Replace raw status pills in the Counter with these helpers.
+- [x] Fix receipt `Payment:` to use the method label.
+- [x] Use `E-Wallet` in Counter, web, receipts and reports.
+- [x] Separate table state, bill state and kitchen state on table cards.
+- [x] Close the dining session when the table becomes `AVAILABLE`.
 
 ### P1 — same release if low risk
 
-- [ ] Rename Counter `Ongoing` to `Active`.
-- [ ] Rename Counter `Done` list to `History` or `Completed`.
-- [ ] Replace `Ready for Pickup` with contextual `Ready`.
-- [ ] Change web `Process Payment` to `Record payment`.
-- [ ] Update Counter empty-state copy that says `Done orders`.
-- [ ] Update the takeaway bill to use shared status labels and the shared bill total labels.
-- [ ] Update `COUNTER-APP-DISCOVERY.md` bill semantics after the API change.
+- [x] Rename Counter `Ongoing` to `Active`.
+- [x] Rename Counter `Done` list to `History` or `Completed`.
+- [x] Replace `Ready for Pickup` with contextual `Ready`.
+- [x] Change web `Process Payment` to `Record payment`.
+- [x] Update Counter empty-state copy that says `Done orders`.
+- [x] Update the takeaway bill to use shared status labels and the shared bill total labels.
+- [x] Update `COUNTER-APP-DISCOVERY.md` bill semantics after the API change.
 
 ### P2 — later polish
 
-- [ ] Replace `Total unpaid` with `Unpaid`.
-- [ ] Replace `Already paid` with `Paid`.
-- [ ] Remove `.lowercase()` from the payment method action label.
-- [ ] Rename dialog dismiss `Cancel` to `Close` where it can be confused with
+- [x] Replace `Total unpaid` with `Unpaid`.
+- [x] Replace `Already paid` with `Paid`.
+- [x] Remove `.lowercase()` from the payment method action label.
+- [x] Rename dialog dismiss `Cancel` to `Close` where it can be confused with
   order cancellation.
-- [ ] Audit notification copy for the same status words.
-- [ ] Audit reports/CSV/PDF labels.
+- [x] Audit notification copy for the same status words.
+- [x] Audit reports/CSV/PDF labels.
 
 ## 5. Code mapping
 

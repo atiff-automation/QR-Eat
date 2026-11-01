@@ -9,7 +9,10 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
-import { getCustomerSessionById, getTableSession } from '@/lib/table-session';
+import {
+  getCustomerSessionById,
+  getCustomerSession,
+} from '@/lib/customer-session';
 import { z } from 'zod';
 
 // ============================================================================
@@ -47,7 +50,7 @@ export async function DELETE(
     }
 
     if (!session) {
-      session = await getTableSession(validTableId);
+      session = await getCustomerSession(validTableId);
       console.log('[clearCart] Found session by table:', session?.id || 'NULL');
     }
 
