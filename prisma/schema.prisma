@@ -573,8 +573,6 @@ model Staff {
   lockedUntil            DateTime?
   permissions            Json        @default("{}") // Additional custom permissions
   preferences            Json        @default("{}") // User preferences (e.g. KDS station filters)
-  pinHash                String? // bcrypt-hashed PIN for station unlock
-  pinLookup              String? // keyed fingerprint for uniqueness/lookup
   emailVerified          Boolean     @default(false)
   emailVerificationToken String?
   passwordResetToken     String?
@@ -593,7 +591,6 @@ model Staff {
   auditLogs     AuditLog[]     @relation("StaffAuditLogs")
   refreshTokens RefreshToken[]
 
-  @@unique([restaurantId, pinLookup])
   @@index([restaurantId])
   @@index([roleId])
   @@index([email])
@@ -1493,8 +1490,6 @@ model Device {
   lastSeenAt        DateTime?
   lastPrintAt       DateTime?
   lastEventId       BigInt    @default(0) // per-device delivery cursor
-  failedPinAttempts Int       @default(0) // wrong station PINs since the last success
-  pinLockedUntil    DateTime? // device-level backoff after repeated wrong PINs
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 

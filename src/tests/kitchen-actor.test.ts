@@ -1,15 +1,7 @@
 import { NextRequest } from 'next/server';
-import { prisma } from '@/lib/database';
 import { getTenantContext } from '@/lib/tenant-context';
-import { authenticateDevice, verifyStaffSession } from '@/lib/device-auth';
+import { authenticateDevice } from '@/lib/device-auth';
 import { resolveKitchenActor } from '@/lib/kitchen-actor';
-
-jest.mock('@/lib/database', () => ({
-  prisma: {
-    staff: { findUnique: jest.fn() },
-    device: { findUnique: jest.fn() },
-  },
-}));
 
 jest.mock('@/lib/tenant-context', () => ({
   getTenantContext: jest.fn(),
@@ -21,7 +13,6 @@ jest.mock('@/lib/auth-utils', () => ({
 
 jest.mock('@/lib/device-auth', () => ({
   authenticateDevice: jest.fn(),
-  verifyStaffSession: jest.fn(),
 }));
 
 function request() {
@@ -39,7 +30,6 @@ describe('resolveKitchenActor', () => {
       status: 401,
       error: 'Invalid device token',
     });
-    (verifyStaffSession as jest.Mock).mockReturnValue(null);
   });
 
   it('resolves a live station device as the kitchen actor', async () => {
@@ -95,44 +85,5 @@ describe('resolveKitchenActor', () => {
       canRecall: true,
     });
     expect(authenticateDevice).not.toHaveBeenCalled();
-  });
-
-  it('keeps the staff-session transition path', async () => {
-    (verifyStaffSession as jest.Mock).mockReturnValue({
-      staffId: 'staff-1',
-      restaurantId: 'restaurant-1',
-      deviceId: 'device-1',
-      roleId: 'role-1',
-    });
-    (prisma.staff.findUnique as jest.Mock).mockResolvedValue({
-      id: 'staff-1',
-      restaurantId: 'restaurant-1',
-      isActive: true,
-      firstName: 'Kitchen',
-      lastName: 'One',
-      restaurant: { id: 'restaurant-1' },
-      role: {
-        permissions: { kitchen: ['write'] },
-        level: 3,
-        name: 'Kitchen staff',
-      },
-    });
-    (prisma.device.findUnique as jest.Mock).mockResolvedValue({
-      restaurantId: 'restaurant-1',
-      stationId: 'station-1',
-      isActive: true,
-    });
-
-    const actor = await resolveKitchenActor(request());
-
-    expect(actor).toMatchObject({
-      restaurantId: 'restaurant-1',
-      actorType: 'staff',
-      actorId: 'staff-1',
-      actorName: 'Kitchen One',
-      isManager: false,
-      deviceId: 'device-1',
-      stationId: 'station-1',
-    });
   });
 });

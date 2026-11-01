@@ -3,17 +3,14 @@
  *
  * Web uses RBAC. Station devices authenticate with their device token: the
  * station is the kitchen actor, and the device's station is authoritative.
- * Staff sessions remain temporarily supported while the Station app moves to
- * station authentication.
  */
 
 import type { NextRequest } from 'next/server';
-import { prisma } from '@/lib/database';
 import { getTenantContext } from '@/lib/tenant-context';
 import { getTokenFromRequest } from '@/lib/auth-utils';
-import { authenticateDevice, verifyStaffSession } from '@/lib/device-auth';
+import { authenticateDevice } from '@/lib/device-auth';
 
-export type KitchenActorType = 'web' | 'staff' | 'station';
+export type KitchenActorType = 'web' | 'station';
 
 export interface KitchenActor {
   restaurantId: string;
@@ -30,8 +27,6 @@ export interface KitchenActorAudit {
   actorType: KitchenActorType;
   actorId?: string;
   actorName?: string;
-  staffId?: string;
-  staffName?: string;
   deviceId?: string;
 }
 
@@ -40,8 +35,6 @@ export function kitchenActorAudit(actor: KitchenActor): KitchenActorAudit {
     actorType: actor.actorType,
     actorId: actor.actorId,
     actorName: actor.actorName,
-    staffId: actor.actorType === 'staff' ? actor.actorId : undefined,
-    staffName: actor.actorType === 'staff' ? actor.actorName : undefined,
     deviceId: actor.deviceId,
   };
 }
@@ -101,55 +94,5 @@ export async function resolveKitchenActor(
     };
   }
 
-  // Transitional: the current Station app still opens a staff session. Remove
-  // this branch after the KDS switch and the old APK are gone.
-  const session = verifyStaffSession(token);
-  if (!session) return null;
-
-  const staff = await prisma.staff.findUnique({
-    where: { id: session.staffId },
-    include: {
-      role: { select: { permissions: true, level: true, name: true } },
-      restaurant: { select: { id: true } },
-    },
-  });
-  if (
-    !staff ||
-    !staff.isActive ||
-    staff.restaurantId !== session.restaurantId ||
-    !staff.restaurant
-  ) {
-    return null;
-  }
-
-  const device = await prisma.device.findUnique({
-    where: { id: session.deviceId },
-    select: { restaurantId: true, stationId: true, isActive: true },
-  });
-  if (
-    !device ||
-    !device.isActive ||
-    device.restaurantId !== staff.restaurantId
-  ) {
-    return null;
-  }
-
-  const permissions = staff.role.permissions as Record<string, unknown>;
-  const kitchen = permissions.kitchen;
-  const canKitchen = Array.isArray(kitchen) && kitchen.includes('write');
-  const isManager =
-    staff.role.level >= 8 || /manager|owner/i.test(staff.role.name);
-
-  if (!isManager && !canKitchen) return null;
-
-  return {
-    restaurantId: staff.restaurantId,
-    actorType: 'staff',
-    actorId: staff.id,
-    actorName: `${staff.firstName} ${staff.lastName}`.trim(),
-    canRecall: true,
-    isManager,
-    deviceId: session.deviceId,
-    stationId: device.stationId,
-  };
+  return null;
 }

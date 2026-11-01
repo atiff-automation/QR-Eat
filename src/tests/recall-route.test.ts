@@ -25,7 +25,6 @@ jest.mock('@/lib/auth-utils', () => ({
 
 jest.mock('@/lib/device-auth', () => ({
   authenticateDevice: jest.fn(),
-  verifyStaffSession: jest.fn(),
 }));
 
 jest.mock('@/lib/order-events', () => ({

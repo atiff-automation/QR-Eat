@@ -75,11 +75,9 @@ export interface OrderRecallPayload {
   recalledAt: string;
   reason: string | null;
   version: number;
-  actorType?: 'web' | 'staff' | 'station';
+  actorType?: 'web' | 'station';
   actorId?: string;
   actorName?: string;
-  staffId?: string;
-  staffName?: string;
   deviceId?: string;
 }
 
@@ -104,20 +102,16 @@ export interface OrderItemStatusPayload {
   from: string;
   to: string;
   version: number;
-  actorType?: 'web' | 'staff' | 'station';
+  actorType?: 'web' | 'station';
   actorId?: string;
   actorName?: string;
-  staffId?: string;
-  staffName?: string;
   deviceId?: string;
 }
 
 export interface ItemStatusActor {
-  actorType?: 'web' | 'staff' | 'station';
+  actorType?: 'web' | 'station';
   actorId?: string;
   actorName?: string;
-  staffId?: string;
-  staffName?: string;
   deviceId?: string;
 }
 
@@ -426,9 +420,6 @@ async function recallPayload(
     ...(actor?.actorType ? { actorType: actor.actorType } : {}),
     ...(actor?.actorId ? { actorId: actor.actorId } : {}),
     ...(actor?.actorName ? { actorName: actor.actorName } : {}),
-    ...(actor?.staffId
-      ? { staffId: actor.staffId, staffName: actor.staffName }
-      : {}),
     ...(actor?.deviceId ? { deviceId: actor.deviceId } : {}),
   };
 }
@@ -644,9 +635,6 @@ export async function recordOrderItemStatusChanged(
     ...(actor?.actorType ? { actorType: actor.actorType } : {}),
     ...(actor?.actorId ? { actorId: actor.actorId } : {}),
     ...(actor?.actorName ? { actorName: actor.actorName } : {}),
-    ...(actor?.staffId
-      ? { staffId: actor.staffId, staffName: actor.staffName }
-      : {}),
     ...(actor?.deviceId ? { deviceId: actor.deviceId } : {}),
   };
 

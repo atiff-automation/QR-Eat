@@ -47,7 +47,6 @@ export async function GET(request: NextRequest) {
         status: true,
         lastLoginAt: true,
         createdAt: true,
-        pinHash: true,
         role: true,
         _count: {
           select: { orders: true },
@@ -58,10 +57,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      staff: staff.map(({ pinHash, ...member }) => ({
-        ...member,
-        hasPin: Boolean(pinHash),
-      })),
+      staff,
     });
   } catch (error) {
     console.error('Failed to fetch staff:', error);

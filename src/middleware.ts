@@ -409,7 +409,6 @@ function isPublicApiRoute(pathname: string): boolean {
     // Station devices authenticate with a device token, not a staff session.
     // Both handlers verify the device credential themselves.
     '/api/devices/token',
-    '/api/devices/staff-session',
     '/api/events/station',
     '/api/stations/me/snapshot',
     '/api/stations/me/settings',

@@ -5,24 +5,18 @@
  * holds a long-lived device secret and exchanges it for a JWT. The JWT carries
  * the device's `tokenVersion`, and every request re-checks it against the
  * database, so revoking a lost phone takes effect on its next call.
- *
- * Staff PIN unlock is separate: a device session is not a staff session.
  */
 
 import { randomBytes } from 'crypto';
 import * as bcrypt from 'bcryptjs';
 import * as jwt from 'jsonwebtoken';
 import type { NextRequest } from 'next/server';
-import type { Device, Restaurant, Staff, Station } from '@prisma/client';
+import type { Device, Restaurant, Station } from '@prisma/client';
 import { prisma } from '@/lib/database';
 
 const DEVICE_ISSUER = 'tabtep-device';
 const DEVICE_AUDIENCE = 'tabtep-station';
 const DEVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60; // one year; revoke via tokenVersion
-
-const STAFF_ISSUER = 'tabtep-staff';
-const STAFF_AUDIENCE = 'tabtep-station';
-const STAFF_SESSION_TTL_SECONDS = 12 * 60 * 60; // one shift
 
 const BCRYPT_ROUNDS = 12;
 
@@ -34,19 +28,6 @@ export interface DeviceTokenPayload {
   tokenVersion: number;
 }
 
-export interface StaffSessionPayload {
-  typ: 'staff-session';
-  staffId: string;
-  restaurantId: string;
-  deviceId: string;
-  roleId: string;
-}
-
-export interface StaffSession {
-  token: string;
-  expiresAt: Date;
-}
-
 export type DeviceAuth =
   | {
       ok: true;
@@ -54,10 +35,6 @@ export type DeviceAuth =
       station: Station;
       restaurant: Restaurant;
     }
-  | { ok: false; status: number; error: string };
-
-export type StaffAuth =
-  | { ok: true; staff: Staff; payload: StaffSessionPayload }
   | { ok: false; status: number; error: string };
 
 /**
@@ -109,47 +86,6 @@ export function signDeviceToken(
     token,
     expiresAt: new Date(Date.now() + DEVICE_TOKEN_TTL_SECONDS * 1000),
   };
-}
-
-export function signStaffSession(input: {
-  staffId: string;
-  restaurantId: string;
-  deviceId: string;
-  roleId: string;
-}): StaffSession {
-  const payload: StaffSessionPayload = {
-    typ: 'staff-session',
-    ...input,
-  };
-
-  const token = jwt.sign(payload, signingSecret(), {
-    algorithm: 'HS256',
-    issuer: STAFF_ISSUER,
-    audience: STAFF_AUDIENCE,
-    expiresIn: STAFF_SESSION_TTL_SECONDS,
-  });
-
-  return {
-    token,
-    expiresAt: new Date(Date.now() + STAFF_SESSION_TTL_SECONDS * 1000),
-  };
-}
-
-export function verifyStaffSession(token: string): StaffSessionPayload | null {
-  try {
-    const decoded = jwt.verify(token, signingSecret(), {
-      issuer: STAFF_ISSUER,
-      audience: STAFF_AUDIENCE,
-    });
-
-    if (typeof decoded === 'string' || decoded.typ !== 'staff-session') {
-      return null;
-    }
-
-    return decoded as unknown as StaffSessionPayload;
-  } catch {
-    return null;
-  }
 }
 
 /**
