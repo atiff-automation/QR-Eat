@@ -245,6 +245,9 @@ status.
 | T-12 | Dialog dismiss | `Cancel` near `Cancel order` | Ambiguous | `Close` or `Not now` for dismiss | P2 |
 | T-13 | Docs | Bill described as only unpaid | Will be wrong after session bill | Update after Phase 2 | P1 |
 | T-14 | Table status PATCH | Can set `AVAILABLE` without closing session | Orphan session risk | Close session on status change | P0 |
+| T-15 | Status pills | `StatusPill`, `BillStatusPill`, `TakeawayPill` are three private copies | Same visual language implemented three times | Extract one shared `CounterStatusPill` | P0 |
+| T-16 | Takeaway bill | Shows raw `detail.status` and `Total due` / `Order total` | Friendly labels and money labels differ from table bill | Use shared status and payment label helpers | P1 |
+| T-17 | Bill filters | Table proposed `Open/Served/All`; takeaway uses `To pay/All open/Ready` | Different jobs, not necessarily a defect | Keep different filters; share the control and vocabulary rules | P2 |
 
 ## 4. Deferred fix checklist
 
@@ -257,6 +260,7 @@ into the bill UI change.
 - [ ] Add `CounterFormat.paymentStatusLabel(status)`.
 - [ ] Add `CounterFormat.paymentMethodLabel(method)`.
 - [ ] Add `CounterFormat.tableStateLabel(status)`.
+- [ ] Extract one shared `CounterStatusPill`; use it in the table bill, takeaway bill and takeaway rows.
 - [ ] Replace raw status pills in the Counter with these helpers.
 - [ ] Fix receipt `Payment:` to use the method label.
 - [ ] Use `E-Wallet` in Counter, web, receipts and reports.
@@ -270,6 +274,7 @@ into the bill UI change.
 - [ ] Replace `Ready for Pickup` with contextual `Ready`.
 - [ ] Change web `Process Payment` to `Record payment`.
 - [ ] Update Counter empty-state copy that says `Done orders`.
+- [ ] Update the takeaway bill to use shared status labels and the shared bill total labels.
 - [ ] Update `COUNTER-APP-DISCOVERY.md` bill semantics after the API change.
 
 ### P2 — later polish
