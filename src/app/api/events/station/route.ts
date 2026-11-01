@@ -24,6 +24,16 @@ const POLL_MS = 1000;
 const PING_MS = 15_000;
 const BATCH = 100;
 
+/**
+ * How often the open stream re-checks that the device is still allowed.
+ *
+ * `authenticateDevice` runs once, at connect. Without this the stream outlives
+ * revocation: a phone the owner just revoked keeps its feed and keeps showing a
+ * healthy board. Revocation is the only control this product offers (pairing
+ * codes deliberately never expire), so it has to bite on a live connection.
+ */
+const AUTH_CHECK_MS = 5_000;
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -81,6 +91,7 @@ export async function GET(request: NextRequest) {
       let cursor = since;
       let lastPing = Date.now();
       let lastSeen = Date.now();
+      let lastAuthCheck = Date.now();
       let persisted = Number(device.lastEventId);
 
       const close = () => {
@@ -110,6 +121,28 @@ export async function GET(request: NextRequest) {
 
       try {
         while (!closed) {
+          // Revocation must reach a live stream, not the next reconnect.
+          if (Date.now() - lastAuthCheck >= AUTH_CHECK_MS) {
+            lastAuthCheck = Date.now();
+            const fresh = await prisma.device
+              .findUnique({
+                where: { id: device.id },
+                select: { isActive: true, tokenVersion: true },
+              })
+              .catch(() => null);
+
+            if (
+              !fresh ||
+              !fresh.isActive ||
+              fresh.tokenVersion !== device.tokenVersion
+            ) {
+              // Closing is enough: the client reconnects, the handshake 401s,
+              // and the Station raises its "Device not authorised" state.
+              close();
+              break;
+            }
+          }
+
           const events = await prisma.orderEvent.findMany({
             where: {
               restaurantId: restaurant.id,
