@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { cleanupOrderEvents } from '@/lib/order-events';
+import { cleanupRestaurantChanges } from '@/lib/restaurant-changes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -34,12 +35,18 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const deleted = await cleanupOrderEvents(RETENTION_DAYS);
+    const deletedOrderEvents = await cleanupOrderEvents(RETENTION_DAYS);
+    const deletedRestaurantChanges =
+      await cleanupRestaurantChanges(RETENTION_DAYS);
     console.log(
-      `[event-retention] deleted ${deleted} order_events older than ${RETENTION_DAYS} days`
+      `[event-retention] deleted ${deletedOrderEvents} order_events and ` +
+        `${deletedRestaurantChanges} restaurant_changes older than ` +
+        `${RETENTION_DAYS} days`
     );
     return NextResponse.json({
-      deleted,
+      deleted: deletedOrderEvents,
+      deletedOrderEvents,
+      deletedRestaurantChanges,
       retentionDays: RETENTION_DAYS,
     });
   } catch (error) {

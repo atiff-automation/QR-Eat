@@ -54,6 +54,26 @@ export async function GET(request: NextRequest) {
     });
     const cursor = latest ? Number(latest.id) : 0;
 
+    if (since > 0) {
+      const oldest = await prisma.restaurantChange.findFirst({
+        where: { restaurantId },
+        orderBy: { id: 'asc' },
+        select: { id: true },
+      });
+      if (!oldest || since < Number(oldest.id)) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Cursor is older than the change-feed retention window',
+            code: 'CURSOR_EXPIRED',
+            cursor,
+            snapshot: '/api/counter/pending',
+          },
+          { status: 410 }
+        );
+      }
+    }
+
     // A first sync must not replay the whole history. The client follows this
     // with a full snapshot and starts from the returned cursor.
     if (since === 0) {

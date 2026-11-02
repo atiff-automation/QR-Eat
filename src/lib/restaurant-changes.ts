@@ -49,3 +49,14 @@ export async function recordRestaurantChanges(
 ): Promise<void> {
   await Promise.all(inputs.map(recordRestaurantChange));
 }
+
+/** Delete feed rows older than the retention window. */
+export async function cleanupRestaurantChanges(
+  retentionDays: number = 7
+): Promise<number> {
+  const cutoff = new Date(Date.now() - retentionDays * 86_400_000);
+  const result = await prisma.restaurantChange.deleteMany({
+    where: { createdAt: { lt: cutoff } },
+  });
+  return result.count;
+}

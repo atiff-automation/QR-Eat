@@ -64,6 +64,9 @@ describe('Counter changes route', () => {
   });
 
   it('returns changes after the cursor', async () => {
+    (prisma.restaurantChange.findFirst as jest.Mock)
+      .mockResolvedValueOnce({ id: BigInt(42) })
+      .mockResolvedValueOnce({ id: BigInt(10) });
     (prisma.restaurantChange.findMany as jest.Mock).mockResolvedValue([
       {
         id: BigInt(11),
@@ -98,5 +101,17 @@ describe('Counter changes route', () => {
   it('rejects an invalid cursor', async () => {
     const response = await getChanges(request('?since=-1'));
     expect(response.status).toBe(400);
+  });
+
+  it('returns 410 when the cursor is older than retention', async () => {
+    (prisma.restaurantChange.findFirst as jest.Mock)
+      .mockResolvedValueOnce({ id: BigInt(42) })
+      .mockResolvedValueOnce({ id: BigInt(100) });
+
+    const response = await getChanges(request('?since=50'));
+    const json = await response.json();
+
+    expect(response.status).toBe(410);
+    expect(json.code).toBe('CURSOR_EXPIRED');
   });
 });
