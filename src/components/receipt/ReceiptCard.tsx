@@ -11,6 +11,7 @@
 
 import { ReceiptDisplayData } from '@/types/receipt';
 import { formatCurrencySimple } from '@/lib/utils/currency-formatter';
+import { getPaymentMethodLabel } from '@/lib/constants/payment';
 
 interface ReceiptCardProps {
   data: ReceiptDisplayData;
@@ -18,6 +19,7 @@ interface ReceiptCardProps {
 
 export function ReceiptCard({ data }: ReceiptCardProps) {
   const { receiptNumber, restaurant, order, payment, cashier } = data;
+  const isCashPayment = payment.method.toLowerCase() === 'cash';
 
   const formatCurrency = (amount: number) => {
     return formatCurrencySimple(amount, restaurant.currency || 'MYR');
@@ -159,10 +161,12 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
         {/* Payment Details */}
         <div className="mb-4 pb-4 border-b border-dashed border-gray-300">
           <div className="flex justify-between mb-1">
-            <span className="text-black">Payment Method:</span>
-            <span className="uppercase text-black">{payment.method}</span>
+            <span className="text-black">Payment:</span>
+            <span className="text-black">
+              {getPaymentMethodLabel(payment.method)}
+            </span>
           </div>
-          {payment.method === 'cash' && payment.cashReceived !== undefined && (
+          {isCashPayment && payment.cashReceived !== undefined && (
             <>
               <div className="flex justify-between mb-1">
                 <span className="text-black">Cash Received:</span>

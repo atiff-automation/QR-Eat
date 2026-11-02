@@ -6,6 +6,8 @@ import { formatPrice } from '@/lib/qr-utils';
 import { generateIdempotencyKey } from '@/lib/order-modification-utils';
 import type { OrderAdjustmentAction } from '@/lib/orders/order-adjustment-policy';
 import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
+import { getOrderStatusLabel } from '@/lib/order-utils';
+import { getPaymentStatusLabel } from '@/lib/constants/payment';
 
 type AdjustmentAction = Exclude<OrderAdjustmentAction, 'NONE'>;
 
@@ -187,7 +189,8 @@ export function OrderAdjustmentModal({
         <div className="space-y-4 p-4">
           <div className="flex items-center justify-between rounded-lg bg-gray-50 p-3 text-sm">
             <span className="text-gray-600">
-              {order.status} · {order.paymentStatus}
+              {getOrderStatusLabel(order.status, order.orderType)} ·{' '}
+              {getPaymentStatusLabel(order.paymentStatus)}
             </span>
             <span className="font-semibold text-gray-900">
               {formatPrice(order.totalAmount, currency)}

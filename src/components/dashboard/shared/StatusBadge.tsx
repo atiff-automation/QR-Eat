@@ -5,6 +5,8 @@ import { getOrderStatusDisplay } from '@/lib/order-utils';
 export interface StatusBadgeProps {
   /** Order status value */
   status: string;
+  /** Order type, used for contextual takeaway labels */
+  orderType?: string;
   /** Size variant of the badge */
   size?: 'sm' | 'md' | 'lg';
   /** Optional additional CSS classes */
@@ -25,10 +27,11 @@ export interface StatusBadgeProps {
  */
 export function StatusBadge({
   status,
+  orderType = 'DINE_IN',
   size = 'md',
   className = '',
 }: StatusBadgeProps) {
-  const statusDisplay = getOrderStatusDisplay(status);
+  const statusDisplay = getOrderStatusDisplay(status, orderType);
 
   // Size-specific classes
   const sizeClasses = {

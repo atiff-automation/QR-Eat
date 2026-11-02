@@ -347,7 +347,7 @@ export function PaymentInterface({
                     className="flex-1 h-10 px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors disabled:bg-gray-300"
                     disabled={isProcessing}
                   >
-                    {isProcessing ? 'Processing...' : 'Pay'}
+                    {isProcessing ? 'Recording...' : 'Record payment'}
                   </button>
                 </div>
               </div>

@@ -9,6 +9,11 @@ import {
   formatModificationTime,
 } from '@/lib/order-modification-utils';
 import { getOrderPrimaryLabel } from '@/lib/utils/order-display';
+import { getOrderStatusLabel } from '@/lib/order-utils';
+import {
+  getPaymentMethodLabel,
+  getPaymentStatusLabel,
+} from '@/lib/constants/payment';
 
 interface ViewOrderDetailsModalProps {
   orderId: string;
@@ -175,8 +180,8 @@ export function ViewOrderDetailsModal({
                     <p className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                       Status
                     </p>
-                    <p className="font-semibold text-gray-900 capitalize">
-                      {order.status}
+                    <p className="font-semibold text-gray-900">
+                      {getOrderStatusLabel(order.status, order.orderType)}
                     </p>
                   </div>
                 </div>
@@ -315,8 +320,9 @@ export function ViewOrderDetailsModal({
                             className="flex flex-wrap justify-between gap-2 rounded-lg bg-gray-50 px-4 py-3 text-sm"
                           >
                             <div>
-                              <p className="font-medium capitalize text-gray-900">
-                                {payment.paymentMethod} · {payment.status}
+                              <p className="font-medium text-gray-900">
+                                {getPaymentMethodLabel(payment.paymentMethod)} ·{' '}
+                                {getPaymentStatusLabel(payment.status)}
                               </p>
                               {payment.receiptNumber && (
                                 <p className="text-xs text-gray-500">

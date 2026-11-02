@@ -150,10 +150,10 @@ export function CashPaymentForm({
           {isProcessing ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Processing...
+              Recording...
             </>
           ) : (
-            'Pay'
+            'Record payment'
           )}
         </button>
       </div>

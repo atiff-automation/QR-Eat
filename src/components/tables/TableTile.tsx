@@ -30,6 +30,7 @@ export function TableTile({
   };
 
   const duration = getDuration();
+  const activeOrders = table.currentOrders || 0;
 
   // Status visual logic
   const isOccupied = table.status === 'OCCUPIED';
@@ -88,7 +89,9 @@ export function TableTile({
           <div className="flex flex-col items-center space-y-1.5">
             <div className="flex items-center space-x-2 text-amber-600 font-bold text-xs bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
               <Utensils className="w-3.5 h-3.5" />
-              <span>{table.currentOrders || 0} Items Pending</span>
+              <span>
+                {activeOrders} {activeOrders === 1 ? 'order' : 'orders'} active
+              </span>
             </div>
             <div className="text-xs text-gray-500 font-semibold flex items-center">
               <Clock className="w-3.5 h-3.5 mr-1" />

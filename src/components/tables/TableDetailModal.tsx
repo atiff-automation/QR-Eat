@@ -240,7 +240,7 @@ export function TableDetailModal({
                 }
               `}
             >
-              <span>Make Order</span>
+              <span>Add order</span>
               {table.status === 'RESERVED' ? (
                 <Lock className="w-3.5 h-3.5 opacity-60" />
               ) : (
@@ -252,7 +252,7 @@ export function TableDetailModal({
               onClick={() => onShowQR(table)}
               className="w-full h-10 bg-white border-2 border-gray-200 hover:border-gray-300 active:scale-[0.98] text-gray-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
             >
-              <span>Show QR Code</span>
+              <span>Show QR code</span>
               <Printer className="w-3.5 h-3.5 opacity-60" />
             </button>
 
@@ -280,7 +280,7 @@ export function TableDetailModal({
                 `}
               >
                 <Lock className="w-3.5 h-3.5" />
-                <span>Reserve Table</span>
+                <span>Reserve table</span>
               </button>
             )}
             {table.status === 'RESERVED' && (
@@ -289,7 +289,7 @@ export function TableDetailModal({
                 className="w-full h-10 bg-orange-100 hover:bg-orange-200 active:scale-[0.98] text-orange-700 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition-all"
               >
                 <Unlock className="w-3.5 h-3.5" />
-                <span>Unreserve</span>
+                <span>Unreserve table</span>
               </button>
             )}
           </div>

@@ -413,7 +413,7 @@ export function OrdersOverview({
           {/* Left: Horizontal Metrics Bar */}
           {stats ? (
             <div className="flex-1 flex items-center gap-4 bg-white px-4 py-3 rounded-xl border border-gray-200 shadow-sm">
-              {/* Active Orders */}
+              {/* Ongoing Orders */}
               <div className="flex items-center gap-1.5">
                 <span className="text-base font-bold text-blue-600">
                   {stats.pendingOrders +
@@ -422,7 +422,7 @@ export function OrdersOverview({
                     stats.readyOrders +
                     (stats.recalledOrders ?? 0)}
                 </span>
-                <span className="text-xs text-gray-500">Active</span>
+                <span className="text-xs text-gray-500">Ongoing</span>
               </div>
 
               {/* Pending Orders */}
@@ -521,7 +521,7 @@ export function OrdersOverview({
             {/* Status Pills */}
             <div className="flex flex-wrap gap-1.5">
               {[
-                { id: 'ACTIVE', label: 'Active' },
+                { id: 'ACTIVE', label: 'Ongoing' },
                 { id: 'SERVED', label: 'Served' },
                 { id: 'CANCELLED', label: 'Cancelled' },
                 { id: 'ALL', label: 'History' },
@@ -549,7 +549,7 @@ export function OrdersOverview({
           <div className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0" />
             <p className="text-xs font-medium text-amber-800">
-              <span className="font-bold">{lapsedCount} active</span> from
+              <span className="font-bold">{lapsedCount} ongoing</span> from
               yesterday
             </p>
           </div>

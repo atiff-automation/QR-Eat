@@ -33,6 +33,21 @@ export function getPaymentMethodLabel(
   return PAYMENT_METHOD_LABELS[key] ?? method!.trim();
 }
 
+const PAYMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Unpaid',
+  PAID: 'Paid',
+  REFUNDED: 'Refunded',
+  FAILED: 'Failed',
+};
+
+export function getPaymentStatusLabel(
+  status: string | null | undefined
+): string {
+  const key = status?.trim().toUpperCase();
+  if (!key) return '—';
+  return PAYMENT_STATUS_LABELS[key] ?? status!.trim();
+}
+
 export const PAYMENT_METHOD_ICONS: Record<string, string> = {
   [PAYMENT_METHODS.CASH]: 'Banknote',
   [PAYMENT_METHODS.CARD]: 'CreditCard',

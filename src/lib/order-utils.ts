@@ -129,6 +129,11 @@ const TABLE_STATE_LABELS: Record<string, string> = {
   INACTIVE: 'Inactive',
 };
 
+const ORDER_TYPE_LABELS: Record<string, string> = {
+  DINE_IN: 'Dine-in',
+  TAKEAWAY: 'Takeaway',
+};
+
 export function getOrderStatusLabel(
   status: string,
   orderType: string = 'DINE_IN'
@@ -146,39 +151,46 @@ export function getTableStateLabel(status: string): string {
   return TABLE_STATE_LABELS[status] ?? status;
 }
 
-export function getOrderStatusDisplay(status: string): {
+export function getOrderTypeLabel(orderType: string): string {
+  return ORDER_TYPE_LABELS[orderType] ?? orderType;
+}
+
+export function getOrderStatusDisplay(
+  status: string,
+  orderType: string = 'DINE_IN'
+): {
   label: string;
   color: string;
 } {
   switch (status) {
     case ORDER_STATUS.PENDING:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-yellow-600 bg-yellow-100',
       };
     case ORDER_STATUS.CONFIRMED:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-blue-600 bg-blue-100',
       };
     case ORDER_STATUS.PREPARING:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-orange-600 bg-orange-100',
       };
     case ORDER_STATUS.READY:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-green-600 bg-green-100',
       };
     case ORDER_STATUS.SERVED:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-gray-600 bg-gray-100',
       };
     case ORDER_STATUS.CANCELLED:
       return {
-        label: getOrderStatusLabel(status),
+        label: getOrderStatusLabel(status, orderType),
         color: 'text-red-600 bg-red-100',
       };
     default:

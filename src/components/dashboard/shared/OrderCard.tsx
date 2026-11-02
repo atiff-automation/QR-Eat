@@ -213,7 +213,11 @@ export function OrderCard({
               RECALLED
             </span>
           ) : (
-            <StatusBadge status={order.status} size="sm" />
+            <StatusBadge
+              status={order.status}
+              orderType={order.orderType}
+              size="sm"
+            />
           )}
           {(onViewDetails || onModify || onAdjust) && (
             <OrderActionsMenu

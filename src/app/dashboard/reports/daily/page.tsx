@@ -5,6 +5,11 @@ import { ApiClient } from '@/lib/api-client';
 import { Button } from '@/components/ui/Button';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ViewOrderDetailsModal } from '@/components/dashboard/modals/ViewOrderDetailsModal';
+import { getOrderStatusLabel, getOrderTypeLabel } from '@/lib/order-utils';
+import {
+  getPaymentMethodLabel,
+  getPaymentStatusLabel,
+} from '@/lib/constants/payment';
 
 interface DailyOrderItem {
   id: string;
@@ -146,7 +151,7 @@ export default function DailySalesPage() {
         'Type',
         'Table',
         'Status',
-        'Payment',
+        'Payment status',
         'Item',
         'Qty',
         'Unit',
@@ -156,36 +161,43 @@ export default function DailySalesPage() {
       ],
     ];
     report.orders.forEach((order) => {
+      const orderType = getOrderTypeLabel(order.orderType);
+      const orderStatus = getOrderStatusLabel(order.status, order.orderType);
+      const paymentStatus = getPaymentStatusLabel(order.paymentStatus);
+      const paymentMethods = order.payments
+        .map((payment) => getPaymentMethodLabel(payment.method))
+        .join('|');
+
       if (order.items.length === 0) {
         lines.push([
           order.orderNumber,
           order.createdAt,
-          order.orderType,
+          orderType,
           order.tableNumber ?? '',
-          order.status,
-          order.paymentStatus,
+          orderStatus,
+          paymentStatus,
           '',
           '',
           '',
           order.totalAmount,
           order.discountAmount,
-          order.payments.map((payment) => payment.method).join('|'),
+          paymentMethods,
         ]);
       }
       order.items.forEach((item) => {
         lines.push([
           order.orderNumber,
           order.createdAt,
-          order.orderType,
+          orderType,
           order.tableNumber ?? '',
-          order.status,
-          order.paymentStatus,
+          orderStatus,
+          paymentStatus,
           item.name,
           String(item.quantity),
           item.unitPrice,
           item.totalAmount,
           order.discountAmount,
-          order.payments.map((payment) => payment.method).join('|'),
+          paymentMethods,
         ]);
       });
     });
@@ -211,8 +223,8 @@ export default function DailySalesPage() {
         ['Orders', String(report.totals.orderCount)],
         ['Gross', `${report.currency} ${report.totals.gross}`],
         ['Paid', `${report.currency} ${report.totals.paid}`],
-        ['Unpaid served', `${report.currency} ${report.totals.unpaid}`],
-        ['Open orders', `${report.currency} ${report.totals.openTotal}`],
+        ['Unpaid', `${report.currency} ${report.totals.unpaid}`],
+        ['Ongoing', `${report.currency} ${report.totals.openTotal}`],
         ['Cancelled', String(report.totals.cancelledCount)],
         ['Tax', `${report.currency} ${report.totals.tax}`],
         ['Discounts', `${report.currency} ${report.totals.discounts}`],
@@ -285,7 +297,7 @@ export default function DailySalesPage() {
                   ['all', `All ${report.orders.length}`],
                   [
                     'completed',
-                    `Done ${report.orders.filter((o) => o.status === 'SERVED').length}`,
+                    `Served / Picked up ${report.orders.filter((o) => o.status === 'SERVED').length}`,
                   ],
                   [
                     'unpaid',
@@ -293,7 +305,7 @@ export default function DailySalesPage() {
                   ],
                   [
                     'open',
-                    `Open ${report.orders.filter((o) => ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length}`,
+                    `Ongoing ${report.orders.filter((o) => ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'].includes(o.status)).length}`,
                   ],
                   [
                     'cancelled',
@@ -332,11 +344,13 @@ export default function DailySalesPage() {
                           {order.orderNumber}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {formatTime(order.createdAt)} · {order.orderType} ·{' '}
+                          {formatTime(order.createdAt)} ·{' '}
+                          {getOrderTypeLabel(order.orderType)} ·{' '}
                           {order.tableNumber
                             ? `Table ${order.tableNumber}`
                             : (order.pickupNumber ?? 'Takeaway')}{' '}
-                          · {order.status} · {order.paymentStatus}
+                          · {getOrderStatusLabel(order.status, order.orderType)}{' '}
+                          · {getPaymentStatusLabel(order.paymentStatus)}
                         </p>
                       </div>
                       <div className="text-right">
@@ -381,7 +395,7 @@ export default function DailySalesPage() {
                         {order.payments
                           .map(
                             (payment) =>
-                              `${payment.method} ${payment.amount}${
+                              `${getPaymentMethodLabel(payment.method)} ${payment.amount}${
                                 payment.receiptNumber
                                   ? ` · ${payment.receiptNumber}`
                                   : ''
