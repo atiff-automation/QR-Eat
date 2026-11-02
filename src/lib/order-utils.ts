@@ -113,6 +113,39 @@ export function getInvalidTransitionMessage(from: string, to: string): string {
   return `Invalid status transition: ${from} → ${to}. Valid transitions from ${from}: ${validTransitions}`;
 }
 
+const ORDER_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Pending',
+  CONFIRMED: 'Confirmed',
+  PREPARING: 'Preparing',
+  READY: 'Ready',
+  SERVED: 'Served',
+  CANCELLED: 'Cancelled',
+};
+
+const TABLE_STATE_LABELS: Record<string, string> = {
+  AVAILABLE: 'Available',
+  OCCUPIED: 'Occupied',
+  RESERVED: 'Reserved',
+  INACTIVE: 'Inactive',
+};
+
+export function getOrderStatusLabel(
+  status: string,
+  orderType: string = 'DINE_IN'
+): string {
+  if (status === 'READY') {
+    return orderType === 'TAKEAWAY' ? 'Ready for pickup' : 'Ready';
+  }
+  if (status === 'SERVED') {
+    return orderType === 'TAKEAWAY' ? 'Picked up' : 'Served';
+  }
+  return ORDER_STATUS_LABELS[status] ?? status;
+}
+
+export function getTableStateLabel(status: string): string {
+  return TABLE_STATE_LABELS[status] ?? status;
+}
+
 export function getOrderStatusDisplay(status: string): {
   label: string;
   color: string;
@@ -120,22 +153,34 @@ export function getOrderStatusDisplay(status: string): {
   switch (status) {
     case ORDER_STATUS.PENDING:
       return {
-        label: 'Pending',
+        label: getOrderStatusLabel(status),
         color: 'text-yellow-600 bg-yellow-100',
       };
     case ORDER_STATUS.CONFIRMED:
-      return { label: 'Confirmed', color: 'text-blue-600 bg-blue-100' };
+      return {
+        label: getOrderStatusLabel(status),
+        color: 'text-blue-600 bg-blue-100',
+      };
     case ORDER_STATUS.PREPARING:
-      return { label: 'Preparing', color: 'text-orange-600 bg-orange-100' };
+      return {
+        label: getOrderStatusLabel(status),
+        color: 'text-orange-600 bg-orange-100',
+      };
     case ORDER_STATUS.READY:
       return {
-        label: 'Ready',
+        label: getOrderStatusLabel(status),
         color: 'text-green-600 bg-green-100',
       };
     case ORDER_STATUS.SERVED:
-      return { label: 'Served', color: 'text-gray-600 bg-gray-100' };
+      return {
+        label: getOrderStatusLabel(status),
+        color: 'text-gray-600 bg-gray-100',
+      };
     case ORDER_STATUS.CANCELLED:
-      return { label: 'Cancelled', color: 'text-red-600 bg-red-100' };
+      return {
+        label: getOrderStatusLabel(status),
+        color: 'text-red-600 bg-red-100',
+      };
     default:
       return { label: status, color: 'text-gray-600 bg-gray-100' };
   }

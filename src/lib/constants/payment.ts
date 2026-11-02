@@ -25,6 +25,14 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   [PAYMENT_METHODS.EWALLET]: 'E-Wallet',
 };
 
+export function getPaymentMethodLabel(
+  method: string | null | undefined
+): string {
+  const key = method?.trim().toLowerCase();
+  if (!key) return '—';
+  return PAYMENT_METHOD_LABELS[key] ?? method!.trim();
+}
+
 export const PAYMENT_METHOD_ICONS: Record<string, string> = {
   [PAYMENT_METHODS.CASH]: 'Banknote',
   [PAYMENT_METHODS.CARD]: 'CreditCard',

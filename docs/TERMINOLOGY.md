@@ -3,7 +3,7 @@
 **Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** final standard approved; cross-surface rollout not started. Current code still uses `Active`/`History` and `Not now` until Phases 2–4.
+**Implementation:** Phase 1 label helpers complete. Screens are not wired yet; current UI still uses `Active`/`History` and `Not now` until Phases 2–4.
 **Supersedes:** earlier page-specific status wording
 **Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
