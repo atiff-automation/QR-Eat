@@ -3,7 +3,7 @@
 **Status:** proposed · 2026-11-01
 **Scope:** QR-Eat server/web, Tabtep Counter Android, receipts, reports, notifications, docs
 **Purpose:** keep the table-bill work from adding a fourth set of user-facing words
-**Implementation:** not started; this document is the canonical wording reference
+**Implementation:** applied through Phase 6; no Phase 7 planned
 
 ## 1. Verdict
 

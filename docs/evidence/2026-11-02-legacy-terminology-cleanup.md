@@ -5,7 +5,7 @@
 **Scope:** QR-Eat web/server + Tabtep Counter
 **Plan:** `Tabtep-App/docs/COUNTER-BILL-SESSION-PLAN.md`
 **Previous:** `Tabtep-App/docs/evidence/2026-11-02-counter-bill-phase5-rollout.md`
-**Next phase:** Phase 7 is optional and not started
+**Next phase:** none — Phase 7 is cancelled/deferred
 
 ## 1. Legacy session module rename
 
@@ -164,7 +164,9 @@ Result: successful.
 
 ## 7. Remaining optional work
 
-Phase 7 is optional:
+Phase 7 is cancelled/deferred. No work is scheduled.
+
+The following remain future ideas only:
 
 - table transfer
 - merge tables
@@ -173,5 +175,3 @@ Phase 7 is optional:
 - closed-check browser
 - item-level status customization
 - receipt history per session
-
-No Phase 7 work has started.
