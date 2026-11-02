@@ -1,9 +1,9 @@
 # Terminology standard and inconsistency audit
 
 **Status:** active · 2026-11-02
-**Scope:** QR-Eat server/web, Tabtep Counter Android, receipts, reports, notifications, docs
-**Purpose:** keep the table-bill work from adding a fourth set of user-facing words
-**Implementation:** applied through Phase 6; no Phase 7 planned
+**Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
+**Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
+**Implementation:** web/Counter/receipts/reports applied through Phase 6; kitchen/station and remaining web labels are covered by `Tabtep-App/docs/TERMINOLOGY-STANDARD-PLAN.md`
 **Supersedes:** earlier page-specific status wording
 
 ## 1. Verdict
@@ -339,7 +339,15 @@ for the bill itself is in:
 Tabtep-App/docs/COUNTER-BILL-SESSION-PLAN.md
 ```
 
-The terminology sweep was completed in Phase 6. This document is now the
-active standard for new Counter, web, receipt, report and documentation work.
+The Counter, web order/payment, receipt and report terminology sweep was
+completed in Phase 6. This document is the active standard for those surfaces.
+
+Kitchen/station terminology and the remaining web receipt/table labels are
+covered by the cross-surface plan:
+
+```text
+Tabtep-App/docs/TERMINOLOGY-STANDARD-PLAN.md
+```
+
 Existing code that still differs should be treated as a bug unless this document
-is explicitly updated.
+or the cross-surface plan explicitly says it is pending.
