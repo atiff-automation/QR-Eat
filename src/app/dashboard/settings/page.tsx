@@ -16,6 +16,7 @@ import {
   CreditCard,
   Receipt,
   Settings2,
+  QrCode,
 } from 'lucide-react';
 
 // Import section components
@@ -27,12 +28,14 @@ import { PaymentMethodsSection } from '@/components/settings/PaymentMethodsSecti
 import { ReceiptSection } from '@/components/settings/ReceiptSection';
 import { BusinessDaySection } from '@/components/settings/BusinessDaySection';
 import { SystemPreferencesSection } from '@/components/settings/SystemPreferencesSection';
+import { QrOrderingSection } from '@/components/settings/QrOrderingSection';
 import { SettingsLoadingSkeleton } from '@/components/settings/SettingsLoadingSkeleton';
 
 type SectionKey =
   | 'general'
   | 'hours'
   | 'financial'
+  | 'ordering'
   | 'notifications'
   | 'payments'
   | 'receipt'
@@ -83,6 +86,9 @@ interface SettingsData {
   businessDayCloseTime: string;
   openingFloatDefault: string;
   cashDrawerEnabled: boolean;
+  qrOrderingPaused: boolean;
+  qrOrderingPausedAt: string | null;
+  qrOrderingPausedReason: string | null;
 }
 
 const SECTIONS = [
@@ -100,6 +106,11 @@ const SECTIONS = [
     key: 'financial' as SectionKey,
     label: 'Financial',
     icon: DollarSign,
+  },
+  {
+    key: 'ordering' as SectionKey,
+    label: 'Online Ordering',
+    icon: QrCode,
   },
   {
     key: 'notifications' as SectionKey,
@@ -209,6 +220,9 @@ function SettingsContent() {
     businessDayCloseTime: settings.businessDayCloseTime ?? '04:00',
     openingFloatDefault: settings.openingFloatDefault ?? '0.00',
     cashDrawerEnabled: settings.cashDrawerEnabled ?? true,
+    qrOrderingPaused: settings.qrOrderingPaused ?? false,
+    qrOrderingPausedAt: settings.qrOrderingPausedAt ?? null,
+    qrOrderingPausedReason: settings.qrOrderingPausedReason ?? null,
   };
 
   const renderSection = () => {
@@ -270,6 +284,17 @@ function SettingsContent() {
               serviceChargeRate: uiSettings.serviceChargeRate,
               taxLabel: uiSettings.taxLabel,
               serviceChargeLabel: uiSettings.serviceChargeLabel,
+            }}
+            onUpdate={() => {}}
+          />
+        );
+      case 'ordering':
+        return (
+          <QrOrderingSection
+            initialData={{
+              paused: uiSettings.qrOrderingPaused,
+              reason: uiSettings.qrOrderingPausedReason ?? '',
+              pausedAt: uiSettings.qrOrderingPausedAt,
             }}
             onUpdate={() => {}}
           />

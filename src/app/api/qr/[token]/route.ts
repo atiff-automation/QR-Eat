@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { decodeQRToken, isValidTableToken } from '@/lib/qr-utils';
+import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
 
 export async function GET(
   request: NextRequest,
@@ -79,6 +80,8 @@ export async function GET(
       );
     }
 
+    const ordering = await getQrOrderingAvailability(table.restaurant.id);
+
     // Return table info (allow menu viewing regardless of status)
     // Convert Prisma Decimal types to numbers for JSON serialization (consistent with menu endpoint)
     return NextResponse.json({
@@ -98,11 +101,17 @@ export async function GET(
         },
       },
       // Include status info for frontend to handle ordering restrictions
-      canOrder: table.status === 'AVAILABLE',
-      statusMessage:
-        table.status === 'AVAILABLE'
+      canOrder: table.status === 'AVAILABLE' && ordering.available,
+      statusMessage: ordering.available
+        ? table.status === 'AVAILABLE'
           ? null
-          : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`,
+          : `Table is currently ${table.status}. You can view the menu but cannot place orders at this time.`
+        : ordering.message,
+      ordering: {
+        available: ordering.available,
+        reason: ordering.reason,
+        message: ordering.message,
+      },
     });
   } catch (error) {
     console.error('QR code validation error:', error);

@@ -265,6 +265,13 @@ model Restaurant {
   openingFloatDefault   Decimal @default(0.00) @db.Decimal(10, 2)
   cashDrawerEnabled     Boolean @default(true)
 
+  // QR ordering pause. Manual pause is stored; the automatic pause is derived
+  // from live Counter presence at request time.
+  qrOrderingPaused       Boolean   @default(false)
+  qrOrderingPausedAt     DateTime?
+  qrOrderingPausedBy     String?
+  qrOrderingPausedReason String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

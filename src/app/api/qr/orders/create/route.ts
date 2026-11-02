@@ -29,6 +29,7 @@ import {
   canTableAcceptOrders,
   getTableUnavailableMessage,
 } from '@/lib/table-utils';
+import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
 
 // ============================================================================
 // Validation Schema
@@ -111,6 +112,27 @@ export async function POST(request: NextRequest) {
       const { message } = getTableUnavailableMessage(table.status);
       console.log(`❌ [QR ORDER CREATE] Blocking ${table.status} table`);
       return NextResponse.json({ error: message }, { status: 400 });
+    }
+
+    // Offline/presence gate. A customer on mobile data can still reach the
+    // server while the restaurant's own WAN is down; accepting that order would
+    // create a PENDING order that no Counter can receive. Manual pause and the
+    // automatic Counter-presence gate both land here.
+    const availability = await getQrOrderingAvailability(table.restaurant.id);
+    if (!availability.available) {
+      console.log(
+        `[QR ORDER CREATE] Blocked ordering for restaurant ${table.restaurant.id}: ${availability.reason}`
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error: availability.message,
+          message: availability.message,
+          code: 'ORDERING_PAUSED',
+          reason: availability.reason,
+        },
+        { status: 503 }
+      );
     }
 
     console.log(

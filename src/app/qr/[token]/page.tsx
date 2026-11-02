@@ -39,6 +39,8 @@ export default function QRMenuPage() {
     taxLabel: string;
     serviceChargeLabel: string;
   } | null>(null);
+  const [orderingPaused, setOrderingPaused] = useState(false);
+  const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
 
   const {
     cart,
@@ -69,9 +71,14 @@ export default function QRMenuPage() {
   const fetchTableAndMenu = async () => {
     try {
       // Fetch table information
-      const tableResponse = await ApiClient.get<{ table: Table }>(
-        `/api/qr/${token}`
-      );
+      const tableResponse = await ApiClient.get<{
+        table: Table;
+        ordering?: {
+          available: boolean;
+          reason: string;
+          message: string | null;
+        };
+      }>(`/api/qr/${token}`);
 
       // ✅ PRODUCTION: Validate subdomain matches (security check)
       // An IP address, localhost, the main domain (tabtep.app), www, or a
@@ -99,6 +106,8 @@ export default function QRMenuPage() {
       }
 
       setTable(tableResponse.table);
+      setOrderingPaused(tableResponse.ordering?.available === false);
+      setOrderingMessage(tableResponse.ordering?.message ?? null);
 
       // Set restaurant settings
       setRestaurantSettings({
@@ -400,6 +409,24 @@ export default function QRMenuPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Online ordering pause banner */}
+      {orderingPaused && (
+        <div className="max-w-7xl mx-auto px-4 pt-4">
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start">
+            <AlertTriangle className="h-5 w-5 text-amber-600 mr-2 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">
+                Online ordering is paused
+              </p>
+              <p className="text-sm text-amber-800 mt-0.5">
+                {orderingMessage ||
+                  'Please order at the counter. You can still view the menu.'}
+              </p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Cart Error Display */}

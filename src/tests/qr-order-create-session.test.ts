@@ -8,6 +8,7 @@ import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
+import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
 import { POST as createQrOrder } from '@/app/api/qr/orders/create/route';
 
 jest.mock('@/lib/database', () => ({
@@ -51,6 +52,10 @@ jest.mock('@/lib/order-utils', () => ({
   ...jest.requireActual('@/lib/order-utils'),
   calculateOrderTotals: jest.fn(),
   estimateReadyTime: jest.fn(),
+}));
+
+jest.mock('@/lib/qr-ordering-availability', () => ({
+  getQrOrderingAvailability: jest.fn(),
 }));
 
 const restaurantId = '550e8400-e29b-41d4-a716-446655440001';
@@ -157,6 +162,12 @@ describe('QR order create dining session', () => {
     (estimateReadyTime as jest.Mock).mockReturnValue(
       new Date('2026-11-02T12:10:00.000Z')
     );
+    (getQrOrderingAvailability as jest.Mock).mockResolvedValue({
+      available: true,
+      reason: 'AVAILABLE',
+      message: null,
+      lastCounterActivityAt: new Date('2026-11-02T12:00:00.000Z'),
+    });
     (PostgresEventManager.publishOrderCreated as jest.Mock).mockResolvedValue(
       undefined
     );
@@ -199,5 +210,33 @@ describe('QR order create dining session', () => {
     );
     expect(tx.table.update).not.toHaveBeenCalled();
     expect(clearTableCart).toHaveBeenCalledWith(tableId);
+  });
+
+  it('returns ORDERING_PAUSED without creating an order when the gate is closed', async () => {
+    (getQrOrderingAvailability as jest.Mock).mockResolvedValue({
+      available: false,
+      reason: 'MANUAL_PAUSE',
+      message:
+        'Online ordering is temporarily paused. Please order at the counter.',
+      lastCounterActivityAt: null,
+    });
+
+    const request = new NextRequest('http://localhost/api/qr/orders/create', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ tableId }),
+    });
+
+    const response = await createQrOrder(request);
+    const json = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(json).toMatchObject({
+      success: false,
+      code: 'ORDERING_PAUSED',
+      reason: 'MANUAL_PAUSE',
+    });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(clearTableCart).not.toHaveBeenCalled();
   });
 });

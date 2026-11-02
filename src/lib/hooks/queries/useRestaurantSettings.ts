@@ -59,6 +59,10 @@ export interface RestaurantSettings {
   businessDayCloseTime: string;
   openingFloatDefault: string;
   cashDrawerEnabled: boolean;
+  qrOrderingPaused: boolean;
+  qrOrderingPausedAt: string | null;
+  qrOrderingPausedBy: string | null;
+  qrOrderingPausedReason: string | null;
 }
 
 /**
@@ -191,6 +195,35 @@ export function useUpdateRestaurantSettings() {
     },
     onSuccess: () => {
       // Invalidate to refetch fresh data
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.restaurants.settings,
+      });
+    },
+  });
+}
+
+/**
+ * Manual pause/resume for customer QR ordering.
+ *
+ * The automatic Counter-presence pause is server-side and is not controlled by
+ * this hook; this only stores the owner/manager intent.
+ */
+export function useUpdateQrOrdering() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: { paused: boolean; reason?: string }) => {
+      return ApiClient.patch<{
+        success: boolean;
+        qrOrdering: {
+          qrOrderingPaused: boolean;
+          qrOrderingPausedAt: string | null;
+          qrOrderingPausedBy: string | null;
+          qrOrderingPausedReason: string | null;
+        };
+      }>('/settings/restaurant/qr-ordering', input);
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: queryKeys.restaurants.settings,
       });
