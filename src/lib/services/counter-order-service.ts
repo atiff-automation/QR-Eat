@@ -20,6 +20,7 @@ import { COUNTER_SESSION_USER_AGENT } from '@/lib/counter/constants';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
 
 export const CounterOrderItemSchema = z.object({
+  clientItemId: z.string().max(100).optional(),
   menuItemId: z.string().uuid('Invalid menu item'),
   quantity: z.number().int().min(1).max(99),
   optionIds: z.array(z.string().uuid('Invalid menu option')).max(40).optional(),
@@ -28,6 +29,7 @@ export const CounterOrderItemSchema = z.object({
 
 export const CounterOrderInputSchema = z
   .object({
+    clientOrderId: z.string().max(100).optional(),
     orderType: z.enum(['DINE_IN', 'TAKEAWAY']).default('DINE_IN'),
     tableId: z.string().uuid('Invalid table').optional().nullable(),
     customerName: z.string().trim().max(100).optional().nullable(),
@@ -67,6 +69,7 @@ export interface CounterOrderIssue {
 }
 
 export interface CounterOrderLine {
+  clientItemId?: string;
   menuItemId: string;
   name: string;
   quantity: number;
@@ -182,6 +185,7 @@ function asString(value: Prisma.Decimal | number | string): string {
 
 export function buildCounterOrderRequestHash(input: CounterOrderInput): string {
   const normalized = {
+    ...(input.clientOrderId ? { clientOrderId: input.clientOrderId } : {}),
     orderType: input.orderType ?? 'DINE_IN',
     tableId: input.tableId ?? null,
     customerName: input.customerName?.trim() || null,
@@ -447,6 +451,7 @@ async function priceOrder(
     const totalAmount = unitPrice.mul(requested.quantity);
 
     lines.push({
+      clientItemId: requested.clientItemId,
       menuItemId: menuItem.id,
       name: menuItem.name,
       quantity: requested.quantity,
@@ -588,6 +593,9 @@ export async function createCounterOrder(
   idempotencyKey: string,
   options: {
     overrideStation?: boolean;
+    offlineDelivered?: boolean;
+    offlineDeviceId?: string;
+    offlineCreatedAt?: Date;
     ipAddress?: string | null;
   } = {}
 ): Promise<CounterOrderResult> {
@@ -736,6 +744,12 @@ export async function createCounterOrder(
           orderType: priced.orderType,
           idempotencyKey,
           idempotencyHash: requestHash,
+          clientOrderId: input.clientOrderId?.trim() || null,
+          offlineCreated: Boolean(
+            options.offlineDelivered || options.offlineDeviceId
+          ),
+          offlineDeviceId: options.offlineDeviceId ?? null,
+          offlineCreatedAt: options.offlineCreatedAt ?? null,
           takenBy: actor.userType === 'staff' ? actor.userId : null,
           specialInstructions: input.specialInstructions?.trim() || null,
           estimatedReadyTime: priced.estimatedReadyTime,
@@ -750,6 +764,7 @@ export async function createCounterOrder(
           data: {
             orderId: order.id,
             menuItemId: line.menuItemId,
+            clientItemId: line.clientItemId ?? null,
             quantity: line.quantity,
             unitPrice: line.unitPrice,
             totalAmount: line.totalAmount,
@@ -845,6 +860,7 @@ export async function createCounterOrder(
         orderId: createdOrder.id,
         actor,
         overrideStation: options.overrideStation,
+        offlineDelivered: options.offlineDelivered,
         estimatedReadyTime: priced.estimatedReadyTime.toISOString(),
         ipAddress: options.ipAddress,
       });

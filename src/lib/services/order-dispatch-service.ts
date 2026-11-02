@@ -32,6 +32,7 @@ export interface ConfirmOrderInput {
   orderId: string;
   actor: DispatchActor;
   overrideStation?: boolean;
+  offlineDelivered?: boolean;
   estimatedReadyTime?: string | null;
   ipAddress?: string | null;
   stationOverride?: boolean;
@@ -135,7 +136,8 @@ export async function confirmPendingOrder(
   }
 
   const stationOverride = input.overrideStation === true;
-  if (!stationOverride) {
+  const offlineDelivered = input.offlineDelivered === true;
+  if (!stationOverride && !offlineDelivered) {
     const onlineWindow = new Date(
       Date.now() - COUNTER_STATION_ONLINE_WINDOW_MS
     );
@@ -236,6 +238,7 @@ export async function confirmPendingOrder(
       newValues: {
         status: 'CONFIRMED',
         ...(stationOverride ? { stationOverride: true } : {}),
+        ...(offlineDelivered ? { offlineDelivered: true } : {}),
       },
       changedBy: input.actor.userId,
       changedByType: input.actor.userType,

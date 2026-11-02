@@ -716,6 +716,11 @@ model Order {
   orderType           OrderType          @default(DINE_IN)
   idempotencyKey      String?            @unique
   idempotencyHash     String?
+  clientOrderId       String?            @unique
+  offlineCreated      Boolean            @default(false)
+  offlineDeviceId     String?
+  offlineCreatedAt    DateTime?
+  priceVariance       Json?
   takenBy             String?
   confirmedBy         String?
   servedBy            String?
@@ -771,6 +776,7 @@ model OrderItem {
   id                  String          @id @default(uuid())
   orderId             String
   menuItemId          String
+  clientItemId        String?
   quantity            Int
   unitPrice           Decimal         @db.Decimal(10, 2)
   totalAmount         Decimal         @db.Decimal(10, 2)
@@ -785,6 +791,7 @@ model OrderItem {
   modificationItems OrderModificationItem[] // New relation
 
   @@index([orderId])
+  @@index([orderId, clientItemId])
   @@index([menuItemId])
   @@index([status])
   @@map("order_items")
