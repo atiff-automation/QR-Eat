@@ -1,10 +1,11 @@
 # Terminology standard and inconsistency audit
 
-**Status:** active · 2026-11-02
+**Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** web/Counter/receipts/reports applied through Phase 6; kitchen/station and remaining web labels are covered by `Tabtep-App/docs/TERMINOLOGY-STANDARD-PLAN.md`
+**Implementation:** final standard approved; cross-surface rollout not started. Current code still uses `Active`/`History` and `Not now` until Phases 2–4.
 **Supersedes:** earlier page-specific status wording
+**Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
 ## 1. Verdict
 
@@ -111,14 +112,37 @@ Derived from payment and kitchen state:
 - **Paid**
 - **Ready to clear**
 
+#### Table attention state
+
+- **TO SERVE** — food is ready and the table is waiting for service
+
+This is a table-level derived state, not an order status.
+
 #### Kitchen state
+
+Customer/counter order states:
 
 - **Pending**
 - **Confirmed**
 - **Preparing**
 - **Ready**
-- **Served**
+- **Served** (dine-in) / **Picked up** (takeaway)
 - **Cancelled**
+
+Station ticket states:
+
+- **QUEUED**
+- **PREPARING**
+- **READY**
+
+Station item states:
+
+- **QUEUED**
+- **PREPARING**
+- **DONE**
+
+`NEW` on the Station means an unread ticket only. It is not a ticket or item
+state.
 
 Example table card:
 
@@ -147,14 +171,22 @@ T1   UNPAID
 | Stay on the table | **Keep table** | — |
 | Add items | **Add order** | — |
 | Print again | **Reprint receipt** | — |
-| Dismiss a success pane | **Done** | Button only, never a list name |
+| Dismiss a success pane | **Done** | Button only; the Counter list also uses Done |
+| Start a kitchen item | **Start** | Station item action |
+| Finish a kitchen item | **Mark done** | Never a bare Done |
+| Finish a kitchen ticket | **Mark ready** | Station ticket action |
+| Dismiss a confirmation | **Cancel** | Never bare Cancel for an order |
+| Close an information sheet | **Close** | — |
+| Cancel an order | **Cancel order** | Destructive action |
 
 Avoid:
 
 - `Process Payment` for a recorded cash/card/E-Wallet payment.
 - `Payment successful` when the app only recorded an external payment.
 - `Close bill` unless a separate close step is introduced.
-- `Done` as a tab/list name.
+- `COOKING` or `TO COOK` on the Station; use **PREPARING** and **QUEUED**.
+- `Done` as a kitchen item action; use **Mark done**.
+- A bare `Cancel` for an order action; use **Cancel order**.
 
 ### 2.7 Filters and lists
 
@@ -182,10 +214,16 @@ Cancelled orders appear only in **All**, with a cancelled badge.
 
 #### Orders page
 
-Use:
+Counter:
 
 ```text
-[ Active ] [ History ]
+[ Ongoing ] [ Done ]
+```
+
+Web:
+
+```text
+[ Ongoing ] [ History ]
 ```
 
 Then:
@@ -200,19 +238,47 @@ for the active queue, and:
 [ All ] [ Paid ] [ Unpaid ] [ Cancelled ]
 ```
 
-for history.
+for the completed/history list.
 
 Rules:
 
-- `Active` replaces `Ongoing`.
-- `History` replaces `Done` as a list name.
-- If the list is current-business-day only, label it **History · Today** or
-  **Completed today**.
+- **Ongoing** means active work on both Counter and web.
+- **Done** means the current business day on the Counter. Add `Done · Today` if
+  the scope needs to be explicit.
+- **History** means all-time orders on the web.
+- Do not use **Completed** while Done and History are in use.
 - `In progress` is a group filter, not a status pill. Pills say Confirmed or
   Preparing.
-- `Done` remains a button label only.
+- **Done** as a button is reserved for dismissing a success pane.
 
-### 2.8 Totals
+### 2.8 Kitchen/Station vocabulary
+
+Use:
+
+```text
+Ticket state: QUEUED → PREPARING → READY
+Item state:   QUEUED → PREPARING → DONE
+NEW:          unread ticket only
+Filters:      All / Late / New
+Urgency:      ON TIME / DUE SOON / LATE
+Actions:      Start / Mark done / Mark ready / Recall / Reprint
+```
+
+Rules:
+
+- Station UI says **Ticket**; technical/docs say **kitchen ticket**.
+- Customer order remains **Order**.
+- `NEW` is unread only.
+- `QUEUED` means confirmed but not started.
+- `PREPARING` is used on Station too; do not use `COOKING`.
+- `READY` means the ticket is ready.
+- `DONE` means an item is finished.
+- Do not show raw `CONFIRMED`, `PREPARING` or `READY` in Station chips.
+- Table cards use **TO SERVE** when food is ready.
+- UI label for takeaway ID is **Pickup #**; code/API keeps `pickupNumber`.
+- Takeaway order type remains **Takeaway**; `PICKUP` is a parser alias only.
+
+### 2.9 Totals
 
 Use:
 
@@ -236,24 +302,23 @@ status.
 | T-02 | Payment status | `paymentLabel("PENDING")` returns `UNPAID` | Good, but no shared mapper for all screens | Centralize in `CounterFormat` | P0 |
 | T-03 | Payment method | Counter `E-wallet`, web `E-Wallet`, receipt `ewallet` | Three spellings | **E-Wallet** everywhere | P0 |
 | T-04 | Table card | `CONFIRM`, `READY`, `UNPAID` as status | Mixes table, bill and kitchen state | Separate table state + bill badge + kitchen summary | P0 |
-| T-05 | Orders tab | Counter `Ongoing`/`Done`; web `Active`/`History` | Two vocabularies | `Active` / `History` | P1 |
+| T-05 | Orders tab | Counter `Active`/`History`; web `Active`/`History` | Two vocabularies and wrong scope for `History` | Counter **Ongoing / Done**; web **Ongoing / History** | P1 |
 | T-06 | Orders sub-filter | `In progress` | Sounds like a status | Keep as group; pills show Confirmed/Preparing | P1 |
 | T-07 | Web status label | `Ready for Pickup` for every order | Wrong for dine-in | `Ready`; context in detail | P1 |
 | T-08 | Receipt | `Payment: ${receipt.paymentMethod}` | Prints raw `ewallet` | Use `paymentMethodLabel` | P1 |
 | T-09 | Payment action | `Pay` / `Record cash payment` / `Process Payment` | Three verbs | `Pay` -> `Record payment` -> `Payment recorded` | P1 |
 | T-10 | Bill totals | `Total unpaid` / `Already paid` | Conversational and inconsistent | `Unpaid` / `Paid` | P2 |
 | T-11 | E-Wallet button | `selectedLabel.lowercase()` | Produces `e-wallet` | Keep `E-Wallet` display | P2 |
-| T-12 | Dialog dismiss | `Cancel` near `Cancel order` | Ambiguous | `Close` or `Not now` for dismiss | P2 |
+| T-12 | Dialog dismiss | `Cancel`, `Not now`, `Close` | Inconsistent and ambiguous | **Cancel** for confirmations; **Close** for sheets; **Cancel order** for destructive | P2 |
 | T-13 | Docs | Bill described as only unpaid | Will be wrong after session bill | Update after Phase 2 | P1 |
 | T-14 | Table status PATCH | Can set `AVAILABLE` without closing session | Orphan session risk | Close session on status change | P0 |
 | T-15 | Status pills | `StatusPill`, `BillStatusPill`, `TakeawayPill` are three private copies with three tone models | Same visual language implemented three times | Extract one `CounterStatusPill` + `CounterStatusTone` | P0 |
 | T-16 | Takeaway bill | Shows raw `detail.status` and `Total due` / `Order total` | Friendly labels and money labels differ from table bill | Use shared status and payment label helpers | P1 |
 | T-17 | Bill filters | Table proposed `Open/Served/All`; takeaway uses `To pay/All open/Ready` | Different jobs, not necessarily a defect | Keep different filters; share the control and vocabulary rules | P2 |
 
-## 4. Deferred fix checklist
+## 4. Implementation checklist
 
-This is the checklist for the later terminology cleanup. Do not fold all of it
-into the bill UI change.
+P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`Cancel` alignment are still pending. See `Tabtep-App/docs/TERMINOLOGY-STANDARD-PLAN.md` for rollout phases.
 
 ### P0 — must be correct before the new bill ships
 
@@ -270,11 +335,11 @@ into the bill UI change.
 
 ### P1 — same release if low risk
 
-- [x] Rename Counter `Ongoing` to `Active`.
-- [x] Rename Counter `Done` list to `History` or `Completed`.
+- [ ] Switch Counter and web active order lists to `Ongoing` (current code uses `Active`).
+- [ ] Switch Counter completed list to `Done`; keep web `History` for all-time (current Counter uses `History`).
 - [x] Replace `Ready for Pickup` with contextual `Ready`.
 - [x] Change web `Process Payment` to `Record payment`.
-- [x] Update Counter empty-state copy that says `Done orders`.
+- [ ] Update Counter empty-state copy to `Done` terminology (current code says `History`).
 - [x] Update the takeaway bill to use shared status labels and the shared bill total labels.
 - [x] Update `COUNTER-APP-DISCOVERY.md` bill semantics after the API change.
 
@@ -283,10 +348,21 @@ into the bill UI change.
 - [x] Replace `Total unpaid` with `Unpaid`.
 - [x] Replace `Already paid` with `Paid`.
 - [x] Remove `.lowercase()` from the payment method action label.
-- [x] Rename dialog dismiss `Cancel` to `Close` where it can be confused with
-  order cancellation.
+- [ ] Use `Cancel` for confirmation dismiss; `Close` for information sheets (current Counter reports use `Not now`).
 - [x] Audit notification copy for the same status words.
 - [x] Audit reports/CSV/PDF labels.
+
+### P3 — cross-surface Station/Kitchen
+
+- [ ] Map Station ticket chips to `QUEUED` / `PREPARING` / `READY`.
+- [ ] Map Station item states to `QUEUED` / `PREPARING` / `DONE`.
+- [ ] Keep `NEW` for unread only.
+- [ ] Use `Start` / `Mark done` / `Mark ready`.
+- [ ] Use `ON TIME` / `DUE SOON` / `LATE`.
+- [ ] Use `Ticket` in Station UI; `Kitchen ticket` in docs.
+- [ ] Use `Pickup #` in UI; keep `pickupNumber` in code/API.
+- [ ] Use `TO SERVE` on table cards.
+- [ ] Add label tests for Station.
 
 ## 5. Code mapping
 
@@ -310,8 +386,20 @@ Add one shared label layer before changing screens.
 | `src/lib/order-utils.ts` | Contextual Ready label; shared status labels |
 | `src/lib/constants/payment.ts` | Already uses `E-Wallet`; reuse it |
 | `src/components/pos/PaymentInterface.tsx` | `Process Payment` -> `Record payment` |
-| `src/components/dashboard/OrdersOverview.tsx` | Keep `Active` / `History`; align filters |
+| `src/components/dashboard/OrdersOverview.tsx` | Use `Ongoing` / `History`; align filters |
 | `src/components/tables/TableDetailModal.tsx` | Align table/bill wording with Counter |
+
+### Station/Kitchen
+
+| File | Change |
+|---|---|
+| `app/.../domain/StationLabels.kt` | Add ticket-state and item-action mappings |
+| `app/.../ui/station/TicketCard.kt` | Map ticket chip; `Mark done` item action |
+| `app/.../ui/StationScreen.kt` | Align filters/empty states |
+| `app/.../ui/dialogs/ReadySheet.kt` | Keep `Ready`; align takeaway wording |
+| `app/.../ui/dialogs/AllDaySheet.kt` | Keep `All day`; use `PREPARING` where a state is shown |
+| `app/.../ui/dialogs/PrintQueueSheet.kt` | Keep print/retry wording |
+| `StationLabelsTest.kt` | Add ticket/item/action label tests |
 
 ### Rules
 
@@ -329,6 +417,14 @@ Add one shared label layer before changing screens.
   were renamed to `customer-session.ts` / `CustomerSessionRecord` in Phase 6.
 - UI term for the current sitting: **Bill**.
 - `DiningSession` is internal only; staff never see the word `session`.
+- Counter completed list: **Done** (current business day).
+- Web completed list: **History** (all-time).
+- Counter/web active list: **Ongoing**.
+- Station ticket: **QUEUED / PREPARING / READY**.
+- Station item: **QUEUED / PREPARING / DONE**.
+- Station unread badge: **NEW**.
+- Table food-ready state: **TO SERVE**.
+- Takeaway ID label: **Pickup #**; field `pickupNumber`.
 
 ## 7. Follow-up
 
