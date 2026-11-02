@@ -3,7 +3,7 @@
 **Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** Phase 2 web sweep complete. Web uses `Ongoing`/`History` and contextual status labels; Counter still uses `Active`/`History` and `Not now` until Phase 3.
+**Implementation:** Phase 3 Counter sweep complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done` with contextual takeaway labels. Station wiring remains Phase 4.
 **Supersedes:** earlier page-specific status wording
 **Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
@@ -302,14 +302,14 @@ status.
 | T-02 | Payment status | `paymentLabel("PENDING")` returns `UNPAID` | Good, but no shared mapper for all screens | Centralize in `CounterFormat` | P0 |
 | T-03 | Payment method | Counter `E-wallet`, web `E-Wallet`, receipt `ewallet` | Three spellings | **E-Wallet** everywhere | P0 |
 | T-04 | Table card | `CONFIRM`, `READY`, `UNPAID` as status | Mixes table, bill and kitchen state | Separate table state + bill badge + kitchen summary | P0 |
-| T-05 | Orders tab | Counter `Active`/`History`; web `Active`/`History` | Two vocabularies and wrong scope for `History` | Counter **Ongoing / Done**; web **Ongoing / History** | P1 |
+| T-05 | Orders tab | Counter `Ongoing`/`Done`; web `Ongoing`/`History` | Intentional scope difference | Keep; do not rename web `History` | Resolved |
 | T-06 | Orders sub-filter | `In progress` | Sounds like a status | Keep as group; pills show Confirmed/Preparing | P1 |
 | T-07 | Web status label | `Ready for Pickup` for every order | Wrong for dine-in | `Ready`; context in detail | P1 |
 | T-08 | Receipt | `Payment: ${receipt.paymentMethod}` | Prints raw `ewallet` | Use `paymentMethodLabel` | P1 |
 | T-09 | Payment action | `Pay` / `Record cash payment` / `Process Payment` | Three verbs | `Pay` -> `Record payment` -> `Payment recorded` | P1 |
 | T-10 | Bill totals | `Total unpaid` / `Already paid` | Conversational and inconsistent | `Unpaid` / `Paid` | P2 |
 | T-11 | E-Wallet button | `selectedLabel.lowercase()` | Produces `e-wallet` | Keep `E-Wallet` display | P2 |
-| T-12 | Dialog dismiss | `Cancel`, `Not now`, `Close` | Inconsistent and ambiguous | **Cancel** for confirmations; **Close** for sheets; **Cancel order** for destructive | P2 |
+| T-12 | Dialog dismiss | `Cancel` and `Close` | Roles are clear | Keep **Cancel** for confirmations; **Close** for sheets; **Cancel order** for destructive | Resolved |
 | T-13 | Docs | Bill described as only unpaid | Will be wrong after session bill | Update after Phase 2 | P1 |
 | T-14 | Table status PATCH | Can set `AVAILABLE` without closing session | Orphan session risk | Close session on status change | P0 |
 | T-15 | Status pills | `StatusPill`, `BillStatusPill`, `TakeawayPill` are three private copies with three tone models | Same visual language implemented three times | Extract one `CounterStatusPill` + `CounterStatusTone` | P0 |
@@ -336,12 +336,12 @@ P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`C
 ### P1 — same release if low risk
 
 - [x] Switch web active order list to `Ongoing`; keep `History` all-time.
-- [ ] Switch Counter active order list to `Ongoing` (Phase 3).
-- [ ] Switch Counter completed list to `Done` (Phase 3).
+- [x] Switch Counter active order list to `Ongoing`.
+- [x] Switch Counter completed list to `Done`.
 - [x] Replace `Ready for Pickup` with contextual `Ready`.
 - [x] Change web `Process Payment` to `Record payment`.
 - [x] Update web receipt payment label and web daily report labels.
-- [ ] Update Counter empty-state copy to `Done` terminology (current code says `History`).
+- [x] Update Counter empty-state copy to `Done` terminology.
 - [x] Update the takeaway bill to use shared status labels and the shared bill total labels.
 - [x] Update `COUNTER-APP-DISCOVERY.md` bill semantics after the API change.
 
@@ -350,7 +350,7 @@ P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`C
 - [x] Replace `Total unpaid` with `Unpaid`.
 - [x] Replace `Already paid` with `Paid`.
 - [x] Remove `.lowercase()` from the payment method action label.
-- [ ] Use `Cancel` for confirmation dismiss; `Close` for information sheets (current Counter reports use `Not now`).
+- [x] Use `Cancel` for confirmation dismiss; `Close` for information sheets.
 - [x] Audit notification copy for the same status words.
 - [x] Audit reports/CSV/PDF labels.
 
