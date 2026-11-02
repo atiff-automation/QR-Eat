@@ -12,6 +12,7 @@ import {
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import { recordOrderStatusChanged } from '@/lib/order-events';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 import { OrderStatus } from '@prisma/client';
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import {
@@ -408,6 +409,12 @@ export async function PATCH(
         error
       );
     }
+
+    await recordRestaurantChange({
+      restaurantId: currentOrder.restaurantId,
+      entityType: 'order',
+      entityId: orderId,
+    });
 
     return NextResponse.json({
       success: true,

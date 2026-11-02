@@ -301,6 +301,7 @@ model Restaurant {
   devices      Device[]
   orderEvents  OrderEvent[]
   orderRecalls StationOrderRecall[]
+  restaurantChanges RestaurantChange[]
 
   @@index([ownerId])
   @@index([slug])
@@ -1470,6 +1471,22 @@ model StationCategory {
   @@unique([stationId, categoryId])
   @@index([categoryId])
   @@map("station_categories")
+}
+
+/// Append-only change feed for Counter cache/sync consumers.
+/// One row per changed entity; consumers advance a cursor by `id`.
+model RestaurantChange {
+  id           BigInt   @id @default(autoincrement())
+  restaurantId String
+  entityType   String // order | payment | table | menu | settings
+  entityId     String
+  operation    String @default("upsert") // upsert | delete
+  createdAt    DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId, id])
+  @@map("restaurant_changes")
 }
 
 /// Append-only station event log.

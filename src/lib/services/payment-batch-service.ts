@@ -19,6 +19,7 @@ import {
   PAYMENT_STATUS,
 } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 
 export type CounterPaymentMethod = 'cash' | 'card' | 'ewallet';
 
@@ -479,6 +480,14 @@ export async function processTablePaymentBatch(
     { maxWait: 5000, timeout: 15000 }
   );
 
+  await recordRestaurantChange({
+    restaurantId: input.restaurantId,
+    entityType: 'payment',
+    entityId:
+      (result.response.paymentBatchId as string | undefined) ??
+      input.idempotencyKey,
+  });
+
   return result;
 }
 
@@ -778,6 +787,14 @@ export async function processOrderPaymentBatch(
     },
     { maxWait: 5000, timeout: 15000 }
   );
+
+  await recordRestaurantChange({
+    restaurantId: input.restaurantId,
+    entityType: 'payment',
+    entityId:
+      (result.response.paymentBatchId as string | undefined) ??
+      input.idempotencyKey,
+  });
 
   return result;
 }

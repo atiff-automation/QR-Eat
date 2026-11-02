@@ -30,6 +30,7 @@ import {
   getTableUnavailableMessage,
 } from '@/lib/table-utils';
 import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 
 // ============================================================================
 // Validation Schema
@@ -307,6 +308,12 @@ export async function POST(request: NextRequest) {
       // ensureOpenDiningSession owns the table occupancy transition.
 
       return created;
+    });
+
+    await recordRestaurantChange({
+      restaurantId: table.restaurant.id,
+      entityType: 'order',
+      entityId: order.id,
     });
 
     if (previousTableStatus !== 'OCCUPIED') {

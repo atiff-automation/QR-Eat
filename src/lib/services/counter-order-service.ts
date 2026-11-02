@@ -17,6 +17,7 @@ import {
 } from '@/lib/services/order-dispatch-service';
 
 import { COUNTER_SESSION_USER_AGENT } from '@/lib/counter/constants';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 
 export const CounterOrderItemSchema = z.object({
   menuItemId: z.string().uuid('Invalid menu item'),
@@ -868,6 +869,12 @@ export async function createCounterOrder(
   } else {
     warning = 'Order saved as pending.';
   }
+
+  await recordRestaurantChange({
+    restaurantId: priced.restaurant.id,
+    entityType: 'order',
+    entityId: order.id,
+  });
 
   return {
     order: orderResponse(order),

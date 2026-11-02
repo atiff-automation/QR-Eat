@@ -9,6 +9,7 @@ import {
 import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 
 export class OrderDispatchError extends Error {
   constructor(
@@ -271,6 +272,12 @@ export async function confirmPendingOrder(
       error
     );
   }
+
+  await recordRestaurantChange({
+    restaurantId: currentOrder.restaurantId,
+    entityType: 'order',
+    entityId: input.orderId,
+  });
 
   return {
     order: updatedOrder as ConfirmedOrder,
