@@ -3,7 +3,7 @@
 **Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** Phase 5 receipts/reports/notifications/docs complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done`; Station uses `QUEUED`/`PREPARING`/`READY` tickets and `QUEUED`/`PREPARING`/`DONE` items.
+**Implementation:** Phases 1–6 complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done`; Station uses `QUEUED`/`PREPARING`/`READY` tickets and `QUEUED`/`PREPARING`/`DONE` items. See the evidence in `Tabtep-App/docs/evidence/2026-11-02-terminology-rollout-verification.md`.
 **Supersedes:** earlier page-specific status wording
 **Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
@@ -363,8 +363,8 @@ P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`C
 - [x] Use `ON TIME` / `DUE SOON` / `LATE`.
 - [x] Use `Ticket` in Station UI; `Kitchen ticket` in docs.
 - [x] Keep `Takeaway` wording on Station; `PICKUP` parser alias only.
-- [ ] Use `Pickup #` in takeaway UI; keep `pickupNumber` in code/API.
-- [ ] Use `TO SERVE` on table cards.
+- [ ] Use `Pickup #` in takeaway UI; keep `pickupNumber` in code/API. **Deferred:** current UI uses `TAKEAWAY #`.
+- [ ] Use `TO SERVE` on table cards. **Deferred:** current table cards show active order counts; requires a ready-count API field.
 - [x] Add label tests for Station.
 
 ### P4 — receipts/reports/notifications/docs
