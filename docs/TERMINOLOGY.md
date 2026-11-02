@@ -1,9 +1,10 @@
 # Terminology standard and inconsistency audit
 
-**Status:** proposed · 2026-11-01
+**Status:** active · 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter Android, receipts, reports, notifications, docs
 **Purpose:** keep the table-bill work from adding a fourth set of user-facing words
 **Implementation:** applied through Phase 6; no Phase 7 planned
+**Supersedes:** earlier page-specific status wording
 
 ## 1. Verdict
 
@@ -324,8 +325,8 @@ Add one shared label layer before changing screens.
 ## 6. Related decisions
 
 - Technical model name for Option B: **`DiningSession`**, not `TableSession`.
-  `src/lib/table-session.ts` already defines a `TableSession` interface for
-  customer cart sessions. Renaming that legacy file is a separate cleanup.
+- The legacy `src/lib/table-session.ts` file and its `TableSession` interface
+  were renamed to `customer-session.ts` / `CustomerSessionRecord` in Phase 6.
 - UI term for the current sitting: **Bill**.
 - `DiningSession` is internal only; staff never see the word `session`.
 
@@ -338,5 +339,7 @@ for the bill itself is in:
 Tabtep-App/docs/COUNTER-BILL-SESSION-PLAN.md
 ```
 
-The terminology sweep is a later phase. The bill UI must use the P0 labels from
-this document from its first release.
+The terminology sweep was completed in Phase 6. This document is now the
+active standard for new Counter, web, receipt, report and documentation work.
+Existing code that still differs should be treated as a bug unless this document
+is explicitly updated.
