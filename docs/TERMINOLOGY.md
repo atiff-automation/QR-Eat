@@ -3,7 +3,7 @@
 **Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** Phase 3 Counter sweep complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done` with contextual takeaway labels. Station wiring remains Phase 4.
+**Implementation:** Phase 4 Station sweep complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done`; Station uses `QUEUED`/`PREPARING`/`READY` tickets and `QUEUED`/`PREPARING`/`DONE` items.
 **Supersedes:** earlier page-specific status wording
 **Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
@@ -356,15 +356,16 @@ P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`C
 
 ### P3 — cross-surface Station/Kitchen
 
-- [ ] Map Station ticket chips to `QUEUED` / `PREPARING` / `READY`.
-- [ ] Map Station item states to `QUEUED` / `PREPARING` / `DONE`.
-- [ ] Keep `NEW` for unread only.
-- [ ] Use `Start` / `Mark done` / `Mark ready`.
-- [ ] Use `ON TIME` / `DUE SOON` / `LATE`.
-- [ ] Use `Ticket` in Station UI; `Kitchen ticket` in docs.
-- [ ] Use `Pickup #` in UI; keep `pickupNumber` in code/API.
+- [x] Map Station ticket chips to `QUEUED` / `PREPARING` / `READY`.
+- [x] Map Station item states to `QUEUED` / `PREPARING` / `DONE`.
+- [x] Keep `NEW` for unread only.
+- [x] Use `Start` / `Mark done` / `Mark ready`.
+- [x] Use `ON TIME` / `DUE SOON` / `LATE`.
+- [x] Use `Ticket` in Station UI; `Kitchen ticket` in docs.
+- [x] Keep `Takeaway` wording on Station; `PICKUP` parser alias only.
+- [ ] Use `Pickup #` in takeaway UI; keep `pickupNumber` in code/API.
 - [ ] Use `TO SERVE` on table cards.
-- [ ] Add label tests for Station.
+- [x] Add label tests for Station.
 
 ## 5. Code mapping
 
