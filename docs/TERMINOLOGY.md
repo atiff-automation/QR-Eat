@@ -3,7 +3,7 @@
 **Status:** final · approved 2026-11-02
 **Scope:** QR-Eat server/web, Tabtep Counter, Tabtep Station/Kitchen, receipts, reports, notifications, docs
 **Purpose:** one user-facing vocabulary across web, Counter, kitchen/station, receipts, reports and docs
-**Implementation:** Phase 4 Station sweep complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done`; Station uses `QUEUED`/`PREPARING`/`READY` tickets and `QUEUED`/`PREPARING`/`DONE` items.
+**Implementation:** Phase 5 receipts/reports/notifications/docs complete. Web uses `Ongoing`/`History`; Counter uses `Ongoing`/`Done`; Station uses `QUEUED`/`PREPARING`/`READY` tickets and `QUEUED`/`PREPARING`/`DONE` items.
 **Supersedes:** earlier page-specific status wording
 **Rule:** the approved decisions in this document and the cross-surface plan override any conflicting historical recommendation in the audit tables.
 
@@ -310,7 +310,7 @@ status.
 | T-10 | Bill totals | `Total unpaid` / `Already paid` | Conversational and inconsistent | `Unpaid` / `Paid` | P2 |
 | T-11 | E-Wallet button | `selectedLabel.lowercase()` | Produces `e-wallet` | Keep `E-Wallet` display | P2 |
 | T-12 | Dialog dismiss | `Cancel` and `Close` | Roles are clear | Keep **Cancel** for confirmations; **Close** for sheets; **Cancel order** for destructive | Resolved |
-| T-13 | Docs | Bill described as only unpaid | Will be wrong after session bill | Update after Phase 2 | P1 |
+| T-13 | Docs | Historical docs now carry a session-bill update note | Stale unpaid-only wording is clearly marked as historical | See `COUNTER-APP-DISCOVERY.md`, `COUNTER-BILL-SESSION-PLAN.md`, split plan/discovery, D62 | Resolved |
 | T-14 | Table status PATCH | Can set `AVAILABLE` without closing session | Orphan session risk | Close session on status change | P0 |
 | T-15 | Status pills | `StatusPill`, `BillStatusPill`, `TakeawayPill` are three private copies with three tone models | Same visual language implemented three times | Extract one `CounterStatusPill` + `CounterStatusTone` | P0 |
 | T-16 | Takeaway bill | Shows raw `detail.status` and `Total due` / `Order total` | Friendly labels and money labels differ from table bill | Use shared status and payment label helpers | P1 |
@@ -366,6 +366,16 @@ P0–P2 record the completed Phase 6 sweep. P3 and the final `Ongoing`/`Done`/`C
 - [ ] Use `Pickup #` in takeaway UI; keep `pickupNumber` in code/API.
 - [ ] Use `TO SERVE` on table cards.
 - [x] Add label tests for Station.
+
+### P4 — receipts/reports/notifications/docs
+
+- [x] Web receipt shows `Payment:` and maps methods to `E-Wallet`.
+- [x] Counter receipt shows `Payment:` and maps methods to `E-Wallet`.
+- [x] Web daily report and Counter reports use shared labels.
+- [x] Ready notifications use pickup wording for takeaway and serve wording for dine-in.
+- [x] Kitchen dispatch notification says `sent to kitchen`.
+- [x] Historical bill docs carry a current session-bill note.
+- [x] `TERMINOLOGY.md`, the cross-surface plan and D62 reflect the shipped session bill.
 
 ## 5. Code mapping
 

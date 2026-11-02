@@ -257,7 +257,7 @@ export async function confirmPendingOrder(
     type: 'new_order',
     orderId: input.orderId,
     restaurantId: currentOrder.restaurantId,
-    message: `New order ${currentOrder.orderNumber} ready for kitchen`,
+    message: `New order ${currentOrder.orderNumber} sent to kitchen`,
     timestamp: Date.now(),
   });
 

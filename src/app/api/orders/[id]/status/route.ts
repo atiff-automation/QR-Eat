@@ -385,11 +385,15 @@ export async function PATCH(
     // Send the ready notification; confirmation notifications are owned by
     // the shared dispatch service.
     if (status === ORDER_STATUS.READY) {
+      const readyMessage =
+        currentOrder.orderType === 'TAKEAWAY'
+          ? `Order ${currentOrder.orderNumber} is ready for pickup`
+          : `Order ${currentOrder.orderNumber} is ready to serve`;
       await PostgresEventManager.publishRestaurantNotification({
         type: 'order_ready',
         orderId,
         restaurantId: currentOrder.restaurantId,
-        message: `Order ${currentOrder.orderNumber} is ready for pickup`,
+        message: readyMessage,
         timestamp: Date.now(),
       });
     }

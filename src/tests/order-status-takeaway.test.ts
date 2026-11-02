@@ -85,6 +85,44 @@ describe('takeaway order status', () => {
     );
   });
 
+  it('uses pickup wording for a ready takeaway notification', async () => {
+    const preparingOrder = { ...currentOrder, status: 'PREPARING' };
+    const readyOrder = {
+      ...currentOrder,
+      status: 'READY',
+      version: 2,
+      readyAt: new Date(),
+    };
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue(preparingOrder);
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (callback: (tx: unknown) => unknown) =>
+        callback({
+          order: {
+            updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+            findUnique: jest.fn().mockResolvedValue(readyOrder),
+          },
+        })
+    );
+
+    const response = await updateOrderStatus(
+      new NextRequest('http://localhost/api/orders/order-takeaway-1/status', {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status: 'READY' }),
+      }),
+      { params: Promise.resolve({ id: 'order-takeaway-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      PostgresEventManager.publishRestaurantNotification
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'Order ORD-TAKEAWAY-1 is ready for pickup',
+      })
+    );
+  });
+
   it('serves a takeaway order without updating a table', async () => {
     const response = await updateOrderStatus(
       new NextRequest('http://localhost/api/orders/order-takeaway-1/status', {

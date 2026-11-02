@@ -133,7 +133,13 @@ describe('confirmPendingOrder', () => {
     );
     expect(prisma.auditLog.create).toHaveBeenCalled();
     expect(PostgresEventManager.publishOrderStatusChange).toHaveBeenCalled();
-    expect(PostgresEventManager.publishKitchenNotification).toHaveBeenCalled();
+    expect(
+      PostgresEventManager.publishKitchenNotification
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        message: 'New order ORD-1 sent to kitchen',
+      })
+    );
     expect(autoUpdateTableStatus).toHaveBeenCalledWith('table-1');
   });
 
