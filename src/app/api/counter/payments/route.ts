@@ -25,6 +25,7 @@ const CounterPaymentSchema = z.object({
   cashReceived: z.number().positive().optional(),
   externalTransactionId: z.string().optional(),
   notes: z.string().optional(),
+  recordedOffline: z.boolean().optional(),
 });
 
 /**
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
       cashReceived: data.cashReceived,
       externalTransactionId: data.externalTransactionId,
       notes: data.notes,
+      recordedOffline: data.recordedOffline,
       orderIds: data.orderIds,
     });
 

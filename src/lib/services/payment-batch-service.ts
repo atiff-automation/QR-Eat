@@ -33,6 +33,7 @@ export interface ProcessTablePaymentInput {
   cashReceived?: number;
   externalTransactionId?: string;
   notes?: string;
+  recordedOffline?: boolean;
   /** Optional: must match the full unpaid/confirmed set if supplied. */
   orderIds?: string[];
 }
@@ -47,6 +48,7 @@ export interface ProcessOrderPaymentInput {
   cashReceived?: number;
   externalTransactionId?: string;
   notes?: string;
+  recordedOffline?: boolean;
 }
 
 export class PaymentServiceError extends Error {
@@ -74,6 +76,7 @@ export function buildPaymentRequestHash(
     cashReceived: input.cashReceived ?? null,
     externalTransactionId: input.externalTransactionId ?? null,
     notes: input.notes ?? null,
+    recordedOffline: input.recordedOffline === true,
     orderIds: input.orderIds ? [...input.orderIds].sort() : null,
   };
 
@@ -89,6 +92,7 @@ export function buildOrderPaymentRequestHash(
     cashReceived: input.cashReceived ?? null,
     externalTransactionId: input.externalTransactionId ?? null,
     notes: input.notes ?? null,
+    recordedOffline: input.recordedOffline === true,
   };
 
   return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
@@ -358,6 +362,7 @@ export async function processTablePaymentBatch(
               orderIndex: index + 1,
               totalOrders: orders.length,
               notes: input.notes,
+              recordedOffline: input.recordedOffline === true,
               idempotencyKey: input.idempotencyKey,
             },
             processedAt: new Date(),
@@ -453,6 +458,7 @@ export async function processTablePaymentBatch(
         ordersProcessed: orders.length,
         totalPaid: totalAmount.toString(),
         changeGiven: changeGiven?.toString() || '0',
+        recordedOffline: input.recordedOffline === true,
         payment: combinedPayment,
         payments: payments.map((payment) => ({
           id: payment.id,
@@ -695,6 +701,7 @@ export async function processOrderPaymentBatch(
             orderNumber: order.orderNumber,
             pickupNumber: formatPickupNumber(order.dailySeq),
             notes: input.notes,
+            recordedOffline: input.recordedOffline === true,
             idempotencyKey: input.idempotencyKey,
           },
           processedAt: new Date(),
@@ -735,6 +742,7 @@ export async function processOrderPaymentBatch(
         ordersProcessed: 1,
         totalPaid: totalAmount.toString(),
         changeGiven: changeGiven?.toString() || '0',
+        recordedOffline: input.recordedOffline === true,
         payment: {
           ...payment,
           order: {

@@ -44,14 +44,43 @@ export async function POST(
       );
     }
 
+    const body = (await request.json().catch(() => ({}))) as {
+      expectedSessionId?: unknown;
+    };
+    const expectedSessionId =
+      typeof body.expectedSessionId === 'string' &&
+      body.expectedSessionId.length > 0
+        ? body.expectedSessionId
+        : null;
+
     const table = await prisma.table.findUnique({
       where: { id: tableId },
-      select: { id: true, tableNumber: true, restaurantId: true, status: true },
+      select: {
+        id: true,
+        tableNumber: true,
+        restaurantId: true,
+        status: true,
+        activeDiningSessionId: true,
+      },
     });
     if (!table) {
       return NextResponse.json(
         { success: false, error: 'Table not found' },
         { status: 404 }
+      );
+    }
+
+    if (
+      expectedSessionId &&
+      table.activeDiningSessionId !== expectedSessionId
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'The table changed while this clear was queued.',
+          code: 'TABLE_CHANGED',
+        },
+        { status: 409 }
       );
     }
 
