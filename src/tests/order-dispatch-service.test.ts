@@ -125,7 +125,9 @@ describe('confirmPendingOrder', () => {
       stationIds: ['station-1'],
       ticketStatus: 'QUEUED',
     });
-    expect(recordOrderCreated).toHaveBeenCalledWith('order-1');
+    expect(recordOrderCreated).toHaveBeenCalledWith('order-1', {
+      paperChitPrinted: false,
+    });
     expect(recordOrderStatusChanged).toHaveBeenCalledWith(
       'order-1',
       'PENDING',

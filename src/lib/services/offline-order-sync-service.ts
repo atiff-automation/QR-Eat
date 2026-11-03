@@ -54,6 +54,7 @@ export const OfflineOrderInputSchema = z
       .object({
         printedAtDevice: z.string().optional().nullable(),
         deliveredViaLan: z.boolean().optional(),
+        paperChitPrinted: z.boolean().optional(),
       })
       .optional()
       .nullable(),
@@ -201,6 +202,7 @@ export async function syncOfflineOrder(
     offlineDelivered: true,
     offlineDeviceId: input.deviceId ?? undefined,
     offlineCreatedAt: parseDeviceDate(input.createdAtDevice),
+    paperChitPrinted: input.kitchen?.paperChitPrinted === true,
     ipAddress: null,
   });
 

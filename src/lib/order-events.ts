@@ -34,6 +34,7 @@ export interface StationOrderItem {
 export interface OrderCreatedPayload {
   orderNumber: string;
   clientOrderId?: string | null;
+  paperChitPrinted?: boolean;
   tableName: string;
   orderType: string;
   pickupNumber: string | null;
@@ -195,7 +196,8 @@ export async function resolveRouting(restaurantId: string): Promise<Routing> {
  * matters because a retried request must not print a second ticket.
  */
 export async function recordOrderCreated(
-  orderId: string
+  orderId: string,
+  options: { paperChitPrinted?: boolean } = {}
 ): Promise<OrderCreatedResult> {
   const order = await prisma.order.findUnique({
     where: { id: orderId },
@@ -294,6 +296,7 @@ export async function recordOrderCreated(
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
       clientOrderId: order.clientOrderId,
+      paperChitPrinted: options.paperChitPrinted === true,
       tableName: orderLabel(order),
       ...orderFulfillment(order),
       orderNote: order.specialInstructions,

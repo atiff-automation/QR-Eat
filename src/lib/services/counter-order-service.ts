@@ -596,6 +596,7 @@ export async function createCounterOrder(
     offlineDelivered?: boolean;
     offlineDeviceId?: string;
     offlineCreatedAt?: Date;
+    paperChitPrinted?: boolean;
     ipAddress?: string | null;
   } = {}
 ): Promise<CounterOrderResult> {
@@ -861,6 +862,7 @@ export async function createCounterOrder(
         actor,
         overrideStation: options.overrideStation,
         offlineDelivered: options.offlineDelivered,
+        paperChitPrinted: options.paperChitPrinted,
         estimatedReadyTime: priced.estimatedReadyTime.toISOString(),
         ipAddress: options.ipAddress,
       });

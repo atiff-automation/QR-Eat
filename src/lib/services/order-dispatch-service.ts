@@ -33,6 +33,7 @@ export interface ConfirmOrderInput {
   actor: DispatchActor;
   overrideStation?: boolean;
   offlineDelivered?: boolean;
+  paperChitPrinted?: boolean;
   estimatedReadyTime?: string | null;
   ipAddress?: string | null;
   stationOverride?: boolean;
@@ -211,7 +212,9 @@ export async function confirmPendingOrder(
   let ticketError: string | null = null;
 
   try {
-    ticketResult = await recordOrderCreated(input.orderId);
+    ticketResult = await recordOrderCreated(input.orderId, {
+      paperChitPrinted: input.paperChitPrinted === true,
+    });
   } catch (error) {
     ticketError = error instanceof Error ? error.message : 'Ticket failed';
     console.error(
