@@ -130,6 +130,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       serverTime: new Date().toISOString(),
+      restaurant: { id: restaurant.id, name: restaurant.name },
       station: { id: station.id, name: station.name },
       categories: categories.map((row) => row.category),
       cursor: snapshot.cursor,
