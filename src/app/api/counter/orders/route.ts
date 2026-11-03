@@ -196,6 +196,7 @@ export async function GET(request: NextRequest) {
         source: true,
         totalAmount: true,
         createdAt: true,
+        offlineCreatedAt: true,
         readyAt: true,
         orderRecalls: ACTIVE_RECALL_SELECT,
         table: { select: { tableNumber: true, tableName: true } },
@@ -220,7 +221,9 @@ export async function GET(request: NextRequest) {
       orders: orders.map((order) => {
         const ticket = aggregateTicketStatus(order.orderEvents);
         const ageFrom =
-          scope === 'ready' && order.readyAt ? order.readyAt : order.createdAt;
+          scope === 'ready' && order.readyAt
+            ? order.readyAt
+            : (order.offlineCreatedAt ?? order.createdAt);
         return {
           id: order.id,
           orderNumber: order.orderNumber,
@@ -238,6 +241,7 @@ export async function GET(request: NextRequest) {
           totalAmount: order.totalAmount.toString(),
           itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
           createdAt: order.createdAt.toISOString(),
+          offlineCreatedAt: order.offlineCreatedAt?.toISOString() ?? null,
           readyAt: order.readyAt?.toISOString() ?? null,
           ...recallFields(order.orderRecalls),
           ageSeconds: Math.max(0, Math.floor((now - ageFrom.getTime()) / 1000)),

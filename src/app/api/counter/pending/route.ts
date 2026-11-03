@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
         source: true,
         totalAmount: true,
         createdAt: true,
+        offlineCreatedAt: true,
         takenByStaff: {
           select: {
             firstName: true,
@@ -115,9 +116,12 @@ export async function GET(request: NextRequest) {
         totalAmount: order.totalAmount.toString(),
         itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
         createdAt: order.createdAt.toISOString(),
+        offlineCreatedAt: order.offlineCreatedAt?.toISOString() ?? null,
         ageSeconds: Math.max(
           0,
-          Math.floor((now - order.createdAt.getTime()) / 1000)
+          Math.floor(
+            (now - (order.offlineCreatedAt ?? order.createdAt).getTime()) / 1000
+          )
         ),
       })),
       nextCursor: hasMore ? page[page.length - 1]?.id || null : null,

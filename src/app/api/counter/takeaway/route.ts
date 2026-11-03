@@ -70,6 +70,7 @@ export async function GET(request: NextRequest) {
         source: true,
         totalAmount: true,
         createdAt: true,
+        offlineCreatedAt: true,
         readyAt: true,
         orderRecalls: ACTIVE_RECALL_SELECT,
         items: {
@@ -122,11 +123,14 @@ export async function GET(request: NextRequest) {
         itemNames,
         payable,
         createdAt: order.createdAt.toISOString(),
+        offlineCreatedAt: order.offlineCreatedAt?.toISOString() ?? null,
         readyAt: order.readyAt?.toISOString() ?? null,
         ...recallFields(order.orderRecalls),
         ageSeconds: Math.max(
           0,
-          Math.floor((now - order.createdAt.getTime()) / 1000)
+          Math.floor(
+            (now - (order.offlineCreatedAt ?? order.createdAt).getTime()) / 1000
+          )
         ),
         ticketStatus: ticket.aggregate,
         ticketPrintedAt: ticket.printedAt?.toISOString() ?? null,
