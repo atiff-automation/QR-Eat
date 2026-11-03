@@ -33,6 +33,7 @@ export interface StationOrderItem {
 
 export interface OrderCreatedPayload {
   orderNumber: string;
+  clientOrderId?: string | null;
   tableName: string;
   orderType: string;
   pickupNumber: string | null;
@@ -292,6 +293,7 @@ export async function recordOrderCreated(
   const rows = [...grouped.entries()].map(([stationId, entry]) => {
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
+      clientOrderId: order.clientOrderId,
       tableName: orderLabel(order),
       ...orderFulfillment(order),
       orderNote: order.specialInstructions,
