@@ -423,6 +423,7 @@ export function isPublicApiRoute(pathname: string): boolean {
     '/api/stations/me/print-ack',
     // Scheduled jobs authenticate with CRON_SECRET, not a staff session.
     '/api/cron/',
+    '/api/jobs/cleanup-tables',
     // NOTE: /api/events/ is NOT here - it authenticates via cookie or Bearer token
   ];
 

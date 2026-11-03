@@ -12,6 +12,7 @@
 import { prisma } from '@/lib/database';
 import { shouldTableBeAvailable } from '@/lib/table-status-manager';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { closeDiningSession } from '@/lib/dining-session';
 
 /**
  * Result of a table status cleanup operation
@@ -78,13 +79,11 @@ export async function cleanupTableStatuses(): Promise<CleanupResult> {
         // A table with an open dining session is cleared by staff. Never let
         // the daily repair job bypass the explicit bill close.
         if (shouldBeAvailable && !table.activeDiningSessionId) {
-          // Table is an orphan (no session and no active orders) - fix it
-          await prisma.table.update({
-            where: { id: table.id },
-            data: {
-              status: 'AVAILABLE',
-              updatedAt: new Date(),
-            },
+          // Table is an orphan (no linked session and no active orders).
+          // closeDiningSession also finds and closes an OPEN session that is
+          // no longer referenced by activeDiningSessionId.
+          await prisma.$transaction(async (tx) => {
+            await closeDiningSession(tx, table.id);
           });
 
           console.log(

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cleanupOrderEvents } from '@/lib/order-events';
 import { cleanupRestaurantChanges } from '@/lib/restaurant-changes';
+import { runDailyCleanup } from '@/lib/jobs/cleanup-table-status';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,15 +39,23 @@ export async function GET(request: NextRequest) {
     const deletedOrderEvents = await cleanupOrderEvents(RETENTION_DAYS);
     const deletedRestaurantChanges =
       await cleanupRestaurantChanges(RETENTION_DAYS);
+    const tableCleanup = await runDailyCleanup();
     console.log(
       `[event-retention] deleted ${deletedOrderEvents} order_events and ` +
         `${deletedRestaurantChanges} restaurant_changes older than ` +
-        `${RETENTION_DAYS} days`
+        `${RETENTION_DAYS} days; fixed ${tableCleanup.tableCleanup.tablesFixed} ` +
+        `tables and ended ${tableCleanup.expiredSessions} sessions`
     );
     return NextResponse.json({
       deleted: deletedOrderEvents,
       deletedOrderEvents,
       deletedRestaurantChanges,
+      tableCleanup: {
+        checked: tableCleanup.tableCleanup.totalTablesChecked,
+        fixed: tableCleanup.tableCleanup.tablesFixed,
+        errors: tableCleanup.tableCleanup.errors.length,
+      },
+      expiredSessions: tableCleanup.expiredSessions,
       retentionDays: RETENTION_DAYS,
     });
   } catch (error) {
