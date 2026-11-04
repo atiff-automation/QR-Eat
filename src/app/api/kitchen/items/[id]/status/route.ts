@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 import { kitchenActorAudit, resolveKitchenActor } from '@/lib/kitchen-actor';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
@@ -147,6 +148,12 @@ export async function PATCH(
           },
         },
       },
+    });
+
+    await recordRestaurantChange({
+      restaurantId: orderItem.order.restaurantId,
+      entityType: 'order',
+      entityId: orderItem.order.id,
     });
 
     // Station event log: item-level progress for the kitchen display. A

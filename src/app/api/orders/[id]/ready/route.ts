@@ -9,6 +9,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { recordRestaurantChange } from '@/lib/restaurant-changes';
 import { kitchenActorAudit, resolveKitchenActor } from '@/lib/kitchen-actor';
 import {
   clearRecallIfStationReady,
@@ -217,6 +218,12 @@ export async function POST(
         select: { id: true, status: true },
       });
       return { order: fresh, items };
+    });
+
+    await recordRestaurantChange({
+      restaurantId: order.restaurantId,
+      entityType: 'order',
+      entityId: order.id,
     });
 
     // The mutation is committed. Event failures are loud but must not make the
