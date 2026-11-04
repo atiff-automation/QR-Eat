@@ -6,6 +6,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
+import { resolveRouting } from '@/lib/order-events';
 
 /**
  * GET /api/counter/menu
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const [restaurant, categories] = await Promise.all([
+    const [restaurant, categories, routing] = await Promise.all([
       prisma.restaurant.findUnique({
         where: { id: restaurantId },
         select: {
@@ -65,6 +66,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { displayOrder: 'asc' },
       }),
+      resolveRouting(restaurantId),
     ]);
 
     if (!restaurant) {
@@ -101,8 +103,14 @@ export async function GET(request: NextRequest) {
             name: category.name,
             description: category.description,
             displayOrder: category.displayOrder,
+            stationIds: [
+              routing.byCategory.get(category.id) ?? routing.defaultStationId,
+            ].filter((stationId): stationId is string => Boolean(stationId)),
             items: category.menuItems.map((item) => ({
               id: item.id,
+              stationIds: [
+                routing.byCategory.get(category.id) ?? routing.defaultStationId,
+              ].filter((stationId): stationId is string => Boolean(stationId)),
               name: item.name,
               description: item.description,
               price: item.price.toString(),
