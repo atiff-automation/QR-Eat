@@ -96,6 +96,7 @@ export async function GET(request: NextRequest) {
       return [
         {
           orderId: order.id,
+          clientOrderId: order.clientOrderId,
           orderNumber: order.orderNumber,
           tableName: fulfillment.fulfillmentLabel,
           ...fulfillment,
