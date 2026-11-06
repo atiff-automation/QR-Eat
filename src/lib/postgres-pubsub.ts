@@ -117,6 +117,7 @@ export interface TableStatusChangedEvent {
 class PostgresPubSubManager extends EventEmitter {
   private listenClient: Client | null = null;
   private notifyClient: Client | null = null;
+  private notifyConnect: Promise<Client> | null = null;
   private isListening = false;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
@@ -188,16 +189,7 @@ class PostgresPubSubManager extends EventEmitter {
       });
 
       // Create dedicated client for NOTIFY operations (non-blocking)
-      this.notifyClient = new Client({
-        connectionString: process.env.DATABASE_URL,
-      });
-
-      await this.notifyClient.connect();
-      console.log('✅ PostgreSQL NOTIFY client connected');
-
-      this.notifyClient.on('error', (err: Error) => {
-        console.error('❌ PostgreSQL NOTIFY client error:', err);
-      });
+      await this.connectNotifyClient();
 
       this.reconnectAttempts = 0;
 
@@ -207,6 +199,54 @@ class PostgresPubSubManager extends EventEmitter {
       console.error('Failed to initialize PostgreSQL pub/sub:', error);
       throw error;
     }
+  }
+
+  /**
+   * Create/replace the dedicated NOTIFY client.
+   *
+   * A lost NOTIFY connection must not poison every later publish: the old
+   * client becomes permanently "not queryable" and each publish burns through
+   * the full retry/backoff budget. Drop the reference on error and reconnect
+   * on the next notify().
+   */
+  private connectNotifyClient(): Promise<Client> {
+    if (this.notifyClient) return Promise.resolve(this.notifyClient);
+    if (this.notifyConnect) return this.notifyConnect;
+
+    const pending = this.openNotifyClient();
+    this.notifyConnect = pending;
+    void pending.then(
+      () => {
+        if (this.notifyConnect === pending) this.notifyConnect = null;
+      },
+      () => {
+        if (this.notifyConnect === pending) this.notifyConnect = null;
+      }
+    );
+    return pending;
+  }
+
+  private async openNotifyClient(): Promise<Client> {
+    if (!process.env.DATABASE_URL) {
+      throw new Error('DATABASE_URL environment variable is required');
+    }
+
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+    });
+
+    await client.connect();
+    console.log('✅ PostgreSQL NOTIFY client connected');
+
+    client.on('error', (err: Error) => {
+      console.error('❌ PostgreSQL NOTIFY client error:', err);
+      if (this.notifyClient === client) {
+        this.notifyClient = null;
+      }
+    });
+
+    this.notifyClient = client;
+    return client;
   }
 
   /**
@@ -258,12 +298,13 @@ class PostgresPubSubManager extends EventEmitter {
    */
   async notify<T extends object>(channel: string, payload: T): Promise<void> {
     const payloadRecord = payload as Record<string, unknown>;
-    // Lazy initialization: Initialize if not already initialized
+    // Lazy initialization: create only the NOTIFY client. Re-initializing the
+    // LISTEN client here would leak/duplicate subscriptions.
     if (!this.notifyClient) {
       console.log('⚡ [PubSub] Lazy initialization triggered by notify()');
 
       try {
-        await this.initialize();
+        await this.connectNotifyClient();
         console.log('✅ [PubSub] Lazy initialization successful');
       } catch (error) {
         console.error('❌ [PubSub] Lazy initialization failed:', error);
@@ -280,14 +321,30 @@ class PostgresPubSubManager extends EventEmitter {
     let lastError: Error | null = null;
 
     while (attempt < EVENT_CONFIG.MAX_RETRY_ATTEMPTS) {
+      let client = this.notifyClient;
+      if (!client) {
+        // The previous attempt dropped the connection. Reconnect before the
+        // next attempt instead of burning the retry budget on a dead client.
+        try {
+          client = await this.connectNotifyClient();
+        } catch (connectError) {
+          lastError = connectError as Error;
+          attempt++;
+          if (attempt < EVENT_CONFIG.MAX_RETRY_ATTEMPTS) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, EVENT_CONFIG.RETRY_BACKOFF_MS)
+            );
+          }
+          continue;
+        }
+      }
+
       try {
         const payloadStr = JSON.stringify(payload);
         // Escape single quotes in payload
         const escapedPayload = payloadStr.replace(/'/g, "''");
 
-        await this.notifyClient!.query(
-          `NOTIFY ${channel}, '${escapedPayload}'`
-        );
+        await client.query(`NOTIFY ${channel}, '${escapedPayload}'`);
 
         console.log(`📢 [PubSub] Event published successfully:`, {
           channel,
@@ -310,6 +367,15 @@ class PostgresPubSubManager extends EventEmitter {
       } catch (error) {
         lastError = error as Error;
         attempt++;
+
+        // A failed NOTIFY means this dedicated connection may never be
+        // queryable again. Drop it so the next attempt starts a fresh client.
+        if (this.notifyClient === client) {
+          this.notifyClient = null;
+        }
+        client.end().catch((closeError: Error) => {
+          console.error('Error closing failed NOTIFY client:', closeError);
+        });
 
         if (attempt < EVENT_CONFIG.MAX_RETRY_ATTEMPTS) {
           // Calculate exponential backoff delay
