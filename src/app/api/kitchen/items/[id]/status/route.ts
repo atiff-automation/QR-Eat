@@ -124,7 +124,10 @@ export async function PATCH(
       );
       if (!recalled) {
         return NextResponse.json(
-          { error: 'Order is not in a kitchen-action state' },
+          {
+            error: 'Order is not in a kitchen-action state',
+            code: 'ORDER_NOT_READY',
+          },
           { status: 409 }
         );
       }

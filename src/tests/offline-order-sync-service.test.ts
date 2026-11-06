@@ -4,6 +4,7 @@ import {
   createCounterOrder,
 } from '@/lib/services/counter-order-service';
 import { syncOfflineOrder } from '@/lib/services/offline-order-sync-service';
+import { confirmPendingOrder } from '@/lib/services/order-dispatch-service';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -15,6 +16,11 @@ jest.mock('@/lib/database', () => ({
 jest.mock('@/lib/services/counter-order-service', () => {
   const actual = jest.requireActual('@/lib/services/counter-order-service');
   return { ...actual, createCounterOrder: jest.fn() };
+});
+
+jest.mock('@/lib/services/order-dispatch-service', () => {
+  const actual = jest.requireActual('@/lib/services/order-dispatch-service');
+  return { ...actual, confirmPendingOrder: jest.fn() };
 });
 
 const restaurantId = '550e8400-e29b-41d4-a716-446655440001';
@@ -169,6 +175,50 @@ describe('offline order sync service', () => {
     const result = await syncOfflineOrder(input, actor, 'idem-1');
 
     expect(result.replayed).toBe(true);
+    expect(result.itemIds).toEqual({ 'client-item-1': 'server-item-1' });
+    expect(createCounterOrder).not.toHaveBeenCalled();
+    expect(confirmPendingOrder).not.toHaveBeenCalled();
+  });
+
+  it('confirms an existing PENDING order on replay', async () => {
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      id: 'server-order-1',
+      orderNumber: 'ORD-261102-E031-001',
+      status: 'PENDING',
+      paymentStatus: 'PENDING',
+      orderType: 'DINE_IN',
+      totalAmount: { toString: () => '22.04' },
+      tableId,
+      createdAt: new Date('2026-11-02T12:02:00.000Z'),
+      restaurantId,
+      table: { tableNumber: '2', tableName: 'Window' },
+      items: [{ id: 'server-item-1', clientItemId: 'client-item-1' }],
+      priceVariance: null,
+    });
+    (confirmPendingOrder as jest.Mock).mockResolvedValue({
+      order: {
+        ...createdOrder,
+        status: 'CONFIRMED',
+        tableId,
+        table: { tableNumber: '2', tableName: 'Window' },
+        createdAt: new Date('2026-11-02T12:02:00.000Z'),
+      },
+      ticket: null,
+      replayed: false,
+    });
+
+    const result = await syncOfflineOrder(input, actor, 'idem-1');
+
+    expect(confirmPendingOrder).toHaveBeenCalledWith(
+      expect.objectContaining({
+        orderId: 'server-order-1',
+        actor,
+        offlineDelivered: true,
+        paperChitPrinted: false,
+      })
+    );
+    expect(result.replayed).toBe(true);
+    expect(result.order.status).toBe('CONFIRMED');
     expect(result.itemIds).toEqual({ 'client-item-1': 'server-item-1' });
     expect(createCounterOrder).not.toHaveBeenCalled();
   });

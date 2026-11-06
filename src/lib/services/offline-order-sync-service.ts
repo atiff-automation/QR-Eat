@@ -15,6 +15,10 @@ import {
   type CounterOrderActor,
   type CounterOrderInput,
 } from '@/lib/services/counter-order-service';
+import {
+  OrderDispatchError,
+  confirmPendingOrder,
+} from '@/lib/services/order-dispatch-service';
 
 export const OfflineOrderInputSchema = z
   .object({
@@ -102,6 +106,31 @@ export interface OfflineOrderSyncResult {
   serverTime: string;
 }
 
+function toOrderPayload(order: {
+  id: string;
+  orderNumber: string;
+  status: string;
+  paymentStatus: string;
+  orderType: string;
+  totalAmount: { toString(): string };
+  tableId: string | null;
+  table?: { tableNumber: string; tableName: string | null } | null;
+  createdAt: Date;
+}): OfflineOrderSyncResult['order'] {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    paymentStatus: order.paymentStatus,
+    orderType: order.orderType,
+    totalAmount: order.totalAmount.toString(),
+    tableId: order.tableId,
+    tableNumber: order.table?.tableNumber ?? null,
+    tableName: order.table?.tableName ?? null,
+    createdAt: order.createdAt.toISOString(),
+  };
+}
+
 function parseDeviceDate(value: string | null | undefined): Date | undefined {
   if (!value) return undefined;
   const date = new Date(value);
@@ -154,21 +183,36 @@ export async function syncOfflineOrder(
         409
       );
     }
+
+    let replayOrder = existing;
+    if (existing.status === 'PENDING') {
+      // A previous create committed but did not finish kitchen dispatch.
+      // Replay must resume that work; returning PENDING would let the client
+      // map item IDs and immediately send kitchen actions the server rejects.
+      try {
+        const confirmed = await confirmPendingOrder({
+          orderId: existing.id,
+          actor,
+          offlineDelivered: true,
+          paperChitPrinted: input.kitchen?.paperChitPrinted === true,
+        });
+        replayOrder = confirmed.order;
+      } catch (error) {
+        if (error instanceof OrderDispatchError) {
+          throw new CounterOrderError(
+            error.message,
+            error.code,
+            error.statusCode
+          );
+        }
+        throw error;
+      }
+    }
+
     return {
       clientOrderId: input.clientOrderId,
       replayed: true,
-      order: {
-        id: existing.id,
-        orderNumber: existing.orderNumber,
-        status: existing.status,
-        paymentStatus: existing.paymentStatus,
-        orderType: existing.orderType,
-        totalAmount: existing.totalAmount.toString(),
-        tableId: existing.tableId,
-        tableNumber: existing.table?.tableNumber ?? null,
-        tableName: existing.table?.tableName ?? null,
-        createdAt: existing.createdAt.toISOString(),
-      },
+      order: toOrderPayload(replayOrder),
       itemIds: Object.fromEntries(
         existing.items
           .filter((item) => item.clientItemId)
