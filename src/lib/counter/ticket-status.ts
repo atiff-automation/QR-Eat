@@ -6,7 +6,8 @@ export type TicketAggregate =
   | 'QUEUED'
   | 'PARTIAL'
   | 'PRINTED'
-  | 'FAILED';
+  | 'FAILED'
+  | 'SKIPPED';
 
 export interface TicketEventState {
   printStatus: OrderEventPrintStatus | null;
@@ -38,6 +39,16 @@ export function aggregateTicketStatus(events: TicketEventState[]): {
   }
   if (statuses.every((status) => status === 'PRINTED')) {
     return { aggregate: 'PRINTED', printedAt };
+  }
+  if (
+    statuses.every((status) => status === 'PRINTED' || status === 'SKIPPED')
+  ) {
+    // Every station either printed or deliberately skipped (KDS only). Mixed
+    // printed/skipped tickets are partial paper coverage, not a failure.
+    if (statuses.some((status) => status === 'PRINTED')) {
+      return { aggregate: 'PARTIAL', printedAt };
+    }
+    return { aggregate: 'SKIPPED', printedAt };
   }
   if (statuses.some((status) => status === 'PRINTED')) {
     return { aggregate: 'PARTIAL', printedAt };

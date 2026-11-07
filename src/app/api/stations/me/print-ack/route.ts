@@ -24,6 +24,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json().catch(() => ({}));
     const success = body?.success === true;
+    // A KDS-only station acknowledges the ticket without printing it. That is
+    // a deliberate skip, not a printer failure.
+    const skipped = body?.skipped === true && !success;
     const errorMessage =
       typeof body?.error === 'string' ? body.error.slice(0, 500) : null;
     const now = new Date();
@@ -68,6 +71,26 @@ export async function POST(request: NextRequest) {
               printAttemptedAt: now,
               printedAt: event.printedAt ?? now,
               printError: null,
+              printDeviceId: auth.device.id,
+            },
+          });
+        } else if (skipped && event.printedAt === null) {
+          await tx.orderEvent.update({
+            where: { id: event.id },
+            data: {
+              printStatus: 'SKIPPED',
+              printAttemptedAt: now,
+              printError: errorMessage || 'KDS only — not printed',
+              printDeviceId: auth.device.id,
+            },
+          });
+        } else if (skipped) {
+          // A ticket that already reached paper must not be downgraded by a
+          // later KDS-only acknowledgement.
+          await tx.orderEvent.update({
+            where: { id: event.id },
+            data: {
+              printAttemptedAt: now,
               printDeviceId: auth.device.id,
             },
           });
@@ -122,6 +145,7 @@ export async function POST(request: NextRequest) {
       device,
       print: {
         success,
+        skipped,
         seq: eventId?.toString() ?? null,
         error: errorMessage ?? undefined,
       },
