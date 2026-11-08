@@ -98,6 +98,8 @@ export async function GET(request: NextRequest) {
           orderId: order.id,
           clientOrderId: order.clientOrderId,
           orderNumber: order.orderNumber,
+          counterReference: order.counterReference ?? null,
+          dailySeq: order.dailySeq,
           tableName: fulfillment.fulfillmentLabel,
           ...fulfillment,
           status: order.status,
