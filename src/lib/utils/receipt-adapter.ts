@@ -43,6 +43,7 @@ export function adaptPublicToDisplay(
     },
     order: {
       orderNumber: data.order.orderNumber,
+      counterReferences: data.order.counterReferences,
       dailySeq: data.order.dailySeq,
       orderType: data.order.orderType,
       pickupNumber,
@@ -115,6 +116,9 @@ export function adaptPosToDisplay(data: ReceiptData): ReceiptDisplayData {
     },
     order: {
       orderNumber: order.orderNumber,
+      counterReferences: order.counterReference
+        ? [order.counterReference]
+        : undefined,
       dailySeq: order.dailySeq ?? undefined,
       orderType: order.orderType,
       pickupNumber: pickupNumber ?? undefined,

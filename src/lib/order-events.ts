@@ -33,6 +33,13 @@ export interface StationOrderItem {
 
 export interface OrderCreatedPayload {
   orderNumber: string;
+  /**
+   * Stable Counter reference for an offline-created order. Null/absent for an
+   * order created online. A station uses this as the primary display number
+   * even when the LAN ticket was missed.
+   */
+  counterReference?: string | null;
+  dailySeq?: number | null;
   clientOrderId?: string | null;
   paperChitPrinted?: boolean;
   tableName: string;
@@ -295,6 +302,8 @@ export async function recordOrderCreated(
   const rows = [...grouped.entries()].map(([stationId, entry]) => {
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
+      counterReference: order.counterReference ?? null,
+      dailySeq: order.dailySeq,
       clientOrderId: order.clientOrderId,
       paperChitPrinted: options.paperChitPrinted === true,
       tableName: orderLabel(order),
@@ -564,6 +573,8 @@ export async function recordOrderItemsAdded(
     data: [...grouped.entries()].map(([stationId, entry]) => {
       const payload: OrderItemsAddedPayload = {
         orderNumber: order.orderNumber,
+        counterReference: order.counterReference ?? null,
+        dailySeq: order.dailySeq,
         tableName: orderLabel(order),
         ...orderFulfillment(order),
         orderNote: order.specialInstructions,

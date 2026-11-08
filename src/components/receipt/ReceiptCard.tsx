@@ -66,6 +66,14 @@ export function ReceiptCard({ data }: ReceiptCardProps) {
               ))}
             </div>
           </div>
+          {order.counterReferences && order.counterReferences.length > 0 && (
+            <div className="flex justify-between gap-4">
+              <span className="text-black shrink-0">Counter ref:</span>
+              <span className="text-black text-right break-all">
+                {order.counterReferences.join(', ')}
+              </span>
+            </div>
+          )}
           <div className="flex justify-between gap-4">
             <span className="text-black shrink-0">Date:</span>
             <span className="text-black text-right">

@@ -115,6 +115,9 @@ export interface CounterOrderResult {
   order: {
     id: string;
     orderNumber: string;
+    /** Stable Counter reference for an offline-created order. */
+    counterReference: string | null;
+    dailySeq: number | null;
     status: string;
     paymentStatus: string;
     source: string;
@@ -531,6 +534,7 @@ function quoteFromPriced(priced: PricedOrder): CounterOrderQuote {
 function orderResponse(order: {
   id: string;
   orderNumber: string;
+  counterReference?: string | null;
   dailySeq: number | null;
   status: string;
   paymentStatus: string;
@@ -546,6 +550,8 @@ function orderResponse(order: {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
+    counterReference: order.counterReference ?? null,
+    dailySeq: order.dailySeq,
     status: order.status,
     paymentStatus: order.paymentStatus,
     source: order.source,
@@ -596,6 +602,8 @@ export async function createCounterOrder(
     offlineDelivered?: boolean;
     offlineDeviceId?: string;
     offlineCreatedAt?: Date;
+    /** Stable Counter reference supplied by an offline order sync. */
+    counterReference?: string | null;
     paperChitPrinted?: boolean;
     ipAddress?: string | null;
   } = {}
@@ -674,6 +682,7 @@ export async function createCounterOrder(
   let createdOrder: {
     id: string;
     orderNumber: string;
+    counterReference: string | null;
     dailySeq: number | null;
     status: string;
     paymentStatus: string;
@@ -721,6 +730,7 @@ export async function createCounterOrder(
       const order = await tx.order.create({
         data: {
           orderNumber,
+          counterReference: options.counterReference?.trim() || null,
           dailySeq,
           restaurantId: priced.restaurant.id,
           tableId: table?.id ?? null,

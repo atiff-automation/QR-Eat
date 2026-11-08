@@ -186,6 +186,7 @@ export async function GET(request: NextRequest) {
       select: {
         id: true,
         orderNumber: true,
+        counterReference: true,
         dailySeq: true,
         orderType: true,
         customerName: true,
@@ -227,6 +228,7 @@ export async function GET(request: NextRequest) {
         return {
           id: order.id,
           orderNumber: order.orderNumber,
+          counterReference: order.counterReference,
           dailySeq: order.dailySeq,
           orderType: order.orderType,
           pickupNumber: formatPickupNumber(order.dailySeq),

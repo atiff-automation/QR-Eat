@@ -18,6 +18,7 @@ const takeawayOrder = {
   id: 'order-takeaway-1',
   restaurantId: 'restaurant-1',
   orderNumber: 'ORD-TAKEAWAY-1',
+  counterReference: 'OFF-261108-022',
   dailySeq: 42,
   orderType: 'TAKEAWAY',
   customerName: 'Alex',
@@ -86,6 +87,8 @@ describe('takeaway kitchen payloads', () => {
 
     expect(payload).toMatchObject({
       orderNumber: 'ORD-TAKEAWAY-1',
+      counterReference: 'OFF-261108-022',
+      dailySeq: 42,
       tableName: 'TAKEAWAY #042',
       orderType: 'TAKEAWAY',
       pickupNumber: '#042',

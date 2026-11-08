@@ -472,6 +472,7 @@ describe('Counter takeaway creation', () => {
           diningSessionId: null,
           customerName: 'Alex',
           customerPhone: '0123456789',
+          counterReference: null,
         }),
       })
     );
@@ -480,6 +481,22 @@ describe('Counter takeaway creation', () => {
     ).toBe('0');
     expect(PostgresEventManager.publishOrderCreated).toHaveBeenCalledWith(
       expect.objectContaining({ tableId: null })
+    );
+  });
+
+  it('stores the stable Counter reference supplied by offline sync', async () => {
+    await createCounterOrder(takeawayInput, actor, 'offline-reference-key', {
+      offlineDelivered: true,
+      counterReference: 'OFF-261108-022',
+    });
+
+    expect(tx.order.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          counterReference: 'OFF-261108-022',
+          offlineCreated: true,
+        }),
+      })
     );
   });
 

@@ -185,6 +185,8 @@ export interface PublicReceiptData {
   };
   order: {
     orderNumber: string;
+    /** Stable Counter references (OFF-…) attached to the paid orders. */
+    counterReferences?: string[];
     dailySeq?: number;
     orderType: string;
     pickupNumber?: string | null;

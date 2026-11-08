@@ -21,6 +21,8 @@ export interface ReceiptDisplayData {
   };
   order: {
     orderNumber: string;
+    /** Stable Counter references (OFF-…) shown to staff/customer for offline-created orders. */
+    counterReferences?: string[];
     orderType: string;
     pickupNumber?: string;
     customerName?: string;

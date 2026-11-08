@@ -165,6 +165,13 @@ export async function GET(
 
     const table = firstPayment.order.table;
     const pickupNumber = formatPickupNumber(firstPayment.order.dailySeq);
+    const counterReferences = Array.from(
+      new Set(
+        payments
+          .map((payment) => payment.order.counterReference)
+          .filter((value): value is string => Boolean(value && value.trim()))
+      )
+    );
 
     // Format response (matching POS receipt modal structure)
     const receiptData = {
@@ -182,6 +189,7 @@ export async function GET(
         orderNumber: isTablePayment
           ? payments.map((p) => p.order.orderNumber).join(', ')
           : firstPayment.order.orderNumber,
+        counterReferences,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         dailySeq: (firstPayment.order as any).dailySeq || undefined,
         orderType: firstPayment.order.orderType,

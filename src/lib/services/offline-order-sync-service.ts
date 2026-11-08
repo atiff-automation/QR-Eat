@@ -23,6 +23,20 @@ import {
 export const OfflineOrderInputSchema = z
   .object({
     clientOrderId: z.string().min(8).max(100),
+    /**
+     * The Counter's stable, operator-facing reference for this offline order
+     * (for example `OFF-261108-022`). Persist it on the canonical order so
+     * every surface keeps the same primary number after a cache wipe or a
+     * missed LAN ticket.
+     */
+    counterReference: z
+      .string()
+      .trim()
+      .min(3)
+      .max(60)
+      .regex(/^[A-Za-z0-9][A-Za-z0-9._-]*$/, 'Invalid counter reference')
+      .optional()
+      .nullable(),
     deviceId: z.string().max(100).optional().nullable(),
     orderType: z.enum(['DINE_IN', 'TAKEAWAY']).default('DINE_IN'),
     tableId: z.string().uuid().optional().nullable(),
@@ -88,6 +102,7 @@ export interface OfflineOrderSyncResult {
   order: {
     id: string;
     orderNumber: string;
+    counterReference: string | null;
     status: string;
     paymentStatus: string;
     orderType: string;
@@ -109,6 +124,7 @@ export interface OfflineOrderSyncResult {
 function toOrderPayload(order: {
   id: string;
   orderNumber: string;
+  counterReference?: string | null;
   status: string;
   paymentStatus: string;
   orderType: string;
@@ -120,6 +136,7 @@ function toOrderPayload(order: {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
+    counterReference: order.counterReference ?? null,
     status: order.status,
     paymentStatus: order.paymentStatus,
     orderType: order.orderType,
@@ -185,7 +202,20 @@ export async function syncOfflineOrder(
     }
 
     let replayOrder = existing;
-    if (existing.status === 'PENDING') {
+    // Old retries may predate the persisted reference, or the Counter may have
+    // retried after a cache rebuild. The first reference that reaches the
+    // server wins; never rename an order that already has one.
+    if (!existing.counterReference && input.counterReference) {
+      replayOrder = await prisma.order.update({
+        where: { id: existing.id },
+        data: { counterReference: input.counterReference },
+        include: {
+          table: { select: { tableNumber: true, tableName: true } },
+          items: { select: { id: true, clientItemId: true } },
+        },
+      });
+    }
+    if (replayOrder.status === 'PENDING') {
       // A previous create committed but did not finish kitchen dispatch.
       // Replay must resume that work; returning PENDING would let the client
       // map item IDs and immediately send kitchen actions the server rejects.
@@ -246,6 +276,7 @@ export async function syncOfflineOrder(
     offlineDelivered: true,
     offlineDeviceId: input.deviceId ?? undefined,
     offlineCreatedAt: parseDeviceDate(input.createdAtDevice),
+    counterReference: input.counterReference ?? null,
     paperChitPrinted: input.kitchen?.paperChitPrinted === true,
     ipAddress: null,
   });
@@ -272,6 +303,7 @@ export async function syncOfflineOrder(
     order: {
       id: result.order.id,
       orderNumber: result.order.orderNumber,
+      counterReference: result.order.counterReference,
       status: result.order.status,
       paymentStatus: result.order.paymentStatus,
       orderType: result.order.orderType,

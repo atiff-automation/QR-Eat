@@ -34,6 +34,8 @@ export interface CounterSaleRow {
   createdAt: string;
   orderId: string;
   orderNumber: string;
+  counterReference: string | null;
+  dailySeq: number | null;
   orderType: string;
   tableNumber: string | null;
   tableName: string | null;
@@ -121,6 +123,8 @@ export interface CounterDayOrderPayment {
 export interface CounterDayOrder {
   id: string;
   orderNumber: string;
+  counterReference: string | null;
+  dailySeq: number | null;
   orderType: string;
   tableId: string | null;
   tableNumber: string | null;
@@ -331,6 +335,7 @@ const HISTORY_ORDER_STATUSES: OrderStatus[] = ['SERVED', 'CANCELLED'];
 const COUNTER_DAY_ORDER_SELECT = {
   id: true,
   orderNumber: true,
+  counterReference: true,
   orderType: true,
   tableId: true,
   dailySeq: true,
@@ -495,6 +500,7 @@ function addDayOrderSearch(
     ...where,
     OR: [
       { orderNumber: { contains: q, mode: 'insensitive' } },
+      { counterReference: { contains: q, mode: 'insensitive' } },
       { customerName: { contains: q, mode: 'insensitive' } },
       { customerPhone: { contains: q, mode: 'insensitive' } },
       {
@@ -515,6 +521,8 @@ function mapCounterDayOrder(order: CounterDayOrderRecord): CounterDayOrder {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
+    counterReference: order.counterReference ?? null,
+    dailySeq: order.dailySeq ?? null,
     orderType: order.orderType,
     tableId: order.tableId ?? null,
     tableNumber: order.table?.tableNumber ?? null,
@@ -1021,6 +1029,7 @@ export async function getCounterSalesPage(
         order: {
           select: {
             orderNumber: true,
+            counterReference: true,
             orderType: true,
             dailySeq: true,
             table: { select: { tableNumber: true, tableName: true } },
@@ -1044,6 +1053,8 @@ export async function getCounterSalesPage(
         createdAt: row.createdAt.toISOString(),
         orderId: row.orderId,
         orderNumber: row.order.orderNumber,
+        counterReference: row.order.counterReference ?? null,
+        dailySeq: row.order.dailySeq ?? null,
         orderType: row.order.orderType,
         tableNumber: row.order.table?.tableNumber ?? null,
         tableName: row.order.table?.tableName ?? null,
