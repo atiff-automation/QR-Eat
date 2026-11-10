@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Branch:** `main`  
-**Status:** 0.2.7 installed; remediation task closed; permission ergonomics applied
+**Status:** 0.2.7 installed; remediation task closed; permission ergonomics merged
 
 ## Clean restart
 
@@ -10,7 +10,7 @@
 - Started from `main` at `2918f46`
 - Installed AME kit **0.2.1** on `chore/ame-bootstrap-021`
 - Upgraded to AME kit **0.2.6** on `chore/ame-bootstrap-025`
-- Applied AME kit **0.2.7** permission ergonomics on `chore/ame-027`
+- Applied AME kit **0.2.7** permission ergonomics; merged into `main` at `ebc6948`
 - Redid the security cleanup on the bootstrap branch
 
 ## Completed
@@ -92,11 +92,12 @@ Before production:
 - Deferred follow-ups: R-04, R-08, R-10, R-11.
 
 The 0.2.6 kit upgrade is committed at `f58b31d` and merged into `main` at
-`b2f3949`. The 0.2.7 permission-ergonomics patch is on `chore/ame-027`.
+`b2f3949`. The 0.2.7 permission-ergonomics patch is merged into `main` at
+`ebc6948`.
 
 ## Next
 
-1. Review and merge the 0.2.7 permission-ergonomics patch.
+1. Restart OpenCode/Desktop so the running background server reloads the agents.
 2. Run one small `/ame` pilot task and confirm the prompt noise is reduced.
 3. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
 4. Do not merge product work before explicit approval.
