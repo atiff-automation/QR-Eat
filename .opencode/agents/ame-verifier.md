@@ -126,6 +126,9 @@ permissions:
     resource: "npx prettier --check *"
     effect: allow
   - action: shell
+    resource: "./gradlew *"
+    effect: allow
+  - action: shell
     resource: "which *"
     effect: allow
   - action: shell
