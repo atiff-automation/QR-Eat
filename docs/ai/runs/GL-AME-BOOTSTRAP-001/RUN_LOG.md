@@ -198,3 +198,6 @@ Not verified:
 - AME 0.2.7 permission ergonomics applied on `chore/ame-027`: removed blanket
   external-directory prompts, added the verifier read-only shell allowlist,
   and removed the absolute kit-source path from `AME_VERSION`.
+- AME 0.2.8 applied on `chore/ame-028`: added `which`, `command -v`, `echo`,
+  and `sort` to the verifier allowlist after the permission smoke test showed
+  those compound-command utilities still prompting.
