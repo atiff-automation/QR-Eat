@@ -6,6 +6,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { SequenceManager } from '@/lib/sequence-manager';
 import {
+  buildLegacyOrderPaymentRequestHash,
+  buildLegacyPaymentRequestHash,
   buildOrderPaymentRequestHash,
   buildPaymentRequestHash,
   processOrderPaymentBatch,
@@ -81,6 +83,46 @@ describe('payment idempotency', () => {
       receiptNumber: 'RCP-1',
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('replays when only the offline audit flag differs', async () => {
+    const requestHash = buildPaymentRequestHash({
+      ...baseInput,
+      recordedOffline: false,
+    });
+    (prisma.paymentBatch.findUnique as jest.Mock).mockResolvedValue({
+      id: 'batch-1',
+      idempotencyKey: baseInput.idempotencyKey,
+      requestHash,
+      restaurantId: baseInput.restaurantId,
+      tableId: baseInput.tableId,
+      response: { success: true, receiptNumber: 'RCP-1' },
+    });
+
+    const result = await processTablePaymentBatch({
+      ...baseInput,
+      recordedOffline: true,
+    });
+
+    expect(result.replayed).toBe(true);
+    expect(result.response).toMatchObject({ receiptNumber: 'RCP-1' });
+  });
+
+  it('replays a legacy batch that included the offline audit flag', async () => {
+    const legacyHash = buildLegacyPaymentRequestHash(baseInput);
+    (prisma.paymentBatch.findUnique as jest.Mock).mockResolvedValue({
+      id: 'batch-1',
+      idempotencyKey: baseInput.idempotencyKey,
+      requestHash: legacyHash,
+      restaurantId: baseInput.restaurantId,
+      tableId: baseInput.tableId,
+      response: { success: true, receiptNumber: 'RCP-LEGACY' },
+    });
+
+    const result = await processTablePaymentBatch(baseInput);
+
+    expect(result.replayed).toBe(true);
+    expect(result.response).toMatchObject({ receiptNumber: 'RCP-LEGACY' });
   });
 
   it('rejects the same key with a different request', async () => {
@@ -206,6 +248,50 @@ describe('order payment idempotency', () => {
       receiptNumber: 'RCP-ORDER-1',
     });
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('replays when only the offline audit flag differs', async () => {
+    const requestHash = buildOrderPaymentRequestHash({
+      ...orderInput,
+      recordedOffline: false,
+    });
+    (prisma.paymentBatch.findUnique as jest.Mock).mockResolvedValue({
+      id: 'batch-order-1',
+      idempotencyKey: orderInput.idempotencyKey,
+      requestHash,
+      restaurantId: orderInput.restaurantId,
+      tableId: null,
+      orderId: orderInput.orderId,
+      response: { success: true, receiptNumber: 'RCP-ORDER-1' },
+    });
+
+    const result = await processOrderPaymentBatch({
+      ...orderInput,
+      recordedOffline: true,
+    });
+
+    expect(result.replayed).toBe(true);
+    expect(result.response).toMatchObject({ receiptNumber: 'RCP-ORDER-1' });
+  });
+
+  it('replays a legacy order batch that included the offline audit flag', async () => {
+    const legacyHash = buildLegacyOrderPaymentRequestHash(orderInput);
+    (prisma.paymentBatch.findUnique as jest.Mock).mockResolvedValue({
+      id: 'batch-order-1',
+      idempotencyKey: orderInput.idempotencyKey,
+      requestHash: legacyHash,
+      restaurantId: orderInput.restaurantId,
+      tableId: null,
+      orderId: orderInput.orderId,
+      response: { success: true, receiptNumber: 'RCP-ORDER-LEGACY' },
+    });
+
+    const result = await processOrderPaymentBatch(orderInput);
+
+    expect(result.replayed).toBe(true);
+    expect(result.response).toMatchObject({
+      receiptNumber: 'RCP-ORDER-LEGACY',
+    });
   });
 
   it('rejects the same key for another order', async () => {

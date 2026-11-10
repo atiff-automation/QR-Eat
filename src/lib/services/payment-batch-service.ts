@@ -76,6 +76,26 @@ export function buildPaymentRequestHash(
     cashReceived: input.cashReceived ?? null,
     externalTransactionId: input.externalTransactionId ?? null,
     notes: input.notes ?? null,
+    orderIds: input.orderIds ? [...input.orderIds].sort() : null,
+  };
+
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+}
+
+/**
+ * Legacy hash used by batches created before `recordedOffline` was removed
+ * from the idempotency identity. Keep accepting it so old batches still replay
+ * after deployment.
+ */
+export function buildLegacyPaymentRequestHash(
+  input: ProcessTablePaymentInput
+): string {
+  const normalized = {
+    tableId: input.tableId,
+    paymentMethod: input.paymentMethod,
+    cashReceived: input.cashReceived ?? null,
+    externalTransactionId: input.externalTransactionId ?? null,
+    notes: input.notes ?? null,
     recordedOffline: input.recordedOffline === true,
     orderIds: input.orderIds ? [...input.orderIds].sort() : null,
   };
@@ -84,6 +104,24 @@ export function buildPaymentRequestHash(
 }
 
 export function buildOrderPaymentRequestHash(
+  input: ProcessOrderPaymentInput
+): string {
+  const normalized = {
+    orderId: input.orderId,
+    paymentMethod: input.paymentMethod,
+    cashReceived: input.cashReceived ?? null,
+    externalTransactionId: input.externalTransactionId ?? null,
+    notes: input.notes ?? null,
+  };
+
+  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+}
+
+/**
+ * Legacy hash for takeaway batches created before `recordedOffline` was
+ * removed from the idempotency identity.
+ */
+export function buildLegacyOrderPaymentRequestHash(
   input: ProcessOrderPaymentInput
 ): string {
   const normalized = {
@@ -119,7 +157,10 @@ function assertReplayMatches(
     );
   }
 
-  if (batch.requestHash !== requestHash) {
+  if (
+    batch.requestHash !== requestHash &&
+    batch.requestHash !== buildLegacyPaymentRequestHash(input)
+  ) {
     throw new PaymentServiceError(
       'Idempotency key was reused with a different request',
       'IDEMPOTENCY_MISMATCH',
@@ -522,7 +563,10 @@ function assertOrderReplayMatches(
     );
   }
 
-  if (batch.requestHash !== requestHash) {
+  if (
+    batch.requestHash !== requestHash &&
+    batch.requestHash !== buildLegacyOrderPaymentRequestHash(input)
+  ) {
     throw new PaymentServiceError(
       'Idempotency key was reused with a different request',
       'IDEMPOTENCY_MISMATCH',
