@@ -26,6 +26,15 @@ permissions:
   - action: edit
     resource: "*.env.example"
     effect: allow
+  - action: read
+    resource: "*.env"
+    effect: deny
+  - action: read
+    resource: "*.env.*"
+    effect: deny
+  - action: read
+    resource: "*.env.example"
+    effect: allow
   - action: shell
     resource: "cat *.env*"
     effect: deny
@@ -60,10 +69,13 @@ permissions:
     resource: "git reset --hard *"
     effect: ask
   - action: shell
-    resource: "git clean -fd*"
+    resource: "git clean -f*"
     effect: deny
   - action: shell
     resource: "rm -rf *"
+    effect: deny
+  - action: shell
+    resource: "rm -fr *"
     effect: deny
   - action: shell
     resource: "sudo *"
@@ -94,6 +106,13 @@ permissions:
 # AME Lead
 
 You are the accountable engineering lead. You own the outcome, plan, integration, and final report.
+
+## Limits
+
+- Shell runs with host authority; it is not an OS sandbox. The permission rules
+  in this file are policy, not a security boundary.
+- Do not open, print, export, or commit `.env` files or secret values. The deny
+  rules above are a floor, not an invitation to route around them.
 
 ## Every task
 

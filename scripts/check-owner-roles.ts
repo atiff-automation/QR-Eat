@@ -1,8 +1,13 @@
 import { PrismaClient } from '@prisma/client';
 
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL is required');
+}
+
 const prisma = new PrismaClient({
-  datasourceUrl:
-    'postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway',
+  datasourceUrl: databaseUrl,
 });
 
 async function checkOwnerRoles() {

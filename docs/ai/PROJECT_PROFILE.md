@@ -149,11 +149,13 @@ not become the home of business rules.
 
 ## Current known risks
 
-- **Accepted development risk:** `.railway-env-*.txt` are removed from the
-  current tree, but the same credential remains in legacy debug/ops scripts and
-  documentation until `GL-AME-BOOTSTRAP-001` is remediated. Historical commits
-  also contain it. No real users exist yet. Rotate and purge before production
-  or real-user access.
+- **Accepted development risk (R3, approved):** `.railway-env-*.txt` are
+  removed from the current tree, and credential values were removed from legacy
+  debug/ops scripts and documentation in correction cycle 1 of
+  `GL-AME-BOOTSTRAP-001` (2026-11-10). The credential still exists in Git
+  history and was not rotated. No real users exist yet. Rotate and purge before
+  production or real-user access. Approval, conditions, and expiry:
+  `docs/ai/AME_BOOTSTRAP.md` → Accepted development risk.
 - API contract is fragmented across QR-Eat and Tabtep-App docs.
 - Lint baseline is red (62 errors).
 - Documentation drift: README says Next 14; package uses Next 15.

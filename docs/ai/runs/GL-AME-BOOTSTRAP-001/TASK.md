@@ -1,17 +1,22 @@
 # Task — GL-AME-BOOTSTRAP-001
 
-**Status:** correction_required  
+**Status:** awaiting_commit_gate  
 **Revision:** 1  
 **Approved revision:** 1  
 **Approved by:** Atiff (development-risk decision 2026-11-10)  
 **Approval date:** 2026-11-10  
-**Next actor:** implementer  
+**Next actor:** human  
+**Correction cycle:** 2 of 3 complete (`REVIEW-03.md` PASS WITH NOTES)  
 **Risk:** R3  
 **Workflow:** BUG / security remediation
 
 ## Objective
 
 Remediate the 0.2.1 bootstrap review findings without changing product behavior.
+
+**Approved correction scope (cycle 2):** critical + high findings only —
+R-01, R-02, R-03. Medium and low findings are deferred and out of scope for
+this cycle.
 
 ## Scope
 
@@ -53,6 +58,12 @@ Remediate the 0.2.1 bootstrap review findings without changing product behavior.
 11. Fresh review returns PASS or PASS WITH NOTES.
 12. No merge without human commit-gate approval.
 
+**Cycle-2 applicability:** criteria 1-5 and 9-12 apply fully. Criterion 6
+applies for the auth paths (already correct); the API-documentation path maps to
+deferred R-10. Criterion 7 maps to deferred R-11. Criterion 8 maps to R-12,
+already closed. Review must report deferred criteria as deferred, not as
+cycle-1 failures.
+
 ## Verification
 
 ```text
@@ -73,8 +84,8 @@ npx prettier --check .opencode/opencode.jsonc
 
 ## Commit gate
 
-- [ ] Review PASS
-- [ ] Exact path list published
-- [ ] Exact commit message published
-- [ ] Human approved
-- [ ] No unrelated changes
+- [x] Review PASS (`REVIEW-03.md` PASS WITH NOTES)
+- [x] Exact path list published
+- [x] Exact commit message published
+- [x] Human approved (2026-11-10)
+- [x] No unrelated changes
