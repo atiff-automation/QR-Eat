@@ -4,8 +4,11 @@
 
 import { Client } from 'pg';
 
-const connectionString =
-  'postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway';
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error('DATABASE_URL is required');
+}
 
 async function checkStatusValues() {
   const client = new Client({ connectionString });

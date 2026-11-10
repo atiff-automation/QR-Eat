@@ -3,8 +3,11 @@ echo ========================================
 echo Creating Tables in Railway Database
 echo ========================================
 echo.
-echo Setting DATABASE_URL to Railway...
-set DATABASE_URL=postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway
+echo Using DATABASE_URL from the environment...
+if "%DATABASE_URL%"=="" (
+  echo ERROR: DATABASE_URL is not set. Set it before running this script.
+  exit /b 1
+)
 
 echo.
 echo Running SQL script to create tables...

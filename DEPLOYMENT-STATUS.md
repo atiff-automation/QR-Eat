@@ -143,15 +143,14 @@ http://marios-authentic-italian.localhost:3000
 
 ## 📊 Database Connection
 
-**Connection String** (saved in Railway):
+**Connection String** (stored in Railway as the `DATABASE_URL` variable):
 ```
-postgresql://postgres:KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx@centerbeam.proxy.rlwy.net:54297/railway
+$DATABASE_URL
 ```
 
 **Direct Access**:
 ```bash
-export PGPASSWORD='KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx'
-psql -h centerbeam.proxy.rlwy.net -p 54297 -U postgres -d railway
+psql "$DATABASE_URL"
 ```
 
 ---
@@ -173,8 +172,10 @@ psql -h centerbeam.proxy.rlwy.net -p 54297 -U postgres -d railway
 
 ## 📁 Important Files
 
-- `/.railway-env-config.txt` - Original environment variables
-- `/.railway-env-update.txt` - Updated with Railway domain
+- Railway environment variables are **not stored in this repository**. Use the
+  hosting provider's environment settings or a local secret store. The historical
+  `.railway-env-*.txt` files were removed because they contained sensitive values;
+  rotate any credentials that were present in them before production use.
 - `/RAILWAY-DEPLOYMENT-GUIDE.md` - Full deployment instructions
 - `/prisma/seed.ts` - Database seed script (test data)
 
@@ -197,8 +198,7 @@ curl https://qr-eat-production.up.railway.app/api/health
 
 ### Check Database
 ```bash
-export PGPASSWORD='KiWqqGjkOHwMFISVFjmuHMIlgqrJYRcx'
-psql -h centerbeam.proxy.rlwy.net -p 54297 -U postgres -d railway -c "SELECT COUNT(*) FROM restaurants;"
+psql "$DATABASE_URL" -c "SELECT COUNT(*) FROM restaurants;"
 ```
 
 ### View Railway Logs

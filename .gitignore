@@ -81,3 +81,6 @@ prisma/migrations/*_add_cashier_role_data.sql
 /public/serwist-*.js.map
 /public/swe-worker-*.js
 /public/swe-worker-*.js.map
+
+# Local environment exports — never commit
+.railway-env-*.txt
