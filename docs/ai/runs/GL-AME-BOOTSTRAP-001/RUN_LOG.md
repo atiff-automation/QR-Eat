@@ -195,3 +195,6 @@ Not verified:
 - AME kit updated to 0.2.6 on `chore/ame-bootstrap-025`.
 - Merged into `main` at `b2f3949`; no push, credential rotation, or history
   rewrite was performed.
+- AME 0.2.7 permission ergonomics applied on `chore/ame-027`: removed blanket
+  external-directory prompts, added the verifier read-only shell allowlist,
+  and removed the absolute kit-source path from `AME_VERSION`.
