@@ -119,7 +119,10 @@ describe('payment idempotency', () => {
       response: { success: true, receiptNumber: 'RCP-LEGACY' },
     });
 
-    const result = await processTablePaymentBatch(baseInput);
+    const result = await processTablePaymentBatch({
+      ...baseInput,
+      recordedOffline: true,
+    });
 
     expect(result.replayed).toBe(true);
     expect(result.response).toMatchObject({ receiptNumber: 'RCP-LEGACY' });
@@ -286,7 +289,10 @@ describe('order payment idempotency', () => {
       response: { success: true, receiptNumber: 'RCP-ORDER-LEGACY' },
     });
 
-    const result = await processOrderPaymentBatch(orderInput);
+    const result = await processOrderPaymentBatch({
+      ...orderInput,
+      recordedOffline: true,
+    });
 
     expect(result.replayed).toBe(true);
     expect(result.response).toMatchObject({

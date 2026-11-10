@@ -157,9 +157,13 @@ function assertReplayMatches(
     );
   }
 
+  const legacyHashes = [
+    buildLegacyPaymentRequestHash({ ...input, recordedOffline: false }),
+    buildLegacyPaymentRequestHash({ ...input, recordedOffline: true }),
+  ];
   if (
     batch.requestHash !== requestHash &&
-    batch.requestHash !== buildLegacyPaymentRequestHash(input)
+    !legacyHashes.includes(batch.requestHash)
   ) {
     throw new PaymentServiceError(
       'Idempotency key was reused with a different request',
@@ -563,9 +567,13 @@ function assertOrderReplayMatches(
     );
   }
 
+  const legacyHashes = [
+    buildLegacyOrderPaymentRequestHash({ ...input, recordedOffline: false }),
+    buildLegacyOrderPaymentRequestHash({ ...input, recordedOffline: true }),
+  ];
   if (
     batch.requestHash !== requestHash &&
-    batch.requestHash !== buildLegacyOrderPaymentRequestHash(input)
+    !legacyHashes.includes(batch.requestHash)
   ) {
     throw new PaymentServiceError(
       'Idempotency key was reused with a different request',
