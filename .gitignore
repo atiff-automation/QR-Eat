@@ -47,6 +47,12 @@ cookies.txt
 test_cookies.txt
 server.log
 
+# local-only nested checkout (separate Kitchen repository)
+/QR-Eat-Kitchen-App/
+
+# local SSE probe; may contain test credentials
+/test-sse.js
+
 # database investigation and temporary files
 compare-data.sql
 export-role-permissions.sql
