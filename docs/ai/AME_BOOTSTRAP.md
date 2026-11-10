@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Branch:** `chore/ame-bootstrap-025`
-**Status:** 0.2.6 installed; remediation task closed
+**Status:** 0.2.6 installed; remediation task closed; upgrade committed
 
 ## Clean restart
 
@@ -87,12 +87,13 @@ Before production:
 - Task `GL-AME-BOOTSTRAP-001` is **done**.
 - Deferred follow-ups: R-04, R-08, R-10, R-11.
 
-The 0.2.6 kit upgrade itself is not merged. Review and commit it separately.
+The 0.2.6 kit upgrade is committed at `f58b31d` on
+`chore/ame-bootstrap-025`; it is not merged.
 
 ## Next
 
-1. Review the 0.2.6 upgrade diff on `chore/ame-bootstrap-025`.
-2. Commit the upgrade separately from product changes.
+1. Review the 0.2.6 upgrade commit `f58b31d` on `chore/ame-bootstrap-025`.
+2. Merge only after review and explicit approval; no product change is included.
 3. Run one small `/ame` pilot task before relying on the full flow.
 4. Deferred follow-ups: R-04, R-08, R-10, R-11.
 5. Do not merge product work before explicit approval.
