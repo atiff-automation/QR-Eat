@@ -98,9 +98,6 @@ permissions:
   - action: shell
     resource: "reboot*"
     effect: deny
-  - action: external_directory
-    resource: "*"
-    effect: ask
 ---
 
 # AME Lead

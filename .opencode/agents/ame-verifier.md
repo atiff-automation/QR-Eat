@@ -83,9 +83,69 @@ permissions:
   - action: shell
     resource: "ruff check*"
     effect: allow
-  - action: external_directory
-    resource: "*"
-    effect: ask
+  - action: shell
+    resource: "ls *"
+    effect: allow
+  - action: shell
+    resource: "find *"
+    effect: allow
+  - action: shell
+    resource: "rg *"
+    effect: allow
+  - action: shell
+    resource: "grep *"
+    effect: allow
+  - action: shell
+    resource: "git grep *"
+    effect: allow
+  - action: shell
+    resource: "git ls-files *"
+    effect: allow
+  - action: shell
+    resource: "wc *"
+    effect: allow
+  - action: shell
+    resource: "pwd"
+    effect: allow
+  - action: shell
+    resource: "head *"
+    effect: allow
+  - action: shell
+    resource: "tail *"
+    effect: allow
+  - action: shell
+    resource: "sed *"
+    effect: allow
+  - action: shell
+    resource: "cat *"
+    effect: allow
+  - action: shell
+    resource: "npx jest *"
+    effect: allow
+  - action: shell
+    resource: "npx prettier --check *"
+    effect: allow
+  - action: shell
+    resource: "cat *.env*"
+    effect: deny
+  - action: shell
+    resource: "head *.env*"
+    effect: deny
+  - action: shell
+    resource: "tail *.env*"
+    effect: deny
+  - action: shell
+    resource: "sed * .env*"
+    effect: deny
+  - action: shell
+    resource: "grep * .env*"
+    effect: deny
+  - action: shell
+    resource: "rg * .env*"
+    effect: deny
+  - action: shell
+    resource: "git grep * .env*"
+    effect: deny
 ---
 
 # AME Verifier

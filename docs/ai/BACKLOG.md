@@ -33,7 +33,7 @@ Product-level work for the web/server repo. Android work lives in
 | ID | Title | Outcome | Run log |
 |---|---|---|---|
 | AME-008 | Remediate 0.2.1 bootstrap review findings | REVIEW-03 PASS WITH NOTES; accepted commit `21f5139`; task marked done | `docs/ai/runs/GL-AME-BOOTSTRAP-001/` |
-| — | AME bootstrap 0.2.6 | Kit upgraded; task state migrated; active/resume docs installed | `docs/ai/AME_BOOTSTRAP.md` |
+| — | AME bootstrap 0.2.7 | Kit upgraded; permission ergonomics; task state migrated; active/resume docs installed | `docs/ai/AME_BOOTSTRAP.md` |
 
 ## WIP limits
 
