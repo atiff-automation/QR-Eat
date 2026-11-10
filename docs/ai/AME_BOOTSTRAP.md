@@ -97,13 +97,12 @@ Before production:
 
 The 0.2.6 kit upgrade is committed at `f58b31d` and merged into `main` at
 `b2f3949`. The 0.2.7 permission-ergonomics patch is merged into `main` at
-`ebc6948`; the 0.2.8 verifier allowlist is merged at `e1cec8b`.
+`ebc6948`; the 0.2.8 verifier allowlist is merged at `e1cec8b`; the 0.2.9
+Android verifier support is merged at `722c408`.
 
 ## Next
 
 1. Restart OpenCode/Desktop so the running background server reloads the agents.
-2. Re-run the verifier smoke test and confirm `which`, `command -v`, `echo`, and
-   `sort` no longer prompt.
-3. Run one small `/ame` pilot task.
-4. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
-5. Do not merge product work before explicit approval.
+2. Run one small `/ame` pilot task.
+3. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
+4. Do not merge product work before explicit approval.
