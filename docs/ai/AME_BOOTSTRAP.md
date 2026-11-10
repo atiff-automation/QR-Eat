@@ -49,8 +49,10 @@
 
 Rotation and Git history rewrite are deferred until production/real users.
 
-Current tree: the `.railway-env-*.txt` files are removed. Historical commits still
-contain the values. Before production:
+Current tree: the `.railway-env-*.txt` files are removed, but the same
+credential remains in legacy debug/ops scripts and documentation until
+`GL-AME-BOOTSTRAP-001` is remediated. Do not merge or use real credentials.
+Before production:
 
 - rotate database, JWT, NEXTAUTH, payment, and VAPID credentials as applicable;
 - purge Git history;
