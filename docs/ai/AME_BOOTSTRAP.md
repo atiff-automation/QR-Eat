@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Branch:** `main`  
-**Status:** 0.2.7 installed; remediation task closed; permission ergonomics merged
+**Status:** 0.2.8 installed; remediation task closed; verifier allowlist completed
 
 ## Clean restart
 
@@ -11,6 +11,7 @@
 - Installed AME kit **0.2.1** on `chore/ame-bootstrap-021`
 - Upgraded to AME kit **0.2.6** on `chore/ame-bootstrap-025`
 - Applied AME kit **0.2.7** permission ergonomics; merged into `main` at `ebc6948`
+- Applied AME kit **0.2.8** verifier allowlist on `chore/ame-028`
 - Redid the security cleanup on the bootstrap branch
 
 ## Completed
@@ -24,7 +25,7 @@
 - [x] `docs/ai/BACKLOG.md`
 - [x] `docs/ai/runs/`
 - [x] `docs/PRODUCT/`
-- [x] AME 0.2.7 core/templates/checklists
+- [x] AME 0.2.8 core/templates/checklists
 - [x] Eight commands: ame, plan, bug, feature, review, fix, resume, audit
 - [x] Five skills: grilling, debugging, verification, engineering-discipline, handoff
 - [x] Eight-command / five-skill adapter validation
@@ -33,6 +34,7 @@
 - [x] Lead `.env`/destructive-shell guards preserved
 - [x] Blanket `external_directory` prompt removed
 - [x] Verifier read-only shell allowlist added, with `.env` denies
+- [x] Added `which`, `command -v`, `echo`, and `sort` to the verifier allowlist
 - [x] Absolute kit-source path removed from `AME_VERSION`
 - [x] Agent permissions checked
 - [x] No product code changed

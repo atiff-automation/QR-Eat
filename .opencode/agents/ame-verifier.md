@@ -126,6 +126,18 @@ permissions:
     resource: "npx prettier --check *"
     effect: allow
   - action: shell
+    resource: "which *"
+    effect: allow
+  - action: shell
+    resource: "command -v *"
+    effect: allow
+  - action: shell
+    resource: "echo *"
+    effect: allow
+  - action: shell
+    resource: "sort *"
+    effect: allow
+  - action: shell
     resource: "cat *.env*"
     effect: deny
   - action: shell
