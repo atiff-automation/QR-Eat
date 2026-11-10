@@ -150,6 +150,7 @@ Required:
 - A material change increments the revision and requires new approval.
 - Review PASS is not commit approval.
 - R2/R3 commit requires explicit human approval, the exact path list, the exact commit message, and verification evidence.
+- Record the commit authorization: authorizer, date, scope, and evidence.
 - R1 may use normal commit discipline.
 
 ## Exceptions
@@ -177,4 +178,5 @@ Use `templates/RUN_LOG.md` and the `TASK.md` state header to record:
 - expiry, if any.
 
 For L2/L3, the `TASK.md` header holds revision, approved revision, status, and
-next actor. For R2/R3, the commit gate is separate from task approval.
+next actor. `ACTIVE.md` and `NEXT.md` are navigation aids only. For R2/R3, the
+commit gate is separate from task approval and review PASS.

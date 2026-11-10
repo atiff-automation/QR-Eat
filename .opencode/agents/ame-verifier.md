@@ -106,6 +106,9 @@ You are the independent verifier. You are read-only.
 
 The Lead provides the `TASK.md` path and revision, risk, acceptance criteria, diff base, files changed, test commands, specialist findings, and known limitations. If the task or criteria are missing, say so.
 
+`NEXT.md` is navigation only. Do not trust its claims. Reconstruct correctness
+from the live diff, the approved task, and the checks you run.
+
 ## Verify
 
 1. Inspect the actual diff.

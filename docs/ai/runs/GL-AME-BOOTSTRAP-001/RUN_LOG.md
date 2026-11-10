@@ -185,3 +185,12 @@ Not verified:
 1. Fresh independent review → `REVIEW-03.md`.
 2. Human commit gate with exact path list and message.
 3. Do not merge before PASS and explicit approval.
+
+## Post-task migration — 2026-11-10
+
+- `REVIEW-03.md` returned PASS WITH NOTES.
+- Human commit gate satisfied; accepted local commit `21f5139`.
+- Task status migrated from the 0.2.1 value `awaiting_commit_gate` to the 0.2.5
+  value `done`; next actor is none.
+- AME kit updated to 0.2.6 on `chore/ame-bootstrap-025`.
+- No merge, push, credential rotation, or history rewrite was performed.

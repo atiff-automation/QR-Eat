@@ -1,14 +1,15 @@
 # Task — GL-AME-BOOTSTRAP-001
 
-**Status:** awaiting_commit_gate  
-**Revision:** 1  
-**Approved revision:** 1  
-**Approved by:** Atiff (development-risk decision 2026-11-10)  
-**Approval date:** 2026-11-10  
-**Next actor:** human  
-**Correction cycle:** 2 of 3 complete (`REVIEW-03.md` PASS WITH NOTES)  
-**Risk:** R3  
+**Status:** done
+**Revision:** 1
+**Approved revision:** 1
+**Approved by:** Atiff (development-risk decision 2026-11-10)
+**Approval date:** 2026-11-10
+**Next actor:** none
+**Correction cycle:** 2 of 3 complete (`REVIEW-03.md` PASS WITH NOTES)
+**Risk:** R3
 **Workflow:** BUG / security remediation
+**Updated:** 2026-11-10
 
 ## Objective
 

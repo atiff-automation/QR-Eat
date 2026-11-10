@@ -20,7 +20,6 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-008 | security | Remediate 0.2.1 bootstrap review findings | R3 | ready | Use `REVIEW-01.md` and `/ame-fix` |
 
 ## Waiting
 
@@ -33,7 +32,8 @@ Product-level work for the web/server repo. Android work lives in
 
 | ID | Title | Outcome | Run log |
 |---|---|---|---|
-| — | AME bootstrap 0.2.1 | Clean branch, kit installed, profile/docs added | `docs/ai/runs/` |
+| AME-008 | Remediate 0.2.1 bootstrap review findings | REVIEW-03 PASS WITH NOTES; accepted commit `21f5139`; task marked done | `docs/ai/runs/GL-AME-BOOTSTRAP-001/` |
+| — | AME bootstrap 0.2.6 | Kit upgraded; task state migrated; active/resume docs installed | `docs/ai/AME_BOOTSTRAP.md` |
 
 ## WIP limits
 

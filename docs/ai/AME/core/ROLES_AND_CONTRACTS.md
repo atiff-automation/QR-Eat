@@ -16,6 +16,7 @@ Responsibilities:
 - classify type, complexity, risk, and specification level;
 - read project instructions and relevant context;
 - select the workflow;
+- for L2/L3, grill the human in frontier rounds before writing the task;
 - decide whether specialist delegation is useful;
 - delegate bounded work;
 - consolidate and challenge findings;
@@ -188,13 +189,20 @@ Responsibilities:
 
 For L2/L3 and R2/R3, the Lead creates:
 
-- `docs/ai/runs/<task-id>/TASK.md` — exact contract and revision;
-- `docs/ai/runs/<task-id>/RUN_LOG.md` — evidence.
+- `docs/ai/ACTIVE.md` — pointer to the active task;
+- `docs/ai/runs/<task-id>/TASK.md` — exact contract and authoritative state;
+- `docs/ai/runs/<task-id>/RUN_LOG.md` — evidence;
+- `docs/ai/runs/<task-id>/NEXT.md` — resume bookmark.
 
-The Implementer receives the `TASK.md` path, not a retyped contract.
+The Implementer receives the `TASK.md` path, not a retyped contract. `TASK.md`
+includes a context budget: must read / read only if unclear / do not read.
 
 The Verifier returns the structured review report; the Lead writes
-`REVIEW-<n>.md` and updates the `TASK.md` state header, because the Verifier is read-only.
+`REVIEW-<n>.md` and updates the `TASK.md` state header, because the Verifier is
+read-only.
+
+`ACTIVE.md` and `NEXT.md` are navigation aids. If they conflict with `TASK.md`
+or live Git, the task and Git win. See `core/RESUMPTION.md`.
 
 ## Authority matrix
 

@@ -1,15 +1,16 @@
 # AME Bootstrap Status — QR-Eat
 
-**Date:** 2026-11-10  
-**Branch:** `chore/ame-bootstrap-021`  
-**Status:** 0.2.1 setup complete; correction cycle 2 in progress
+**Date:** 2026-11-10
+**Branch:** `chore/ame-bootstrap-025`
+**Status:** 0.2.6 installed; remediation task closed
 
 ## Clean restart
 
 - Archived old attempt: `archive/ame-bootstrap-v1`
 - Started from `main` at `2918f46`
-- Installed AME kit **0.2.1**
-- Redid the security cleanup on this branch
+- Installed AME kit **0.2.1** on `chore/ame-bootstrap-021`
+- Upgraded to AME kit **0.2.6** on `chore/ame-bootstrap-025`
+- Redid the security cleanup on the bootstrap branch
 
 ## Completed
 
@@ -22,10 +23,13 @@
 - [x] `docs/ai/BACKLOG.md`
 - [x] `docs/ai/runs/`
 - [x] `docs/PRODUCT/`
-- [x] AME 0.2.1 core/templates/checklists
-- [x] Five commands: audit, bug, feature, fix, review
-- [x] Four skills
-- [x] Five-command / four-skill adapter validation
+- [x] AME 0.2.6 core/templates/checklists
+- [x] Eight commands: ame, plan, bug, feature, review, fix, resume, audit
+- [x] Five skills: grilling, debugging, verification, engineering-discipline, handoff
+- [x] Eight-command / five-skill adapter validation
+- [x] `ACTIVE.md` pointer installed
+- [x] Context budget added to the task template
+- [x] Lead `.env`/destructive-shell guards preserved
 - [x] Agent permissions checked
 - [x] No product code changed
 
@@ -49,14 +53,14 @@ Re-verification evidence: `docs/ai/runs/GL-AME-BOOTSTRAP-001/RUN_LOG.md`.
 
 ## Accepted development risk
 
-**Approved by:** Atiff (project owner)  
-**Approval date:** 2026-11-10  
+**Approved by:** Atiff (project owner)
+**Approval date:** 2026-11-10
 **Expiry:** first production deployment, or 2026-12-31, whichever is earlier;
-renew in writing before expiry.  
+renew in writing before expiry.
 **Conditions:** no merge or deployment while a live credential is present in the
 tree; rotate database, JWT, NEXTAUTH, payment, and VAPID credentials before
 production; purge Git history before production; configure CI secrets; re-run
-the documented checks.  
+the documented checks.
 **Evidence:** `docs/ai/runs/GL-AME-BOOTSTRAP-001/REVIEW-01.md`,
 `docs/ai/runs/GL-AME-BOOTSTRAP-001/RUN_LOG.md`.
 
@@ -78,13 +82,17 @@ Before production:
 
 - `REVIEW-01.md` — FAIL (critical + high findings).
 - `REVIEW-02.md` — FAIL (R-02 documentation gap; run-log accuracy).
+- `REVIEW-03.md` — PASS WITH NOTES; human commit gate satisfied; accepted local
+  commit `21f5139`.
+- Task `GL-AME-BOOTSTRAP-001` is **done**.
+- Deferred follow-ups: R-04, R-08, R-10, R-11.
 
-Correction cycle 2 addresses the `REVIEW-02.md` findings. The branch is **not
-ready to merge** until a fresh review passes.
+The 0.2.6 kit upgrade itself is not merged. Review and commit it separately.
 
 ## Next
 
-1. Fresh `/ame-review` after correction cycle 2 → `REVIEW-03.md`.
-2. Human commit gate with exact paths and message.
-3. Deferred follow-ups: R-04, R-08, R-10, R-11.
-4. Do not merge before PASS and explicit approval.
+1. Review the 0.2.6 upgrade diff on `chore/ame-bootstrap-025`.
+2. Commit the upgrade separately from product changes.
+3. Run one small `/ame` pilot task before relying on the full flow.
+4. Deferred follow-ups: R-04, R-08, R-10, R-11.
+5. Do not merge product work before explicit approval.

@@ -16,6 +16,8 @@
 - [ ] Cost budget set
 - [ ] Approval requirements known
 - [ ] Rollback path known
+- [ ] For L2/L3, grilling completed and the exact task revision approved
+- [ ] `ACTIVE.md` points to the task and `NEXT.md` records the next action
 
 ## During
 
@@ -36,6 +38,12 @@
 - [ ] Evidence recorded
 - [ ] Verdict one of PASS / PASS WITH NOTES / FAIL
 - [ ] Residual risk recorded
+
+## Resume
+
+- [ ] `/ame-resume` recovers the task without chat history
+- [ ] `TASK.md`, `NEXT.md`, and live Git agree
+- [ ] No duplicate implementation was started
 
 ## Metrics
 

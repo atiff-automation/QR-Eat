@@ -38,6 +38,10 @@ Spec level:
 Scope:
 Non-goals:
 Repo/branch/baseline:
+Context budget:
+  Must read:
+  Read only if unclear:
+  Do not read:
 Files/modules owned:
 Do not touch:
 
@@ -75,15 +79,31 @@ The child must return evidence, not just “done.”
 
 If the child returns incomplete work, send a follow-up with the same sessionID and narrow the gap.
 
-## Compaction
+## Compaction and session resume
 
-When compacting a session:
+When compacting or ending a session:
 
 - keep decisions, constraints, and evidence;
 - reference artifacts by path;
 - remove narrative duplicates;
 - preserve unresolved questions;
-- state the next action.
+- state the exact next action.
+
+For L2/L3, update `docs/ai/runs/<task-id>/NEXT.md` from the template before the
+session ends. Include:
+
+- current step;
+- last completed work;
+- in-progress work;
+- next action;
+- blockers and open decisions;
+- files to read first;
+- what not to do.
+
+Update `docs/ai/ACTIVE.md` if the active task changed. `NEXT.md` is a bookmark;
+`TASK.md` and live Git are authoritative.
+
+A new session should run `/ame-resume`, not infer the task from chat history.
 
 ## Durable task contract
 

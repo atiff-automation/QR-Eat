@@ -58,9 +58,11 @@ Not every task runs every node.
 - **CLASSIFY:** type, complexity, risk, specification level.
 - **CONTEXT:** read project instructions, architecture, glossary, relevant code.
 - **SPECIFY:** outcome, scope, non-goals, acceptance criteria.
-- **CHALLENGE:** question gaps, edge cases, alternatives, hidden risk.
+- **CHALLENGE:** question gaps, edge cases, alternatives, hidden risk. For L2/L3,
+  grill the human in frontier rounds before writing the task.
 - **PLAN:** approach, boundaries, contracts, test strategy.
-- **APPROVAL:** human decision at the required milestone.
+- **APPROVAL:** human decision at the required milestone. A proposed plan is not
+  approval.
 - **EXECUTE:** bounded implementation, frontend/backend/data as needed.
 - **VERIFY:** independent evidence and verdict.
 - **INTEGRATE:** Lead combines and owns the result.
@@ -183,7 +185,7 @@ See `templates/DEFINITION_OF_DONE.md`.
 ### AME Lite
 
 - Lead + Verifier.
-- Four skills.
+- Five skills.
 - Sequential work.
 - One-page `AGENTS.md`, project profile, glossary.
 - Best for solo developers and small SaaS.
@@ -211,12 +213,25 @@ Keep the process proportional:
 | Tier | Artifacts | Review | Commit |
 |---|---|---|---|
 | L1 / R0–R1 | `RUN_LOG.md` only | Verifier verdict in run log | Normal commit |
-| L2 / R1–R2 | `TASK.md` + `RUN_LOG.md` | Full report only on FAIL/notes | Light gate |
-| L3 / R2–R3 | `TASK.md` + `RUN_LOG.md` + `REVIEW-*.md` | Fresh verifier | Explicit human commit gate |
+| L2 / R1–R2 | `TASK.md` + `RUN_LOG.md` + `NEXT.md` | Full report only on FAIL/notes | Light gate |
+| L3 / R2–R3 | `TASK.md` + `RUN_LOG.md` + `NEXT.md` + `REVIEW-*.md` | Fresh verifier | Explicit human commit gate |
 
-Task artifacts live under `docs/ai/runs/<task-id>/` for L2/L3. Do not create a task directory for a typo.
+Task artifacts live under `docs/ai/runs/<task-id>/` for L2/L3. `ACTIVE.md` is a
+pointer to the current task. `NEXT.md` is a resume bookmark, not a second state
+store. Do not create a task directory for a typo.
 
-See `REVIEW_AND_REMEDIATION.md`.
+For L2/L3, `TASK.md` includes a **context budget**:
+
+```text
+Must read:
+Read only if unclear:
+Do not read by default:
+```
+
+The agent should read the task and named sources, not scan the whole repository.
+Broaden context only when evidence shows it is needed.
+
+See `REVIEW_AND_REMEDIATION.md`, `RESUMPTION.md`, and `ORCHESTRATION.md`.
 
 ## Success criteria
 

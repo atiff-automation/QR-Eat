@@ -65,7 +65,10 @@ A task is done only when the applicable items are true.
 - [ ] If L2/L3, `TASK.md` revision matches approved revision
 - [ ] Review verdict is PASS or PASS WITH NOTES
 - [ ] Full `REVIEW-*.md` exists when required
-- [ ] Commit gate approved for R2/R3
+- [ ] `TASK.md` status is `ready_to_commit` for R2/R3
+- [ ] `NEXT.md` records the commit gate
+- [ ] Commit authorization recorded for R2/R3
+- [ ] Commit gate approved
 - [ ] No unrelated changes
 
 ## Documentation

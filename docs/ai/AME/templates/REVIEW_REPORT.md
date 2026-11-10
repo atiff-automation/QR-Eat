@@ -30,9 +30,13 @@
 
 ## Routing
 
-- `PASS` → Lead may proceed to the commit gate.
-- `PASS WITH NOTES` → Lead records notes; human decides.
-- `FAIL` → separate remediation task; do not merge.
+- `PASS` → Lead sets `ready_to_commit` for R2/R3, or closes the task after the
+  normal commit for L1/L2.
+- `PASS WITH NOTES` → Lead records notes; human decides whether to proceed.
+- `FAIL` → Lead sets `correction_required`; use `/ame-fix`; do not merge.
+- Plan or authority problem → `owner_decision_required`; stop for the human.
+
+Update `NEXT.md` with the routing and exact next action.
 
 ## Evidence
 

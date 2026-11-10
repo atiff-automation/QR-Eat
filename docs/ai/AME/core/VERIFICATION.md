@@ -186,8 +186,8 @@ Use `templates/REVIEW_REPORT.md`. Record:
 - residual risk;
 - routing.
 
-The Lead updates the `TASK.md` state header. The remediation step consumes the review path, not a
-retyped prompt.
+The Lead updates the `TASK.md` state header and `NEXT.md`. The remediation step
+consumes the review path, not a retyped prompt.
 
 ## Evidence
 
@@ -246,7 +246,8 @@ Known limitations:
 ```
 
 The Verifier returns the report structure. The Lead writes it to
-`docs/ai/runs/<task-id>/REVIEW-<n>.md` and updates the `TASK.md` state header.
+`docs/ai/runs/<task-id>/REVIEW-<n>.md`, updates the `TASK.md` state header, and
+updates `NEXT.md`.
 
 ```text
 Verdict:

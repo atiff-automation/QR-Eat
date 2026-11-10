@@ -1,16 +1,17 @@
 # Run Log — {{TASK_ID}}
 
-**Title:**  
-**Type:** feature / bug / review / audit / refactor / architecture / deploy  
-**Risk:** R0 / R1 / R2 / R3  
-**Spec level:** L1 / L2 / L3  
-**Owner:**  
-**Date:**  
-**Branch/commit:**  
-**Task revision:**  
-**Approved revision:**  
-**Task contract:** `TASK.md` (L2/L3) or n/a (L1)  
-**Latest review:**  
+**Title:**
+**Type:** feature / bug / review / audit / refactor / architecture / deploy
+**Risk:** R0 / R1 / R2 / R3
+**Spec level:** L1 / L2 / L3
+**Owner:**
+**Date:**
+**Branch/commit:**
+**Task revision:**
+**Approved revision:**
+**Task contract:** `TASK.md` (L2/L3) or n/a (L1)
+**Resume bookmark:** `NEXT.md` (L2/L3) or n/a (L1)
+**Latest review:**
 
 ## Request
 
@@ -24,15 +25,21 @@ Why this type, risk, and level.
 
 In scope:
 
-- 
-- 
+-
+-
 
 Non-goals:
 
-- 
-- 
+-
+-
 
 ## Context
+
+**Context budget used:**
+
+- Must read:
+- Read only if unclear:
+- Do not read by default:
 
 Relevant files, architecture, constraints, docs.
 
@@ -65,8 +72,8 @@ Approach, boundaries, API/data contract, test strategy.
 
 Files changed:
 
-- 
-- 
+-
+-
 
 Commands run:
 
@@ -79,22 +86,22 @@ Verdict: PASS / PASS WITH NOTES / FAIL
 
 Findings:
 
-- 
-- 
+-
+-
 
 Evidence:
 
-- 
-- 
+-
+-
 
 Not verified:
 
-- 
+-
 
 ## Residual risk
 
-- 
-- 
+-
+-
 
 ## Release
 

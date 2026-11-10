@@ -93,6 +93,33 @@ User
 
 The user selects the Lead once. The Lead decides which specialists to call.
 
+## Front door
+
+The user should not need to remember the workflow commands.
+
+- `/ame <request>` is the universal entry point.
+- Plain language is also valid when `ame-lead` is the selected agent.
+- The Lead classifies the request and states the route.
+- The specific commands are optional shortcuts.
+
+If the installer creates a new project config, it sets
+`"default_agent": "ame-lead"`. Existing configs are not modified automatically.
+
+Routing table:
+
+| Intent | First action |
+|---|---|
+| New feature or change | Plan and grill |
+| Bug | Reproduce and investigate |
+| Review | Read-only review |
+| Fix `REVIEW-*.md` | Remediation |
+| Audit | Read-only audit |
+| “Continue” | Resume from `ACTIVE.md` |
+| Tiny clear change | Implement and verify |
+
+The Lead asks one question only when the intent is genuinely ambiguous. It does
+not ask the user to choose a slash command.
+
 ### When separate root sessions are useful
 
 - independent tasks;
@@ -167,18 +194,71 @@ Rules:
 For L2/L3 and R2/R3, the Lead keeps durable state:
 
 ```text
+docs/ai/ACTIVE.md              # pointer to the active task
 docs/ai/runs/<task-id>/
-├── TASK.md
-├── RUN_LOG.md
-└── REVIEW-*.md
+├── TASK.md                    # authoritative contract and state
+├── RUN_LOG.md                 # evidence
+├── NEXT.md                    # resume bookmark
+└── REVIEW-*.md                # independent findings
 ```
 
-- `TASK.md` is the contract passed by path to the implementer.
-- `TASK.md` records status, revision, approval, next actor, and commit gate.
+- `ACTIVE.md` is a pointer only: task id, branch, updated time, and task path.
+- `TASK.md` is authoritative for status, revision, approval, next actor, and
+  commit gate.
+- `NEXT.md` records the current step and exact next action. It is a bookmark, not
+  a second state store.
 - `REVIEW-*.md` records independent findings.
 - The Verifier is read-only; the Lead writes the review report.
+- If documents disagree, live Git and `TASK.md` win.
+- The Lead updates `ACTIVE.md` at task start and `NEXT.md` at phase boundaries.
 
-L1 uses a single run log.
+L1 uses a single run log. `NEXT.md` is optional for L1.
+
+See `core/RESUMPTION.md` and `/ame-resume`.
+
+## Context budget
+
+Every L2/L3 `TASK.md` should name the minimum context:
+
+```text
+Must read:
+Read only if unclear:
+Do not read by default:
+```
+
+The default must-read set is:
+
+- `AGENTS.md`;
+- `docs/ai/PROJECT_PROFILE.md`;
+- `TASK.md`;
+- the exact source/test files owned by the task.
+
+Do not read the whole `docs/ai/` tree, unrelated modules, generated files, or
+historical run logs by default. Broaden only when evidence shows it is needed.
+
+If a required document contradicts the task, stop and report it. Do not guess.
+
+L1 tasks do not need a full context budget; read only the relevant files and
+record the result in the run log.
+
+## One writer
+
+Only one actor may modify the working tree at a time. Do not start a second
+implementation session to help a running one. Parallel implementation requires
+separate worktrees and explicit ownership.
+
+## Session continuity
+
+A session can compact, crash, or end. On resume:
+
+1. resolve the task through `docs/ai/ACTIVE.md`;
+2. read `TASK.md`, `RUN_LOG.md`, `NEXT.md`, and the latest review;
+3. inspect live Git;
+4. report the state and next action;
+5. wait for confirmation before editing.
+
+Never infer the active task from chat history, model memory, timestamps,
+directory order, or the most recent file.
 
 ## Worktrees
 

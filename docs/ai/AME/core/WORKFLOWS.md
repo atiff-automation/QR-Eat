@@ -46,20 +46,30 @@ Use for new user-facing or system capability.
    - component reuse;
    - accessibility;
    - responsive behaviour.
-6. **Challenge:** edge cases, alternatives, hidden coupling, security, data, cost.
+6. **Challenge:** for L2/L3, load `ame-grilling` and resolve the planning
+   frontier in rounds. Cover edge cases, alternatives, hidden coupling, security,
+   data, and cost.
 7. **Plan:**
    - module boundaries;
    - API/data contract;
    - frontend/backend ownership;
    - test strategy;
    - migration/rollback if needed.
-8. **Approval:** design + plan + risk at the appropriate level.
+8. **Approval:** design + plan + risk at the appropriate level. A proposed plan
+   is not approval. Record the approved revision in `TASK.md`.
 9. **Execute:** bounded implementation.
 10. **Verify:** spec, standards, consistency, UX, accessibility, contract, security, tests.
 11. **Integrate:** Lead owns the final diff.
 12. **Release:** only with the required approval.
 13. **Observe/Learn:** metrics, errors, feedback, retro.
 14. **Document:** ADR, glossary, run log, API docs.
+
+## Planning-only route
+
+Use `/ame-plan` when the human wants discussion and approval before any code.
+It grills, writes `TASK.md`, sets `planning / next actor = human`, and stops.
+After approval, the same session or a new session can implement the approved
+revision without re-planning.
 
 ## Outputs
 
@@ -96,6 +106,7 @@ Use for defects and unexpected behaviour.
    - instrument one variable at a time;
    - identify root cause or state uncertainty.
 4. **Challenge:** is this the real cause? Is it a symptom? Is the design wrong?
+   If the fix changes behaviour or scope, use `ame-grilling`.
 5. **Approve:** required for R2/R3 or business-rule changes.
 6. **Fix:** smallest correct change.
 7. **Regression test:** fail before, pass after, at the right seam.
@@ -333,17 +344,18 @@ Every screen defines:
 
 For L2/L3 and R2/R3:
 
-1. The Lead writes `TASK.md` (with its state header) and `RUN_LOG.md`.
+1. The Lead writes `TASK.md` (with its state header), `RUN_LOG.md`, and `NEXT.md`.
 2. The Implementer works from `TASK.md`.
 3. The Verifier returns a structured report.
-4. The Lead writes `REVIEW-01.md`.
-5. If FAIL, the human runs `/ame-fix <review-path>`.
+4. The Lead writes `REVIEW-01.md` and updates `NEXT.md`.
+5. If FAIL, set `correction_required`; the human runs `/ame-fix <review-path>`.
 6. The Implementer fixes only approved findings; maximum 3 correction cycles.
 7. A fresh review writes `REVIEW-02.md`.
-8. PASS → commit gate.
-9. R2/R3 commit requires explicit human approval and exact path list.
+8. PASS → `ready_to_commit` for R2/R3, or normal commit for L1/L2.
+9. R2/R3 commit requires explicit human approval, exact path list, and recorded
+   commit authorization.
 
-Do not move findings by chat. Use files.
+Do not move findings by chat. Use files. After a break, run `/ame-resume`.
 
 ## Commit gate
 

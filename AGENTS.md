@@ -80,13 +80,30 @@ Do not change without explicit human approval:
 - Do not modify the Android repo from this session. Cross-repo work needs a
   separate Tabtep-App session and a frozen API contract.
 
+## AME entry point
+
+If you are unsure which AME command to use, run:
+
+```text
+/ame <request>
+```
+
+Or simply describe the task. The Lead classifies and routes it. The specific
+commands are optional shortcuts.
+
 ## AME commands
 
+- `/ame` — universal front door; classify and route.
+- `/ame-plan` — grill, plan, and produce an approvable `TASK.md`; no code.
+- `/ame-feature` — feature workflow with grilling, spec, UX gate, contract, build, verify.
 - `/ame-bug` — investigation-first bug workflow.
-- `/ame-feature` — feature workflow with spec, UX gate, contract, build, verify.
 - `/ame-review` — read-only two-axis review.
 - `/ame-fix` — remediate findings from a review report.
+- `/ame-resume` — recover the active task and next action after a break.
 - `/ame-audit` — read-only architecture/security/consistency audit.
+
+L2/L3 tasks include a context budget: must read / read only if unclear / do not
+read. Do not scan the whole repository by default.
 
 ## Cross-repo boundary
 

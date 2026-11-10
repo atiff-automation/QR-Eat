@@ -5,6 +5,8 @@
 - [ ] Review report exists
 - [ ] Verdict is FAIL or PASS WITH NOTES
 - [ ] Task revision and diff base are known
+- [ ] `TASK.md` status is `correction_required`
+- [ ] `NEXT.md` records the current step and next action
 - [ ] Severity band selected
 - [ ] Human approved the remediation scope
 
@@ -36,7 +38,10 @@
 ## Commit gate
 
 - [ ] Review PASS
+- [ ] `TASK.md` status is `ready_to_commit`
+- [ ] `NEXT.md` records the commit gate
 - [ ] Human approves exact commit
+- [ ] Commit authorization recorded (authorizer, date, scope, evidence)
 - [ ] Exact path list published
 - [ ] Exact commit message published
 - [ ] No unrelated changes

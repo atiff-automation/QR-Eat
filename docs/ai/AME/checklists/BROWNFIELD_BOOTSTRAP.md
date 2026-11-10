@@ -25,6 +25,7 @@
 - [ ] `AGENTS.md` created (max one page)
 - [ ] `GLOSSARY.md` created (20–40 terms)
 - [ ] `docs/ai/BACKLOG.md` created
+- [ ] `docs/ai/ACTIVE.md` created (pointer only; `Task: none` at rest)
 - [ ] `docs/ai/runs/` created
 - [ ] Architecture map reviewed
 - [ ] Sensitive areas reviewed
@@ -45,7 +46,8 @@
 
 - [ ] `ame-lead` visible
 - [ ] `ame-verifier` visible
-- [ ] `/ame-bug`, `/ame-feature`, `/ame-review`, `/ame-audit` visible
+- [ ] `/ame`, `/ame-plan`, `/ame-bug`, `/ame-feature`, `/ame-review`, `/ame-fix`, `/ame-resume`, `/ame-audit` visible
+- [ ] New project config sets `default_agent: ame-lead` (or the existing config is updated manually)
 - [ ] Verifier cannot edit
 - [ ] Verifier cannot spawn subagents
 - [ ] `.env` read denied/ask
