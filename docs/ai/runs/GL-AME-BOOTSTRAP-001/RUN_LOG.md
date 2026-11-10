@@ -193,4 +193,5 @@ Not verified:
 - Task status migrated from the 0.2.1 value `awaiting_commit_gate` to the 0.2.5
   value `done`; next actor is none.
 - AME kit updated to 0.2.6 on `chore/ame-bootstrap-025`.
-- No merge, push, credential rotation, or history rewrite was performed.
+- Merged into `main` at `b2f3949`; no push, credential rotation, or history
+  rewrite was performed.

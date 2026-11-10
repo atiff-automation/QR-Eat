@@ -1,8 +1,8 @@
 # AME Bootstrap Status — QR-Eat
 
 **Date:** 2026-11-10
-**Branch:** `chore/ame-bootstrap-025`
-**Status:** 0.2.6 installed; remediation task closed; upgrade committed
+**Branch:** `main`  
+**Status:** 0.2.6 installed; remediation task closed; upgrade merged
 
 ## Clean restart
 
@@ -87,13 +87,13 @@ Before production:
 - Task `GL-AME-BOOTSTRAP-001` is **done**.
 - Deferred follow-ups: R-04, R-08, R-10, R-11.
 
-The 0.2.6 kit upgrade is committed at `f58b31d` on
-`chore/ame-bootstrap-025`; it is not merged.
+The 0.2.6 kit upgrade is committed at `f58b31d` and merged into `main` at
+`b2f3949`.
 
 ## Next
 
-1. Review the 0.2.6 upgrade commit `f58b31d` on `chore/ame-bootstrap-025`.
-2. Merge only after review and explicit approval; no product change is included.
-3. Run one small `/ame` pilot task before relying on the full flow.
+1. The 0.2.6 upgrade is merged into `main` at `b2f3949`; no push has been made.
+2. Run one small `/ame` pilot task before relying on the full flow.
+3. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
 4. Deferred follow-ups: R-04, R-08, R-10, R-11.
 5. Do not merge product work before explicit approval.

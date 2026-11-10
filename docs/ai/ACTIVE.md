@@ -6,6 +6,6 @@ Those belong in the task's TASK.md.
 -->
 
 Task: none
-Branch: chore/ame-bootstrap-025
+Branch: main
 Updated: 2026-11-10
 Task contract:
