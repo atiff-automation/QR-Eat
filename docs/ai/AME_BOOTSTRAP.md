@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Branch:** `main`  
-**Status:** 0.2.8 installed; remediation task closed; verifier allowlist completed
+**Status:** 0.2.8 installed; remediation task closed; verifier allowlist merged
 
 ## Clean restart
 
@@ -11,7 +11,7 @@
 - Installed AME kit **0.2.1** on `chore/ame-bootstrap-021`
 - Upgraded to AME kit **0.2.6** on `chore/ame-bootstrap-025`
 - Applied AME kit **0.2.7** permission ergonomics; merged into `main` at `ebc6948`
-- Applied AME kit **0.2.8** verifier allowlist on `chore/ame-028`
+- Applied AME kit **0.2.8** verifier allowlist; merged into `main` at `e1cec8b`
 - Redid the security cleanup on the bootstrap branch
 
 ## Completed
@@ -95,11 +95,13 @@ Before production:
 
 The 0.2.6 kit upgrade is committed at `f58b31d` and merged into `main` at
 `b2f3949`. The 0.2.7 permission-ergonomics patch is merged into `main` at
-`ebc6948`.
+`ebc6948`; the 0.2.8 verifier allowlist is merged at `e1cec8b`.
 
 ## Next
 
 1. Restart OpenCode/Desktop so the running background server reloads the agents.
-2. Run one small `/ame` pilot task and confirm the prompt noise is reduced.
-3. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
-4. Do not merge product work before explicit approval.
+2. Re-run the verifier smoke test and confirm `which`, `command -v`, `echo`, and
+   `sort` no longer prompt.
+3. Run one small `/ame` pilot task.
+4. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
+5. Do not merge product work before explicit approval.
