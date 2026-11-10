@@ -201,3 +201,5 @@ Not verified:
 - AME 0.2.8 applied on `chore/ame-028`: added `which`, `command -v`, `echo`,
   and `sort` to the verifier allowlist after the permission smoke test showed
   those compound-command utilities still prompting.
+- AME 0.2.9 applied on `chore/ame-029`: added `./gradlew *` to the portable
+  verifier allowlist for Android projects.

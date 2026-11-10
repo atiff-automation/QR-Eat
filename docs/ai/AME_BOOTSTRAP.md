@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Branch:** `main`  
-**Status:** 0.2.8 installed; remediation task closed; verifier allowlist merged
+**Status:** 0.2.9 installed; remediation task closed; Android verifier support added
 
 ## Clean restart
 
@@ -12,6 +12,7 @@
 - Upgraded to AME kit **0.2.6** on `chore/ame-bootstrap-025`
 - Applied AME kit **0.2.7** permission ergonomics; merged into `main` at `ebc6948`
 - Applied AME kit **0.2.8** verifier allowlist; merged into `main` at `e1cec8b`
+- Updated to AME kit **0.2.9** for Android verifier support on `chore/ame-029`
 - Redid the security cleanup on the bootstrap branch
 
 ## Completed
@@ -25,7 +26,7 @@
 - [x] `docs/ai/BACKLOG.md`
 - [x] `docs/ai/runs/`
 - [x] `docs/PRODUCT/`
-- [x] AME 0.2.8 core/templates/checklists
+- [x] AME 0.2.9 core/templates/checklists
 - [x] Eight commands: ame, plan, bug, feature, review, fix, resume, audit
 - [x] Five skills: grilling, debugging, verification, engineering-discipline, handoff
 - [x] Eight-command / five-skill adapter validation
@@ -35,6 +36,7 @@
 - [x] Blanket `external_directory` prompt removed
 - [x] Verifier read-only shell allowlist added, with `.env` denies
 - [x] Added `which`, `command -v`, `echo`, and `sort` to the verifier allowlist
+- [x] Added `./gradlew *` to the portable verifier allowlist
 - [x] Absolute kit-source path removed from `AME_VERSION`
 - [x] Agent permissions checked
 - [x] No product code changed
