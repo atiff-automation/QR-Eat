@@ -25,16 +25,18 @@ Requirements:
    slash command the user wants.
 5. Start the safe first step:
    - **feature/change:** load `ame-grilling`, plan in rounds, write `TASK.md`,
-     and stop for approval. Do not write product code.
+     and stop for approval. Do not write product code. After approval, use
+     `/ame-implement`.
    - **bug:** load `ame-debugging`, build a reproduction, investigate. Do not fix
-     before the cause is understood.
+     before the cause is understood. Hand the approved fix to `ame-implementer`.
    - **resume:** read `ACTIVE.md`, `TASK.md`, `RUN_LOG.md`, `NEXT.md`, the latest
-     review, and live Git. Report the state and wait for confirmation.
+     review, and live Git. Report the state and route to the recorded next actor.
    - **review:** run the read-only REVIEW workflow.
-   - **remediation:** read the review and `TASK.md`; fix only approved findings.
+   - **remediation:** read the review and `TASK.md`; hand only approved findings
+     to `ame-implementer`.
    - **audit:** run the read-only AUDIT workflow.
-   - **tiny change:** implement the smallest correct change, then request
-     independent verification.
+   - **tiny change:** hand the smallest correct change to `ame-implementer`,
+     then request independent verification.
 6. For L2/L3, write a context budget in `TASK.md`: must read / read only if
    unclear / do not read. Do not scan the whole repository by default.
 7. For L2/L3, update `docs/ai/ACTIVE.md` and `NEXT.md`.

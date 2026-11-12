@@ -74,27 +74,32 @@ A review verdict (`PASS`, `PASS WITH NOTES`, `FAIL`) is not a task state.
 
 ## How the Lead asks the Implementer
 
-Pass the path, not a long prompt:
+Spawn exactly one `ame-implementer` child and pass the path, not a long prompt:
 
 ```text
 Implement docs/ai/runs/<task-id>/TASK.md revision 1.
-Return the required evidence.
+Return the required evidence. Do not commit or change scope.
 ```
 
-`TASK.md` contains objective, decisions, context budget, scope, non-goals,
-ownership, acceptance criteria, constraints, required patterns, verification
-commands, review focus, and the commit gate.
+Record the implementer `sessionID`. `TASK.md` contains objective, decisions,
+context budget, scope, non-goals, ownership, acceptance criteria, constraints,
+required patterns, verification commands, review focus, and the commit gate.
 
 ## How the Lead asks the Verifier
 
+Spawn a fresh `ame-verifier` child:
+
 ```text
 Verify docs/ai/runs/<task-id>/TASK.md revision 1.
-Diff base: <commit>.
-Inspect the actual diff, run the listed checks, and return the report structure.
+Base commit: <commit>.
+Diff hash: <hash>.
+Inspect the actual diff and untracked files, run the listed checks, and return
+the report structure.
 ```
 
-The Verifier is read-only. It returns the report. The Lead writes `REVIEW-*.md`
-only when required and updates the `TASK.md` header.
+The Verifier is read-only. It returns the report. Record the verifier
+`sessionID`. The Lead writes `REVIEW-*.md` only when required and updates the
+`TASK.md` header.
 
 ## Review report rules
 

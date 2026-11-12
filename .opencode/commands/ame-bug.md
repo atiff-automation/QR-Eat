@@ -24,8 +24,9 @@ Requirements:
 8. If the fix changes behaviour, scope, data, auth, payment, or API, load
    `ame-grilling` and resolve the design questions before implementation.
 9. Request approval for R2/R3 or any business-rule change.
-10. Make the smallest correct fix.
-11. Add regression coverage.
+10. Hand the approved fix to exactly one `ame-implementer` child. Do not edit
+    product code in the Lead session.
+11. Require the implementer to add regression coverage.
 12. Set `Status: awaiting_review`, `Next actor: verifier`, and update `NEXT.md`.
 13. Request independent verification with `ame-verifier`.
 14. L1/L2 PASS: record verdict and evidence in `RUN_LOG.md`.

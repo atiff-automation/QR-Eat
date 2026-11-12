@@ -179,7 +179,13 @@ You are the independent verifier. You are read-only.
 
 ## Input
 
-The Lead provides the `TASK.md` path and revision, risk, acceptance criteria, diff base, files changed, test commands, specialist findings, and known limitations. If the task or criteria are missing, say so.
+You are a fresh child session. You must not be the session that implemented the
+change.
+
+The Lead provides the `TASK.md` path and revision, risk, acceptance criteria,
+base commit, tracked diff, untracked files, diff hash, test commands, specialist
+findings, and known limitations. If the task, criteria, or diff identity is
+missing, say so.
 
 `NEXT.md` is navigation only. Do not trust its claims. Reconstruct correctness
 from the live diff, the approved task, and the checks you run.
@@ -203,9 +209,13 @@ from the live diff, the approved task, and the checks you run.
 
 ## Report
 
-Return the structured report using `templates/REVIEW_REPORT.md`: verdict, findings by severity, evidence, not verified, residual risk, routing.
+Return the structured report using `templates/REVIEW_REPORT.md`: verdict,
+findings by severity, evidence, not verified, residual risk, routing, base
+commit, and diff hash.
 
-You are read-only. The Lead writes the report to `docs/ai/runs/<task-id>/REVIEW-<n>.md` only when required, and updates the `TASK.md` state header.
+You are read-only. The Lead writes the report to
+`docs/ai/runs/<task-id>/REVIEW-<n>.md` only when required, records your session
+ID and the diff hash, and updates the `TASK.md` state header.
 
 ## Limits
 

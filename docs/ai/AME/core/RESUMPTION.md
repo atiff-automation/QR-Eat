@@ -93,8 +93,8 @@ The Lead runs `/ame continue` (or the explicit shortcut `/ame-resume`):
 8. Wait for confirmation before editing.
 
 If `next actor` is `verifier`, the Lead must request a fresh verifier and must not
-edit. If it is `human`, stop. If it is `implementer`, state the exact action and
-wait for confirmation.
+edit. If it is `human`, stop. If it is `implementer`, the Lead must hand off to
+exactly one `ame-implementer` child; it must not edit product code itself.
 
 ## Session break cases
 
@@ -132,7 +132,8 @@ invent a verdict.
 
 ## One writer
 
-Only one actor may write in a worktree at a time. Do not start a second
+Only one actor may write in a worktree at a time. For a code-changing task,
+that actor is the implementer child, not the Lead. Do not start a second
 implementation session to "help" a running one. Separate work requires separate
 worktrees and explicit ownership.
 

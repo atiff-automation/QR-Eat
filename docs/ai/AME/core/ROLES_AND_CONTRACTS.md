@@ -26,7 +26,10 @@ Responsibilities:
 - ensure independent verification;
 - report evidence, tests, and residual risk.
 
-The Lead may implement small tasks itself, but must not verify its own code changes.
+The Lead does not edit product code. Product-code changes are delegated to one
+`ame-implementer` child. The Lead may edit task state and project documentation
+allowed by its permissions. The Lead must not verify its own code changes; every
+code-changing task uses a fresh `ame-verifier`.
 
 ### Investigator
 
@@ -62,7 +65,8 @@ The Architect does not own implementation.
 
 ### Implementer
 
-Use for approved, bounded work.
+Use for approved, bounded work. The implementer is the `ame-implementer`
+subagent, with fresh context.
 
 Responsibilities:
 
@@ -70,11 +74,14 @@ Responsibilities:
 - follow the approved architecture;
 - respect file ownership;
 - write or update tests;
+- run the required checks;
 - report blockers and deviations;
 - avoid unapproved scope expansion;
-- reuse existing patterns before creating new ones.
+- reuse existing patterns before creating new ones;
+- return evidence, including new and untracked files.
 
-The Implementer does not approve its own work and does not spawn subagents.
+The Implementer does not edit task state, does not commit, does not approve its
+own work, and does not spawn subagents.
 
 ### Independent Verifier
 
@@ -228,6 +235,9 @@ Objective:
 Workflow:
 Risk:
 Specification level:
+Implementer agent: ame-implementer
+Implementer session:
+Approved task hash:
 
 Scope:
 Non-goals:
@@ -275,7 +285,7 @@ The Verifier receives:
 - original task;
 - acceptance criteria;
 - risk level;
-- actual diff or integrated branch;
+- base commit, actual diff, untracked files, and diff hash;
 - relevant project standards;
 - test commands;
 - specialist findings.
@@ -286,7 +296,8 @@ The Verifier returns:
 - findings by severity;
 - evidence;
 - what was not verified;
-- residual risk.
+- residual risk;
+- base commit and diff hash for the review.
 
 ## Escalation
 
