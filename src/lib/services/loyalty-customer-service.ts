@@ -51,15 +51,6 @@ export interface ResolveOrCreateCustomerResult {
   loyaltyError: LoyaltyCustomerError | null;
 }
 
-export interface AnonymiseCustomerInput {
-  restaurantId: string;
-  customerId: string;
-}
-
-export interface AnonymiseCustomerResult {
-  anonymised: boolean;
-}
-
 const ERROR_MESSAGES: Record<LoyaltyCustomerErrorCode, string> = {
   LOYALTY_DISABLED: 'Loyalty is not available.',
   PHONE_INVALID: 'Enter a valid mobile number.',
@@ -199,27 +190,4 @@ export async function resolveOrCreateCustomer(
     }
     throw error;
   }
-}
-
-/**
- * Anonymise a customer in place.
- *
- * Keeps `phoneHash` (needed for same-day visit dedupe and reporting) and every
- * financial row. Nulls the phone and name, sets `status='ANONYMIZED'` and
- * stamps `anonymizedAt`. There is no hard delete (§18.20.9).
- */
-export async function anonymiseCustomer(
-  input: AnonymiseCustomerInput
-): Promise<AnonymiseCustomerResult> {
-  const result = await prisma.customer.updateMany({
-    where: { id: input.customerId, restaurantId: input.restaurantId },
-    data: {
-      status: 'ANONYMIZED',
-      anonymizedAt: new Date(),
-      phone: null,
-      name: null,
-    },
-  });
-
-  return { anonymised: result.count > 0 };
 }

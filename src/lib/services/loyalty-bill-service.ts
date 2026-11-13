@@ -1055,6 +1055,20 @@ async function completeMemberChangeRecord(
     response: Prisma.InputJsonValue;
   }
 ): Promise<void> {
+  // The live response keeps the member name/masked phone for the Counter, but
+  // the 24h idempotency body must not retain them: a replay after DELETE would
+  // otherwise return the deleted member's PII. Strip only the stored copy.
+  const stored = JSON.parse(JSON.stringify(input.response)) as Record<
+    string,
+    unknown
+  >;
+  const member = stored.member;
+  if (member && typeof member === 'object' && !Array.isArray(member)) {
+    const memberRecord = member as Record<string, unknown>;
+    memberRecord.name = null;
+    memberRecord.maskedPhone = null;
+  }
+
   await tx.idempotencyRecord.update({
     where: {
       restaurantId_scope_key: {
@@ -1065,7 +1079,7 @@ async function completeMemberChangeRecord(
     },
     data: {
       status: 'COMPLETED',
-      responseJson: input.response,
+      responseJson: stored as Prisma.InputJsonValue,
     },
   });
 }

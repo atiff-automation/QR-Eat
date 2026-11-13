@@ -212,7 +212,12 @@ cash rounding on `PaymentBatch`; offline replay behaviour.
 (review, confirmation, inline consent, per-error copy) and owner dashboard
 screens (settings, promotions, members, reports).
 
-**P7 — Security and privacy.** Durable rate limits per §18.20.15 B, trusted edge
+**P7 — Security and privacy.** **Note (2026-11-13): R-02 is already closed in P6B cycle 3** —
+customer phone/email are no longer persisted in `PaymentBatch.response` or `OrderEvent.payload`,
+and `deleteMember` nulls the remaining name copy. Do not re-implement it in P7; verify it instead.
+P7 still owns: durable rate limits, the enumeration alert, trusted edge IP, full-phone audit
+completeness, cross-tenant 404 on the legacy bill route, and the R-02 verification.
+ Durable rate limits per §18.20.15 B, trusted edge
 IP resolution, enumeration alert, full-phone audit, permission matrix
 (`loyalty:configure`, `promotions:manage`, `members:read`, `members:pii`,
 `members:export`, `members:delete`, `members:consent_withdraw`,

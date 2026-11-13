@@ -987,6 +987,8 @@ describe('loyalty takeaway payment — transaction', () => {
       tableId: null,
       diningSessionId: null,
       customerId,
+      customerName: 'Aina',
+      customerPhone: '+60123456789',
     });
     tx.order.findFirst.mockResolvedValue(takeaway);
 
@@ -996,6 +998,39 @@ describe('loyalty takeaway payment — transaction', () => {
       outcome: 'VISIT_COUNTED',
       totalPaid: '69.60',
     });
+    const liveOrder = (
+      result.response as {
+        payment: { order: Record<string, unknown> };
+      }
+    ).payment.order;
+    expect(liveOrder).toMatchObject({
+      customerName: 'Aina',
+      customerPhone: '+60123456789',
+    });
+
+    const storedCall = tx.paymentBatch.update.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg?.data?.response);
+    expect(storedCall).toBeDefined();
+    const storedOrder = (
+      storedCall!.data.response as {
+        payment: { order: Record<string, unknown> };
+      }
+    ).payment.order;
+    expect(storedOrder).not.toHaveProperty('customerName');
+    expect(storedOrder).not.toHaveProperty('customerPhone');
+
+    const idempotencyCall = tx.idempotencyRecord.update.mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg?.data?.responseJson);
+    expect(idempotencyCall).toBeDefined();
+    const storedIdempotencyOrder = (
+      idempotencyCall!.data.responseJson as {
+        payment: { order: Record<string, unknown> };
+      }
+    ).payment.order;
+    expect(storedIdempotencyOrder).not.toHaveProperty('customerName');
+    expect(storedIdempotencyOrder).not.toHaveProperty('customerPhone');
     expect(tx.paymentBatch.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

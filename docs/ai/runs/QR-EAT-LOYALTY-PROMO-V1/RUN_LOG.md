@@ -779,3 +779,82 @@ receipt, system, hours, general, qr-ordering), not only payments. Recorded for t
 pass, which must confirm the expansion is intended for the product and reflected in the
 permission documentation.
 
+
+**P6B — member API and loyalty report (2026-11-13) — FAIL, blocked:**
+
+Implementer `ses_e2b308a53ffef8zBgoUbNIfidm`. Three verifier passes
+(`ses_e2b1c62a2ffeBd8ztrgaTQGs0E`, `ses_e2b034ebaffe2RbkZwSJECzySY`,
+`ses_e2af54affffeZahV275aESNHGv`), all FAIL on erasure completeness. Two correction cycles.
+
+Delivered and verified: search (exact E.164 hash, cap 50, audited with `phoneHash` + required
+purpose), profile, subject-access export, opted-in list export, consent withdrawal, marketing
+consent, loyalty report (gross/discounts by source/net = Σ Payment.amount/refunds positive
+magnitude; a discount is never subtracted from net), permissions, cross-tenant 404, full phone
+only with `members:pii`.
+
+```text
+npx jest src/app/api/members src/app/api/reports src/lib/services/__tests__ --runInBand
+                                   -> 13 suites, 221 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 90 passed / 1 skipped, 1086 passed, 11 skipped
+npm run build                      -> PASS
+```
+
+**Blocking defect (three passes to isolate):** deleting a member leaves their name/phone/email
+in `customer_sessions`. QR order create stores the **raw client phone**, and the live checkout
+submits the national form (`123456789` / `0123456789`), while delete matches only E.164 — so the
+default guest path is never matched. Sessions are never purged and are still served to owners via
+`order.customerSession.customerPhone`. Once `Customer.phone` is nulled the survivor is
+unrecoverable in place.
+
+Needs a decision: (1) normalise the phone at write in `src/app/api/qr/orders/create/route.ts`
+(a P4-owned file), (2) widen the delete match to national variants, (3) decide on a backfill for
+existing rows.
+
+**Escalated to P7 (R-02):** PII inside `PaymentBatch.response` and `OrderEvent.payload` JSON
+snapshots, served by `GET /api/counter/payments/[key]` and the station event stream. Pre-existing.
+
+**Also routed:** refunds are structurally `0.00` because the refund path writes no negative
+`Payment` (P8); marketing consent is reachable from the owner API although §18.20.9 says
+"Counter-only" (P10).
+
+
+**P6B — member API and loyalty report (2026-11-13) — PASS WITH NOTES, closed:**
+
+Four verifier passes (`ses_e2b1c62a2ffeBd8ztrgaTQGs0E`, `ses_e2b034ebaffe2RbkZwSJECzySY`,
+`ses_e2af54affffeZahV275aESNHGv`, `ses_e2accf595ffeFp5Lat0XWgrIDY`). Three correction cycles
+plus one waived fourth (PII retention). See `REVIEW-12.md` and `REVIEW-13.md`.
+
+Delivered: search (exact E.164 hash, cap 50, audited with `phoneHash` + required purpose),
+profile, subject-access export, opted-in list export, consent withdrawal, marketing consent,
+loyalty report (gross / discounts by source / net = Σ `Payment.amount` / refunds positive
+magnitude; a discount is never subtracted from net).
+
+**Root cause of the erasure defect, and the clean fix (approved by the human):**
+
+1. The QR create route stored the **raw client phone** in `customer_sessions` (the live checkout
+   submits the national form) while delete matched E.164. Now normalised at write; a malformed
+   phone stores `null` and nulls name/email.
+2. `deleteMember` uses a single E.164 equality — no variant guessing.
+3. No backfill code. One-off dev SQL (`evidence/dev-pii-cleanup.sql`) cleared leftover rows;
+   executed once, exit 0.
+4. No customer PII in `PaymentBatch.response`, `IdempotencyRecord.responseJson` or
+   `OrderEvent.payload`; delete nulls `customerName` in the member's event payloads. This closes
+   **R-02**, which P7 must verify rather than rebuild (noted in TASK.md P7).
+
+```text
+npx jest src/app/api/qr src/app/api/members src/lib/services/__tests__ src/tests --runInBand
+                                   -> 72 suites, 783 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 90 passed / 1 skipped, 1089 passed, 11 skipped
+npm run build                      -> PASS
+```
+
+Waiver: correction cycle 4 exceeded the three-cycle limit. Reason: it closed a live PII-retention
+path (a 24h `MEMBER_CHANGE` receipt holding `member.name`) rather than shipping it; two files,
+one assertion.
+
+Carried: F-08 (unkeyed SHA-256 of the phone in `ORDER_CREATE.requestHash`) → **P7 blocker**;
+F-02/F-03 (environments not covered by the cleanup SQL) → P9 checklist; F-04/F-05 → P10;
+refund definition → P8; marketing consent reachable from the owner API → P10.
+

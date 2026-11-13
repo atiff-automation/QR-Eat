@@ -437,6 +437,70 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     );
   });
 
+  it('stores the customer session phone in E.164', async () => {
+    tx.order.create.mockResolvedValue(
+      createdOrder({
+        totalAmount: new Prisma.Decimal('10.6'),
+        subtotalAmount: new Prisma.Decimal('10.00'),
+        taxAmount: new Prisma.Decimal('0.60'),
+        serviceCharge: new Prisma.Decimal('0'),
+      })
+    );
+
+    const response = await createQrOrder(
+      request({
+        tableId,
+        customerInfo: {
+          phone: '0123456789',
+          name: 'Aina',
+          email: 'aina@example.test',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(tx.customerSession.update).toHaveBeenCalledWith({
+      where: { id: sessionId },
+      data: {
+        customerName: 'Aina',
+        customerPhone: '+60123456789',
+        customerEmail: 'aina@example.test',
+      },
+    });
+  });
+
+  it('does not persist a malformed customer phone or accompanying PII', async () => {
+    tx.order.create.mockResolvedValue(
+      createdOrder({
+        totalAmount: new Prisma.Decimal('10.6'),
+        subtotalAmount: new Prisma.Decimal('10.00'),
+        taxAmount: new Prisma.Decimal('0.60'),
+        serviceCharge: new Prisma.Decimal('0'),
+      })
+    );
+
+    const response = await createQrOrder(
+      request({
+        tableId,
+        customerInfo: {
+          phone: '12345678',
+          name: 'Aina',
+          email: 'aina@example.test',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(tx.customerSession.update).toHaveBeenCalledWith({
+      where: { id: sessionId },
+      data: {
+        customerName: null,
+        customerPhone: null,
+        customerEmail: null,
+      },
+    });
+  });
+
   it('creates the order from a valid quote and applies the promotion', async () => {
     (prepareLoyaltyCreate as jest.Mock).mockResolvedValue({
       kind: 'ready',

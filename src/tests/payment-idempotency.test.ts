@@ -169,7 +169,7 @@ const takeawayOrder = {
   taxAmount: new Prisma.Decimal('0.60'),
   serviceCharge: new Prisma.Decimal('0'),
   customerName: 'Alex',
-  customerPhone: null,
+  customerPhone: '+60123456789',
   createdAt: new Date(),
   table: null,
   restaurant: {
@@ -355,5 +355,27 @@ describe('order payment idempotency', () => {
         }),
       })
     );
+
+    const storedCall = (tx.paymentBatch.update as jest.Mock).mock.calls
+      .map(([arg]) => arg)
+      .find((arg) => arg?.data?.response);
+    expect(storedCall).toBeDefined();
+    const storedOrder = (
+      storedCall!.data.response as {
+        payment: { order: Record<string, unknown> };
+      }
+    ).payment.order;
+    expect(storedOrder).not.toHaveProperty('customerName');
+    expect(storedOrder).not.toHaveProperty('customerPhone');
+
+    const liveOrder = (
+      result.response as {
+        payment: { order: Record<string, unknown> };
+      }
+    ).payment.order;
+    expect(liveOrder).toMatchObject({
+      customerName: 'Alex',
+      customerPhone: '+60123456789',
+    });
   });
 });

@@ -112,7 +112,15 @@ export interface RunIdempotentOwnerMutationInput<T> {
   action: string;
   key: string;
   requestHash: string;
-  execute: (tx: TransactionClient) => Promise<{ body: T; statusCode?: number }>;
+  execute: (tx: TransactionClient) => Promise<{
+    body: T;
+    statusCode?: number;
+    /**
+     * Body persisted in the idempotency receipt. Defaults to `body`. Use it
+     * when the live response may contain PII but the 24h receipt must not.
+     */
+    receiptBody?: T;
+  }>;
 }
 
 /**
@@ -166,7 +174,7 @@ export async function runIdempotentOwnerMutation<T>(
       const envelope: ReceiptEnvelope = {
         requestHash: input.requestHash,
         statusCode,
-        body: result.body,
+        body: result.receiptBody ?? result.body,
       };
       await tx.orderActionReceipt.update({
         where,

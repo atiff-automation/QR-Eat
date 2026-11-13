@@ -237,6 +237,19 @@ describe('Counter member attach/change', () => {
         status: 'IN_PROGRESS',
       }),
     });
+
+    const persisted = (tx.idempotencyRecord.update as jest.Mock).mock
+      .calls[0][0].data.responseJson as {
+      member: { name: string | null; maskedPhone: string | null };
+    };
+    expect(persisted.member.name).toBeNull();
+    expect(persisted.member.maskedPhone).toBeNull();
+    expect(
+      (result.body as { member: { name: string; maskedPhone: string } }).member
+    ).toMatchObject({
+      name: 'Aina',
+      maskedPhone: '+60•••••••89',
+    });
   });
 
   it('does not rename an existing customer on attach (R-01)', async () => {
@@ -484,11 +497,13 @@ describe('Counter member attach/change', () => {
     const first = await changeMember(baseTableInput());
     const requestHash = (tx.idempotencyRecord.create as jest.Mock).mock
       .calls[0][0].data.requestHash as string;
+    const persisted = (tx.idempotencyRecord.update as jest.Mock).mock
+      .calls[0][0].data.responseJson;
 
     (prisma.idempotencyRecord.findFirst as jest.Mock).mockResolvedValue({
       status: 'COMPLETED',
       requestHash,
-      responseJson: first.body,
+      responseJson: persisted,
       createdAt: now,
       expiresAt: new Date(now.getTime() + 60_000),
     });
@@ -497,7 +512,17 @@ describe('Counter member attach/change', () => {
 
     expect(second.status).toBe(200);
     expect(second.replayed).toBe(true);
-    expect(second.body).toEqual(first.body);
+    expect(second.body).toEqual(persisted);
+    expect(
+      (second.body as { member: { name: string | null } }).member.name
+    ).toBeNull();
+    expect(
+      (second.body as { member: { maskedPhone: string | null } }).member
+        .maskedPhone
+    ).toBeNull();
+    expect((first.body as { member: { name: string } }).member.name).toBe(
+      'Aina'
+    );
     expect(prisma.$transaction).toHaveBeenCalledTimes(1);
   });
 

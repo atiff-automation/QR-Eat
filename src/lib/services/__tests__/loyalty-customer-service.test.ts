@@ -1,10 +1,7 @@
 import { prisma } from '@/lib/database';
 import { hashNoticeText, type LoyaltyNotice } from '@/lib/loyalty/consent';
 import { hashPhone } from '@/lib/loyalty/phone';
-import {
-  anonymiseCustomer,
-  resolveOrCreateCustomer,
-} from '@/lib/services/loyalty-customer-service';
+import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -302,46 +299,5 @@ describe('loyalty customer service', () => {
 
     expect(JSON.stringify(result)).not.toContain('60123456789');
     expect(JSON.stringify(result)).not.toContain(e164);
-  });
-
-  describe('anonymiseCustomer', () => {
-    it('keeps phoneHash and nulls phone and name', async () => {
-      (prisma.customer.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
-
-      const result = await anonymiseCustomer({
-        restaurantId,
-        customerId: 'cust-1',
-      });
-
-      expect(result).toEqual({ anonymised: true });
-      expect(prisma.customer.updateMany).toHaveBeenCalledWith({
-        where: { id: 'cust-1', restaurantId },
-        data: {
-          status: 'ANONYMIZED',
-          anonymizedAt: expect.any(Date),
-          phone: null,
-          name: null,
-        },
-      });
-
-      const update = (prisma.customer.updateMany as jest.Mock).mock
-        .calls[0][0] as { data: Record<string, unknown> };
-      expect(update.data).not.toHaveProperty('phoneHash');
-    });
-
-    it('is tenant-scoped and reports a cross-tenant miss', async () => {
-      (prisma.customer.updateMany as jest.Mock).mockResolvedValue({ count: 0 });
-
-      const result = await anonymiseCustomer({
-        restaurantId: otherRestaurantId,
-        customerId: 'cust-1',
-      });
-
-      expect(result).toEqual({ anonymised: false });
-      expect(prisma.customer.updateMany).toHaveBeenCalledWith({
-        where: { id: 'cust-1', restaurantId: otherRestaurantId },
-        data: expect.objectContaining({ status: 'ANONYMIZED' }),
-      });
-    });
   });
 });

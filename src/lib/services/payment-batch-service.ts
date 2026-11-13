@@ -28,6 +28,7 @@ import {
   processLoyaltyTablePayment,
   type LoyaltyPaymentExpectations,
 } from '@/lib/services/loyalty-payment-service';
+import { stripCustomerPiiFromPaymentResponse } from '@/lib/services/payment-response-pii';
 
 export type CounterPaymentMethod = 'cash' | 'card' | 'ewallet';
 
@@ -609,10 +610,12 @@ export async function processTablePaymentBatch(
       const serializableResponse = JSON.parse(
         JSON.stringify(response)
       ) as Prisma.InputJsonValue;
+      const storedResponse =
+        stripCustomerPiiFromPaymentResponse(serializableResponse);
 
       await tx.paymentBatch.update({
         where: { id: batchId },
-        data: { response: serializableResponse },
+        data: { response: storedResponse },
       });
 
       return {
@@ -942,10 +945,12 @@ export async function processOrderPaymentBatch(
       const serializableResponse = JSON.parse(
         JSON.stringify(response)
       ) as Prisma.InputJsonValue;
+      const storedResponse =
+        stripCustomerPiiFromPaymentResponse(serializableResponse);
 
       await tx.paymentBatch.update({
         where: { id: batchId },
-        data: { response: serializableResponse },
+        data: { response: storedResponse },
       });
 
       return {

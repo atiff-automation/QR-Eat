@@ -55,6 +55,7 @@ import {
   type BillPricingResult,
 } from '@/lib/services/loyalty-bill-service';
 import { getBusinessDate, toDbBusinessDate } from '@/lib/time/business-day';
+import { stripCustomerPiiFromPaymentResponse } from '@/lib/services/payment-response-pii';
 
 export type LoyaltyPaymentMethod = 'cash' | 'card' | 'ewallet';
 
@@ -1562,10 +1563,11 @@ async function applyPaymentPlan(
   const serializable = JSON.parse(
     JSON.stringify(response)
   ) as Prisma.InputJsonValue;
+  const storedResponse = stripCustomerPiiFromPaymentResponse(serializable);
 
   await tx.paymentBatch.update({
     where: { id: batchId },
-    data: { response: serializable },
+    data: { response: storedResponse },
   });
 
   // 7. PAYMENT idempotency record, completed in the same transaction.
@@ -1577,7 +1579,7 @@ async function applyPaymentPlan(
         key: input.idempotencyKey,
       },
     },
-    data: { status: 'COMPLETED', responseJson: serializable },
+    data: { status: 'COMPLETED', responseJson: storedResponse },
   });
 
   return serializable as Record<string, unknown>;

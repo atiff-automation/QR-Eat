@@ -432,12 +432,17 @@ export async function POST(request: NextRequest) {
     // one current sitting.
     const order = await prisma.$transaction(async (tx) => {
       if (customerInfo) {
+        // Store one canonical phone format so member deletion can match the
+        // session by a single E.164 equality. A malformed phone must not leave
+        // raw PII (or the accompanying name/email) in `customer_sessions`.
+        const normalisedPhone = normalisePhone(customerInfo.phone);
+        const sessionPhone = normalisedPhone.ok ? normalisedPhone.phone : null;
         await tx.customerSession.update({
           where: { id: tableCart.sessionId },
           data: {
-            customerName: customerInfo.name,
-            customerPhone: customerInfo.phone,
-            customerEmail: customerInfo.email,
+            customerName: sessionPhone ? (customerInfo.name ?? null) : null,
+            customerPhone: sessionPhone,
+            customerEmail: sessionPhone ? (customerInfo.email ?? null) : null,
           },
         });
       }

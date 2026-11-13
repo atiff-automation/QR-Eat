@@ -10,7 +10,7 @@ Updated: 2026-11-13
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2
 
-Current step: P6A PASS WITH NOTES (uncommitted) — M-01 decision, then P6B
+Current step: P6B PASS WITH NOTES (uncommitted) — commit, then P6C or P7
 
 Last completed:
 - P0 baseline PASS (`fc1312a`).
@@ -26,14 +26,14 @@ Last completed:
   byte-identical to base. `REVIEW-06` PASS WITH NOTES.
 
 In progress:
-- nothing — P6A awaiting commit; M-01 decision pending
+- nothing — P6B awaiting commit
 
 Next action:
-1. Decide M-01 (manager `settings:write` collateral grant).
-2. Commit P6A.
-3. P6B (members API + loyalty reports), then the UI pass.
-4. Before the flag is enabled: F-10, R-02, and `db:seed` must be re-run for the new
-   permission rows.
+1. Commit P6B (R3 gate, needs authorization).
+2. P6C (QR + dashboard UI) or P7 (security). P7 must verify R-02, not rebuild it,
+   and owns F-08 (unkeyed phone hash in `ORDER_CREATE.requestHash`).
+3. P9 checklist: run `evidence/dev-pii-cleanup.sql` on any environment created before
+   the P6B normalisation.
 
 Blockers:
 - none. R-04 (untracked work) is closed by the checkpoint commit `27cd38a`.
