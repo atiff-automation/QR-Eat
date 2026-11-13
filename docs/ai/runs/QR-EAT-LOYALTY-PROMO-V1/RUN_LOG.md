@@ -858,3 +858,34 @@ Carried: F-08 (unkeyed SHA-256 of the phone in `ORDER_CREATE.requestHash`) → *
 F-02/F-03 (environments not covered by the cleanup SQL) → P9 checklist; F-04/F-05 → P10;
 refund definition → P8; marketing consent reachable from the owner API → P10.
 
+
+**P6 close-out step 1 — Counter loyalty notice endpoint (2026-11-14):**
+
+Implementer `ses_e2a35162fffeqovjDRykVLrVNa`. Verifier `ses_e2a311999ffen0Cyq4Ze6gaPnT`.
+PASS WITH NOTES.
+
+```text
+new src/app/api/counter/loyalty/notice/route.ts
+new src/app/api/counter/loyalty/notice/__tests__/route.test.ts
+new src/lib/services/loyalty-notice-service.ts
+```
+
+`GET /api/counter/loyalty/notice` was the only contract endpoint never built. Without it the
+Counter has no source for the server-derived notice, so a cashier could not capture consent for
+member attach (§18.20.6, §18.20.14 B).
+
+```text
+npx jest src/app/api/counter src/lib/services/__tests__ --runInBand -> 15 suites, 226 tests
+npm run type-check                                                 -> PASS
+npm test -- --runInBand                                            -> 91 passed / 1 skipped, 1098 passed
+npm run build                                                      -> PASS
+```
+
+Verified: exact five-field notice shape, `textHash` server-derived, `loyalty:attach` + Counter
+role gate, fail-closed with **no DB read** when the flag is off, `enabled:false`/`notice:null` on
+incomplete or inconsistent notice, no member data, tenant scope from context only, and the
+notice values match what attach expects as `consentVersion`/`consentTextHash`.
+
+`REVIEW-14.md`: PASS WITH NOTES. N-02 (no contract test binding notice → attach) lands with
+P6C1 wiring.
+
