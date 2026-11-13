@@ -28,7 +28,10 @@ import { Prisma, PaymentOutcome } from '@prisma/client';
 import { prisma, type TransactionClient } from '@/lib/database';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
-import { formatPickupNumber } from '@/lib/order-utils';
+import {
+  formatPickupNumber,
+  ORDER_WITH_DETAILS_INCLUDE,
+} from '@/lib/order-utils';
 import {
   round5,
   sumMoney,
@@ -465,9 +468,9 @@ export interface BuildOfflinePaymentPlanInput {
   /** True when any order of the bill was created offline. */
   offlineCreated: boolean;
   /**
-   * True when the bill has a resolved member. Offline replay adds no benefit,
-   * but `outcome` precedence still distinguishes a member (`NO_BENEFIT`) from a
-   * guest (`GUEST`) (§18.20.15 D).
+   * True when the bill has an ACTIVE member with a valid stored consent.
+   * Offline replay adds no benefit, but `outcome` precedence still distinguishes
+   * a member (`NO_BENEFIT`) from a guest (`GUEST`) (§18.20.15 D/E).
    */
   hasMember: boolean;
   now: Date;
@@ -663,6 +666,12 @@ function assertPlanMoneyIdentities(
 
 const PAYMENT_ORDER_SELECT = {
   ...BILL_ORDER_SELECT,
+  // F-1: the `payment.order.items[]` response must match the legacy
+  // `ORDER_WITH_DETAILS_INCLUDE` shape (quantity, unitPrice, selectedOptions,
+  // menuItem.price/preparationTime, ...) so an existing Counter receipt keeps
+  // working with the flag on. Only this payment read is widened; the bill read
+  // keeps the lighter `BILL_ORDER_SELECT`.
+  items: ORDER_WITH_DETAILS_INCLUDE.items,
   orderNumber: true,
   dailySeq: true,
   taxAmount: true,
@@ -699,6 +708,31 @@ const PAYMENT_ORDER_SELECT = {
     },
   },
 } as const;
+
+type PaymentOrderItemRow = {
+  id: string;
+  orderId: string;
+  menuItemId: string;
+  clientItemId: string | null;
+  quantity: number;
+  unitPrice: MoneyInput;
+  totalAmount: MoneyInput;
+  specialInstructions: string | null;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  menuItem: {
+    name: string;
+    price: MoneyInput;
+    preparationTime: number;
+    categoryId: string;
+  };
+  selectedOptions: readonly {
+    id: string;
+    name: string;
+    priceModifier: MoneyInput;
+  }[];
+};
 
 type PaymentOrderRow = {
   id: string;
@@ -738,11 +772,7 @@ type PaymentOrderRow = {
     phone: string | null;
     email: string | null;
   };
-  items: readonly {
-    menuItemId: string;
-    totalAmount: MoneyInput;
-    menuItem: { name: string; categoryId: string };
-  }[];
+  items: readonly PaymentOrderItemRow[];
 };
 
 type ResolvedPaymentBill =
@@ -872,6 +902,24 @@ function payableOrdersOf(bill: ResolvedPaymentBill): PaymentOrderRow[] {
   return bill.orders.filter(
     (order) => order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED'
   );
+}
+
+/**
+ * F-6: a bill is a member bill only when the customer is still an ACTIVE member
+ * with a valid stored consent. A withdrawn (or anonymised) customer is a guest
+ * for `outcome` precedence (§18.20.15 E), not a member with `NO_BENEFIT`.
+ */
+async function billHasActiveMember(
+  tx: TransactionClient,
+  restaurantId: string,
+  customerId: string | null
+): Promise<boolean> {
+  if (!customerId) return false;
+  const customer = await tx.customer.findFirst({
+    where: { id: customerId, restaurantId, status: 'ACTIVE' },
+    select: { consentAt: true, consentWithdrawnAt: true },
+  });
+  return Boolean(customer?.consentAt && !customer.consentWithdrawnAt);
 }
 
 function assertPayableOrders(
@@ -1948,7 +1996,11 @@ async function processLoyaltyPayment(
             billRevision: bill.billRevision,
             cashRounding: restaurant.cashRounding ?? 'NONE',
             offlineCreated: payable.some((order) => order.offlineCreated),
-            hasMember: bill.customerId !== null,
+            hasMember: await billHasActiveMember(
+              tx,
+              input.restaurantId,
+              bill.customerId
+            ),
             now,
             businessDate: offlineDate.businessDate,
             businessDateFallback: offlineDate.fallback,

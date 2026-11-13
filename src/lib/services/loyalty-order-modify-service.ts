@@ -82,6 +82,35 @@ function promotionSnapshot(
   } as Prisma.InputJsonValue;
 }
 
+interface SessionDiscountRow {
+  source: 'PROMOTION' | 'LOYALTY_REWARD';
+  sourceId: string;
+  label: string;
+  amount: MoneyInput;
+}
+
+/**
+ * The bill-level label for a session, matching the payment path: a reward uses
+ * its own label, multiple distinct promotions use `'Promotions'`, and a mixed
+ * bill (`MULTIPLE`) has no single label.
+ */
+function sessionDiscountLabel(
+  rows: readonly SessionDiscountRow[],
+  source: 'PROMOTION' | 'LOYALTY_REWARD' | 'MULTIPLE' | null
+): string | null {
+  if (source === 'LOYALTY_REWARD') {
+    return rows.find((row) => row.source === 'LOYALTY_REWARD')?.label ?? null;
+  }
+  if (source !== 'PROMOTION') return null;
+
+  const promotions = rows.filter((row) => row.source === 'PROMOTION');
+  const ids = new Set(promotions.map((row) => row.sourceId));
+  const labels = new Set(promotions.map((row) => row.label));
+  return ids.size > 1 || labels.size > 1
+    ? 'Promotions'
+    : (promotions[0]?.label ?? null);
+}
+
 async function loadActivePromotionCandidates(
   db: TransactionClient,
   restaurantId: string,
@@ -166,7 +195,11 @@ export async function reapplyPromotionForModifiedOrder(
     const label = result.label ?? appliedPromotion.name;
 
     if (existingPromotionRows.length > 0) {
-      const [keep, ...superseded] = existingPromotionRows;
+      const [keep] = existingPromotionRows;
+      // Defensive F-2: a stale ACTIVE row of any source must not survive next
+      // to the kept promotion row (the partial unique index allows one ACTIVE
+      // row). Replace every other ACTIVE row, not just promotion rows.
+      const superseded = existing.filter((row) => row.id !== keep.id);
       await tx.orderDiscount.update({
         where: { id: keep.id },
         data: {
@@ -226,15 +259,18 @@ export async function reapplyPromotionForModifiedOrder(
         },
       });
     }
-  } else if (existingPromotionRows.length > 0) {
-    // No eligible base remains for this order. REMOVED keeps the row as
-    // history; the bill read only prices ACTIVE rows, so the promotion stops
-    // blocking the visit unless another order still carries one.
+  } else if (existing.length > 0) {
+    // No eligible base remains for this order. Remove every ACTIVE row of any
+    // source (F-2): a stale LOYALTY_REWARD row would otherwise survive with a
+    // base that no longer matches the modified contents and break
+    // `Order.discountAmount == Σ ACTIVE OrderDiscount.amount`. REMOVED keeps the
+    // row as history; the bill read only prices ACTIVE rows, so the promotion
+    // stops blocking the visit unless another order still carries one.
     await tx.orderDiscount.updateMany({
-      where: { id: { in: existingPromotionRows.map((row) => row.id) } },
+      where: { id: { in: existing.map((row) => row.id) } },
       data: {
         status: 'REMOVED',
-        reason: 'Promotion no longer eligible after order modification',
+        reason: 'Discount no longer eligible after order modification',
       },
     });
   }
@@ -285,7 +321,45 @@ export async function reapplyPromotionForModifiedOrder(
 
   // The bill revision is the price lock for every reader of this bill. A
   // modification changes the totals, so it must always move (§18.20.14 I).
+  // F-3/R-01: the cached session summary is refreshed in the same transaction
+  // and over the same payable set as the payment writer, so the two paths
+  // cannot persist different bill-level values.
   if (input.diningSessionId) {
+    const sessionDiscounts = await tx.orderDiscount.findMany({
+      where: {
+        restaurantId: input.restaurantId,
+        diningSessionId: input.diningSessionId,
+        status: 'ACTIVE',
+        order: {
+          paymentStatus: 'PENDING',
+          status: { not: 'CANCELLED' },
+        },
+      },
+      select: {
+        source: true,
+        sourceId: true,
+        label: true,
+        amount: true,
+      },
+    });
+    const sessionDiscountAmount = sumMoney(
+      sessionDiscounts.map((row) => row.amount)
+    );
+    const hasPromotion = sessionDiscounts.some(
+      (row) => row.source === 'PROMOTION'
+    );
+    const hasReward = sessionDiscounts.some(
+      (row) => row.source === 'LOYALTY_REWARD'
+    );
+    const sessionSource =
+      hasPromotion && hasReward
+        ? ('MULTIPLE' as const)
+        : hasReward
+          ? ('LOYALTY_REWARD' as const)
+          : hasPromotion
+            ? ('PROMOTION' as const)
+            : null;
+
     await tx.diningSession.update({
       where: {
         restaurantId_id: {
@@ -293,7 +367,12 @@ export async function reapplyPromotionForModifiedOrder(
           id: input.diningSessionId,
         },
       },
-      data: { billRevision: { increment: 1 } },
+      data: {
+        billRevision: { increment: 1 },
+        discountAmount: sessionDiscountAmount,
+        discountSource: sessionSource,
+        discountLabel: sessionDiscountLabel(sessionDiscounts, sessionSource),
+      },
     });
   }
 

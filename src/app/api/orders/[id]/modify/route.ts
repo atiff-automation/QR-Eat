@@ -107,12 +107,16 @@ export async function PATCH(
         // under the bill lock below, so a concurrent modification cannot be
         // overwritten between this read and the lock.
 
-        // 5. Check idempotency
-        const existingModification = await tx.orderModification.findUnique({
-          where: { idempotencyKey: data.idempotencyKey },
-        });
+        // 5. Check idempotency (fast path, before taking the bill lock). A
+        // concurrent duplicate that loses the lock race is re-checked under the
+        // lock below, so it replays instead of failing the version guard.
+        const findReplayedModification = async () => {
+          const existingModification = await tx.orderModification.findUnique({
+            where: { idempotencyKey: data.idempotencyKey },
+          });
 
-        if (existingModification) {
+          if (!existingModification) return null;
+
           // Already processed, return cached result
           const cachedOrder = await tx.order.findUnique({
             where: { id: orderId },
@@ -127,7 +131,10 @@ export async function PATCH(
             isDuplicate: true,
             refundNeeded: null,
           };
-        }
+        };
+
+        const replayedModification = await findReplayedModification();
+        if (replayedModification) return replayedModification;
 
         // 6. Take the same locks as the bill read and payment before changing
         // the bill: customer/day first, then bill/order (§18.20.14 F/I).
@@ -149,6 +156,12 @@ export async function PATCH(
           customerId: session ? session.customerId : (order.customerId ?? null),
           now,
         });
+
+        // 6b. Re-check the idempotency record under the lock (F-5). A
+        // concurrent duplicate that committed while this request waited must
+        // replay the stored result, not fail the stale-version guard with 409.
+        const lockedReplay = await findReplayedModification();
+        if (lockedReplay) return lockedReplay;
 
         // Re-read under the lock. The optimistic version and the paid/status
         // guards are enforced against this row, not the pre-lock read.

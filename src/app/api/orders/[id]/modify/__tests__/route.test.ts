@@ -107,6 +107,9 @@ type TestDiscount = {
   rewardSnapshot: Record<string, unknown> | null;
   status: 'ACTIVE' | 'REPLACED' | 'REMOVED';
   reason?: string;
+  /** Order state used by the session aggregate's payable relation filter. */
+  orderPaymentStatus?: 'PENDING' | 'PAID';
+  orderStatus?: string;
 };
 
 type HarnessTx = {
@@ -118,6 +121,7 @@ type HarnessTx = {
     updateMany: jest.Mock;
     create: jest.Mock;
   };
+  orderModification: { findUnique: jest.Mock; create: jest.Mock };
   [key: string]: unknown;
 };
 
@@ -131,6 +135,7 @@ type Harness = {
     lockKeys: string[];
     audits: Array<Record<string, unknown>>;
     orderUpdates: Array<Record<string, unknown>>;
+    sessionUpdates: Array<Record<string, unknown>>;
   };
 };
 
@@ -222,6 +227,8 @@ function activeDiscount(overrides: Partial<TestDiscount> = {}): TestDiscount {
     },
     rewardSnapshot: null,
     status: 'ACTIVE',
+    orderPaymentStatus: 'PENDING',
+    orderStatus: 'PENDING',
     ...overrides,
   };
 }
@@ -246,6 +253,7 @@ function createHarness(
     lockKeys: [],
     audits: [],
     orderUpdates: [],
+    sessionUpdates: [],
   };
 
   const tx: HarnessTx = {
@@ -321,6 +329,7 @@ function createHarness(
         customerId: state.sessionCustomerId,
       })),
       update: jest.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        state.sessionUpdates.push(data);
         const increment =
           data.billRevision &&
           typeof data.billRevision === 'object' &&
@@ -348,11 +357,35 @@ function createHarness(
         async ({
           where,
         }: {
-          where: { orderId?: string | { in: string[] }; status?: string };
+          where: {
+            orderId?: string | { in: string[] };
+            diningSessionId?: string;
+            status?: string;
+            order?: {
+              paymentStatus?: string;
+              status?: { not?: string };
+            };
+          };
         }) => {
           const orderFilter = where.orderId;
           return state.discounts.filter((discount) => {
             if (where.status && discount.status !== where.status) return false;
+            if (
+              where.diningSessionId &&
+              discount.diningSessionId !== where.diningSessionId
+            ) {
+              return false;
+            }
+            if (
+              where.order?.paymentStatus &&
+              discount.orderPaymentStatus !== where.order.paymentStatus
+            ) {
+              return false;
+            }
+            const excludedStatus = where.order?.status?.not;
+            if (excludedStatus && discount.orderStatus === excludedStatus) {
+              return false;
+            }
             if (typeof orderFilter === 'string') {
               return discount.orderId === orderFilter;
             }
@@ -785,5 +818,149 @@ describe('PATCH /api/orders/[id]/modify — promotion re-evaluation (P5C)', () =
     }
 
     expect(error).toMatchObject({ code: 'BILL_CHANGED' });
+  });
+
+  it('removes a stale ACTIVE LOYALTY_REWARD row when no promotion applies (F-2)', async () => {
+    const harness = createHarness({
+      discounts: [
+        activeDiscount({
+          id: 'reward-1',
+          source: 'LOYALTY_REWARD',
+          sourceId: 'visit-1',
+          label: '10% off, max RM15',
+          promotionSnapshot: null,
+          rewardSnapshot: { rewardLabel: '10% off, max RM15' },
+          amount: '6.00',
+        }),
+      ],
+    });
+
+    const response = await modifyOrder(
+      request(body([{ itemId, action: 'remove' }])),
+      { params: Promise.resolve({ id: orderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(harness.state.discounts).toHaveLength(1);
+    expect(harness.state.discounts[0].status).toBe('REMOVED');
+
+    const update = harness.state.orderUpdates[0];
+    expect(new Decimal(update.discountAmount as string).toFixed(2)).toBe(
+      '0.00'
+    );
+    expect(update.discountSource).toBeNull();
+    expect(update.discountLabel).toBeNull();
+  });
+
+  it('refreshes the cached DiningSession discount summary in the same transaction (F-3)', async () => {
+    const otherOrderId = '550e8400-e29b-41d4-a716-446655440006';
+    const harness = createHarness({
+      discounts: [
+        activeDiscount(),
+        activeDiscount({
+          id: 'discount-2',
+          orderId: otherOrderId,
+          sourceId: 'promo-2',
+          label: 'Drink 20%',
+          promotionSnapshot: {
+            name: 'Drink 20%',
+            scope: 'ITEM',
+            receiptLabel: 'Drink 20%',
+            itemIds: ['item-2'],
+            categoryIds: [],
+          },
+        }),
+      ],
+    });
+
+    const response = await modifyOrder(
+      request(body([{ itemId, action: 'update_quantity', newQuantity: 1 }])),
+      { params: Promise.resolve({ id: orderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(harness.state.sessionUpdates).toHaveLength(1);
+    const sessionUpdate = harness.state.sessionUpdates[0];
+    expect(sessionUpdate.billRevision).toEqual({ increment: 1 });
+    // This order's row moved to 6.00; the other order keeps 12.00.
+    expect(new Decimal(sessionUpdate.discountAmount as string).toFixed(2)).toBe(
+      '18.00'
+    );
+    expect(sessionUpdate.discountSource).toBe('PROMOTION');
+    expect(sessionUpdate.discountLabel).toBe('Promotions');
+  });
+
+  it('sums only payable orders in the session summary (R-01)', async () => {
+    const paidOrderId = '550e8400-e29b-41d4-a716-446655440006';
+    const harness = createHarness({
+      discounts: [
+        activeDiscount(),
+        activeDiscount({
+          id: 'reward-1',
+          orderId: paidOrderId,
+          source: 'LOYALTY_REWARD',
+          sourceId: 'visit-1',
+          label: '10% off, max RM15',
+          baseAmount: '80.00',
+          amount: '8.00',
+          promotionSnapshot: null,
+          rewardSnapshot: { rewardLabel: '10% off, max RM15' },
+          orderPaymentStatus: 'PAID',
+          orderStatus: 'CONFIRMED',
+        }),
+      ],
+    });
+
+    const response = await modifyOrder(
+      request(body([{ itemId, action: 'update_quantity', newQuantity: 1 }])),
+      { params: Promise.resolve({ id: orderId }) }
+    );
+
+    expect(response.status).toBe(200);
+    expect(harness.state.sessionUpdates).toHaveLength(1);
+    const sessionUpdate = harness.state.sessionUpdates[0];
+
+    // Only the pending order's 6.00. The paid order's 8.00 reward is outside
+    // the payable set, matching the payment writer.
+    expect(new Decimal(sessionUpdate.discountAmount as string).toFixed(2)).toBe(
+      '6.00'
+    );
+    expect(sessionUpdate.discountSource).toBe('PROMOTION');
+    expect(sessionUpdate.discountLabel).toBe('Lunch 20%');
+  });
+
+  it('replays a concurrent duplicate under the lock instead of failing the version guard (F-5)', async () => {
+    const harness = createHarness();
+    const existingModification = {
+      id: 'mod-1',
+      orderId,
+      idempotencyKey,
+      items: [],
+    };
+    (harness.tx.orderModification.findUnique as jest.Mock)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce(existingModification);
+
+    const response = await modifyOrder(
+      request(body([{ itemId, action: 'remove' }])),
+      { params: Promise.resolve({ id: orderId }) }
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.isDuplicate).toBe(true);
+    expect(json.modification).toMatchObject({ id: 'mod-1' });
+
+    // The second idempotency check happens after both locks are held, and the
+    // duplicate never writes or fails the stale-version guard.
+    expect(harness.tx.$queryRaw).toHaveBeenCalledTimes(2);
+    const secondCheck = (harness.tx.orderModification.findUnique as jest.Mock)
+      .mock.invocationCallOrder[1];
+    expect(secondCheck).toBeGreaterThan(
+      (harness.tx.$queryRaw as jest.Mock).mock.invocationCallOrder[1]
+    );
+    expect(harness.tx.order.update).not.toHaveBeenCalled();
+    expect(harness.tx.orderDiscount.updateMany).not.toHaveBeenCalled();
+    expect(harness.state.sessionUpdates).toHaveLength(0);
   });
 });

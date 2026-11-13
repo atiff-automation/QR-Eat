@@ -653,3 +653,29 @@ Carried:
   counter order create does not bump it. Every bill-mutating writer must take the lock — P9.
 - F-2/F-3/F-5/F-6/F-7/F-8 low follow-ups.
 
+
+**P5 close-out (2026-11-13):**
+
+Implementer `ses_e2ba1ed40ffeepLapurhNzFKTs`. Verifier `ses_e2b97f14effeyUVdYA518PvbeX`.
+PASS WITH NOTES. P5 closed.
+
+Closed: F-1 (`payment.order.items[]` now uses the same constant as the legacy path, so an
+existing Counter receipt keeps quantity/price), F-2 (every ACTIVE row removed/replaced
+regardless of source), F-3 (session discount cache refreshed in the same transaction), F-5
+(idempotency re-checked under the lock), F-6 (offline `hasMember` from consent state), and
+R-01 (session aggregate scoped to payable orders so modify and payment cannot diverge).
+
+```text
+npx jest src/app/api/orders src/app/api/counter src/lib/services/__tests__ --runInBand -> 152 tests
+npm run type-check  -> PASS
+npm test -- --runInBand -> 80 passed / 1 skipped, 974 passed, 11 skipped
+npm run build       -> PASS
+```
+
+Verification gap recorded: the two-line R-01 fix was not separately re-reviewed; test-covered,
+carried into the P6 gate.
+
+**P5 status: CLOSED.** G4 (payment) PASS WITH NOTES. Remaining before a pilot, outside P5:
+R-02 (full-phone exposure, P7 decision), F-10 (every bill-mutating writer must bump
+`billRevision` under `loyalty-bill:`, P9), real-Postgres lock/constraint proof (P9).
+

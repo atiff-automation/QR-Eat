@@ -10,6 +10,7 @@ import {
   type LoyaltyTablePaymentInput,
 } from '@/lib/services/loyalty-payment-service';
 import { processTablePaymentBatch } from '@/lib/services/payment-batch-service';
+import { BILL_ORDER_SELECT } from '@/lib/services/loyalty-bill-service';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -364,6 +365,84 @@ describe('loyalty table payment — transaction', () => {
     expect(payment.paymentMethod).toBe('cash');
     expect(payment.batchId).toEqual(expect.any(String));
     expect(payment.externalTransactionId).toBe('ext-1');
+  });
+
+  it('returns payment.order.items with the legacy item shape (F-1)', async () => {
+    const legacyItem = {
+      id: 'line-1',
+      orderId,
+      menuItemId: 'item-1',
+      clientItemId: null,
+      quantity: 2,
+      unitPrice: new Prisma.Decimal('30.00'),
+      totalAmount: new Prisma.Decimal('60.00'),
+      specialInstructions: 'No cheese',
+      status: 'PENDING',
+      createdAt: now,
+      updatedAt: now,
+      menuItem: {
+        name: 'Pasta',
+        price: new Prisma.Decimal('30.00'),
+        preparationTime: 12,
+        categoryId: 'cat-1',
+      },
+      selectedOptions: [
+        {
+          id: 'opt-1',
+          name: 'Extra cheese',
+          priceModifier: new Prisma.Decimal('2.00'),
+        },
+      ],
+    };
+    tx.order.findMany.mockResolvedValue([orderRow({ items: [legacyItem] })]);
+
+    const result = await processLoyaltyTablePayment(tableInput());
+
+    const items = (
+      result.response.payment as {
+        order: { items: Array<Record<string, unknown>> };
+      }
+    ).order.items;
+
+    expect(items).toHaveLength(1);
+    expect(items[0]).toEqual(
+      expect.objectContaining({
+        id: 'line-1',
+        orderId,
+        menuItemId: 'item-1',
+        quantity: 2,
+        unitPrice: expect.anything(),
+        totalAmount: expect.anything(),
+        specialInstructions: 'No cheese',
+        selectedOptions: [
+          expect.objectContaining({
+            id: 'opt-1',
+            name: 'Extra cheese',
+            priceModifier: expect.anything(),
+          }),
+        ],
+        menuItem: expect.objectContaining({
+          name: 'Pasta',
+          price: expect.anything(),
+          preparationTime: 12,
+          categoryId: 'cat-1',
+        }),
+      })
+    );
+
+    // The payment read selects the legacy item projection...
+    const select = (tx.order.findMany as jest.Mock).mock.calls[0][0].select;
+    expect(select.items.include.menuItem.select).toEqual(
+      expect.objectContaining({
+        price: true,
+        preparationTime: true,
+        categoryId: true,
+      })
+    );
+    expect(select.items.include.selectedOptions).toBeDefined();
+
+    // ...without widening the lighter bill read.
+    expect(BILL_ORDER_SELECT.items.select).not.toHaveProperty('quantity');
   });
 
   it('creates the PAYMENT idempotency record before the payment transaction', async () => {
@@ -791,6 +870,31 @@ describe('loyalty table payment — transaction', () => {
       outcome: 'NO_BENEFIT',
       recordedOffline: true,
     });
+  });
+
+  it('reports GUEST when the bill member has withdrawn consent (F-6)', async () => {
+    tx.customer.findFirst.mockResolvedValue({
+      ...customerRow,
+      consentWithdrawnAt: new Date('2026-11-10T00:00:00.000Z'),
+    });
+    tx.order.findMany.mockResolvedValue([
+      orderRow({ offlineCreated: true, offlineCreatedAt: now }),
+    ]);
+
+    const result = await processLoyaltyTablePayment(
+      tableInput({ recordedOffline: true })
+    );
+
+    expect(result.response).toMatchObject({
+      outcome: 'GUEST',
+      recordedOffline: true,
+    });
+    expect(tx.customer.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ status: 'ACTIVE' }),
+      })
+    );
+    expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();
   });
 
   it('keeps a locked promotion on an online-priced order paid offline', async () => {
