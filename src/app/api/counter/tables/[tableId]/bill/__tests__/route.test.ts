@@ -32,6 +32,7 @@ jest.mock('@/lib/database', () => ({
     diningSession: { findFirst: jest.fn() },
     loyaltySettings: { findUnique: jest.fn() },
     promotion: { findMany: jest.fn() },
+    orderDiscount: { findMany: jest.fn() },
     restaurant: { findUnique: jest.fn() },
     customer: { findFirst: jest.fn() },
     loyaltyCard: { findUnique: jest.fn() },
@@ -305,6 +306,7 @@ describe('Counter dine-in bill — loyalty fields', () => {
       settingsRow
     );
     (prisma.promotion.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.orderDiscount.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue({
       cashRounding: 'NEAREST_5_SEN',
       timezone: 'Asia/Kuala_Lumpur',

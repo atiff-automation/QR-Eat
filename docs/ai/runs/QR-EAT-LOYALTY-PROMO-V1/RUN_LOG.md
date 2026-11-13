@@ -573,3 +573,46 @@ spreads `orders[].customerPhone` and `customerSession.customerPhone`, so a cashi
 by this task; cannot be fixed behind the flag without changing the legacy response shape.
 Options: mask, gate behind `members:pii`, or accept and record. P7 decision.
 
+
+**P5B — payment transaction (2026-11-13):**
+
+Implementer `ses_e2c63e70dffebc9BjVK3kBJM7f`. Verifiers `ses_e2c3d0643ffeioiTKvvKP7IsVT`
+(**FAIL**) and `ses_e2bfc408dffebrZMgw0uNw4NVB` (PASS WITH NOTES). Two correction cycles.
+
+```text
+modified src/app/api/counter/payments/route.ts
+modified src/app/api/counter/orders/[orderId]/pay/route.ts
+modified src/lib/services/payment-batch-service.ts
+modified src/lib/services/loyalty-bill-service.ts
+new      src/lib/services/loyalty-payment-service.ts
++ 2 test files (and fixture updates)
+```
+
+```text
+npx jest src/app/api/counter src/lib/services/__tests__ --runInBand -> 10 suites, 152 tests
+npm run type-check                                                 -> PASS
+npm test -- --runInBand                                            -> 79 passed / 1 skipped, 959 passed, 11 skipped
+npm run build                                                      -> PASS
+```
+
+**First verdict FAIL**, on two high findings: `businessDate`/`outcome` were not written on the
+legacy path (§18.20.14 J requires every paid batch), and payment re-evaluated promotions live,
+so a promotion locked at QR could be **dropped at payment and the customer charged above their
+QR confirmation**. Both fixed. Rulings applied: order create is the definitive price lock
+(§18.20.14 G); payment and bill read price from ACTIVE `OrderDiscount` rows; live re-evaluation
+belongs only to an unpaid modification (§18.20.14 I).
+
+Verified end to end: **a customer cannot be charged more than their QR confirmation.**
+
+Open items:
+- **F-02 (pre-pilot blocker):** `POST /api/orders/[id]/modify` does not re-evaluate promotions,
+  update the ACTIVE row, or bump `billRevision` (§18.20.14 I). Under the price lock, removing a
+  promoted item leaves the discount in force — revenue leak, visit still blocked.
+- **F-03 (Counter compat):** with the flag on, the loyalty `payment` object drops legacy fields
+  (`status`, `paymentMethod`, `batchId`, `netAmount`, …). Existing Counter builds break when the
+  flag is enabled. P10/Counter handoff.
+- **F-01:** guest offline outcome persisted as `NO_BENEFIT` instead of `GUEST`.
+- F-04…F-07 low/cleanup.
+
+Real-Postgres proof list recorded in `REVIEW-08.md`; required before a pilot.
+

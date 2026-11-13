@@ -1,10 +1,15 @@
 import Decimal from 'decimal.js';
 import {
   computeBillProjection,
+  projectBillPricing,
+  type BillActiveDiscount,
   type BillOrderRow,
   type ComputeBillProjectionInput,
 } from '@/lib/services/loyalty-bill-service';
+import { buildLoyaltyPaymentPlan } from '@/lib/services/loyalty-payment-service';
+import { hashNoticeText } from '@/lib/loyalty/consent';
 import { calculateOrderTotals } from '@/lib/order-utils';
+import type { TransactionClient } from '@/lib/database';
 import type {
   PromotionCandidate,
   PromotionLine,
@@ -462,5 +467,195 @@ describe('computeBillProjection — money identities', () => {
     );
 
     expect(projection.subtotal).toBe('60.00');
+  });
+});
+
+describe('projectBillPricing — ACTIVE discount price lock', () => {
+  const noticeText = 'Rewards notice text';
+
+  const settingsRow = {
+    ...settings,
+    enabled: true,
+    noticeVersion: 'v1',
+    noticeText,
+    noticeTextHash: hashNoticeText(noticeText),
+    privacyUrl: 'https://example.test/privacy',
+    termsText: null,
+  };
+
+  beforeEach(() => {
+    process.env.LOYALTY_ENABLED = 'true';
+  });
+
+  afterAll(() => {
+    delete process.env.LOYALTY_ENABLED;
+  });
+
+  function activePromotionRow(
+    overrides: Partial<BillActiveDiscount> = {}
+  ): BillActiveDiscount {
+    return {
+      orderId: 'order-1',
+      source: 'PROMOTION',
+      sourceId: 'promo-1',
+      label: 'Lunch 20%',
+      baseAmount: '60.00',
+      amount: '12.00',
+      promotionSnapshot: {
+        name: 'Lunch 20%',
+        scope: 'ITEM',
+        receiptLabel: 'Lunch 20%',
+        itemIds: ['item-1'],
+        categoryIds: [],
+      },
+      ...overrides,
+    };
+  }
+
+  function billDb(activeDiscounts: BillActiveDiscount[] = []) {
+    return {
+      loyaltySettings: {
+        findUnique: jest.fn().mockResolvedValue(settingsRow),
+      },
+      restaurant: {
+        findUnique: jest.fn().mockResolvedValue({
+          cashRounding: 'NONE',
+          timezone: 'Asia/Kuala_Lumpur',
+          businessDayCloseTime: '04:00',
+        }),
+      },
+      orderDiscount: {
+        findMany: jest.fn().mockResolvedValue(activeDiscounts),
+      },
+      promotion: { findMany: jest.fn() },
+      customer: { findFirst: jest.fn() },
+      loyaltyCard: { findUnique: jest.fn() },
+      loyaltyVisit: { findFirst: jest.fn() },
+      paymentBatch: { findMany: jest.fn().mockResolvedValue([]) },
+    } as unknown as TransactionClient;
+  }
+
+  function billInput(
+    db: TransactionClient,
+    overrides: {
+      orders?: BillOrderRow[];
+      customerId?: string | null;
+    } = {}
+  ) {
+    return {
+      db,
+      restaurantId: 'restaurant-1',
+      orders: overrides.orders ?? [order()],
+      customerId: overrides.customerId ?? null,
+      billRevision: 7,
+      now,
+    };
+  }
+
+  it('keeps an ACTIVE promotion after its window ends and agrees with payment', async () => {
+    const db = billDb([activePromotionRow()]);
+    // A live promotion with an ended window must not be consulted: the ACTIVE
+    // ledger row is the price lock.
+    (
+      db as unknown as { promotion: { findMany: jest.Mock } }
+    ).promotion.findMany.mockResolvedValue([
+      promotion({ endsAt: new Date('2026-11-01T00:00:00.000Z') }),
+    ]);
+
+    const loaded = await projectBillPricing(billInput(db));
+
+    expect(loaded).not.toBeNull();
+    expect(loaded!.pricing.projection.promotionApplied).toBe(true);
+    expect(loaded!.pricing.projection.projectedTotal).toBe('55.68');
+    expect(loaded!.pricing.projection.discountAmount).toBe('12.00');
+    expect(loaded!.pricing.projection.promotionScope).toBe('ITEM');
+    expect(loaded!.pricing.projection.promotionItems).toEqual([
+      { itemId: 'item-1', name: 'Pasta' },
+    ]);
+
+    // The read never evaluates the live promotion window.
+    expect(
+      (db as unknown as { promotion: { findMany: jest.Mock } }).promotion
+        .findMany
+    ).not.toHaveBeenCalled();
+
+    const plan = buildLoyaltyPaymentPlan({
+      pricing: loaded!.pricing,
+      context: loaded!.context,
+      method: 'card',
+      expectedTotal: loaded!.pricing.projection.projectedTotal,
+      expectedBillRevision: 7,
+      billRevision: 7,
+      now,
+    });
+
+    expect(plan.totalAmount.toFixed(2)).toBe('55.68');
+    expect(plan.outcome).toBe('PROMOTION_APPLIED');
+  });
+
+  it('keeps an order with no ACTIVE row at full price', async () => {
+    const db = billDb([]);
+    const loaded = await projectBillPricing(billInput(db));
+
+    expect(loaded!.pricing.projection.promotionApplied).toBe(false);
+    expect(loaded!.pricing.projection.projectedTotal).toBe('69.60');
+
+    const plan = buildLoyaltyPaymentPlan({
+      pricing: loaded!.pricing,
+      context: loaded!.context,
+      method: 'card',
+      expectedTotal: loaded!.pricing.projection.projectedTotal,
+      expectedBillRevision: 7,
+      billRevision: 7,
+      now,
+    });
+
+    expect(plan.totalAmount.toFixed(2)).toBe('69.60');
+  });
+
+  it('shows a promotion on one order only and lists it in discountLines', async () => {
+    const db = billDb([activePromotionRow({ orderId: 'order-1' })]);
+    const loaded = await projectBillPricing(
+      billInput(db, {
+        orders: [
+          order({ id: 'order-1' }),
+          order({
+            id: 'order-2',
+            subtotal: '40.00',
+            taxRate: '0.00',
+            serviceRate: '0.00',
+            lines: [drinkLine],
+          }),
+        ],
+      })
+    );
+
+    expect(loaded!.pricing.orders[0].promotionApplied).toBe(true);
+    expect(loaded!.pricing.orders[1].promotionApplied).toBe(false);
+    expect(loaded!.pricing.projection.promotionDiscountAmount).toBe('12.00');
+    expect(loaded!.pricing.projection.discountLines).toEqual([
+      {
+        orderId: 'order-1',
+        source: 'PROMOTION',
+        label: 'Lunch 20%',
+        amount: '12.00',
+      },
+    ]);
+    expect(loaded!.pricing.projection.projectedTotal).toBe('95.68');
+  });
+
+  it('does not apply a live promotion on a read (modification path is not implemented in P5B)', async () => {
+    const db = billDb([]);
+    (
+      db as unknown as { promotion: { findMany: jest.Mock } }
+    ).promotion.findMany.mockResolvedValue([promotion()]);
+
+    const loaded = await projectBillPricing(billInput(db));
+
+    expect(loaded!.pricing.projection.promotionApplied).toBe(false);
+    expect(
+      (db as unknown as { promotion: { findMany: jest.Mock } }).promotion
+        .findMany
+    ).not.toHaveBeenCalled();
   });
 });

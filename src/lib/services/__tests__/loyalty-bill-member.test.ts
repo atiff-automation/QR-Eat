@@ -104,6 +104,7 @@ const tx = {
     updateMany: jest.fn(),
     update: jest.fn(),
   },
+  orderDiscount: { findMany: jest.fn() },
   idempotencyRecord: { create: jest.fn(), update: jest.fn() },
   loyaltySettings: { findUnique: jest.fn() },
   promotion: { findMany: jest.fn() },
@@ -163,6 +164,7 @@ describe('Counter member attach/change', () => {
       customerId: null,
     });
     tx.order.findMany.mockResolvedValue([orderRow()]);
+    tx.orderDiscount.findMany.mockResolvedValue([]);
     tx.loyaltySettings.findUnique.mockResolvedValue(settingsRow);
     tx.promotion.findMany.mockResolvedValue([]);
     tx.restaurant.findUnique.mockResolvedValue(restaurantRow);

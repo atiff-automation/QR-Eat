@@ -25,6 +25,7 @@ jest.mock('@/lib/database', () => ({
     order: { findFirst: jest.fn() },
     loyaltySettings: { findUnique: jest.fn() },
     promotion: { findMany: jest.fn() },
+    orderDiscount: { findMany: jest.fn() },
     restaurant: { findUnique: jest.fn() },
     customer: { findFirst: jest.fn() },
     loyaltyCard: { findUnique: jest.fn() },
@@ -192,6 +193,7 @@ describe('Counter takeaway order bill', () => {
       settingsRow
     );
     (prisma.promotion.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.orderDiscount.findMany as jest.Mock).mockResolvedValue([]);
     (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue({
       cashRounding: 'NONE',
       timezone: 'Asia/Kuala_Lumpur',

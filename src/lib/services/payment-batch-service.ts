@@ -20,17 +20,25 @@ import {
 } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
+import { getBusinessDate, toDbBusinessDate } from '@/lib/time/business-day';
+import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
+import {
+  LoyaltyPaymentError,
+  processLoyaltyOrderPayment,
+  processLoyaltyTablePayment,
+  type LoyaltyPaymentExpectations,
+} from '@/lib/services/loyalty-payment-service';
 
 export type CounterPaymentMethod = 'cash' | 'card' | 'ewallet';
 
-export interface ProcessTablePaymentInput {
+export interface ProcessTablePaymentInput extends LoyaltyPaymentExpectations {
   tableId: string;
   restaurantId: string;
   userId: string;
   userType: string;
   idempotencyKey: string;
   paymentMethod: CounterPaymentMethod;
-  cashReceived?: number;
+  cashReceived?: number | string;
   externalTransactionId?: string;
   notes?: string;
   recordedOffline?: boolean;
@@ -38,14 +46,14 @@ export interface ProcessTablePaymentInput {
   orderIds?: string[];
 }
 
-export interface ProcessOrderPaymentInput {
+export interface ProcessOrderPaymentInput extends LoyaltyPaymentExpectations {
   orderId: string;
   restaurantId: string;
   userId: string;
   userType: string;
   idempotencyKey: string;
   paymentMethod: CounterPaymentMethod;
-  cashReceived?: number;
+  cashReceived?: number | string;
   externalTransactionId?: string;
   notes?: string;
   recordedOffline?: boolean;
@@ -208,6 +216,74 @@ function getProcessedByFields(
 }
 
 /**
+ * The legacy path also needs the restaurant clock to persist
+ * `PaymentBatch.businessDate` (§18.20.14 J). The extra fields are stripped from
+ * the response by `restaurantPayload`, so the flag-off HTTP bytes are unchanged.
+ */
+const LEGACY_ORDER_INCLUDE = {
+  ...ORDER_WITH_DETAILS_INCLUDE,
+  restaurant: {
+    select: {
+      ...ORDER_WITH_DETAILS_INCLUDE.restaurant.select,
+      timezone: true,
+      businessDayCloseTime: true,
+    },
+  },
+} as const;
+
+function restaurantPayload(restaurant: {
+  id: string;
+  name: string;
+  taxLabel: string | null;
+  serviceChargeLabel: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+}) {
+  return {
+    id: restaurant.id,
+    name: restaurant.name,
+    taxLabel: restaurant.taxLabel,
+    serviceChargeLabel: restaurant.serviceChargeLabel,
+    address: restaurant.address,
+    phone: restaurant.phone,
+    email: restaurant.email,
+  };
+}
+
+/**
+ * The payment business date from the restaurant clock. `businessDate` is
+ * written for every paid batch regardless of `loyalty.enabled`.
+ */
+function legacyBusinessDate(
+  restaurant: {
+    timezone?: string | null;
+    businessDayCloseTime?: string | null;
+  },
+  now: Date
+): Date {
+  const clock = {
+    timezone: restaurant.timezone || 'Asia/Kuala_Lumpur',
+    closeTime: restaurant.businessDayCloseTime || '04:00',
+  };
+  return toDbBusinessDate(getBusinessDate(now, clock));
+}
+
+/**
+ * Loyalty is active only when both the global flag and the restaurant setting
+ * are on. The check short-circuits before touching the settings table so the
+ * pre-loyalty path stays byte-identical when the flag is off.
+ */
+async function isLoyaltyPaymentEnabled(restaurantId: string): Promise<boolean> {
+  if (!isLoyaltyGloballyEnabled()) return false;
+  const settings = await prisma.loyaltySettings.findUnique({
+    where: { restaurantId },
+    select: { enabled: true },
+  });
+  return isLoyaltyActive(settings);
+}
+
+/**
  * Process all confirmed unpaid orders on a table in one idempotent batch.
  */
 export async function processTablePaymentBatch(
@@ -219,6 +295,21 @@ export async function processTablePaymentBatch(
       'IDEMPOTENCY_KEY_REQUIRED',
       400
     );
+  }
+
+  if (await isLoyaltyPaymentEnabled(input.restaurantId)) {
+    try {
+      return await processLoyaltyTablePayment(input);
+    } catch (error) {
+      if (error instanceof LoyaltyPaymentError) {
+        throw new PaymentServiceError(
+          error.message,
+          error.code,
+          error.statusCode
+        );
+      }
+      throw error;
+    }
   }
 
   const requestHash = buildPaymentRequestHash(input);
@@ -288,7 +379,7 @@ export async function processTablePaymentBatch(
           paymentStatus: PAYMENT_STATUS.PENDING,
           status: { notIn: ['PENDING', 'CANCELLED'] },
         },
-        include: ORDER_WITH_DETAILS_INCLUDE,
+        include: LEGACY_ORDER_INCLUDE,
         orderBy: { createdAt: 'asc' },
       });
 
@@ -342,6 +433,7 @@ export async function processTablePaymentBatch(
 
       const batchId = randomUUID();
       const processedBy = getProcessedByFields(input.userId, input.userType);
+      const businessDate = legacyBusinessDate(orders[0].restaurant, new Date());
 
       await tx.paymentBatch.create({
         data: {
@@ -357,6 +449,8 @@ export async function processTablePaymentBatch(
           receiptNumber,
           status: 'COMPLETED',
           response: {},
+          businessDate,
+          outcome: 'GUEST',
           ...processedBy,
         },
       });
@@ -473,9 +567,7 @@ export async function processTablePaymentBatch(
               new Decimal(0)
             )
             .toString(),
-          restaurant: {
-            ...firstOrder.restaurant,
-          },
+          restaurant: restaurantPayload(firstOrder.restaurant),
           table: {
             id: input.tableId,
             tableNumber: firstOrder.table?.tableNumber || 0,
@@ -598,6 +690,21 @@ export async function processOrderPaymentBatch(
     );
   }
 
+  if (await isLoyaltyPaymentEnabled(input.restaurantId)) {
+    try {
+      return await processLoyaltyOrderPayment(input);
+    } catch (error) {
+      if (error instanceof LoyaltyPaymentError) {
+        throw new PaymentServiceError(
+          error.message,
+          error.code,
+          error.statusCode
+        );
+      }
+      throw error;
+    }
+  }
+
   const requestHash = buildOrderPaymentRequestHash(input);
 
   const existing = await prisma.paymentBatch.findUnique({
@@ -636,7 +743,7 @@ export async function processOrderPaymentBatch(
 
       const order = await tx.order.findUnique({
         where: { id: input.orderId },
-        include: ORDER_WITH_DETAILS_INCLUDE,
+        include: LEGACY_ORDER_INCLUDE,
       });
 
       if (!order || order.restaurantId !== input.restaurantId) {
@@ -694,6 +801,7 @@ export async function processOrderPaymentBatch(
 
       const batchId = randomUUID();
       const processedBy = getProcessedByFields(input.userId, input.userType);
+      const businessDate = legacyBusinessDate(order.restaurant, new Date());
 
       await tx.paymentBatch.create({
         data: {
@@ -710,6 +818,8 @@ export async function processOrderPaymentBatch(
           receiptNumber,
           status: 'COMPLETED',
           response: {},
+          businessDate,
+          outcome: 'GUEST',
           ...processedBy,
         },
       });
@@ -811,9 +921,7 @@ export async function processOrderPaymentBatch(
             subtotalAmount: order.subtotalAmount.toString(),
             taxAmount: order.taxAmount.toString(),
             serviceCharge: order.serviceCharge.toString(),
-            restaurant: {
-              ...order.restaurant,
-            },
+            restaurant: restaurantPayload(order.restaurant),
             items: order.items,
             taxLabel: order.restaurant.taxLabel || 'Tax',
             serviceChargeLabel:

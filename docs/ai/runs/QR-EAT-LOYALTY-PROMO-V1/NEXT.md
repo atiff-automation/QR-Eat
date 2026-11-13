@@ -10,7 +10,7 @@ Updated: 2026-11-13
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2
 
-Current step: P5A corrected (uncommitted) — P5B payment next
+Current step: P5B PASS WITH NOTES (uncommitted) — decision needed on F-02/F-03
 
 Last completed:
 - P0 baseline PASS (`fc1312a`).
@@ -26,12 +26,14 @@ Last completed:
   byte-identical to base. `REVIEW-06` PASS WITH NOTES.
 
 In progress:
-- nothing — P5A awaiting commit; P5B not started
+- nothing — P5B awaiting commit; F-02/F-03 decisions pending
 
 Next action:
-1. Commit P5A (R3 gate, needs authorization).
-2. Hand P5B (payment) to one `ame-implementer`.
-3. Resolve the escalated R-02 PII decision before P7.
+1. Commit P5B (R3 gate, needs authorization).
+2. Close F-02 (`orders/[id]/modify` must maintain the ACTIVE ledger, §18.20.14 I)
+   or block modify for loyalty bills before the flag is enabled.
+3. Close F-03 (loyalty `payment` object must be a superset of the legacy one).
+4. Then P6 (owner API + UI).
 
 Blockers:
 - none. R-04 (untracked work) is closed by the checkpoint commit `27cd38a`.

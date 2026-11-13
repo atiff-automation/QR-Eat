@@ -23,6 +23,7 @@ import {
   evaluatePromotion,
   type PromotionCandidate,
   type PromotionLine,
+  type PromotionResult,
   type PromotionScope,
 } from '@/lib/loyalty/promotion';
 import {
@@ -32,7 +33,10 @@ import {
   type RewardRule,
   type RewardType,
 } from '@/lib/loyalty/reward';
-import { recomputeOrderTotals } from '@/lib/loyalty/tax';
+import {
+  recomputeOrderTotals,
+  type RecomputedOrderTotals,
+} from '@/lib/loyalty/tax';
 import { resolveVisitState, type VisitState } from '@/lib/loyalty/visit';
 import {
   round5,
@@ -40,7 +44,6 @@ import {
   toMoneyString,
   type MoneyInput,
 } from '@/lib/loyalty/money';
-import { toPromotionCandidate } from '@/lib/services/loyalty-qr-service';
 import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
 import { getBusinessDate, toDbBusinessDate } from '@/lib/time/business-day';
 
@@ -95,6 +98,30 @@ export interface BillProjectionDiscountLine {
   amount: string;
 }
 
+/** The subset of `OrderDiscount.promotionSnapshot` the projection needs. */
+export interface BillActiveDiscountSnapshot {
+  name?: string;
+  scope?: PromotionScope;
+  receiptLabel?: string | null;
+  categoryIds?: string[];
+  itemIds?: string[];
+}
+
+/**
+ * One ACTIVE `OrderDiscount` row. Payment prices an existing order from these
+ * rows, not from a live promotion re-evaluation: order create is the definitive
+ * price lock (§18.20.14 G/I).
+ */
+export interface BillActiveDiscount {
+  orderId: string;
+  source: 'PROMOTION' | 'LOYALTY_REWARD';
+  sourceId: string;
+  label: string;
+  baseAmount: MoneyInput;
+  amount: MoneyInput;
+  promotionSnapshot?: BillActiveDiscountSnapshot | null;
+}
+
 /**
  * The §18.20.6 bill-read fields. Money is a two-decimal string at the API
  * boundary; the member carries a masked phone only.
@@ -135,6 +162,12 @@ export interface ComputeBillProjectionInput {
   billRevision: number;
   orders: readonly BillOrderRow[];
   promotions: readonly PromotionCandidate[];
+  /**
+   * When provided, price each order from its ACTIVE ledger rows instead of the
+   * live promotion set. Payment uses this so an order-time price lock stands
+   * even after the promotion's window closes (§18.20.14 G/I).
+   */
+  activeDiscounts?: readonly BillActiveDiscount[];
   settings: RewardRule;
   card: RewardCardSnapshot | null;
   /**
@@ -146,6 +179,45 @@ export interface ComputeBillProjectionInput {
   daySubtotal: MoneyInput;
   cashRounding: 'NONE' | 'NEAREST_5_SEN' | null;
   now: Date;
+}
+
+/**
+ * Per-order pricing detail for the payment ledger. This is the same `priced`
+ * data the bill projection already computes; exposing it lets payment write
+ * the reward ledger without re-implementing the projection (R-04).
+ */
+export interface BillPricingOrder {
+  orderId: string;
+  promotionApplied: boolean;
+  promotionId: string | null;
+  /** The resolved candidate, for the `promotionSnapshot`. */
+  promotion: PromotionCandidate | null;
+  promotionLabel: string | null;
+  eligibleBase: Decimal;
+  promotionDiscount: Decimal;
+  rewardAllocation: Decimal;
+  preRewardTotals: RecomputedOrderTotals;
+  projectedTotals: RecomputedOrderTotals;
+  fullPriceTotals: RecomputedOrderTotals;
+}
+
+export interface BillPricingReward {
+  amount: Decimal;
+  applies: boolean;
+  label: string;
+  rewardType: RewardType;
+  rewardValue: MoneyInput;
+  maxDiscount: MoneyInput;
+  visitsRequired: number;
+  completedVisits: number;
+}
+
+export interface BillPricingResult {
+  projection: BillProjection;
+  orders: BillPricingOrder[];
+  reward: BillPricingReward;
+  /** The card snapshot in force, or the current settings before a card exists. */
+  rule: RewardRule;
 }
 
 function toPromotionLines(order: BillOrderRow): PromotionLine[] {
@@ -177,25 +249,111 @@ function promotionCopyItems(
   return [...items.values()];
 }
 
+function groupActiveDiscounts(
+  rows: readonly BillActiveDiscount[]
+): Map<string, BillActiveDiscount[]> {
+  const byOrder = new Map<string, BillActiveDiscount[]>();
+  for (const row of rows) {
+    const current = byOrder.get(row.orderId) ?? [];
+    current.push(row);
+    byOrder.set(row.orderId, current);
+  }
+  return byOrder;
+}
+
+const NO_PROMOTION: PromotionResult = {
+  applied: false,
+  promotionId: null,
+  promotionName: null,
+  label: null,
+  scope: null,
+  eligibleBase: new Decimal(0),
+  discountAmount: new Decimal(0),
+  items: [],
+  partialOrder: false,
+};
+
+/**
+ * Rebuild the eligible-item copy from the locked promotion snapshot and the
+ * order lines. The bill read must keep returning `promotionItems` even though
+ * the price comes from the ledger, not a live evaluation.
+ */
+function lockedPromotionItems(
+  snapshot: BillActiveDiscountSnapshot | null,
+  scope: PromotionScope,
+  order: BillOrderRow
+): PromotionResult['items'] {
+  if (!snapshot || scope === 'ORDER') return [];
+
+  const itemIds = new Set(snapshot.itemIds ?? []);
+  const categoryIds = new Set(snapshot.categoryIds ?? []);
+  const items = order.items.filter((item) =>
+    scope === 'ITEM'
+      ? itemIds.has(item.menuItemId)
+      : categoryIds.has(item.menuItem.categoryId)
+  );
+
+  return items.map((item) => ({
+    itemId: item.menuItemId,
+    name: item.menuItem.name,
+    lineTotal: new Decimal(item.totalAmount),
+  }));
+}
+
+/**
+ * Price one order from its ACTIVE `OrderDiscount` rows. An ACTIVE promotion row
+ * is the order-time price lock: it applies regardless of the live promotion
+ * window. No row means the order is full price.
+ */
+function lockedPromotionResult(
+  rows: readonly BillActiveDiscount[],
+  order: BillOrderRow
+): PromotionResult {
+  const row = rows.find((entry) => entry.source === 'PROMOTION');
+  if (!row) return NO_PROMOTION;
+
+  const snapshot = row.promotionSnapshot ?? null;
+  const scope = snapshot?.scope ?? 'ORDER';
+  const items = lockedPromotionItems(snapshot, scope, order);
+
+  return {
+    applied: true,
+    promotionId: row.sourceId,
+    promotionName: snapshot?.name ?? row.label,
+    label: snapshot?.receiptLabel ?? snapshot?.name ?? row.label,
+    scope,
+    eligibleBase: new Decimal(row.baseAmount),
+    discountAmount: new Decimal(row.amount),
+    items,
+    partialOrder: scope !== 'ORDER' && items.length < order.items.length,
+  };
+}
+
 /**
  * Pure bill pricing. No I/O: callers supply the orders, promotions, settings,
  * card and member state. This is the single projection used by the dine-in and
- * takeaway bill reads and by member attach/change.
+ * takeaway bill reads, by member attach/change and by payment.
  */
-export function computeBillProjection(
+export function computeBillPricing(
   input: ComputeBillProjectionInput
-): BillProjection {
+): BillPricingResult {
   const billOrders = input.orders.filter(
     (order) => order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED'
   );
 
+  const lockedByOrder = input.activeDiscounts
+    ? groupActiveDiscounts(input.activeDiscounts)
+    : null;
+
   const evaluated = billOrders.map((order) => ({
     order,
-    result: evaluatePromotion({
-      lines: toPromotionLines(order),
-      promotions: input.promotions,
-      at: input.now,
-    }),
+    result: lockedByOrder
+      ? lockedPromotionResult(lockedByOrder.get(order.id) ?? [], order)
+      : evaluatePromotion({
+          lines: toPromotionLines(order),
+          promotions: input.promotions,
+          at: input.now,
+        }),
   }));
 
   const promotionApplied = evaluated.some((entry) => entry.result.applied);
@@ -388,7 +546,27 @@ export function computeBillProjection(
         ? reward.label
         : null;
 
-  return {
+  const pricingOrders: BillPricingOrder[] = priced.map((entry) => ({
+    orderId: entry.order.id,
+    promotionApplied: entry.result.applied,
+    promotionId: entry.result.promotionId,
+    promotion: entry.result.promotionId
+      ? (input.promotions.find(
+          (promotion) => promotion.id === entry.result.promotionId
+        ) ?? null)
+      : null,
+    promotionLabel: entry.result.applied
+      ? (entry.result.label ?? entry.result.promotionName ?? 'Promotion')
+      : null,
+    eligibleBase: entry.result.eligibleBase,
+    promotionDiscount: entry.promotionDiscount,
+    rewardAllocation: entry.rewardAllocation,
+    preRewardTotals: entry.preRewardTotals,
+    projectedTotals: entry.projectedTotals,
+    fullPriceTotals: entry.fullPriceTotals,
+  }));
+
+  const projection: BillProjection = {
     billRevision: input.billRevision,
     member,
     visitState,
@@ -419,6 +597,32 @@ export function computeBillProjection(
     minDailySpend: toMoneyString(rule.minDailySpend),
     amountToMinimum: toMoneyString(amountToMinimum),
   };
+
+  return {
+    projection,
+    orders: pricingOrders,
+    reward: {
+      amount: reward.amount,
+      applies: reward.applies,
+      label: reward.label,
+      rewardType: rule.rewardType,
+      rewardValue: rule.rewardValue,
+      maxDiscount: rule.maxDiscount,
+      visitsRequired: rule.visitsRequired,
+      completedVisits: reward.completedVisits,
+    },
+    rule,
+  };
+}
+
+/**
+ * The §18.20.6 bill projection only. Kept as the public shape used by the bill
+ * reads and member attach; `computeBillPricing` exposes the per-order ledger.
+ */
+export function computeBillProjection(
+  input: ComputeBillProjectionInput
+): BillProjection {
+  return computeBillPricing(input).projection;
 }
 
 // ============================================================================
@@ -508,17 +712,98 @@ export interface ProjectBillInput {
   billRevision: number;
   now?: Date;
   db?: TransactionClient;
+  /**
+   * Pre-loaded ACTIVE ledger rows. Payment passes the rows it read under the
+   * bill lock; reads and member changes omit it and the loader reads them.
+   * Either way the price source is the order-time lock, never a live promotion.
+   */
+  activeDiscounts?: readonly BillActiveDiscount[];
+}
+
+export interface BillPricingRestaurant {
+  cashRounding: 'NONE' | 'NEAREST_5_SEN' | null;
+  timezone: string | null;
+  businessDayCloseTime: string | null;
+}
+
+export interface BillPricingCustomer {
+  id: string;
+  name: string | null;
+  phone: string;
+  phoneHash: string;
 }
 
 /**
- * Load the loyalty context for a bill and project it.
+ * The resolved loyalty context used by payment. It carries the member's
+ * `phoneHash` (never the phone) for the visit snapshot and the payment
+ * business date.
+ */
+export interface BillPricingContext {
+  settings: RewardRule;
+  restaurant: BillPricingRestaurant;
+  customer: BillPricingCustomer | null;
+  card: RewardCardSnapshot | null;
+  businessDate: Date;
+  alreadyCounted: boolean;
+}
+
+export interface BillPricingLoad {
+  pricing: BillPricingResult;
+  context: BillPricingContext;
+}
+
+/**
+ * Load the ACTIVE ledger rows for the payable orders. This is the price source
+ * for reads and payment: order create wrote the lock, so a read must not
+ * re-evaluate a promotion against the live window (§18.20.14 G/I).
+ */
+async function loadBillActiveDiscounts(
+  db: TransactionClient,
+  restaurantId: string,
+  orderIds: readonly string[]
+): Promise<BillActiveDiscount[]> {
+  if (orderIds.length === 0) return [];
+
+  const rows = await db.orderDiscount.findMany({
+    where: {
+      restaurantId,
+      orderId: { in: [...orderIds] },
+      status: 'ACTIVE',
+    },
+    select: {
+      orderId: true,
+      source: true,
+      sourceId: true,
+      label: true,
+      baseAmount: true,
+      amount: true,
+      promotionSnapshot: true,
+    },
+  });
+
+  return rows.map((row) => ({
+    orderId: row.orderId,
+    source: row.source,
+    sourceId: row.sourceId,
+    label: row.label,
+    baseAmount: row.baseAmount,
+    amount: row.amount,
+    promotionSnapshot:
+      row.promotionSnapshot as BillActiveDiscountSnapshot | null,
+  }));
+}
+
+/**
+ * Load the loyalty context for a bill and project it, including the per-order
+ * ledger. Payment uses this under the bill lock; the bill reads use the
+ * projection-only wrapper below.
  *
  * Returns `null` when loyalty is inactive or the notice is unusable, so the
  * caller can keep the pre-loyalty response byte-identical.
  */
-export async function projectBill(
+export async function projectBillPricing(
   input: ProjectBillInput
-): Promise<BillProjection | null> {
+): Promise<BillPricingLoad | null> {
   const db = input.db ?? prisma;
   const now = input.now ?? new Date();
 
@@ -544,26 +829,30 @@ export async function projectBill(
   });
   if (!restaurant) return null;
 
-  const promotionRows = await db.promotion.findMany({
-    where: {
-      restaurantId: input.restaurantId,
-      isActive: true,
-      deletedAt: null,
-      startsAt: { lte: now },
-      endsAt: { gt: now },
-    },
-    include: {
-      promotionCategories: { select: { categoryId: true } },
-      promotionItems: { select: { itemId: true } },
-    },
-  });
-  const promotions = promotionRows.map(toPromotionCandidate);
+  // Reads price from the ACTIVE ledger: order create is the definitive price
+  // lock (§18.20.14 G), so a locked promotion stands after its `endsAt` and the
+  // bill can never show a higher total than the QR confirmation. Live
+  // promotion re-evaluation belongs to the unpaid cart/session modification
+  // path (QR quote), not to a read (§18.20.14 I).
+  const pendingOrderIds = input.orders
+    .filter(
+      (order) =>
+        order.paymentStatus === 'PENDING' && order.status !== 'CANCELLED'
+    )
+    .map((order) => order.id);
+  const activeDiscounts =
+    input.activeDiscounts ??
+    (await loadBillActiveDiscounts(db, input.restaurantId, pendingOrderIds));
 
-  let customer: {
-    id: string;
-    name: string | null;
-    phone: string | null;
-  } | null = null;
+  const clock = {
+    timezone: restaurant.timezone || 'Asia/Kuala_Lumpur',
+    closeTime: restaurant.businessDayCloseTime || '04:00',
+  };
+  // The payment business date is needed even for a guest bill: the
+  // `PaymentBatch` writes it for every paid batch.
+  const businessDate = toDbBusinessDate(getBusinessDate(now, clock));
+
+  let customer: BillPricingCustomer | null = null;
   let card: RewardCardSnapshot | null = null;
   let alreadyCounted = false;
   let paidSubtotal = new Decimal(0);
@@ -580,7 +869,12 @@ export async function projectBill(
     // A member resolves only with a valid stored consent. A withdrawn or
     // anonymised member leaves the bill a guest bill.
     if (row && row.phone && row.consentAt && !row.consentWithdrawnAt) {
-      customer = { id: row.id, name: row.name, phone: row.phone };
+      customer = {
+        id: row.id,
+        name: row.name,
+        phone: row.phone,
+        phoneHash: row.phoneHash,
+      };
 
       const cardRow = await db.loyaltyCard.findUnique({
         where: {
@@ -591,12 +885,6 @@ export async function projectBill(
         },
       });
       card = cardRow ? toCardSnapshot(cardRow) : null;
-
-      const clock = {
-        timezone: restaurant.timezone || 'Asia/Kuala_Lumpur',
-        closeTime: restaurant.businessDayCloseTime || '04:00',
-      };
-      const businessDate = toDbBusinessDate(getBusinessDate(now, clock));
 
       const visit = await db.loyaltyVisit.findFirst({
         where: {
@@ -625,19 +913,46 @@ export async function projectBill(
       .map((order) => order.subtotalAmount)
   );
   const daySubtotal = customer ? paidSubtotal.plus(billSubtotal) : billSubtotal;
+  const rule = toRewardRule(settings);
 
-  return computeBillProjection({
-    billRevision: input.billRevision,
-    orders: input.orders,
-    promotions,
-    settings: toRewardRule(settings),
-    card,
-    customer,
-    alreadyCounted,
-    daySubtotal,
-    cashRounding: restaurant.cashRounding ?? 'NONE',
-    now,
-  });
+  return {
+    pricing: computeBillPricing({
+      billRevision: input.billRevision,
+      orders: input.orders,
+      promotions: [],
+      activeDiscounts,
+      settings: rule,
+      card,
+      customer,
+      alreadyCounted,
+      daySubtotal,
+      cashRounding: restaurant.cashRounding ?? 'NONE',
+      now,
+    }),
+    context: {
+      settings: rule,
+      restaurant: {
+        cashRounding: restaurant.cashRounding,
+        timezone: restaurant.timezone,
+        businessDayCloseTime: restaurant.businessDayCloseTime,
+      },
+      customer,
+      card,
+      businessDate,
+      alreadyCounted,
+    },
+  };
+}
+
+/**
+ * The §18.20.6 bill projection only. Used by the bill reads and member
+ * attach/change; payment uses `projectBillPricing` for the per-order ledger.
+ */
+export async function projectBill(
+  input: ProjectBillInput
+): Promise<BillProjection | null> {
+  const loaded = await projectBillPricing(input);
+  return loaded?.pricing.projection ?? null;
 }
 
 /** Load the orders of one dining session for the bill projection. */
