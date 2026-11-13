@@ -509,3 +509,25 @@ Carried forward:
 - **P10:** F-03/N-01 contract gap (`MEMBER_RESOLUTION_FAILED` reuses `LOYALTY_DISABLED`);
   N-04 confirm the quote route's generic request codes are permitted.
 
+
+**Commit — P4 (2026-11-13):**
+
+```text
+commit 55dd7c4  feat(loyalty): QR quote and loyalty-aware order create (P4)
+base   12bdcdf
+14 files changed, 4428 insertions(+), 23 deletions(-)
+```
+
+Authorized by user. Exact path list published before the commit.
+
+**Integrity note:** the committed per-file hashes differed from the reviewed hashes
+(`5ff6eb7c…` → `6e912a71…` etc.) and the diff shrank by 17 lines. Investigated rather than
+accepted: the pre-commit hook (`eslint --fix` + `prettier --write`) reformatted six files.
+Proof of semantic equivalence — the pre-commit blobs were extracted from the hook's backup
+(`4d3caee`), formatted with the repo's prettier config, and compared: **all six files
+byte-identical**. Type-check, 98 scoped tests and 867 full tests pass on the committed state.
+
+**Process fix for later phases:** implementers must run `npx eslint --fix` **and**
+`npx prettier --write` on their changed files before reporting, so the hook is a no-op and
+the reviewed hash equals the committed hash. `prettier --check` alone was not sufficient.
+

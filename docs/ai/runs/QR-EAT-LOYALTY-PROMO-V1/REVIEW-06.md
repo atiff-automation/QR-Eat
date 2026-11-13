@@ -75,6 +75,14 @@ pricing, projection, reprice validation and `ORDER_CREATE` idempotency.
 - `npm run build` not run in these gates (build runs at P9).
 - P5 payment writes not reviewed.
 
+## Commit integrity note
+
+The pre-commit hook reformatted six files, so the committed hashes differ from the reviewed
+ones. Verified not semantic: the pre-commit blobs (hook backup `4d3caee`) formatted with the
+repo's prettier config are **byte-identical** to the committed files. Type-check, 98 scoped
+tests and 867 full tests pass on the committed state (`55dd7c4`). Process fix recorded in
+`RUN_LOG.md`: implementers must run `eslint --fix` and `prettier --write` before reporting.
+
 ## Residual risk
 
 - Expired `IdempotencyRecord` rows are not purged; a key reused after 24h hits the unique constraint and returns 409.
