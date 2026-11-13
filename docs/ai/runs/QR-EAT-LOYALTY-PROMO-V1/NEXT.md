@@ -10,7 +10,7 @@ Updated: 2026-11-13
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2
 
-Current step: P5 CLOSED (close-out uncommitted) — P6A next
+Current step: P6A PASS WITH NOTES (uncommitted) — M-01 decision, then P6B
 
 Last completed:
 - P0 baseline PASS (`fc1312a`).
@@ -26,13 +26,14 @@ Last completed:
   byte-identical to base. `REVIEW-06` PASS WITH NOTES.
 
 In progress:
-- nothing — close-out awaiting commit; P6A not started
+- nothing — P6A awaiting commit; M-01 decision pending
 
 Next action:
-1. Commit the P5 close-out (R3 gate, needs authorization).
-2. Hand P6A (owner settings + promotions API) to one `ame-implementer`.
-3. Before the flag is enabled: F-10 (every bill-mutating writer bumps `billRevision`
-   under `loyalty-bill:`), R-02 (full-phone exposure), real-Postgres proof.
+1. Decide M-01 (manager `settings:write` collateral grant).
+2. Commit P6A.
+3. P6B (members API + loyalty reports), then the UI pass.
+4. Before the flag is enabled: F-10, R-02, and `db:seed` must be re-run for the new
+   permission rows.
 
 Blockers:
 - none. R-04 (untracked work) is closed by the checkpoint commit `27cd38a`.

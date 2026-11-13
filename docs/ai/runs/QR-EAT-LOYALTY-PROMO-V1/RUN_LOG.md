@@ -725,3 +725,48 @@ Caveat: a test would also "pass" if its insert failed on a *different* check con
 Fixtures were given valid FK targets and non-conflicting values to isolate each one, but the
 isolation is by construction, not by asserting the specific constraint name.
 
+
+**P6A — owner settings and promotions API (2026-11-13):**
+
+Implementer `ses_e2b824b29ffe5T5edbmhZzWlfF`. Verifiers `ses_e2b5f3e92ffeR1gX01awv4FIOc`
+(**FAIL**) and `ses_e2b50954affeDYGm5sDz89hAOJ` (PASS WITH NOTES). One correction cycle.
+
+```text
+new      src/app/api/settings/restaurant/loyalty/route.ts (+ test)
+modified src/app/api/settings/restaurant/payments/route.ts (+ test)
+new      src/app/api/promotions/{route.ts,[id]/route.ts,_lib} (+ tests)
+new      src/lib/services/loyalty-{settings,promotion}-service.ts, loyalty-owner-idempotency.ts
+modified src/lib/rbac/permission-constants.ts, prisma/seed.ts (permission rows)
+```
+
+```text
+npx jest src/app/api/settings src/app/api/promotions src/lib/services/__tests__ --runInBand
+                                   -> 13 suites, 207 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 86 passed / 1 skipped, 1039 passed, 11 skipped
+npm run build                      -> PASS (3 new routes)
+```
+
+**FAIL** on F-01: the payments `PUT` took no `Idempotency-Key` and wrote no audit row, contrary
+to §18.20.7, leaving a money-affecting `cashRounding` change unaudited. Fixed as ruled: header
+optional but honoured when present, audit row always written in the same transaction.
+
+Verified: server-derived notice hash (client hash stripped), settings bounds mirror every DB
+CHECK, in-progress card snapshot untouched, settings work with the flag off, promotion scope
+rewrite transactional under `FOR UPDATE`, `endsAt` restaurant-local end-of-day, cross-tenant
+400/404, owner idempotency on `order_action_receipts` safe (unique index real, namespaces
+cannot collide, receipt inside the mutation transaction).
+
+**Open — needs a human decision (M-01):** granting `settings:write` to satisfy §18.20.14 A for
+payment settings also gives managers write access to **every** other `settings:write` endpoint
+(financial, receipt, system, hours, general, qr-ordering). Contract-aligned for payments;
+a collateral privilege expansion otherwise.
+
+Other notes: M-02 (payments `PUT` header optional vs the literal clause — P10), M-03 (tenant
+test stubs the service), L-01…L-08 (id validation, error-code drift, receipt retention, audit
+recordId, blank key, empty PATCH, `businessDayCloseTime` on PUT, new-restaurant `cashRounding`
+default → P9).
+
+**Deployment note:** the new permission rows land only when `db:seed` is re-run; until then the
+owner endpoints fail closed with 403.
+

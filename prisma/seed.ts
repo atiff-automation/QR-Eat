@@ -1024,11 +1024,52 @@ async function main() {
       category: 'payments',
     },
 
-    // Loyalty (P5 adds attach only; P6 adds the owner/manager permissions)
+    // Loyalty, promotions and members (§18.20.14 A). `loyalty:attach` is the
+    // Counter member change permission (P5); the rest are owner/manager.
     {
       key: 'loyalty:attach',
       description: 'Attach or change the loyalty member at the Counter',
       category: 'loyalty',
+    },
+    {
+      key: 'loyalty:configure',
+      description: 'Configure loyalty settings and rewards',
+      category: 'loyalty',
+    },
+    {
+      key: 'loyalty:report',
+      description: 'View loyalty and promotion reports',
+      category: 'loyalty',
+    },
+    {
+      key: 'promotions:manage',
+      description: 'Create, edit and delete promotions',
+      category: 'promotions',
+    },
+    {
+      key: 'members:read',
+      description: 'View loyalty member list and profiles',
+      category: 'members',
+    },
+    {
+      key: 'members:pii',
+      description: 'Reveal full member phone numbers',
+      category: 'members',
+    },
+    {
+      key: 'members:export',
+      description: 'Export loyalty member data',
+      category: 'members',
+    },
+    {
+      key: 'members:delete',
+      description: 'Delete or anonymise loyalty members',
+      category: 'members',
+    },
+    {
+      key: 'members:consent_withdraw',
+      description: 'Record loyalty consent withdrawal',
+      category: 'members',
     },
   ];
 
@@ -1104,6 +1145,14 @@ async function main() {
         'payments:read',
         'payments:write',
         'loyalty:attach',
+        'loyalty:configure',
+        'loyalty:report',
+        'promotions:manage',
+        'members:read',
+        'members:pii',
+        'members:export',
+        'members:delete',
+        'members:consent_withdraw',
       ],
     },
     {
@@ -1122,9 +1171,16 @@ async function main() {
         'menu:write',
         'menu:availability',
         'settings:read',
+        'settings:write',
         'payments:read',
         'payments:write',
         'loyalty:attach',
+        'loyalty:configure',
+        'loyalty:report',
+        'promotions:manage',
+        'members:read',
+        'members:pii',
+        'members:consent_withdraw',
       ],
     },
     {
