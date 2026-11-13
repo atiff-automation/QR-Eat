@@ -5,7 +5,7 @@ Bookmark only. TASK.md and live Git are authoritative.
 Update at phase boundaries, before compaction, and before ending a session.
 -->
 
-Updated: 2026-11-13
+Updated: 2026-11-14
 
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
