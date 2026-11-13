@@ -9,12 +9,12 @@
 **Next actor:** implementer
 **Implementer:** ame-implementer
 **Implementer session:** P0 `ses_e2de0829dffe62pTHH1kSKamu1` · P1 `ses_e2dd397c9ffeLKmDQzVENUI7Do`
-**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK`
+**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK` · P3 `ses_e2d295544ffe8Vs7xNUksYLs5d` · P3 delta `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy`
 **Implementer (P1b):** `ses_e2d9b93c9ffedk56s20qDTC4ol`
 **Implementer (P2):** `ses_e2d90c157ffedh0iNsagr0ZJjQ`
-**Diff base:** fc1312a
-**Diff hash:** `b6bd9c3b6004a90b1e2a16a4740fbf8f4b14b4bd1d48b5b8d5791f7266263be8` (tracked product, rev 2) · migrations `1dba77cfbcff470bbaf89f8b30e885b03537e49abd11165579c346615b47dde4` · P2 `src/lib/loyalty/**` `b1b452e11e451eedbe4606b4b54ea6cb946656892c6d3ccfb722b83ffc49c42d`
-**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2, PASS WITH NOTES; F-01 closed)
+**Diff base:** fc1312a (task base) · 27cd38a (P2 checkpoint commit)
+**Diff hash:** `b6bd9c3b6004a90b1e2a16a4740fbf8f4b14b4bd1d48b5b8d5791f7266263be8` (tracked product, rev 2) · migrations `1dba77cfbcff470bbaf89f8b30e885b03537e49abd11165579c346615b47dde4` · P2 `src/lib/loyalty/**` `b1b452e11e451eedbe4606b4b54ea6cb946656892c6d3ccfb722b83ffc49c42d` · P3 `77695a7b226eb9ce461b75ade930538b5120855ee23092f67d6886797917c41b`
+**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2) · `REVIEW-05.md` (P3, PASS WITH NOTES)
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Updated:** 2026-11-13

@@ -419,3 +419,57 @@ correctly left it untouched.
 **Open: R-04** — the P2 module is untracked, so review deltas cannot be diff-bound. A
 checkpoint commit would fix it and is not yet authorized (R3 commit gate).
 
+
+**Commit — P2 checkpoint (2026-11-13):**
+
+```text
+commit 27cd38a  feat(loyalty): schema, migrations and pricing engine (P0-P2)
+base   fc1312a
+24 files changed, 5529 insertions(+), 51 deletions(-)
+```
+
+Authorized by user ("do as recommended. approve"). Exact path list published before the
+commit; no unrelated files. Reviewed hash `b1b452e1…c42d` for `src/lib/loyalty/**`
+recomputed from the commit and **matches**; the pre-commit hooks (`eslint --fix`,
+`prettier --write`) changed nothing, and the working tree is clean. R-04 closed.
+
+F-01 closed: `maxDiscount` caps both reward types (`REVIEW-04.md`, verifier
+`ses_e2d437e2affeYGfEQViy33f7aK`). Carried into P4/P5: `applies` means "non-zero reward
+projected" while `nextCardState.resets` means "cycle completes" — reset must be driven by
+`nextCardState`, never by `applies` (N-2).
+
+
+**P3 — member, consent and quote services (2026-11-13):**
+
+Implementer `ses_e2d351d28ffeHwZGbrwodB9a3S`. Verifiers `ses_e2d295544ffe8Vs7xNUksYLs5d`
+(full) and `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy` (delta). One correction cycle.
+
+```text
+src/lib/loyalty/{flags,phone,consent}.ts                    new
+src/lib/services/loyalty-customer-service.ts                new
+src/lib/services/loyalty-quote-service.ts                   new
+5 test suites                                               new
+```
+
+```text
+npx jest src/lib/loyalty src/lib/services/__tests__ --runInBand -> 11 suites, 279 tests
+npm run type-check                                             -> PASS
+npm test -- --runInBand                                        -> 68 passed / 1 skipped, 803 passed, 11 skipped
+```
+
+Security evidence: no full phone in any throw/message/return; HMAC fails closed on missing,
+empty or whitespace key with no fallback; consent hash compared with `timingSafeEqual` and
+server-derived values persisted; every customer/quote query tenant-scoped; 128-bit quote id;
+TTL 10 min; single use; `customerId` over `phoneHash`; `QuotePromotion` rows written;
+`cartHash` order-independent. Mask sweep over 1,111,110 inputs found no leak.
+
+`REVIEW-05.md`: PASS WITH NOTES. F-01 (mask hid nothing for short inputs) and F-02
+(concurrent anonymise could attach an ANONYMIZED customer) fixed.
+
+Carried forward:
+- **P4:** F-03 validate `expectedTotal`; F-04 session/table binding in `consumeQuote`;
+  **N-01** do not render "Loyalty is off" for the member-resolution race; F-07 assert
+  tenant-scoped `where` in cross-tenant tests.
+- **P6:** F-05 null `Order.customerName`/`customerPhone` in the delete flow.
+- **P10:** N-01 contract gap (no code for "member could not be resolved").
+
