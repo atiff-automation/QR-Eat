@@ -518,19 +518,42 @@ describe('buildOfflinePaymentPlan', () => {
       billRevision: 0,
       cashRounding: 'NONE',
       offlineCreated: true,
+      hasMember: false,
       now,
       businessDate,
       businessDateFallback: false,
     });
 
     expect(plan.offline).toBe(true);
-    expect(plan.outcome).toBe('NO_BENEFIT');
+    expect(plan.outcome).toBe('GUEST');
     expect(plan.visit).toBeNull();
     expect(plan.card).toBeNull();
     expect(plan.rewardAmount.eq(0)).toBe(true);
     expect(plan.totalAmount.toFixed(2)).toBe('69.60');
     expect(plan.orders[0].discountAmount.eq(0)).toBe(true);
     expect(plan.changeGiven?.toFixed(2)).toBe('0.40');
+  });
+
+  it('reports NO_BENEFIT for a member bill replayed offline', () => {
+    const plan = buildOfflinePaymentPlan({
+      orders: [offlineOrder],
+      activeDiscounts: [],
+      method: 'cash',
+      cashReceived: '70.00',
+      expectedTotal: '69.60',
+      expectedBillRevision: 0,
+      billRevision: 0,
+      cashRounding: 'NONE',
+      offlineCreated: true,
+      hasMember: true,
+      now,
+      businessDate,
+      businessDateFallback: false,
+    });
+
+    expect(plan.outcome).toBe('NO_BENEFIT');
+    expect(plan.visit).toBeNull();
+    expect(plan.rewardAmount.eq(0)).toBe(true);
   });
 
   it('keeps a locked promotion on an online-priced order paid offline', () => {
@@ -549,6 +572,7 @@ describe('buildOfflinePaymentPlan', () => {
       billRevision: 0,
       cashRounding: 'NEAREST_5_SEN',
       offlineCreated: false,
+      hasMember: false,
       now,
       businessDate,
       businessDateFallback: true,
@@ -599,6 +623,7 @@ describe('buildOfflinePaymentPlan', () => {
       billRevision: 0,
       cashRounding: 'NONE',
       offlineCreated: false,
+      hasMember: false,
       now,
       businessDate,
       businessDateFallback: false,
@@ -630,6 +655,7 @@ describe('buildOfflinePaymentPlan', () => {
           billRevision: 0,
           cashRounding: 'NONE',
           offlineCreated: false,
+          hasMember: false,
           now,
           businessDate,
           businessDateFallback: false,

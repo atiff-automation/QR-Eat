@@ -9,12 +9,12 @@
 **Next actor:** implementer
 **Implementer:** ame-implementer
 **Implementer session:** P0 `ses_e2de0829dffe62pTHH1kSKamu1` · P1 `ses_e2dd397c9ffeLKmDQzVENUI7Do`
-**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK` · P3 `ses_e2d295544ffe8Vs7xNUksYLs5d` · P3 delta `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy` · P4 `ses_e2ce6bd32ffes2uYjktCXaGJIw` · P4 delta `ses_e2cd8f112ffeyqarWSP10Ll68b` · P5A `ses_e2cbbf3f2ffeSCCW0NziqoU25V` (FAIL) · P5A re-review `ses_e2cac41c7ffevw5PW5VQexObc4` · P5B `ses_e2c3d0643ffeioiTKvvKP7IsVT` (FAIL) · P5B re-review `ses_e2bfc408dffebrZMgw0uNw4NVB`
+**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK` · P3 `ses_e2d295544ffe8Vs7xNUksYLs5d` · P3 delta `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy` · P4 `ses_e2ce6bd32ffes2uYjktCXaGJIw` · P4 delta `ses_e2cd8f112ffeyqarWSP10Ll68b` · P5A `ses_e2cbbf3f2ffeSCCW0NziqoU25V` (FAIL) · P5A re-review `ses_e2cac41c7ffevw5PW5VQexObc4` · P5B `ses_e2c3d0643ffeioiTKvvKP7IsVT` (FAIL) · P5B re-review `ses_e2bfc408dffebrZMgw0uNw4NVB` · P5C `ses_e2bd33272ffeZjtGGJJdzRYiYQ`
 **Implementer (P1b):** `ses_e2d9b93c9ffedk56s20qDTC4ol`
 **Implementer (P2):** `ses_e2d90c157ffedh0iNsagr0ZJjQ`
 **Diff base:** fc1312a (task base) · 27cd38a (P2 checkpoint commit)
-**Diff hash:** `b6bd9c3b6004a90b1e2a16a4740fbf8f4b14b4bd1d48b5b8d5791f7266263be8` (tracked product, rev 2) · migrations `1dba77cfbcff470bbaf89f8b30e885b03537e49abd11165579c346615b47dde4` · P2 `src/lib/loyalty/**` `b1b452e11e451eedbe4606b4b54ea6cb946656892c6d3ccfb722b83ffc49c42d` · P3 `77695a7b226eb9ce461b75ade930538b5120855ee23092f67d6886797917c41b` · P4 `320268cbb2d3deae98f920e7c0d2610839839c34c84f909fe6fd6493df86f8cd` · P5A `1f46331b82e752ab24cc451e651e8f957bf82964c0691e981ad7516ac82f3606` · P5B `05ca151edabda908ea56debb949177f341b62c804e40c227034ecf16148157b0`
-**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2) · `REVIEW-05.md` (P3) · `REVIEW-06.md` (P4) · `REVIEW-07.md` (P5A) · `REVIEW-08.md` (P5B, FAIL → PASS WITH NOTES)
+**Diff hash:** `b6bd9c3b6004a90b1e2a16a4740fbf8f4b14b4bd1d48b5b8d5791f7266263be8` (tracked product, rev 2) · migrations `1dba77cfbcff470bbaf89f8b30e885b03537e49abd11165579c346615b47dde4` · P2 `src/lib/loyalty/**` `b1b452e11e451eedbe4606b4b54ea6cb946656892c6d3ccfb722b83ffc49c42d` · P3 `77695a7b226eb9ce461b75ade930538b5120855ee23092f67d6886797917c41b` · P4 `320268cbb2d3deae98f920e7c0d2610839839c34c84f909fe6fd6493df86f8cd` · P5A `1f46331b82e752ab24cc451e651e8f957bf82964c0691e981ad7516ac82f3606` · P5B `05ca151edabda908ea56debb949177f341b62c804e40c227034ecf16148157b0` · P5C `bd7fa8e10acdd56e8bda1f0736290189ed398159c1f941c6b152ec5f10de4966`
+**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2) · `REVIEW-05.md` (P3) · `REVIEW-06.md` (P4) · `REVIEW-07.md` (P5A) · `REVIEW-08.md` (P5B) · `REVIEW-09.md` (P5C, PASS WITH NOTES)
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Updated:** 2026-11-13
@@ -235,6 +235,16 @@ frozen commit hash for the Counter handoff.
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
 then the commit gate.
 
+## Scope amendment (approved 2026-06-13 → 2026-11-13)
+
+**P5C — modification re-evaluation (§18.20.14 I).** Approved by the human on 2026-11-13
+after `REVIEW-08.md` F-02: `POST /api/orders/[id]/modify` rewrites an unpaid order's totals
+but never re-evaluates the promotion, updates the ACTIVE `OrderDiscount`, or bumps
+`billRevision`. Under the P5B price lock this strands a discount after the promoted item is
+removed — a revenue leak and a wrongly blocked visit. P5C adds the modify route to the owned
+files, implements the re-evaluation, and closes F-01 (guest offline outcome) and F-03 (the
+loyalty `payment` object must be a superset of the legacy one).
+
 ## Non-goals
 
 - Counter/Kitchen Android code; any Tabtep worktree edit; the frozen print branch.
@@ -267,6 +277,7 @@ then the commit gate.
 - `src/app/api/counter/orders/[orderId]/member/route.ts` (new)
 - `src/app/api/counter/orders/[orderId]/member/remove/route.ts` (new)
 - `src/app/api/counter/orders/[orderId]/pay/route.ts`
+- `src/app/api/orders/[id]/modify/route.ts` (P5C only — §18.20.14 I re-evaluation)
 - `src/app/api/counter/payments/route.ts`
 - `src/lib/services/payment-batch-service.ts`
 - `src/lib/services/counter-order-service.ts`

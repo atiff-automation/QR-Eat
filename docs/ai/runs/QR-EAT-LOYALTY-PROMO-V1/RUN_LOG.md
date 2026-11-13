@@ -616,3 +616,40 @@ Open items:
 
 Real-Postgres proof list recorded in `REVIEW-08.md`; required before a pilot.
 
+
+**P5C — modification re-evaluation (2026-11-13, scope amendment):**
+
+Implementer `ses_e2beb2436ffen6kUQpicw4XuM1`. Verifier `ses_e2bd33272ffeZjtGGJJdzRYiYQ`.
+PASS WITH NOTES.
+
+```text
+modified src/app/api/orders/[id]/modify/route.ts
+new      src/app/api/orders/[id]/modify/__tests__/route.test.ts
+new      src/lib/services/loyalty-order-modify-service.ts
+modified src/lib/services/loyalty-payment-service.ts
+modified 2 payment test files
+```
+
+```text
+npx jest src/app/api/orders src/app/api/counter src/lib/services/__tests__ --runInBand
+                                   -> 11 suites, 161 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 80 passed / 1 skipped, 968 passed, 11 skipped
+npm run build                      -> PASS
+```
+
+Closes REVIEW-08 F-02 (unpaid modify now re-evaluates the promotion, maintains the single ACTIVE
+`OrderDiscount`, recomputes tax/service per order, bumps `discountVersion` + `billRevision`, writes
+an audit row, under the same lock order as payment), F-01 (guest offline `GUEST`) and F-03 (loyalty
+`payment` object is a legacy superset).
+
+Clause ruling: §18.20.14 I wins for an unpaid modification (live re-evaluation); P5B's "order
+create is the price lock" governs reads and payment of an unmodified order.
+
+Carried:
+- **F-1 (Counter compat):** `payment.order.items[]` still lacks `id`, `quantity`, `unitPrice`,
+  `selectedOptions`, `specialInstructions`, `menuItem.price/preparationTime`. P10/Counter handoff.
+- **F-10 (price lock):** QR order create bumps `billRevision` without the `loyalty-bill` lock;
+  counter order create does not bump it. Every bill-mutating writer must take the lock — P9.
+- F-2/F-3/F-5/F-6/F-7/F-8 low follow-ups.
+

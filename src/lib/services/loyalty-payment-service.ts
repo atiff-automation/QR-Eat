@@ -464,6 +464,12 @@ export interface BuildOfflinePaymentPlanInput {
   cashRounding: 'NONE' | 'NEAREST_5_SEN' | null;
   /** True when any order of the bill was created offline. */
   offlineCreated: boolean;
+  /**
+   * True when the bill has a resolved member. Offline replay adds no benefit,
+   * but `outcome` precedence still distinguishes a member (`NO_BENEFIT`) from a
+   * guest (`GUEST`) (§18.20.15 D).
+   */
+  hasMember: boolean;
   now: Date;
   businessDate: Date;
   businessDateFallback: boolean;
@@ -575,7 +581,11 @@ export function buildOfflinePaymentPlan(
     offline: true,
     businessDate: input.businessDate,
     businessDateFallback: input.businessDateFallback,
-    outcome: promotionApplied ? 'PROMOTION_APPLIED' : 'NO_BENEFIT',
+    outcome: promotionApplied
+      ? 'PROMOTION_APPLIED'
+      : input.hasMember
+        ? 'NO_BENEFIT'
+        : 'GUEST',
     visitState: 'GUEST',
     totalAmount,
     discountAmount,
@@ -1073,6 +1083,13 @@ function buildPaymentResponse(input: {
     amount: MoneyInput;
     receiptNumber: string | null;
   }>;
+  /**
+   * The full first `Payment` row. The loyalty response must be a superset of
+   * the legacy response, which spreads the complete Prisma row (status,
+   * paymentMethod, batchId, netAmount, processingFee, dailySeq,
+   * externalTransactionId, paymentMetadata, processedAt, completedAt, ...).
+   */
+  firstPayment: Record<string, unknown> | null;
   receiptNumber: string;
   batchId: string;
   recordedOffline: boolean;
@@ -1087,7 +1104,7 @@ function buildPaymentResponse(input: {
   );
 
   const combinedPayment = {
-    ...input.payments[0],
+    ...(input.firstPayment ?? input.payments[0]),
     amount: toMoneyString(plan.totalAmount),
     cashReceived: plan.cashReceived
       ? toMoneyString(plan.cashReceived)
@@ -1392,6 +1409,7 @@ async function applyPaymentPlan(
     amount: MoneyInput;
     receiptNumber: string | null;
   }> = [];
+  let firstPayment: Record<string, unknown> | null = null;
   for (let index = 0; index < plan.orders.length; index++) {
     const order = plan.orders[index];
     const isFirst = index === 0;
@@ -1450,6 +1468,11 @@ async function applyPaymentPlan(
       receiptNumber: payment.receiptNumber,
     });
 
+    if (isFirst) {
+      // Keep the full row for the `payment` response object (F-03).
+      firstPayment = payment as unknown as Record<string, unknown>;
+    }
+
     await tx.auditLog.create({
       data: {
         tableName: 'payments',
@@ -1482,6 +1505,7 @@ async function applyPaymentPlan(
     bill,
     plan,
     payments,
+    firstPayment,
     receiptNumber,
     batchId,
     recordedOffline: input.recordedOffline === true,
@@ -1924,6 +1948,7 @@ async function processLoyaltyPayment(
             billRevision: bill.billRevision,
             cashRounding: restaurant.cashRounding ?? 'NONE',
             offlineCreated: payable.some((order) => order.offlineCreated),
+            hasMember: bill.customerId !== null,
             now,
             businessDate: offlineDate.businessDate,
             businessDateFallback: offlineDate.fallback,

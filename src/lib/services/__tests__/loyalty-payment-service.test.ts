@@ -191,6 +191,16 @@ function resetTx(): void {
       orderId: data.orderId,
       amount: data.amount,
       receiptNumber: data.receiptNumber,
+      status: data.status,
+      paymentMethod: data.paymentMethod,
+      batchId: data.batchId,
+      netAmount: data.netAmount,
+      processingFee: data.processingFee,
+      dailySeq: data.dailySeq,
+      externalTransactionId: data.externalTransactionId,
+      paymentMetadata: data.paymentMetadata,
+      processedAt: data.processedAt,
+      completedAt: data.completedAt,
     })
   );
   tx.auditLog.create.mockResolvedValue({});
@@ -323,6 +333,37 @@ describe('loyalty table payment — transaction', () => {
       tx.idempotencyRecord.update
     );
     expect(order).toEqual([...order].sort((a, b) => a - b));
+  });
+
+  it('returns a payment object that is a superset of the legacy shape (F-03)', async () => {
+    const result = await processLoyaltyTablePayment(
+      tableInput({ externalTransactionId: 'ext-1' })
+    );
+
+    const payment = result.response.payment as Record<string, unknown>;
+    for (const key of [
+      'id',
+      'orderId',
+      'amount',
+      'receiptNumber',
+      'status',
+      'paymentMethod',
+      'batchId',
+      'netAmount',
+      'processingFee',
+      'dailySeq',
+      'externalTransactionId',
+      'paymentMetadata',
+      'processedAt',
+      'completedAt',
+    ]) {
+      expect(payment).toHaveProperty(key);
+    }
+
+    expect(payment.status).toBe('PAID');
+    expect(payment.paymentMethod).toBe('cash');
+    expect(payment.batchId).toEqual(expect.any(String));
+    expect(payment.externalTransactionId).toBe('ext-1');
   });
 
   it('creates the PAYMENT idempotency record before the payment transaction', async () => {
@@ -711,6 +752,33 @@ describe('loyalty table payment — transaction', () => {
   });
 
   it('keeps an offline-created order at full price with no benefit', async () => {
+    tx.diningSession.findFirst.mockResolvedValue({
+      id: sessionId,
+      billRevision: 7,
+      customerId: null,
+    });
+    tx.order.findMany.mockResolvedValue([
+      orderRow({ offlineCreated: true, offlineCreatedAt: now }),
+    ]);
+
+    const result = await processLoyaltyTablePayment(
+      tableInput({ recordedOffline: true })
+    );
+
+    expect(result.response).toMatchObject({
+      outcome: 'GUEST',
+      recordedOffline: true,
+    });
+    expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();
+    expect(tx.loyaltyCard.create).not.toHaveBeenCalled();
+    expect(tx.orderDiscount.create).not.toHaveBeenCalled();
+    expect(tx.orderDiscount.updateMany).not.toHaveBeenCalled();
+    expect(tx.order.updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { paymentStatus: 'PAID' } })
+    );
+  });
+
+  it('reports NO_BENEFIT for a member bill replayed offline (F-01)', async () => {
     tx.order.findMany.mockResolvedValue([
       orderRow({ offlineCreated: true, offlineCreatedAt: now }),
     ]);
@@ -723,13 +791,6 @@ describe('loyalty table payment — transaction', () => {
       outcome: 'NO_BENEFIT',
       recordedOffline: true,
     });
-    expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();
-    expect(tx.loyaltyCard.create).not.toHaveBeenCalled();
-    expect(tx.orderDiscount.create).not.toHaveBeenCalled();
-    expect(tx.orderDiscount.updateMany).not.toHaveBeenCalled();
-    expect(tx.order.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({ data: { paymentStatus: 'PAID' } })
-    );
   });
 
   it('keeps a locked promotion on an online-priced order paid offline', async () => {
