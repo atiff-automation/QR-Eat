@@ -33,6 +33,7 @@ import {
   Server,
   ShieldCheck,
   TrendingUp,
+  Gift,
   type LucideIcon,
 } from 'lucide-react';
 import { useRole } from '@/components/rbac/RoleProvider';
@@ -175,6 +176,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'analytics:read',
     },
     {
+      name: 'Rewards',
+      href: '/dashboard/promotions',
+      icon: Gift,
+      current: pathname.startsWith('/dashboard/promotions'),
+      permission: 'promotions:manage',
+    },
+    {
       name: 'Stations',
       href: '/dashboard/stations',
       icon: Server,
@@ -207,6 +215,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/staff')) return Users;
     if (pathname.includes('/expenses')) return Receipt;
     if (pathname.includes('/profit-loss')) return TrendingUp;
+    if (pathname.includes('/promotions')) return Gift;
     if (pathname.includes('/reports')) return BarChart3;
     if (pathname.includes('/stations')) return Server;
     if (pathname.includes('/security')) return ShieldCheck;
@@ -224,6 +233,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/staff')) return 'Staff';
     if (pathname.includes('/expenses')) return 'Expenses';
     if (pathname.includes('/profit-loss')) return 'Profit & Loss';
+    if (pathname.includes('/promotions')) return 'Rewards';
     if (pathname.includes('/reports')) return 'Reports';
     if (pathname.includes('/stations')) return 'Stations & Devices';
     if (pathname.includes('/security')) return 'Security & Devices';

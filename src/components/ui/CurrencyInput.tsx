@@ -9,6 +9,14 @@ interface CurrencyInputProps {
   disabled?: boolean;
   required?: boolean;
   autoFocus?: boolean;
+  /** Optional id so a visible <label htmlFor> can point at the input. */
+  id?: string;
+  /** Accessible name. Defaults to the legacy generic label. */
+  ariaLabel?: string;
+  /** Marks the input invalid for assistive technology. */
+  ariaInvalid?: boolean;
+  /** Id of the error text associated with the input. */
+  ariaDescribedBy?: string;
 }
 
 /**
@@ -30,6 +38,10 @@ export function CurrencyInput({
   disabled = false,
   required = false,
   autoFocus = false,
+  id,
+  ariaLabel = 'Price input',
+  ariaInvalid,
+  ariaDescribedBy,
 }: CurrencyInputProps) {
   // Ref to the input element
   const inputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +84,7 @@ export function CurrencyInput({
     <div className="relative">
       <input
         ref={inputRef}
+        id={id}
         type="text"
         inputMode="numeric"
         value={value === 0 ? '' : formatValue(value)}
@@ -81,7 +94,9 @@ export function CurrencyInput({
         disabled={disabled}
         required={required}
         autoFocus={autoFocus}
-        aria-label="Price input"
+        aria-label={ariaLabel}
+        aria-invalid={ariaInvalid}
+        aria-describedby={ariaDescribedBy}
       />
     </div>
   );

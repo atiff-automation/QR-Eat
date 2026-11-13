@@ -53,6 +53,10 @@ match the rest of the dashboard.
 - Status badges: small uppercase, tinted background, text label. Never use
   colour alone.
 
+> Contrast note (2026-11-14): `text-red-600` on `bg-red-50` is 4.41:1, just
+> below the 4.5:1 target. Loyalty screens use `text-red-700` pending a
+> standard-wide fix; do not change other pages in this task.
+
 ## Stations & Devices page
 
 `src/app/dashboard/stations/page.tsx` is aligned to this standard:

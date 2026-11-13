@@ -931,3 +931,44 @@ offline settlement) → P5/contract.
 
 **P6C1: CLOSED.** P6C2 (owner dashboard screens) remains before P6 can close.
 
+
+**P6C2a — owner settings and promotions UI (2026-11-14):**
+
+Implementer `ses_e28f9823effeum4cWBAwWdJ6SF`. Verifiers `ses_e28e6d7b7ffee1v9V6FFrteaU8`
+(**FAIL**) and `ses_e28d2c80fffe9KT7moRUSc2TQ1` (PASS WITH NOTES). One correction cycle.
+
+```text
+new  src/lib/hooks/queries/useLoyaltySettings.ts, usePromotions.ts (+ tests)
+new  src/components/settings/LoyaltySection.tsx (+ test)
+new  src/app/dashboard/promotions/page.tsx, PromotionsStates.tsx (+ test)
+mod  src/app/dashboard/settings/page.tsx, DashboardLayout.tsx
+mod  src/components/settings/PaymentMethodsSection.tsx, ui/CurrencyInput.tsx
+mod  src/lib/query-client.ts, useMenu.ts, useRestaurantSettings.ts
+mod  GLOSSARY.md, docs/TERMINOLOGY.md, docs/WEB-UI-STANDARD.md (contrast note)
+```
+
+```text
+npx jest src/components src/app/dashboard src/lib/hooks --runInBand -> 5 suites, 37 tests
+npm run type-check                                                 -> PASS
+npm test -- --runInBand                                            -> 97 passed / 1 skipped, 1172 passed
+npm run build                                                      -> PASS
+```
+
+First verdict **FAIL** on acceptance criterion 8 only: the success banner was 3.15:1 and error
+banners 4.41:1. Fixed to `green-700` (4.79:1) and `red-700` (5.91:1); a note records that the
+standard's own `red-600` token falls short, without changing other pages.
+
+Also fixed: money errors now carry `aria-invalid`/`aria-describedby`; loyalty money fields use the
+restaurant currency; the hardcoded "max RM15" hint is gone; permission-gated queries no longer
+fire 403 GETs before the denied state; the icon-only close has a `title`; a cash-rounding test
+was added.
+
+All nine P6C2a acceptance criteria are met. `noticeTextHash` is never sent; a fresh
+`Idempotency-Key` is used per submit; promotion scope switches clear the old join rows.
+
+Carried: L-06 (server default `rewardLabel` is currency-hardcoded `'10% off, max RM15'`) →
+P6C2b/P10; L-01 (no contrast regression test) → P6C2b; L-02 (standards-wide `red-600`) → separate
+cleanup.
+
+**P6C2a: CLOSED.** P6C2b (members + loyalty report pages) is the last piece of P6.
+
