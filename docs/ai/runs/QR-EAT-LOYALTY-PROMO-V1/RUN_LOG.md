@@ -679,3 +679,49 @@ carried into the P6 gate.
 R-02 (full-phone exposure, P7 decision), F-10 (every bill-mutating writer must bump
 `billRevision` under `loyalty-bill:`, P9), real-Postgres lock/constraint proof (P9).
 
+
+**Postgres constraint proof (2026-11-13, `qrorder_dev`):**
+
+Script: `evidence/pg-constraint-check.sql`. Runs inside `BEGIN … ROLLBACK`; each test raises
+only if a constraint that must reject does not. Executed with
+`npx prisma db execute --file … --schema prisma/schema.prisma` (Prisma loads the credential;
+it never entered this log or the transcript).
+
+```text
+run 1: exit 0  Script executed successfully.
+run 2: exit 0  Script executed successfully.
+run 3: exit 0  Script executed successfully.
+```
+
+Three consecutive runs with fixed UUIDs — a persisted row would collide on the next run — so
+the rollback is proven, not assumed.
+
+Constraints proven to fire on real Postgres:
+
+| # | Constraint | Rejected input |
+|---|---|---|
+| 1 | `loyalty_settings_visitsRequired_check` | `visitsRequired = 11` |
+| 2 | `loyalty_settings_minDailySpend_check` | `minDailySpend = 1001` |
+| 3 | `loyalty_settings_rewardValue_check` | `PERCENT rewardValue = 150` |
+| 4 | `promotions_endsAt_check` | `endsAt <= startsAt` |
+| 5 | `order_discounts_amount_check` | `amount > baseAmount` |
+| 6 | `order_discounts_snapshot_check` | `PROMOTION` row with only `rewardSnapshot` |
+| 7 | `loyalty_cards_visitsInCycle_check` | `visitsInCycle = visitsRequired` |
+| 8 | `payment_batches_roundingAdjustment_check` | `cashPayable 55.70` / `total 55.68` / `adjustment 0.00` |
+| 9 | `customers_restaurantId_phoneHash_active_key` | second ACTIVE row, same `(restaurantId, phoneHash)` |
+| 10 | `order_discounts_orderId_active_key` | second ACTIVE discount on one order |
+| 11 | `rate_limit_counters_scope_check` | `scope = 'BOGUS'` |
+
+Also proven: an **ANONYMIZED** customer may share a `phoneHash` with an ACTIVE one
+(re-enrolment works); a valid `scope = 'PHONE_HASH'` row is accepted; and
+`PaymentBatch.businessDate` (`@db.Date`) round-trips and compares equal to the UTC-midnight
+date.
+
+Not covered by this run: advisory-lock serialization, concurrent payment, deadlock freedom,
+`hashtext` collisions, and the `P2002` `meta.target` shape that drives `BILL_CHANGED`
+classification. Those remain P9.
+
+Caveat: a test would also "pass" if its insert failed on a *different* check constraint.
+Fixtures were given valid FK targets and non-conflicting values to isolate each one, but the
+isolation is by construction, not by asserting the specific constraint name.
+
