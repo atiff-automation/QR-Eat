@@ -66,6 +66,12 @@ export interface IssueQuoteResult {
 export interface ConsumeQuoteInput {
   restaurantId: string;
   quoteId: string;
+  /**
+   * Session/table component of the §18.20.15 B binding tuple. A quote issued
+   * for a table/session cannot be consumed from another one.
+   */
+  sessionId?: string | null;
+  tableId?: string | null;
   cartHash: string;
   customerId?: string | null;
   phoneHash?: string | null;
@@ -264,6 +270,13 @@ export async function consumeQuote(
   if (!quote) return quoteChanged();
   if (quote.consumedAt !== null) return quoteChanged();
   if (now.getTime() >= new Date(quote.expiresAt).getTime()) {
+    return quoteChanged();
+  }
+  // §18.20.15 B binding tuple: restaurant + session/table + cart + member.
+  if ((quote.sessionId ?? null) !== (input.sessionId ?? null)) {
+    return quoteChanged();
+  }
+  if ((quote.tableId ?? null) !== (input.tableId ?? null)) {
     return quoteChanged();
   }
   if (quote.cartHash !== input.cartHash) return quoteChanged();

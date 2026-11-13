@@ -56,6 +56,8 @@ const pricing: QuotePricingInput = {
 interface QuoteFixture {
   id: string;
   restaurantId: string;
+  sessionId: string | null;
+  tableId: string | null;
   cartHash: string;
   customerId: string | null;
   phoneHash: string | null;
@@ -69,6 +71,8 @@ function quoteFixture(overrides: Partial<QuoteFixture> = {}): QuoteFixture {
   return {
     id: 'quote-1',
     restaurantId,
+    sessionId: null,
+    tableId: null,
     cartHash: cartHash(lines),
     customerId: null,
     phoneHash: null,
@@ -374,8 +378,49 @@ describe('loyalty quote service', () => {
       });
     });
 
+    it('rejects a quote bound to another session', async () => {
+      const { tx } = makeTx(quoteFixture({ sessionId: 'session-1' }));
+
+      const result = await consumeQuote(
+        consumeInput({ sessionId: 'session-2' }),
+        tx
+      );
+
+      expect(result).toMatchObject({
+        ok: false,
+        loyaltyError: { code: 'QUOTE_CHANGED' },
+      });
+    });
+
+    it('rejects a quote bound to another table', async () => {
+      const { tx } = makeTx(quoteFixture({ tableId: 'table-1' }));
+
+      const result = await consumeQuote(
+        consumeInput({ tableId: 'table-2' }),
+        tx
+      );
+
+      expect(result).toMatchObject({
+        ok: false,
+        loyaltyError: { code: 'QUOTE_CHANGED' },
+      });
+    });
+
+    it('accepts a quote bound to the matching session and table', async () => {
+      const { tx } = makeTx(
+        quoteFixture({ sessionId: 'session-1', tableId: 'table-1' })
+      );
+
+      const result = await consumeQuote(
+        consumeInput({ sessionId: 'session-1', tableId: 'table-1' }),
+        tx
+      );
+
+      expect(result.ok).toBe(true);
+    });
+
     it('rejects a quote that is not in the restaurant', async () => {
-      const { tx } = makeTx(null);
+      const { tx, findFirst } = makeTx(null);
 
       const result = await consumeQuote(
         consumeInput({ restaurantId: otherRestaurantId }),
@@ -385,6 +430,9 @@ describe('loyalty quote service', () => {
       expect(result).toMatchObject({
         ok: false,
         loyaltyError: { code: 'QUOTE_CHANGED' },
+      });
+      expect(findFirst).toHaveBeenCalledWith({
+        where: { restaurantId: otherRestaurantId, id: 'quote-1' },
       });
     });
   });
@@ -456,6 +504,14 @@ describe('loyalty quote service', () => {
       });
 
       expect(quote).toBeNull();
+      expect(prisma.quote.findFirst).toHaveBeenCalledWith({
+        where: {
+          restaurantId: otherRestaurantId,
+          id: 'quote-1',
+          sessionId: 'session-1',
+        },
+        include: { quotePromotions: { select: { promotionId: true } } },
+      });
     });
   });
 });

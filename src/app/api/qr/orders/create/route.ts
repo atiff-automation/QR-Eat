@@ -16,6 +16,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { calculateOrderTotals, estimateReadyTime } from '@/lib/order-utils';
 import { SequenceManager } from '@/lib/sequence-manager';
@@ -31,35 +32,189 @@ import {
 } from '@/lib/table-utils';
 import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
+import { idempotencyKeyFrom } from '@/lib/order-idempotency';
+import { toMoneyString } from '@/lib/loyalty/money';
+import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
+import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
+import { consumeQuote, getQuote } from '@/lib/services/loyalty-quote-service';
+import {
+  completeOrderCreateRecord,
+  findOrderCreateRecord,
+  newLoyaltyOrderId,
+  orderCreateRequestHash,
+  prepareLoyaltyCreate,
+  startOrderCreateRecord,
+  type LoyaltyCreatePlan,
+} from '@/lib/services/loyalty-qr-service';
 
 // ============================================================================
 // Validation Schema
 // ============================================================================
+
+const customerInfoFields = {
+  name: z.string().min(1).max(100).optional(),
+  email: z.string().email().optional(),
+  // Loyalty consent is additive. `marketingOptIn` is deliberately absent:
+  // marketing is Counter-only (§18.20.5).
+  consent: z.boolean().optional(),
+  consentVersion: z.string().max(100).optional(),
+  consentTextHash: z.string().max(200).optional(),
+};
 
 const CreateQROrderSchema = z.object({
   tableId: z.string().uuid('Invalid table ID format'),
   sessionId: z.string().uuid('Invalid session ID format').optional(),
   customerInfo: z
     .object({
-      name: z.string().min(1).max(100).optional(),
+      ...customerInfoFields,
+      // Pre-P4 phone validation is preserved when no quote is supplied.
       phone: z.string().min(8).max(20).optional(),
-      email: z.string().email().optional(),
     })
     .optional(),
   specialInstructions: z.string().max(500).optional(),
+  // Loyalty price lock. Absent means the legacy create path.
+  quoteId: z.string().min(1).max(200).optional(),
+  // Kept as a string here so a malformed value can return QUOTE_CHANGED
+  // instead of a Zod 400 or a raw DecimalError (REVIEW-05 F-03).
+  expectedTotal: z.string().optional(),
 });
+
+const LoyaltyCreateQROrderSchema = z.object({
+  tableId: z.string().uuid('Invalid table ID format'),
+  sessionId: z.string().uuid('Invalid session ID format').optional(),
+  customerInfo: z
+    .object({
+      ...customerInfoFields,
+      // A malformed phone is a guest fallback, not a request error: normalise
+      // and validate it in the loyalty service (§18.20.5).
+      phone: z.string().max(32).optional(),
+    })
+    .optional(),
+  specialInstructions: z.string().max(500).optional(),
+  quoteId: z.string().min(1).max(200).optional(),
+  expectedTotal: z.string().optional(),
+});
+
+class QuoteChangedError extends Error {
+  readonly code = 'QUOTE_CHANGED';
+
+  constructor() {
+    super('The quote is no longer valid. Request a new quote.');
+    this.name = 'QuoteChangedError';
+  }
+}
 
 // ============================================================================
 // API Handler
 // ============================================================================
 
+function storedOrderIdFrom(body: Prisma.JsonValue | null): string | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null;
+  const order = (body as Record<string, unknown>).order;
+  if (!order || typeof order !== 'object' || Array.isArray(order)) return null;
+  const id = (order as Record<string, unknown>).id;
+  return typeof id === 'string' ? id : null;
+}
+
+function idempotencyMismatchResponse() {
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'This idempotency key was used for a different request.',
+      code: 'IDEMPOTENCY_MISMATCH',
+    },
+    { status: 409 }
+  );
+}
+
 export async function POST(request: NextRequest) {
+  let loyaltyPlan: LoyaltyCreatePlan | null = null;
+
   try {
-    // Parse and validate request body
+    // Parse and validate request body. A request with `quoteId` uses the
+    // loyalty phone rules; everything else keeps the pre-P4 schema.
     const body = await request.json();
-    const validatedData = CreateQROrderSchema.parse(body);
+    const validatedData = (
+      body?.quoteId ? LoyaltyCreateQROrderSchema : CreateQROrderSchema
+    ).parse(body);
     const { tableId, sessionId, customerInfo, specialInstructions } =
       validatedData;
+    const { quoteId, expectedTotal } = validatedData;
+    const idempotencyKey = idempotencyKeyFrom(request);
+
+    // Idempotent replay must work even after the successful create cleared the
+    // cart. It is gated on loyalty being active so the legacy path can never
+    // return a stored loyalty response. A replayed key must match the original
+    // request hash and the quote that consumed the stored order; anything else
+    // is `IDEMPOTENCY_MISMATCH` (§18.20.14 F/G).
+    if (quoteId && idempotencyKey && isLoyaltyGloballyEnabled()) {
+      const earlyTable = await prisma.table.findUnique({
+        where: { id: tableId },
+        select: { restaurantId: true },
+      });
+      if (earlyTable) {
+        const earlySettings = await prisma.loyaltySettings.findUnique({
+          where: { restaurantId: earlyTable.restaurantId },
+        });
+        if (isLoyaltyActive(earlySettings)) {
+          const record = await findOrderCreateRecord(
+            earlyTable.restaurantId,
+            idempotencyKey
+          );
+          if (record?.status === 'COMPLETED' && record.responseJson) {
+            const currentHash = orderCreateRequestHash({
+              restaurantId: earlyTable.restaurantId,
+              tableId,
+              sessionId: sessionId ?? null,
+              quoteId,
+              expectedTotal: expectedTotal ?? '',
+              customerInfo,
+            });
+            if (record.requestHash !== currentHash) {
+              return idempotencyMismatchResponse();
+            }
+
+            const quote = await getQuote({
+              restaurantId: earlyTable.restaurantId,
+              quoteId,
+              sessionId: sessionId ?? undefined,
+              tableId,
+            });
+            const storedOrderId = storedOrderIdFrom(record.responseJson);
+            if (
+              !quote ||
+              quote.orderId === null ||
+              storedOrderId === null ||
+              quote.orderId !== storedOrderId
+            ) {
+              return idempotencyMismatchResponse();
+            }
+
+            // A member-bound quote must still match the replayed body.
+            if (quote.customerId !== null || quote.phoneHash !== null) {
+              const normalised = normalisePhone(customerInfo?.phone);
+              if (!normalised.ok) return idempotencyMismatchResponse();
+              if (quote.phoneHash !== null) {
+                let phoneHash: string;
+                try {
+                  phoneHash = hashPhone(normalised.phone);
+                } catch {
+                  return idempotencyMismatchResponse();
+                }
+                if (quote.phoneHash !== phoneHash) {
+                  return idempotencyMismatchResponse();
+                }
+              }
+              if (quote.customerId !== null && customerInfo?.consent !== true) {
+                return idempotencyMismatchResponse();
+              }
+            }
+
+            return NextResponse.json(record.responseJson, { status: 200 });
+          }
+        }
+      }
+    }
 
     // Get table cart (includes session and cart items)
     // Pass sessionId to get the correct customer's cart
@@ -222,6 +377,41 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Loyalty is additive. Without a quote (or with loyalty inactive) this
+    // returns `legacy` and the rest of the route is exactly the pre-P4 path.
+    // It runs before the daily sequence is allocated so an idempotent replay or
+    // a rejected quote does not consume an order number.
+    const loyalty = await prepareLoyaltyCreate({
+      restaurantId: table.restaurant.id,
+      tableId,
+      sessionId: tableCart.sessionId,
+      requestSessionId: sessionId ?? null,
+      cart: { items: tableCart.items },
+      customerInfo,
+      quoteId,
+      expectedTotal,
+      idempotencyKey,
+    });
+
+    if (loyalty.kind === 'error') {
+      return NextResponse.json(
+        {
+          success: false,
+          error: loyalty.message,
+          code: loyalty.code,
+        },
+        { status: loyalty.status }
+      );
+    }
+
+    if (loyalty.kind === 'replay') {
+      return NextResponse.json(loyalty.body, { status: loyalty.status });
+    }
+
+    const loyaltyPlanForRequest: LoyaltyCreatePlan | null =
+      loyalty.kind === 'ready' ? loyalty.plan : null;
+    loyaltyPlan = loyaltyPlanForRequest;
+
     // Generate sequential order number
     const { number: dailySeq, formatted: orderNumber } =
       await SequenceManager.getNextOrder(table.restaurant.id);
@@ -235,6 +425,7 @@ export async function POST(request: NextRequest) {
     // below still announces the pending order to the dashboard.
 
     const previousTableStatus = table.status;
+    let loyaltyResponseBody: Record<string, unknown> | null = null;
 
     // Create the order, items and table/session transition atomically. The
     // dining-session helper locks the table row so concurrent QR orders reuse
@@ -252,20 +443,67 @@ export async function POST(request: NextRequest) {
       }
 
       const diningSession = await ensureOpenDiningSession(tx, tableId);
+      const plan = loyaltyPlan;
+      const loyaltyOrderId = plan ? newLoyaltyOrderId() : null;
+
+      if (plan && plan.idempotencyKey && plan.requestHash) {
+        await startOrderCreateRecord(tx, {
+          restaurantId: table.restaurant.id,
+          key: plan.idempotencyKey,
+          requestHash: plan.requestHash,
+        });
+      }
+
+      if (plan && loyaltyOrderId) {
+        const consumed = await consumeQuote(
+          {
+            restaurantId: table.restaurant.id,
+            quoteId: plan.quote.quoteId,
+            sessionId: tableCart.sessionId,
+            tableId,
+            cartHash: plan.cartHash,
+            customerId: plan.customerId,
+            phoneHash: plan.phoneHash,
+            expectedTotal: plan.expectedTotal,
+            orderId: loyaltyOrderId,
+          },
+          tx
+        );
+
+        if (!consumed.ok) throw new QuoteChangedError();
+      }
+
+      const cartTotals = plan ? plan.cartPreRewardTotals : null;
 
       const created = await tx.order.create({
         data: {
+          ...(loyaltyOrderId ? { id: loyaltyOrderId } : {}),
           orderNumber,
           dailySeq,
           restaurantId: table.restaurant.id,
           tableId,
           customerSessionId: tableCart.sessionId,
           diningSessionId: diningSession.id,
-          subtotalAmount: totals.subtotal,
-          taxAmount: totals.taxAmount,
-          serviceCharge: totals.serviceCharge,
-          discountAmount: 0,
-          totalAmount: totals.totalAmount,
+          subtotalAmount: cartTotals ? cartTotals.subtotal : totals.subtotal,
+          taxAmount: cartTotals ? cartTotals.taxAmount : totals.taxAmount,
+          serviceCharge: cartTotals
+            ? cartTotals.serviceCharge
+            : totals.serviceCharge,
+          discountAmount: cartTotals ? cartTotals.discountAmount : 0,
+          totalAmount: cartTotals ? cartTotals.totalAmount : totals.totalAmount,
+          ...(plan
+            ? {
+                customerId: plan.customerId,
+                discountSource: plan.cartPromotion
+                  ? ('PROMOTION' as const)
+                  : null,
+                discountLabel: plan.cartPromotion
+                  ? (plan.cartPromotion.result.label ??
+                    plan.cartPromotion.promotion.receiptLabel ??
+                    plan.cartPromotion.promotion.name)
+                  : null,
+              }
+            : {}),
 
           // Snapshot rates and labels for integrity
           taxRateSnapshot: table.restaurant.taxRate,
@@ -306,6 +544,85 @@ export async function POST(request: NextRequest) {
       }
 
       // ensureOpenDiningSession owns the table occupancy transition.
+
+      if (plan) {
+        if (plan.cartPromotion) {
+          const promotion = plan.cartPromotion.promotion;
+          const result = plan.cartPromotion.result;
+
+          await tx.orderDiscount.create({
+            data: {
+              orderId: created.id,
+              restaurantId: table.restaurant.id,
+              diningSessionId: diningSession.id,
+              source: 'PROMOTION',
+              sourceId: promotion.id,
+              label: result.label ?? promotion.receiptLabel ?? promotion.name,
+              baseAmount: result.eligibleBase,
+              amount: result.discountAmount,
+              promotionSnapshot: {
+                name: promotion.name,
+                type: promotion.type,
+                value: toMoneyString(promotion.value),
+                scope: promotion.scope,
+                categoryIds: [...promotion.categoryIds],
+                itemIds: [...promotion.itemIds],
+                minSpend: toMoneyString(promotion.minSpend),
+                maxDiscount: toMoneyString(promotion.maxDiscount),
+                receiptLabel: promotion.receiptLabel,
+              } as Prisma.InputJsonValue,
+              rewardSnapshot: undefined,
+              status: 'ACTIVE',
+            },
+          });
+        }
+
+        // Order create adds one order to the bill. The quote is the price
+        // lock; the bill revision moves forward for the next quote/bill read.
+        await tx.diningSession.update({
+          where: { id: diningSession.id },
+          data: { billRevision: { increment: 1 } },
+        });
+
+        loyaltyResponseBody = {
+          success: true,
+          order: {
+            id: created.id,
+            orderNumber: created.orderNumber,
+            dailySeq: created.dailySeq ?? undefined,
+            status: created.status,
+            paymentStatus: created.paymentStatus,
+            subtotalAmount: Number(created.subtotalAmount),
+            taxAmount: Number(created.taxAmount),
+            serviceCharge: Number(created.serviceCharge),
+            totalAmount: created.totalAmount,
+            estimatedReadyTime: created.estimatedReadyTime,
+            sessionToken: tableCart.sessionId,
+            taxLabelSnapshot: created.taxLabelSnapshot,
+            serviceChargeLabelSnapshot: created.serviceChargeLabelSnapshot,
+            taxRateSnapshot: Number(created.taxRateSnapshot),
+            serviceChargeRateSnapshot: Number(
+              created.serviceChargeRateSnapshot
+            ),
+          },
+          projectedTotal: toMoneyString(plan.computation.projectedTotal),
+          rewardLabel: plan.computation.projectedRewardAmount.gt(0)
+            ? plan.computation.rewardLabel
+            : null,
+          visitState: plan.computation.visitState,
+          ...(plan.guestError ? { loyaltyError: plan.guestError } : {}),
+          message:
+            'Order submitted successfully! Please pay at the counter when ready.',
+        };
+
+        if (plan.idempotencyKey) {
+          await completeOrderCreateRecord(tx, {
+            restaurantId: table.restaurant.id,
+            key: plan.idempotencyKey,
+            response: loyaltyResponseBody as Prisma.InputJsonValue,
+          });
+        }
+      }
 
       return created;
     });
@@ -369,6 +686,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (loyaltyResponseBody) {
+      return NextResponse.json(loyaltyResponseBody);
+    }
+
     return NextResponse.json({
       success: true,
       order: {
@@ -394,6 +715,48 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('QR order creation error:', error);
+
+    if (error instanceof QuoteChangedError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: error.message,
+          code: 'QUOTE_CHANGED',
+        },
+        { status: 409 }
+      );
+    }
+
+    // A concurrent create with the same idempotency key can lose the unique
+    // insert. The winner's completed response is the replay; an in-flight
+    // winner is a retryable conflict, never a second order.
+    if (
+      loyaltyPlan?.idempotencyKey &&
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'P2002'
+    ) {
+      const record = await findOrderCreateRecord(
+        loyaltyPlan.quote.restaurantId,
+        loyaltyPlan.idempotencyKey
+      );
+      if (
+        record?.status === 'COMPLETED' &&
+        record.requestHash === loyaltyPlan.requestHash &&
+        record.responseJson
+      ) {
+        return NextResponse.json(record.responseJson, { status: 200 });
+      }
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'A request with this idempotency key is in progress.',
+          code: 'IDEMPOTENCY_MISMATCH',
+        },
+        { status: 409 }
+      );
+    }
 
     // Handle validation errors
     if (error instanceof z.ZodError) {

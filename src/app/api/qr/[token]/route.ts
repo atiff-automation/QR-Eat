@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { decodeQRToken, isValidTableToken } from '@/lib/qr-utils';
 import { getQrOrderingAvailability } from '@/lib/qr-ordering-availability';
+import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
+import { resolveNotice } from '@/lib/loyalty/consent';
 
 export async function GET(
   request: NextRequest,
@@ -82,6 +84,28 @@ export async function GET(
 
     const ordering = await getQrOrderingAvailability(table.restaurant.id);
 
+    // Loyalty notice is additive. Flag off performs no extra query.
+    let loyaltyNotice = null;
+    if (isLoyaltyGloballyEnabled()) {
+      const settings = await prisma.loyaltySettings.findUnique({
+        where: { restaurantId: table.restaurant.id },
+      });
+      if (settings && isLoyaltyActive(settings)) {
+        const notice = resolveNotice(settings);
+        if (notice) {
+          loyaltyNotice = {
+            version: notice.version,
+            text: notice.text,
+            textHash: notice.textHash,
+            privacyUrl: notice.privacyUrl,
+            termsText: notice.termsText,
+            visitsRequired: settings.visitsRequired,
+            rewardLabel: settings.rewardLabel,
+          };
+        }
+      }
+    }
+
     // Return table info (allow menu viewing regardless of status)
     // Convert Prisma Decimal types to numbers for JSON serialization (consistent with menu endpoint)
     return NextResponse.json({
@@ -112,6 +136,7 @@ export async function GET(
         reason: ordering.reason,
         message: ordering.message,
       },
+      loyaltyNotice,
     });
   } catch (error) {
     console.error('QR code validation error:', error);

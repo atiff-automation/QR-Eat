@@ -473,3 +473,39 @@ Carried forward:
 - **P6:** F-05 null `Order.customerName`/`customerPhone` in the delete flow.
 - **P10:** N-01 contract gap (no code for "member could not be resolved").
 
+
+**P4 — QR quote and create API (2026-11-13):**
+
+Implementer `ses_e2d02ef0dffeL7EDq3XYrSlqSk`. Verifiers `ses_e2ce6bd32ffes2uYjktCXaGJIw`
+(full) and `ses_e2cd8f112ffeyqarWSP10Ll68b` (delta). One correction cycle.
+
+```text
+new      src/app/api/qr/orders/quote/route.ts
+modified src/app/api/qr/orders/create/route.ts
+modified src/app/api/qr/[token]/route.ts
+new      src/lib/services/loyalty-qr-service.ts
+modified src/lib/services/loyalty-quote-service.ts   (session/table binding)
++ 4 test suites
+```
+
+```text
+npx jest src/app/api/qr src/lib/services/__tests__ --runInBand -> 6 suites, 98 tests
+npm run type-check                                             -> PASS
+npm test -- --runInBand                                        -> 72 passed / 1 skipped, 867 passed, 11 skipped
+```
+
+**Backwards compatibility proven, not assumed:** the verifier diffed base `12bdcdf` against
+the current create route segment by segment — response object byte-identical, status codes
+unchanged, `menuItem` select identical, no new field in the legacy response.
+
+`REVIEW-06.md`: PASS WITH NOTES. F-01 (a no-phone guest got an error code and "enter a valid
+mobile number" copy) and F-02 (idempotent replay skipped the request hash) fixed; F-04/F-05/F-09
+fixed.
+
+Carried forward:
+- **P5:** F-06 — quote re-evaluates unpaid orders' promotions; stored `OrderDiscount` is not
+  rewritten until §18.20.14 I.
+- **P7:** tighten the generic `console.error` so a Prisma validation error cannot log input.
+- **P10:** F-03/N-01 contract gap (`MEMBER_RESOLUTION_FAILED` reuses `LOYALTY_DISABLED`);
+  N-04 confirm the quote route's generic request codes are permitted.
+
