@@ -8,9 +8,9 @@ Update at phase boundaries, before compaction, and before ending a session.
 Updated: 2026-11-13
 
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
-Task revision: 2
+Task revision: 2 (approved 2026-11-13)
 
-Current step: P6B PASS WITH NOTES (uncommitted) — commit, then P6C or P7
+Current step: P6B committed (37ae549). P6C scope approved but NOT implemented. P7 not started.
 
 Last completed:
 - P0 baseline PASS (`fc1312a`).
@@ -26,12 +26,13 @@ Last completed:
   byte-identical to base. `REVIEW-06` PASS WITH NOTES.
 
 In progress:
-- nothing — P6B awaiting commit
+- nothing running
 
 Next action:
-1. Commit P6B (R3 gate, needs authorization).
-2. P6C (QR + dashboard UI) or P7 (security). P7 must verify R-02, not rebuild it,
-   and owns F-08 (unkeyed phone hash in `ORDER_CREATE.requestHash`).
+1. Hand **P6C** (UI) to one `ame-implementer`: QR pages, owner dashboard screens, and the
+   approved phone-input rule (P6C scope note in `TASK.md`, committed `de1f64b`).
+   Nothing of P6C exists yet — no components, no pages.
+2. Then P7 (security), which must verify R-02 rather than rebuild it, and owns F-08.
 3. P9 checklist: run `evidence/dev-pii-cleanup.sql` on any environment created before
    the P6B normalisation.
 
