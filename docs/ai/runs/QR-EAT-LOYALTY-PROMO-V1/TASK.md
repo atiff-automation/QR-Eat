@@ -236,11 +236,68 @@ Research basis: GOV.UK Design System phone-number pattern (allow different
 formats, avoid input masking, avoid reformatting) and the keypad-consistency
 rule agreed with the product owner. Add a P10 note so the Counter app matches.
 
+**P6C2 plan (approved 2026-11-14) — owner dashboard.** Split into two passes.
+
+**Placement decisions (reuse existing patterns, do not invent a parallel shell):**
+- **Loyalty settings** → a new section inside the existing `/dashboard/settings` page:
+  add to the `SECTIONS` array, the `SectionKey` union and `renderSection()`, following
+  `PaymentMethodsSection`/`BusinessDaySection`. It is a settings form, not a page.
+- **`cashRounding`** → inside the existing `PaymentMethodsSection`, independent of loyalty.
+- **Promotions** → its own page `/dashboard/promotions` (list + create/edit + soft delete),
+  because it is a collection, not a settings form. Add one entry to `DashboardLayout` nav.
+- **Members and the loyalty report** → own pages (`/dashboard/members`,
+  `/dashboard/reports/loyalty`) in pass b.
+
+**P6C2a — settings and promotions.**
+1. `src/lib/hooks/queries/useLoyaltySettings.ts` — GET/PATCH `/api/settings/restaurant/loyalty`,
+   sending an `Idempotency-Key` on PATCH, mirroring `useRestaurantSettings`.
+2. `src/components/settings/LoyaltySection.tsx` — enable toggle, `visitsRequired` (2–10),
+   reward type (`PERCENT`/`FIXED`), reward value, `maxDiscount`, `minDailySpend`,
+   `rewardLabel` (≤24), `receiptLabel` (≤20 ASCII), notice `version`/`text`/`privacyUrl`/
+   `termsText`. The server derives `noticeTextHash`; the form never sends one. Client
+   validation mirrors the server bounds so the DB CHECKs can never fire. Saving shows success;
+   validation errors are field-level.
+3. `PaymentMethodsSection` — add the `cashRounding` control (`NONE`/`NEAREST_5_SEN`), wired to
+   the payments `PUT`, independent of `loyalty.enabled`.
+4. `src/lib/hooks/queries/usePromotions.ts` — list/create/update/delete with `Idempotency-Key`.
+5. `src/app/dashboard/promotions/page.tsx` — list (name, scope, type/value, window, active) and
+   a create/edit form covering all three scopes: category and item multi-select from the menu,
+   `minSpend`, `maxDiscount`, `startsAt`/`endsAt`, active toggle. Soft delete behind a
+   confirmation. `endsAt` is sent as a date; the server stores end-of-day.
+6. `DashboardLayout` — one "Rewards" nav entry pointing at promotions; the settings section is
+   reached through Settings.
+7. **Vocabulary (required by `AGENTS.md`).** `GLOSSARY.md` and `docs/TERMINOLOGY.md` currently
+   have no loyalty terms. Add the canonical set — **Visit**, **Visit card**, **Reward**,
+   **Promotion** — with the rule that the UI never says "points", "stamps", "cashback" or
+   "loyalty programme" to a customer.
+
+**P6C2b — members and report.**
+`/dashboard/members` (search by phone, profile, export, withdraw consent, delete) and
+`/dashboard/reports/loyalty` (visits, rewards applied, discounts by source, redemptions by
+scope, member counts, repeat rate). Both reuse the P6B APIs unchanged.
+
+**Acceptance criteria for P6C2a**
+1. An owner can enable loyalty and save every setting above; the server rejects invalid bounds
+   and the form shows field-level errors before submission.
+2. Changing settings never alters an in-progress card (server-side; the UI must not imply it
+   does — state that changes apply to new cycles).
+3. `cashRounding` can be changed with loyalty off, and the change is audited by the server.
+4. An owner can create, edit and soft-delete a promotion at each of the three scopes, with
+   category/item choices coming from the restaurant's own menu.
+5. `endsAt` before `startsAt` is rejected in the form and by the server.
+6. Empty, loading, error and permission-denied states exist for every screen.
+7. No client-side money arithmetic; money is sent as 2dp strings and rendered from server
+   values.
+8. Accessibility: labels, 44px targets, ≥4.5:1 contrast, keyboard operable, no colour-only
+   signalling.
+9. `GLOSSARY.md` and `docs/TERMINOLOGY.md` carry the new vocabulary.
+
+
 **P7 — Security and privacy.** **Note (2026-11-13): R-02 is already closed in P6B cycle 3** —
 customer phone/email are no longer persisted in `PaymentBatch.response` or `OrderEvent.payload`,
 and `deleteMember` nulls the remaining name copy. Do not re-implement it in P7; verify it instead.
 P7 still owns: durable rate limits per §18.20.15 B, trusted edge
-IP resolution, enumeration alert, full-phone audit, permission matrix(`loyalty:configure`, `promotions:manage`, `members:read`, `members:pii`,
+IP resolution, enumeration alert, full-phone audit, permission matrix (`loyalty:configure`, `promotions:manage`, `members:read`, `members:pii`,
 `members:export`, `members:delete`, `members:consent_withdraw`,
 `loyalty:report`, `loyalty:attach`, `settings:write`), cross-tenant 404, no PII
 in logs.
