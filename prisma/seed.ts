@@ -1023,6 +1023,13 @@ async function main() {
       description: 'Process payments',
       category: 'payments',
     },
+
+    // Loyalty (P5 adds attach only; P6 adds the owner/manager permissions)
+    {
+      key: 'loyalty:attach',
+      description: 'Attach or change the loyalty member at the Counter',
+      category: 'loyalty',
+    },
   ];
 
   const permissions = await Promise.all(
@@ -1096,6 +1103,7 @@ async function main() {
         'billing:read',
         'payments:read',
         'payments:write',
+        'loyalty:attach',
       ],
     },
     {
@@ -1116,6 +1124,7 @@ async function main() {
         'settings:read',
         'payments:read',
         'payments:write',
+        'loyalty:attach',
       ],
     },
     {
@@ -1146,6 +1155,7 @@ async function main() {
         'tables:write', // NEW: Can update table status (like waiters)
         'menu:read',
         'menu:availability',
+        'loyalty:attach',
       ],
     },
   ];

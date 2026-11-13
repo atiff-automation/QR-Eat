@@ -103,6 +103,16 @@ export const BILLING_PERMISSIONS = {
 } as const;
 
 /**
+ * Loyalty permissions
+ *
+ * P5 adds `loyalty:attach` (Counter member attach/change) only; the remaining
+ * owner/manager permissions land with P6.
+ */
+export const LOYALTY_PERMISSIONS = {
+  ATTACH: 'loyalty:attach',
+} as const;
+
+/**
  * Subscription permissions
  */
 export const SUBSCRIPTION_PERMISSIONS = {
@@ -135,6 +145,7 @@ export const PERMISSIONS_BY_CATEGORY = {
   billing: BILLING_PERMISSIONS,
   subscriptions: SUBSCRIPTION_PERMISSIONS,
   users: USER_PERMISSIONS,
+  loyalty: LOYALTY_PERMISSIONS,
 } as const;
 
 /**
@@ -152,7 +163,8 @@ export type Permission =
   | (typeof SETTINGS_PERMISSIONS)[keyof typeof SETTINGS_PERMISSIONS]
   | (typeof BILLING_PERMISSIONS)[keyof typeof BILLING_PERMISSIONS]
   | (typeof SUBSCRIPTION_PERMISSIONS)[keyof typeof SUBSCRIPTION_PERMISSIONS]
-  | (typeof USER_PERMISSIONS)[keyof typeof USER_PERMISSIONS];
+  | (typeof USER_PERMISSIONS)[keyof typeof USER_PERMISSIONS]
+  | (typeof LOYALTY_PERMISSIONS)[keyof typeof LOYALTY_PERMISSIONS];
 
 /**
  * Helper to check if a string is a valid permission

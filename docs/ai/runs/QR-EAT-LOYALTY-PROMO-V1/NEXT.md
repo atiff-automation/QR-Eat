@@ -10,7 +10,7 @@ Updated: 2026-11-13
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2
 
-Current step: P4 gate PASSED (uncommitted) — P5 next
+Current step: P5A corrected (uncommitted) — P5B payment next
 
 Last completed:
 - P0 baseline PASS (`fc1312a`).
@@ -26,11 +26,12 @@ Last completed:
   byte-identical to base. `REVIEW-06` PASS WITH NOTES.
 
 In progress:
-- nothing — P4 reviewed, awaiting commit authorization
+- nothing — P5A awaiting commit; P5B not started
 
 Next action:
-1. Commit P4 (R3 gate, needs authorization).
-2. Hand P5 (Counter/takeaway bill, member, payment) to one `ame-implementer`.
+1. Commit P5A (R3 gate, needs authorization).
+2. Hand P5B (payment) to one `ame-implementer`.
+3. Resolve the escalated R-02 PII decision before P7.
 
 Blockers:
 - none. R-04 (untracked work) is closed by the checkpoint commit `27cd38a`.

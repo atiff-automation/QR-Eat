@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import Decimal from 'decimal.js';
 import { prisma } from '@/lib/database';
 import {
   getTenantContext,
@@ -9,6 +10,7 @@ import { counterAccessDenied } from '@/lib/counter/access';
 import { requireTableAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
 import { ORDER_WITH_DETAILS_INCLUDE } from '@/lib/order-utils';
+import { projectBill } from '@/lib/services/loyalty-bill-service';
 
 const V2_ORDER_INCLUDE = {
   ...ORDER_WITH_DETAILS_INCLUDE,
@@ -92,7 +94,8 @@ export async function GET(
     }
 
     // ---------------------------------------------------------------------
-    // v1: old Counter bill contract. Do not change this branch.
+    // v1: old Counter bill contract. The response shape is frozen; totals are
+    // now accumulated with Decimal and returned as correctly rounded numbers.
     // ---------------------------------------------------------------------
 
     // A table is reused across sittings. Unpaid orders must match exactly what
@@ -130,23 +133,30 @@ export async function GET(
         })
       : { _sum: { totalAmount: null } };
 
-    const unpaidTotal = orders.reduce(
-      (sum, order) => sum + Number(order.totalAmount),
-      0
-    );
-    const subtotalAmount = orders.reduce(
-      (sum, order) => sum + Number(order.subtotalAmount),
-      0
-    );
-    const taxAmount = orders.reduce(
-      (sum, order) => sum + Number(order.taxAmount),
-      0
-    );
-    const serviceCharge = orders.reduce(
-      (sum, order) => sum + Number(order.serviceCharge),
-      0
-    );
-    const paidTotal = Number(paid._sum.totalAmount || 0);
+    // Decimal accumulation; the v1 contract still returns numbers.
+    const sumMoney = (
+      rows: typeof orders,
+      pick: (order: (typeof orders)[number]) => Decimal.Value
+    ) =>
+      rows.reduce(
+        (total, order) => total.plus(new Decimal(pick(order) ?? 0)),
+        new Decimal(0)
+      );
+
+    const unpaidTotal = sumMoney(
+      orders,
+      (order) => order.totalAmount
+    ).toNumber();
+    const subtotalAmount = sumMoney(
+      orders,
+      (order) => order.subtotalAmount
+    ).toNumber();
+    const taxAmount = sumMoney(orders, (order) => order.taxAmount).toNumber();
+    const serviceCharge = sumMoney(
+      orders,
+      (order) => order.serviceCharge
+    ).toNumber();
+    const paidTotal = new Decimal(paid._sum.totalAmount || 0).toNumber();
     const pendingCount = orders.filter(
       (order) => order.status === 'PENDING'
     ).length;
@@ -251,10 +261,19 @@ async function getSessionBill(table: BillTable) {
       status: true,
       openedAt: true,
       closedAt: true,
+      customerId: true,
+      billRevision: true,
     },
   });
 
   if (!session) {
+    const projection = await safeProjectBill({
+      restaurantId: table.restaurantId,
+      orders: [],
+      customerId: null,
+      billRevision: 0,
+    });
+
     return NextResponse.json({
       success: true,
       version: 2,
@@ -287,6 +306,7 @@ async function getSessionBill(table: BillTable) {
       },
       readyToClear: false,
       blockingOrderCount: 0,
+      ...(projection ?? {}),
       serverTime: new Date().toISOString(),
     });
   }
@@ -298,10 +318,15 @@ async function getSessionBill(table: BillTable) {
   });
 
   const billable = orders.filter((order) => order.status !== 'CANCELLED');
+  // Decimal only: no float accumulation in a money path.
   const sum = (
     rows: typeof billable,
-    pick: (order: (typeof billable)[number]) => unknown
-  ) => rows.reduce((total, order) => total + Number(pick(order) ?? 0), 0);
+    pick: (order: (typeof billable)[number]) => Decimal.Value
+  ) =>
+    rows.reduce(
+      (total, order) => total.plus(new Decimal(pick(order) ?? 0)),
+      new Decimal(0)
+    );
 
   const unpaidTotal = sum(
     billable.filter((order) => order.paymentStatus === 'PENDING'),
@@ -319,7 +344,14 @@ async function getSessionBill(table: BillTable) {
     (order) => order.status === 'PENDING'
   ).length;
   const readyToClear =
-    billable.length > 0 && blockingOrderCount === 0 && unpaidTotal === 0;
+    billable.length > 0 && blockingOrderCount === 0 && unpaidTotal.isZero();
+
+  const projection = await safeProjectBill({
+    restaurantId: table.restaurantId,
+    orders,
+    customerId: session.customerId,
+    billRevision: session.billRevision,
+  });
 
   return NextResponse.json({
     success: true,
@@ -384,6 +416,22 @@ async function getSessionBill(table: BillTable) {
     },
     readyToClear,
     blockingOrderCount,
+    ...(projection ?? {}),
     serverTime: new Date().toISOString(),
   });
+}
+
+/**
+ * Project the loyalty fields without ever failing the bill read. A loyalty
+ * problem degrades to the pre-loyalty response; it must not block the cashier.
+ */
+async function safeProjectBill(
+  input: Parameters<typeof projectBill>[0]
+): Promise<Awaited<ReturnType<typeof projectBill>>> {
+  try {
+    return await projectBill(input);
+  } catch {
+    console.error('[CounterBill] loyalty projection failed');
+    return null;
+  }
 }

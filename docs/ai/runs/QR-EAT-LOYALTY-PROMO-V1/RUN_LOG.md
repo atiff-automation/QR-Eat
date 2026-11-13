@@ -531,3 +531,45 @@ byte-identical**. Type-check, 98 scoped tests and 867 full tests pass on the com
 `npx prettier --write` on their changed files before reporting, so the hook is a no-op and
 the reviewed hash equals the committed hash. `prettier --check` alone was not sufficient.
 
+
+**P5A — Counter bill read and member attach (2026-11-13):**
+
+Implementer `ses_e2cc9a6f0ffea1CiddEIMiYNpM`. Verifiers `ses_e2cbbf3f2ffeSCCW0NziqoU25V`
+(**FAIL**) and `ses_e2cac41c7ffevw5PW5VQexObc4` (re-review, PASS WITH NOTES). Two correction
+cycles.
+
+```text
+modified src/app/api/counter/tables/[tableId]/bill/route.ts
+new      src/app/api/counter/orders/[orderId]/bill/route.ts
+new      src/app/api/counter/{tables,orders}/.../member + member/remove  (4 routes)
+new      src/lib/services/loyalty-bill-service.ts
+modified src/lib/rbac/permission-constants.ts, prisma/seed.ts   (loyalty:attach only)
++ 5 test files
+```
+
+```text
+npx jest src/app/api/counter src/lib/services/__tests__ --runInBand -> 8 suites, 107 tests
+npm run type-check                                                 -> PASS
+npm test -- --runInBand                                            -> 77 passed / 1 skipped, 914 passed, 11 skipped
+```
+
+**First verdict was FAIL** on a high-severity defect: member change re-attributed **paid**
+orders (`Order.customerId` fanned out with no `paymentStatus` filter), which could flip
+`BELOW_MINIMUM → COUNTS` and grant a reward on another customer's spend. Ruled that §18.20.14 J
+applies to unpaid bills only (§18.20.15 D/I/A); the fan-out is now `PENDING` + not `CANCELLED`,
+with a red-capable regression test.
+
+Also fixed: v1 legacy numeric change documented and pinned; audit row inside the transaction;
+dead `discountSource: 'MULTIPLE'`; existing-customer rename no longer bypasses `members:pii`;
+cancelled/refunded takeaway orders treated as settled; no-op member changes no longer bump the
+revision.
+
+**Verification gap recorded:** correction cycle 2 (R-01/R-03/R-07) was not independently
+re-reviewed; carried into the P5B gate.
+
+**ESCALATED — R-02 (pre-existing, needs a product decision):** the Counter bill response
+spreads `orders[].customerPhone` and `customerSession.customerPhone`, so a cashier with only
+`orders:read` sees a full phone, contrary to §18.20.9 (`members:pii` required). Not introduced
+by this task; cannot be fixed behind the flag without changing the legacy response shape.
+Options: mask, gate behind `members:pii`, or accept and record. P7 decision.
+
