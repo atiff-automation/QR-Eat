@@ -161,6 +161,18 @@ export const queryKeys = {
     list: (filters: Record<string, unknown>) =>
       ['promotions', 'list', filters] as const,
   },
+
+  // Members (owner member lookup). Keys never contain a phone number.
+  members: {
+    all: ['members'] as const,
+    profile: (id: string) => ['members', 'profile', id] as const,
+  },
+
+  // Reports
+  reports: {
+    loyalty: (range: { from: string; to: string }) =>
+      ['reports', 'loyalty', range] as const,
+  },
 } as const;
 
 /**

@@ -102,10 +102,21 @@ describe('loyalty settings service', () => {
       rewardValue: '10.00',
       maxDiscount: '15.00',
       minDailySpend: '20.00',
+      rewardLabel: '10% off',
       noticeTextHash: null,
       updatedBy: null,
       updatedAt: null,
     });
+  });
+
+  it('uses a currency-neutral default reward label (L-06)', async () => {
+    prismaMock.loyaltySettings.findUnique.mockResolvedValue(null);
+
+    const settings = await getLoyaltySettings(restaurantId);
+
+    expect(settings.rewardLabel).toBe('10% off');
+    expect(settings.rewardLabel).not.toMatch(/\b(MYR|RM|USD|SGD|EUR)\b/);
+    expect(settings.maxDiscount).toBe('15.00');
   });
 
   it('derives noticeTextHash server-side and ignores a client-sent hash', async () => {

@@ -8,6 +8,8 @@
  */
 
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 const mockUseRole = jest.fn();
@@ -100,5 +102,17 @@ describe('LoyaltySection states', () => {
   it('exports a standalone permission-denied panel', () => {
     const markup = renderToStaticMarkup(<LoyaltyPermissionDenied />);
     expect(markup).toContain('owner-only');
+  });
+
+  it('uses high-contrast success and error banner text (L-01)', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/components/settings/LoyaltySection.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('text-green-700');
+    expect(source).not.toContain('text-green-600');
+    expect(source).toContain('text-red-700');
+    expect(source).not.toContain('text-red-600');
   });
 });

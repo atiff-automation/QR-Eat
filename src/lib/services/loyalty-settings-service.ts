@@ -100,7 +100,9 @@ const DEFAULT_SETTINGS: EffectiveSettings = {
   rewardValue: '10.00',
   maxDiscount: '15.00',
   minDailySpend: '20.00',
-  rewardLabel: '10% off, max RM15',
+  // Currency-neutral: the cap lives in `maxDiscount`. A currency-hardcoded
+  // default would pre-fill the owner form for a non-MYR restaurant (L-06).
+  rewardLabel: '10% off',
   termsText: null,
   receiptLabel: null,
   privacyUrl: null,

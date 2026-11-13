@@ -168,4 +168,44 @@ describe('PromotionsPage states', () => {
     expect(markup).toContain('Active');
     expect(markup).toContain('15.00');
   });
+
+  it('does not fall back to MYR while settings resolve (L-05)', () => {
+    mockUseSettings.mockReturnValue({
+      data: undefined,
+      isLoading: true,
+      isError: false,
+    });
+    mockUsePromotions.mockReturnValue({
+      data: [promotion],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const markup = renderPage();
+
+    expect(markup).toContain('Loading promotions');
+    expect(markup).not.toContain('MYR');
+  });
+
+  it('renders money in the resolved restaurant currency', () => {
+    mockUseSettings.mockReturnValue({
+      data: { timezone: 'Asia/Kuala_Lumpur', currency: 'SGD' },
+      isLoading: false,
+      isError: false,
+    });
+    mockUsePromotions.mockReturnValue({
+      data: [promotion],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: jest.fn(),
+    });
+
+    const markup = renderPage();
+
+    expect(markup).toContain('SGD');
+    expect(markup).not.toContain('MYR');
+  });
 });

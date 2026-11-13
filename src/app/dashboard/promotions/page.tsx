@@ -584,8 +584,6 @@ export default function PromotionsPage() {
   const menuQuery = useMenuCategories({ enabled: queriesEnabled });
   const settingsQuery = useRestaurantSettings({ enabled: queriesEnabled });
 
-  const timezone = settingsQuery.data?.timezone ?? 'Asia/Kuala_Lumpur';
-  const currency = settingsQuery.data?.currency ?? 'MYR';
   const categories = menuQuery.data ?? [];
 
   const createMutation = useCreatePromotion();
@@ -607,22 +605,33 @@ export default function PromotionsPage() {
     return <PromotionsPermissionDenied />;
   }
 
-  if (promotionsQuery.isLoading) {
+  // Money is only rendered once the restaurant currency has resolved. A
+  // fallback would show MYR for one frame in a non-MYR restaurant (L-05).
+  if (promotionsQuery.isLoading || settingsQuery.isLoading) {
     return <LoadingSpinner message="Loading promotions..." />;
   }
 
-  if (promotionsQuery.isError) {
+  if (promotionsQuery.isError || settingsQuery.isError || !settingsQuery.data) {
+    const message = promotionsQuery.isError
+      ? promotionsQuery.error instanceof Error
+        ? promotionsQuery.error.message
+        : 'Could not load promotions.'
+      : settingsQuery.error instanceof Error
+        ? settingsQuery.error.message
+        : 'Could not load restaurant settings.';
+
     return (
       <div className="min-h-screen bg-gray-50/50 pb-20">
         <div className="mx-auto max-w-7xl space-y-5 px-5 pt-4 md:px-6">
           <PromotionsErrorState
-            message={
-              promotionsQuery.error instanceof Error
-                ? promotionsQuery.error.message
-                : 'Could not load promotions.'
-            }
+            message={message}
             onRetry={() => {
-              void promotionsQuery.refetch();
+              if (promotionsQuery.isError) {
+                void promotionsQuery.refetch();
+              }
+              if (settingsQuery.isError) {
+                void settingsQuery.refetch();
+              }
             }}
           />
         </div>
@@ -630,6 +639,8 @@ export default function PromotionsPage() {
     );
   }
 
+  const timezone = settingsQuery.data.timezone;
+  const currency = settingsQuery.data.currency;
   const promotions = promotionsQuery.data ?? [];
 
   const openCreate = () => {

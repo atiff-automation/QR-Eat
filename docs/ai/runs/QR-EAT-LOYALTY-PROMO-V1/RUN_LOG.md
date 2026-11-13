@@ -972,3 +972,40 @@ cleanup.
 
 **P6C2a: CLOSED.** P6C2b (members + loyalty report pages) is the last piece of P6.
 
+
+**P6C2b — members and loyalty report UI (2026-11-14):**
+
+Implementer `ses_e28c6b38cffeLGI2VF9N6Y7hb0`. Verifier `ses_e28b0f44bffe6Ws9GlgL3z5j3m`.
+PASS WITH NOTES.
+
+```text
+new  src/app/dashboard/members/{page,MembersStates}.tsx (+ test)
+new  src/app/dashboard/reports/loyalty/{page,LoyaltyReportStates}.tsx (+ test)
+new  src/lib/hooks/queries/{useMembers,useLoyaltyReport}.ts (+ tests)
+mod  promotions page, reports index, DashboardLayout, QR rule copy,
+     loyalty-settings-service (default label), 2 settings test suites, query-client
+```
+
+```text
+npx jest src/components src/app/dashboard src/lib/hooks src/lib/services --runInBand
+                                   -> 20 suites, 273 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 101 passed / 1 skipped, 1207 passed
+npm run build                      -> PASS
+```
+
+Verified: no full phone without `members:pii` (server nulls it, the list masks, the profile re-masks,
+both CSVs masked); phone only in a JSON body; search carries a fixed `purpose`; delete uses a fresh
+`Idempotency-Key` with clear anonymise-and-keep-financial-records copy; the report renders `net`
+from the server and the test forbids a recomputed value; every action is permission-gated and
+gated queries do not fire early.
+
+Carried notes closed: L-06 (currency-neutral default reward label), L-01 (contrast assertions),
+L-05 (no MYR fallback), V-01 (rule copy prefers the card snapshot).
+
+New notes recorded in `OPEN-ITEMS.md`: export failure UX, report default-range timezone, raw
+repeat-rate rendering, ungated reports card, `ConfirmationModal` a11y.
+
+**P6: COMPLETE.** P6A, P6B, close-out 1 (Counter notice), P6C1 (QR UI), P6C2a (settings +
+promotions UI), P6C2b (members + report UI) all closed.
+

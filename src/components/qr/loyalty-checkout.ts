@@ -454,19 +454,25 @@ export interface RuleCopy {
 }
 
 /**
- * Plain-words rule for the menu/cart and the review. `visitsRequired` and
- * `rewardLabel` come from the server notice; `maxDiscount` comes from the
- * server quote. The QR never shows a minimum-spend amount (§18.20.15 B/E).
+ * Plain-words rule for the menu/cart and the review.
+ *
+ * Before a member is known the notice carries the restaurant's current rule.
+ * Once a quote exists it is member-specific and carries the visit card's
+ * snapshot (`visit.visitsRequired`, `rewardLabel`, `maxDiscount`), so the quote
+ * wins where present. This keeps the review copy aligned with the card even
+ * when the owner changed settings mid-cycle (V-01). The QR never shows a
+ * minimum-spend amount (§18.20.15 B/E).
  */
 export function buildRuleCopy(
   notice: LoyaltyNotice,
   quote?: LoyaltyQuote | null
 ): RuleCopy {
-  const visits = notice.visitsRequired;
+  const visits = quote?.visit?.visitsRequired ?? notice.visitsRequired;
+  const rewardLabel = quote?.rewardLabel?.trim() || notice.rewardLabel;
   return {
     intro: 'Earn a visit when you order.',
     visits: `Collect ${visits} ${visits === 1 ? 'visit' : 'visits'} to earn a reward.`,
-    reward: `Reward: ${notice.rewardLabel}.`,
+    reward: `Reward: ${rewardLabel}.`,
     capLabel: 'Reward cap:',
     capAmount:
       quote?.maxDiscount && quote.maxDiscount !== '0.00'

@@ -6,6 +6,8 @@
  */
 
 import React from 'react';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { renderToStaticMarkup } from 'react-dom/server';
 
 const mockUseQuery = jest.fn();
@@ -86,5 +88,17 @@ describe('PaymentMethodsSection cash rounding', () => {
     expect(body).toEqual(payload);
     expect(body.cashRounding).toBe('NEAREST_5_SEN');
     expect(options.headers['Idempotency-Key']).toBeTruthy();
+  });
+
+  it('uses high-contrast success and error banner text (L-01)', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'src/components/settings/PaymentMethodsSection.tsx'),
+      'utf8'
+    );
+
+    expect(source).toContain('text-green-700');
+    expect(source).not.toContain('text-green-600');
+    expect(source).toContain('text-red-700');
+    expect(source).not.toContain('text-red-600');
   });
 });

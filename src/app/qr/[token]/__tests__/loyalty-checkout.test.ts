@@ -527,7 +527,11 @@ describe('copy uses server values, never snapshot constants', () => {
         visitsRequired: 5,
         rewardLabel: 'RM5 off',
       },
-      quote({ maxDiscount: '9.00' })
+      quote({
+        visit: { completedVisits: 2, visitsRequired: 5 },
+        rewardLabel: 'RM5 off',
+        maxDiscount: '9.00',
+      })
     );
 
     expect(threeVisit.visits).toContain('3');
@@ -539,11 +543,41 @@ describe('copy uses server values, never snapshot constants', () => {
     expect(fiveVisit.visits).not.toBe(threeVisit.visits);
   });
 
+  it('prefers the member card snapshot once a quote exists (V-01)', () => {
+    // The notice is the current restaurant rule; the quote is the member's
+    // card snapshot. The card wins on the member-specific review screen.
+    const snapshot = buildRuleCopy(
+      { ...notice, visitsRequired: 6, rewardLabel: 'Current rule' },
+      quote({
+        visit: { completedVisits: 1, visitsRequired: 4 },
+        rewardLabel: 'Snapshot rule',
+      })
+    );
+
+    expect(snapshot.visits).toContain('4');
+    expect(snapshot.reward).toContain('Snapshot rule');
+    expect(snapshot.visits).not.toContain('6');
+    expect(snapshot.reward).not.toContain('Current rule');
+
+    // Before a member is known there is no quote; the notice is all we have.
+    const noticeOnly = buildRuleCopy({
+      ...notice,
+      visitsRequired: 6,
+      rewardLabel: 'Current rule',
+    });
+    expect(noticeOnly.visits).toContain('6');
+    expect(noticeOnly.reward).toContain('Current rule');
+  });
+
   it('does not hardcode 3rd, 10%, RM15 or RM20 in static copy', () => {
     const staticCopy = [
       buildRuleCopy(
         { ...notice, visitsRequired: 4, rewardLabel: 'Free item' },
-        quote({ maxDiscount: '0.00' })
+        quote({
+          visit: { completedVisits: 1, visitsRequired: 4 },
+          rewardLabel: 'Free item',
+          maxDiscount: '0.00',
+        })
       ),
       visitStateBadge('COUNTS'),
       visitStateBadge('PROMOTION'),

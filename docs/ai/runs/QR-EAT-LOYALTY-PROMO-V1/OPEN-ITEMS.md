@@ -82,3 +82,13 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 |---|---|---|
 | P11-1 | Four-lens review (Security, Payments & Reliability, Data & Migration, Product/UX) | `REVIEW-*.md` written, PASS/PASS WITH NOTES |
 | P11-2 | Different-model or human pass on the payment and migration paths | Recorded — every review so far has been same-model |
+
+## Added by P6C2b (`REVIEW-17`)
+
+| # | Item | Severity | Source | Done when |
+|---|---|---|---|---|
+| P6C2b-1 | A failed export is not surfaced in-page — `<a download>` renders or saves the JSON error body, so an owner may believe a subject-access export succeeded | M | `REVIEW-17` L-01 | Export fetches with error handling and shows a banner, or the route returns a non-download error shape |
+| P6C2b-2 | The report's default range uses the browser's local date; it can be a day off near the business-day close | L | `REVIEW-17` L-04 | Default derived from the restaurant business date |
+| P6C2b-3 | Repeat rate renders the raw ratio (`0.3333`) rather than a percentage | L | `REVIEW-17` L-05 | Rendered as a percentage, formatted server-side |
+| P6C2b-4 | The reports index "Rewards" card and nav item are not gated on `loyalty:report` | L | `REVIEW-17` L-06 | Gated like the rest of the index |
+| P6C2b-5 | `ConfirmationModal` buttons are 40px and it has no Escape handling (pre-existing shared component) | L | `REVIEW-17` L-07 | Backlog: shared-component a11y pass |

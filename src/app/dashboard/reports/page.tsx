@@ -6,6 +6,7 @@ import {
   Monitor,
   ChefHat,
   Receipt,
+  Gift,
 } from 'lucide-react';
 
 const reportCards = [
@@ -30,6 +31,14 @@ const reportCards = [
     iconClassName: 'bg-emerald-100 text-emerald-600',
     title: 'Profit & Loss',
     description: 'Revenue, COGS, operating expenses and net profit.',
+  },
+  {
+    href: '/dashboard/reports/loyalty',
+    icon: Gift,
+    iconClassName: 'bg-orange-100 text-orange-700',
+    title: 'Rewards',
+    description:
+      'Visits, rewards applied, discounts by source and promotion redemptions.',
   },
 ];
 

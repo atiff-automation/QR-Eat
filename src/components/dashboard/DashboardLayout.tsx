@@ -176,6 +176,13 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       permission: 'analytics:read',
     },
     {
+      name: 'Members',
+      href: '/dashboard/members',
+      icon: Users,
+      current: pathname.startsWith('/dashboard/members'),
+      permission: 'members:read',
+    },
+    {
       name: 'Rewards',
       href: '/dashboard/promotions',
       icon: Gift,
@@ -216,6 +223,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/expenses')) return Receipt;
     if (pathname.includes('/profit-loss')) return TrendingUp;
     if (pathname.includes('/promotions')) return Gift;
+    if (pathname.includes('/members')) return Users;
+    if (pathname.includes('/reports/loyalty')) return Gift;
     if (pathname.includes('/reports')) return BarChart3;
     if (pathname.includes('/stations')) return Server;
     if (pathname.includes('/security')) return ShieldCheck;
@@ -234,6 +243,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     if (pathname.includes('/expenses')) return 'Expenses';
     if (pathname.includes('/profit-loss')) return 'Profit & Loss';
     if (pathname.includes('/promotions')) return 'Rewards';
+    if (pathname.includes('/members')) return 'Members';
+    if (pathname.includes('/reports/loyalty')) return 'Rewards report';
     if (pathname.includes('/reports')) return 'Reports';
     if (pathname.includes('/stations')) return 'Stations & Devices';
     if (pathname.includes('/security')) return 'Security & Devices';
