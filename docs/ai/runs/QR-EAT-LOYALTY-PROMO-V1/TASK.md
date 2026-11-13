@@ -212,17 +212,41 @@ cash rounding on `PaymentBatch`; offline replay behaviour.
 (review, confirmation, inline consent, per-error copy) and owner dashboard
 screens (settings, promotions, members, reports).
 
+**P6C scope note (approved 2026-11-13) — QR phone input.** The customer phone
+field in the QR checkout must behave like a phone keypad: `+` (first position
+only) and digits, nothing else. Requirements:
+- `inputMode="tel"`, `autocomplete="tel"` (WCAG 2.2 "identify input purpose").
+- Strip anything that is not `+` or a digit as it is typed **or pasted**, so a
+  pasted `+60 12-345 6789` becomes `+60123456789` rather than failing. The field
+  never contains a space.
+- Remove the current fixed `+60` badge and the digit-stripping mask: the mask is
+  why non-Malaysian numbers are silently mangled today.
+- Hint text naming the accepted format, and a `PHONE_INVALID` message with a
+  concrete example.
+- Do **not** reformat the number back at the customer; show what they typed.
+- Cap at 16 characters (`+` plus 15 E.164 digits).
+**Server stays tolerant.** `normalisePhone()` keeps accepting separators and
+rejecting letters, because it also serves the cashier member search, Counter
+attach and older clients. The client constrains input; the server validates
+meaning. Do not tighten the API to reject spaces — it would break the counter
+search.
+Research basis: GOV.UK Design System phone-number pattern (allow different
+formats, avoid input masking, avoid reformatting) and the keypad-consistency
+rule agreed with the product owner. Add a P10 note so the Counter app matches.
+
 **P7 — Security and privacy.** **Note (2026-11-13): R-02 is already closed in P6B cycle 3** —
 customer phone/email are no longer persisted in `PaymentBatch.response` or `OrderEvent.payload`,
 and `deleteMember` nulls the remaining name copy. Do not re-implement it in P7; verify it instead.
-P7 still owns: durable rate limits, the enumeration alert, trusted edge IP, full-phone audit
-completeness, cross-tenant 404 on the legacy bill route, and the R-02 verification.
- Durable rate limits per §18.20.15 B, trusted edge
-IP resolution, enumeration alert, full-phone audit, permission matrix
-(`loyalty:configure`, `promotions:manage`, `members:read`, `members:pii`,
+P7 still owns: durable rate limits per §18.20.15 B, trusted edge
+IP resolution, enumeration alert, full-phone audit, permission matrix(`loyalty:configure`, `promotions:manage`, `members:read`, `members:pii`,
 `members:export`, `members:delete`, `members:consent_withdraw`,
 `loyalty:report`, `loyalty:attach`, `settings:write`), cross-tenant 404, no PII
 in logs.
+
+**P7 blocker (F-08, from `REVIEW-13.md`):** `ORDER_CREATE.requestHash` is an
+unkeyed SHA-256 over the raw phone/name/email and is persisted for 24 hours. A
+phone number is low-entropy and brute-forceable from that digest. Use the keyed
+HMAC (`hashPhone`) or exclude the phone from the request hash.
 
 **P8 — Reports.** `gross`, `discounts` by source, `net`, `refunds`, rewards
 earned/redeemed, promotion redemptions by scope; remove any double subtraction;
