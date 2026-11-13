@@ -770,3 +770,12 @@ default → P9).
 **Deployment note:** the new permission rows land only when `db:seed` is re-run; until then the
 owner endpoints fail closed with 403.
 
+
+**Decision M-01 (2026-11-13): ACCEPTED (option A).**
+
+`settings:write` stays granted to the manager role, satisfying §18.20.14 A for payment settings.
+Consequence accepted: managers gain write access to every `settings:write` endpoint (financial,
+receipt, system, hours, general, qr-ordering), not only payments. Recorded for the P7 security
+pass, which must confirm the expansion is intended for the product and reflected in the
+permission documentation.
+
