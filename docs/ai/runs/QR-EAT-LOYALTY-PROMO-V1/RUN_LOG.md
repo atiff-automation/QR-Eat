@@ -889,3 +889,45 @@ notice values match what attach expects as `consentVersion`/`consentTextHash`.
 `REVIEW-14.md`: PASS WITH NOTES. N-02 (no contract test binding notice → attach) lands with
 P6C1 wiring.
 
+
+**P6C1 — QR customer UI (2026-11-14):**
+
+Implementer `ses_e2a2b7ae0ffelhsSp5qwxGgCvU`. Verifiers `ses_e2a1178b9ffeQ78h2l9bqmSitV`
+(**FAIL**), `ses_e29f4f497ffey5tkkE0AwQInN6`, `ses_e29e3b762ffeDpUMTpJJShBAX8`
+(PASS WITH NOTES). Two correction cycles.
+
+```text
+modified src/app/qr/[token]/page.tsx
+modified src/components/cart/CartSummary.tsx
+modified src/components/order/OrderConfirmation.tsx
+new      src/components/qr/loyalty-checkout.ts
+new      src/components/qr/LoyaltyRuleCard.tsx
+new      src/components/qr/LoyaltyReview.tsx
+new      src/app/qr/[token]/__tests__/loyalty-checkout.test.ts
+```
+
+```text
+npx jest src/app/qr src/components src/tests --runInBand -> 58 suites, 562 tests
+npm run type-check                                        -> PASS
+npm test -- --runInBand                                   -> 92 passed / 1 skipped, 1135 passed
+npm run build                                             -> PASS
+```
+
+**First verdict FAIL**, two high findings, both customer-facing false claims: the confirmation
+showed "Reward: 10% off, max RM15" on **every** non-reward order (it fell back to the quote's rule
+label), and a guest fallback showed a member's "Visit count: 2 of 3". Both fixed.
+
+Cycle 2 then fixed the defect on the **common path**: on every discounted order the confirmation
+breakdown did not reconcile (no discount line — 60.00 + 2.88 + 4.80 shown against a 55.68 total).
+Also fixed the loyalty-toggled-off-mid-flow race, a stranded-cart state on a null notice refresh,
+and two small copy defects.
+
+Flag-off parity preserved: `loyaltyNotice === null` gives the unchanged legacy flow with no loyalty
+UI reachable. Phone rule implemented exactly as approved (P6C scope note).
+
+Carried: V-03 (QR create sends no `Idempotency-Key`; loyalty path protected by the single-use
+quote) → P7 with F-08; V-01 (rule card vs card snapshot) → P6C2/UX; V-05 (projected reward vs
+offline settlement) → P5/contract.
+
+**P6C1: CLOSED.** P6C2 (owner dashboard screens) remains before P6 can close.
+
