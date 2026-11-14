@@ -1009,3 +1009,36 @@ repeat-rate rendering, ungated reports card, `ConfirmationModal` a11y.
 **P6: COMPLETE.** P6A, P6B, close-out 1 (Counter notice), P6C1 (QR UI), P6C2a (settings +
 promotions UI), P6C2b (members + report UI) all closed.
 
+
+**P7a — rate limits, trusted IP, F-08 (2026-11-14):**
+
+Implementer `ses_e286ba1a0ffeN0S3dePmNwo6GU`. Verifiers `ses_e285a545fffeecsG6KhTw2jcKH`
+(PASS WITH NOTES) and `ses_e28383afaffemSeoCQysQKYZlp` (F-01 delta, PASS WITH NOTES).
+
+```text
+new  src/lib/loyalty/rate-limit.ts, trusted-ip.ts (+ 3 test files)
+mod  src/app/api/qr/orders/{quote,create}/route.ts (+ tests)
+mod  src/lib/services/loyalty-qr-service.ts (+ test)
+mod  src/tests/qr-order-create-session.test.ts (mock only)
+```
+
+```text
+npx jest src/app/api/qr src/lib/loyalty src/lib/services/__tests__ --runInBand -> 26 suites, 514 tests
+npm run type-check  -> PASS
+npm test -- --runInBand -> 104 passed / 1 skipped, 1237 passed
+npm run build       -> PASS
+```
+
+Durable hourly buckets over `rate_limit_counters` (10 phoneHash / 30 restaurant / 10 session /
+20 edge IP, `unknown` at 10), one atomic upsert per bucket, `RATE_LIMITED` with `retryAfterSeconds`
+and no PII, enforcement **before** phone resolution, last-XFF-entry trust, and keyed request hashes.
+
+**F-01 found by the review and fixed in the same pass:** `memberChangeRequestHash` was still an
+unkeyed SHA-256 over the member phone, stored 24h. Now keyed, payload unchanged, three red-capable
+tests.
+
+New open item: **P7b-1** — `buildCounterOrderRequestHash` is still an unkeyed phone digest in
+`Order.idempotencyHash`, has no expiry, and survives anonymisation. Third instance of the class.
+
+P7-3 (real-Postgres proof of atomicity) stays open; P7b-3 (does the edge append XFF?) goes to P9.
+

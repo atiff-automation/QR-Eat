@@ -92,3 +92,16 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P6C2b-3 | Repeat rate renders the raw ratio (`0.3333`) rather than a percentage | L | `REVIEW-17` L-05 | Rendered as a percentage, formatted server-side |
 | P6C2b-4 | The reports index "Rewards" card and nav item are not gated on `loyalty:report` | L | `REVIEW-17` L-06 | Gated like the rest of the index |
 | P6C2b-5 | `ConfirmationModal` buttons are 40px and it has no Escape handling (pre-existing shared component) | L | `REVIEW-17` L-07 | Backlog: shared-component a11y pass |
+
+## Added by P7a (`REVIEW-18`)
+
+| # | Item | Severity | Source | Done when |
+|---|---|---|---|---|
+| P7b-1 | `buildCounterOrderRequestHash` is still an unkeyed SHA-256 over `customerPhone`, stored as `Order.idempotencyHash` with **no expiry**, and it survives anonymisation | **M** | `REVIEW-18` N-01 | Keyed with `hashPhone` (or the phone excluded) **and** `idempotencyHash` scrubbed on anonymise |
+| P7b-2 | Shared-bucket cascade: a refusal at a later bucket does not undo earlier increments, so one client can exhaust the 30/h restaurant bucket for everyone | M | `REVIEW-18` F-02 | Check specific buckets first, or run the four increments in one transaction that rolls back on refusal |
+| P7b-3 | Trusted-IP depends on the edge appending `X-Forwarded-For`; if it does not, the last entry is client-controlled | **M** | `REVIEW-18` F-03 | Verified against the Railway edge, or a trusted-hop-count/fail-closed check added |
+| P7b-4 | Create limits apply to the legacy no-quote path, so a normal order consumes the restaurant bucket twice (≈15 orders/h) | L | `REVIEW-18` F-04 | Narrow to quote/phone-bearing creates, or document |
+| P7b-5 | No retention/cleanup job for `rate_limit_counters` | L | `REVIEW-18` F-06 | A sweeper on `windowStart` |
+| P7b-6 | The create route's generic `console.error` could log a Prisma error containing the IP subject | L | `REVIEW-18` F-07 | Generic message only |
+| P7b-7 | A missing HMAC key surfaces as a generic 500 rather than a typed configuration error on the member routes | L | `REVIEW-18` N-02 | Mapped to `LOYALTY_CONFIGURATION_ERROR` |
+| P7b-8 | Changing the request hashes invalidates in-flight idempotency records at deploy | L | `REVIEW-18` F-10 | P9 rollout note |

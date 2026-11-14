@@ -7,7 +7,7 @@
  * live here, not in `src/app/api/**` (§18.20.5, §18.20.14 C/G, §18.20.15 B/E).
  */
 
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import Decimal from 'decimal.js';
 import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
@@ -794,6 +794,11 @@ export interface OrderCreateRequestHashInput {
  * member binding is enforced by `consumeQuote` on the first create. The
  * client-visible fields are enough to reject a key reused with a different
  * body (`IDEMPOTENCY_MISMATCH`).
+ *
+ * F-08: the digest is keyed with `LOYALTY_PHONE_HMAC_KEY` (`hashPhone`), not an
+ * unkeyed SHA-256. The payload contains a low-entropy phone number, so an
+ * unkeyed digest persisted for 24 hours is brute-forceable. The keyed HMAC is
+ * useless without the server secret and still changes when the body changes.
  */
 export function orderCreateRequestHash(
   input: OrderCreateRequestHashInput
@@ -813,7 +818,7 @@ export function orderCreateRequestHash(
       consentTextHash: input.customerInfo?.consentTextHash ?? null,
     },
   });
-  return createHash('sha256').update(payload, 'utf8').digest('hex');
+  return hashPhone(payload);
 }
 
 export async function findOrderCreateRecord(

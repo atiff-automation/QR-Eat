@@ -14,6 +14,11 @@ import { getTableCart } from '@/lib/customer-session';
 import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
 import { resolveNotice } from '@/lib/loyalty/consent';
 import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
+import {
+  enforceRateLimits,
+  type RateLimitRefusal,
+} from '@/lib/loyalty/rate-limit';
+import { trustedIp } from '@/lib/loyalty/trusted-ip';
 import { buildQuoteMessage } from '@/lib/loyalty/message';
 import { toMoneyString } from '@/lib/loyalty/money';
 import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
@@ -59,6 +64,23 @@ function mapMemberError(code: string | undefined): GuestReason {
       // render as "Loyalty is off" on the QR (REVIEW-05 N-01).
       return 'MEMBER_RESOLUTION_FAILED';
   }
+}
+
+function rateLimitedResponse(refusal: RateLimitRefusal) {
+  // No phone, phoneHash, member id, count or scope: the refusal must not
+  // distinguish a member from a non-member.
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Too many attempts. Please try again later.',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: refusal.retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(refusal.retryAfterSeconds) },
+    }
+  );
 }
 
 export async function POST(request: NextRequest) {
@@ -132,6 +154,17 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Durable hourly limits (§18.20.15 B). This runs before any phone/member
+    // resolution so an enumeration attempt costs nothing and cannot reveal a
+    // member by timing or error shape. A flag-off request never reaches here.
+    const refusal = await enforceRateLimits({
+      restaurantId: table.restaurant.id,
+      sessionId: cart.sessionId,
+      phone,
+      ip: trustedIp(request),
+    });
+    if (refusal) return rateLimitedResponse(refusal);
 
     let customerId: string | null = null;
     let phoneHash: string | null = null;

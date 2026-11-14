@@ -28,6 +28,7 @@ jest.mock('@/lib/database', () => ({
     menuItem: { findMany: jest.fn() },
     customerSession: { update: jest.fn() },
     loyaltySettings: { findUnique: jest.fn() },
+    $queryRaw: jest.fn(),
     $transaction: jest.fn(),
   },
 }));
@@ -325,6 +326,7 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue({
       enabled: true,
     });
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 1 }]);
     (getTableCart as jest.Mock).mockResolvedValue(cart);
     (clearTableCart as jest.Mock).mockResolvedValue(undefined);
     (ensureOpenDiningSession as jest.Mock).mockResolvedValue({
@@ -432,9 +434,72 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     expect(json).not.toHaveProperty('projectedTotal');
     expect(json).not.toHaveProperty('visitState');
     expect(json).not.toHaveProperty('loyaltyError');
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(prepareLoyaltyCreate).toHaveBeenCalledWith(
       expect.objectContaining({ quoteId: 'quote-1' })
     );
+  });
+
+  it('returns RATE_LIMITED before member resolution and leaks no PII', async () => {
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      response = await createQrOrder(
+        request({
+          tableId,
+          sessionId,
+          quoteId: 'quote-1',
+          expectedTotal: '55.68',
+          customerInfo: {
+            phone: '+60123456789',
+            consent: true,
+            consentVersion: 'v1',
+            consentTextHash: 'hash',
+          },
+        })
+      );
+    }
+
+    expect(response).not.toBeNull();
+    const json = await response!.json();
+
+    expect(response!.status).toBe(429);
+    expect(response!.headers.get('retry-after')).toBe(
+      String(json.retryAfterSeconds)
+    );
+    expect(json).toEqual({
+      success: false,
+      error: 'Too many attempts. Please try again later.',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: expect.any(Number),
+    });
+    expect(json.retryAfterSeconds).toBeGreaterThan(0);
+    expect(json).not.toHaveProperty('phone');
+    expect(json).not.toHaveProperty('phoneHash');
+    expect(json).not.toHaveProperty('visitState');
+    expect(json).not.toHaveProperty('customerId');
+    expect(JSON.stringify(json)).not.toContain('+60123456789');
+
+    // The 11th attempt was refused before the loyalty create resolved a member.
+    expect(prepareLoyaltyCreate).toHaveBeenCalledTimes(10);
   });
 
   it('stores the customer session phone in E.164', async () => {

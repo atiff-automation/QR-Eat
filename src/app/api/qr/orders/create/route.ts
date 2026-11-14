@@ -36,6 +36,11 @@ import { idempotencyKeyFrom } from '@/lib/order-idempotency';
 import { toMoneyString } from '@/lib/loyalty/money';
 import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
 import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
+import {
+  enforceRateLimits,
+  type RateLimitRefusal,
+} from '@/lib/loyalty/rate-limit';
+import { trustedIp } from '@/lib/loyalty/trusted-ip';
 import { consumeQuote, getQuote } from '@/lib/services/loyalty-quote-service';
 import {
   completeOrderCreateRecord,
@@ -124,6 +129,23 @@ function idempotencyMismatchResponse() {
       code: 'IDEMPOTENCY_MISMATCH',
     },
     { status: 409 }
+  );
+}
+
+function rateLimitedResponse(refusal: RateLimitRefusal) {
+  // No phone, phoneHash, member id, count or scope: the refusal must not
+  // distinguish a member from a non-member.
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Too many attempts. Please try again later.',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: refusal.retryAfterSeconds,
+    },
+    {
+      status: 429,
+      headers: { 'Retry-After': String(refusal.retryAfterSeconds) },
+    }
   );
 }
 
@@ -294,6 +316,25 @@ export async function POST(request: NextRequest) {
     console.log(
       '✅ [QR ORDER CREATE] Table status check passed, allowing order'
     );
+
+    // Durable hourly limits (§18.20.15 B). Loyalty must be active for the
+    // restaurant; a flag-off request writes no rows and follows the legacy
+    // path exactly. Enforcement happens before `prepareLoyaltyCreate` resolves
+    // a member, so an enumeration attempt costs nothing.
+    if (isLoyaltyGloballyEnabled()) {
+      const loyaltySettings = await prisma.loyaltySettings.findUnique({
+        where: { restaurantId: table.restaurant.id },
+      });
+      if (isLoyaltyActive(loyaltySettings)) {
+        const refusal = await enforceRateLimits({
+          restaurantId: table.restaurant.id,
+          sessionId: tableCart.sessionId,
+          phone: customerInfo?.phone ?? null,
+          ip: trustedIp(request),
+        });
+        if (refusal) return rateLimitedResponse(refusal);
+      }
+    }
 
     // Fetch full menu items for calculation (need preparationTime)
     const menuItemIds = tableCart.items.map((item) => item.menuItemId);

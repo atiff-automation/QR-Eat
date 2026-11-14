@@ -12,7 +12,6 @@
  * only a digest.
  */
 
-import { createHash } from 'node:crypto';
 import Decimal from 'decimal.js';
 import type { Prisma } from '@prisma/client';
 import { prisma, type TransactionClient } from '@/lib/database';
@@ -1203,7 +1202,12 @@ function memberChangeRequestHash(input: {
     consentVersion: input.consentVersion ?? null,
     consentTextHash: input.consentTextHash ?? null,
   });
-  return createHash('sha256').update(payload, 'utf8').digest('hex');
+  // F-01: key the digest with `LOYALTY_PHONE_HMAC_KEY` (`hashPhone`), not an
+  // unkeyed SHA-256. The payload contains a low-entropy phone number, so an
+  // unkeyed digest persisted for 24 hours is brute-forceable. A missing key
+  // throws `LoyaltyConfigurationError` (fail closed); there is no unkeyed
+  // fallback.
+  return hashPhone(payload);
 }
 
 type ResolvedBill =

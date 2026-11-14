@@ -11,6 +11,7 @@ jest.mock('@/lib/database', () => ({
   prisma: {
     table: { findUnique: jest.fn() },
     loyaltySettings: { findUnique: jest.fn() },
+    $queryRaw: jest.fn(),
   },
 }));
 
@@ -131,6 +132,7 @@ describe('POST /api/qr/orders/quote', () => {
     (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue(
       settings
     );
+    (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 1 }]);
     (getTableCart as jest.Mock).mockResolvedValue(cart);
     (resolveOrCreateCustomer as jest.Mock).mockResolvedValue({
       customerId: 'customer-1',
@@ -170,7 +172,121 @@ describe('POST /api/qr/orders/quote', () => {
     });
     expect(prisma.table.findUnique).not.toHaveBeenCalled();
     expect(prisma.loyaltySettings.findUnique).not.toHaveBeenCalled();
+    expect(prisma.$queryRaw).not.toHaveBeenCalled();
     expect(issueQrQuote).not.toHaveBeenCalled();
+  });
+
+  it('returns RATE_LIMITED before phone resolution and leaks no PII', async () => {
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 11; attempt += 1) {
+      response = await quote(
+        request({
+          tableId,
+          sessionId,
+          phone: '+60123456789',
+          consent: true,
+          consentVersion: 'v1',
+          consentTextHash: noticeTextHash,
+        })
+      );
+    }
+
+    expect(response).not.toBeNull();
+    const json = await response!.json();
+
+    expect(response!.status).toBe(429);
+    expect(response!.headers.get('retry-after')).toBe(
+      String(json.retryAfterSeconds)
+    );
+    expect(json).toEqual({
+      success: false,
+      error: 'Too many attempts. Please try again later.',
+      code: 'RATE_LIMITED',
+      retryAfterSeconds: expect.any(Number),
+    });
+    expect(json.retryAfterSeconds).toBeGreaterThan(0);
+    expect(json).not.toHaveProperty('phone');
+    expect(json).not.toHaveProperty('phoneHash');
+    expect(json).not.toHaveProperty('visitState');
+    expect(json).not.toHaveProperty('customerId');
+    expect(JSON.stringify(json)).not.toContain('+60123456789');
+
+    // The 11th attempt was refused before the member was resolved.
+    expect(resolveOrCreateCustomer).toHaveBeenCalledTimes(10);
+    expect(issueQrQuote).toHaveBeenCalledTimes(10);
+  });
+
+  it('limits on the last X-Forwarded-For entry, not a spoofed first entry', async () => {
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    // Distinct sessions so only the IP bucket can trip. A spoofed first entry
+    // rotates every time; the real last entry is constant.
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 21; attempt += 1) {
+      (getTableCart as jest.Mock).mockResolvedValue({
+        ...cart,
+        sessionId: `${sessionId}-${attempt}`,
+      });
+      response = await quote(
+        new NextRequest('http://localhost/api/qr/orders/quote', {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'x-forwarded-for': `10.0.0.${attempt}, 203.0.113.50`,
+          },
+          body: JSON.stringify({ tableId, sessionId, phone: undefined }),
+        })
+      );
+    }
+
+    expect(response).not.toBeNull();
+    expect(response!.status).toBe(429);
+    const json = await response!.json();
+    expect(json.code).toBe('RATE_LIMITED');
+
+    const ipSubjects = [...counts.keys()]
+      .filter((key) => key.split('|')[1] === 'EDGE_IP')
+      .map((key) => key.split('|')[2]);
+    expect(ipSubjects).toContain('203.0.113.50');
+    expect(ipSubjects.some((subject) => subject.startsWith('10.0.0.'))).toBe(
+      false
+    );
   });
 
   it('prices a member quote and omits every forbidden field', async () => {

@@ -6,6 +6,7 @@ import {
   removeMember,
 } from '@/lib/services/loyalty-bill-service';
 import { hashNoticeText } from '@/lib/loyalty/consent';
+import { LoyaltyConfigurationError } from '@/lib/loyalty/phone';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
@@ -697,6 +698,50 @@ describe('Counter member attach/change', () => {
       success: false,
       code: 'LOYALTY_DISABLED',
     });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  async function captureRequestHash(): Promise<string> {
+    (tx.idempotencyRecord.create as jest.Mock).mockClear();
+
+    const result = await changeMember(baseTableInput());
+    expect(result.status).toBe(200);
+
+    const calls = (tx.idempotencyRecord.create as jest.Mock).mock.calls;
+    expect(calls).toHaveLength(1);
+    return calls[0][0].data.requestHash as string;
+  }
+
+  it('keys the MEMBER_CHANGE request hash with the phone HMAC key (F-01)', async () => {
+    process.env.LOYALTY_PHONE_HMAC_KEY = 'key-a';
+    const withKeyA = await captureRequestHash();
+
+    process.env.LOYALTY_PHONE_HMAC_KEY = 'key-b';
+    const withKeyB = await captureRequestHash();
+
+    expect(withKeyA).not.toBe(withKeyB);
+    expect(withKeyA).toMatch(/^[a-f0-9]{64}$/);
+    expect(withKeyB).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('cannot reproduce the MEMBER_CHANGE hash without the key', async () => {
+    process.env.LOYALTY_PHONE_HMAC_KEY = 'key-a';
+    const digest = await captureRequestHash();
+
+    delete process.env.LOYALTY_PHONE_HMAC_KEY;
+
+    await expect(changeMember(baseTableInput())).rejects.toThrow(
+      LoyaltyConfigurationError
+    );
+    expect(digest).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('fails closed with LoyaltyConfigurationError when the key is missing', async () => {
+    delete process.env.LOYALTY_PHONE_HMAC_KEY;
+
+    await expect(changeMember(baseTableInput())).rejects.toThrow(
+      LoyaltyConfigurationError
+    );
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 });

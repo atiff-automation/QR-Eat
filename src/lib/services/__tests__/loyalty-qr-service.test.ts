@@ -485,6 +485,21 @@ describe('orderCreateRequestHash', () => {
     },
   };
 
+  const originalKey = process.env.LOYALTY_PHONE_HMAC_KEY;
+
+  beforeEach(() => {
+    // F-08: the request hash is a keyed HMAC, so the key is required.
+    process.env.LOYALTY_PHONE_HMAC_KEY = 'test-key';
+  });
+
+  afterAll(() => {
+    if (originalKey === undefined) {
+      delete process.env.LOYALTY_PHONE_HMAC_KEY;
+    } else {
+      process.env.LOYALTY_PHONE_HMAC_KEY = originalKey;
+    }
+  });
+
   it('is stable for the same body', () => {
     expect(orderCreateRequestHash(base)).toBe(orderCreateRequestHash(base));
   });
