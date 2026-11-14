@@ -18,7 +18,7 @@
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP)
-**Phases open:** P10, P11
+**Phases open:** P10 (in progress), P11
 **Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
@@ -697,6 +697,67 @@ Do not read: other phases, `prisma/**`, reporting services.
 **P10 — Contract freeze.** Update `docs/PRODUCT/API-CONTRACT.md` and
 `docs/PRODUCT/RELEASE-COMPATIBILITY.md` with the loyalty surface; record the
 frozen commit hash for the Counter handoff.
+
+**P10 plan (approved 2026-11-14, "all as recommended").**
+
+Documentation only. No product code, no schema, no deployment.
+
+**Decisions**
+- **Q1 = A.** Record a **candidate** freeze hash now; stamp the final hash in a two-line amendment
+  after P11 PASS. The candidate is the last commit that changed server behaviour (`e5f6046`), not
+  the docs tip.
+- **Q2 = A.** P8-6 is recorded as an **explicit open sign-off** with an owner and the note
+  "management reporting, not statutory". P10 proceeds; the pilot is unaffected.
+- **Q3 = A.** Extend the contract index with a §18.20 addendum (routes, shapes, states, errors,
+  permissions, limits, reporting, interpretations). OpenAPI remains recorded debt.
+- **Q4 = A.** The Counter handoff is `docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md`, durable and
+  cross-repo; the run directory points at it.
+- **Q5 = A.** An **interpretation register**: one row per deviation, with clause, implementation,
+  rationale, and whether the Counter must care.
+
+**Deliverables**
+1. `docs/PRODUCT/API-CONTRACT.md` — §18.20 addendum: activation, surface table with permissions
+   and idempotency, QR/Counter/owner shapes, visit and payment states, money and reporting
+   (including `net = Σ totalAmount − refunds` and the pre-tax Z `grossSales`), rate limits and the
+   measured Railway edge behaviour, privacy, offline, error registry, interpretation register,
+   freeze record.
+2. `docs/PRODUCT/RELEASE-COMPATIBILITY.md` — fill the server row with the candidate commit and the
+   addendum version; Counter/Station rows read "not yet built against this addendum"; minimum
+   supported versions stated as unknown until the client exists.
+3. `docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md` — endpoint list, request/response fields, state
+   precedence, copy, offline rules, and the client-visible changes: Z `grossSales` is now pre-tax
+   (P8-1), `PaymentBatch.outcome = 'GUEST'` under flag-off (P9-09), stored/replayed payment bodies
+   omit `customerName`/`customerPhone` (P10-3), payments `PUT` accepts a missing `Idempotency-Key`
+   (P10-7).
+4. Run-directory updates: `OPEN-ITEMS.md` (P10 items closed or re-owned), `RUN_LOG.md`,
+   `TASK.md`, `NEXT.md`.
+
+**Non-goals**
+Editing any Tabtep worktree; generating OpenAPI; changing code or migrations; deploying;
+resolving P8-6 on the owner's behalf; P11.
+
+**Acceptance**
+1. Every route in the loyalty surface is listed with its permission, idempotency requirement and
+   revision field, and the list matches `src/app/api/**`.
+2. Every interpretation in `OPEN-ITEMS.md` owned by P10 appears in the register with a rationale.
+3. The money section states the three-report identity and the refund rule, and names P8-6 as
+   unsigned.
+4. `RELEASE-COMPATIBILITY.md` has no blank cells; unbuilt clients say so explicitly.
+5. The Counter handoff is executable by someone who has not read the task: no reference to run-dir
+   files, no unresolved placeholders.
+6. The candidate hash is named as a candidate, with the stamping step after P11.
+
+**Verification**
+A fresh `ame-verifier` checks the addendum against the normative §18.20 text and against the
+routes; runs `npx jest`, `npm run type-check`, `npm test -- --runInBand` to prove no code changed;
+and confirms no Tabtep file was touched.
+
+**Context budget**
+Must read: this section, `OPEN-ITEMS.md`, `docs/PRODUCT/API-CONTRACT.md`,
+`RELEASE-COMPATIBILITY.md`, `CROSS-REPO-WORKFLOW.md`, and §18.20.5–§18.20.15 of the normative
+contract.
+Read only if unclear: the route handlers for a disputed field.
+Do not read: reporting services, migrations, earlier reviews.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
