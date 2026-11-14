@@ -1042,3 +1042,30 @@ New open item: **P7b-1** — `buildCounterOrderRequestHash` is still an unkeyed 
 
 P7-3 (real-Postgres proof of atomicity) stays open; P7b-3 (does the edge append XFF?) goes to P9.
 
+
+**P7b — enumeration alert and PII residuals (2026-11-14) — owner decision required:**
+
+Implementer `ses_e282eebeeffeIQK44lMZxnV4qC`. Verifiers `ses_e281a504fffettExTvLzJ0pxgL` (**FAIL**)
+and `ses_e28086d12ffeCIiOwqnuOjL5jx` (H-1 delta, PASS WITH NOTES). See `REVIEW-19.md`.
+
+Implemented: keyed counter-order hash with a PII-free fallback, four rate-limit increments in one
+transaction, enumeration detection writing `loyalty_lookup_miss` / `loyalty_enumeration_alert`
+(`phoneHash` only), R-02 verified, generic error logging, and typed configuration errors on the
+Counter member routes.
+
+**H-1 (high) fixed:** keying the counter-order hash made `hashPhone` throw without
+`LOYALTY_PHONE_HMAC_KEY`, so a loyalty-off deployment returned 500 on **every** Counter and
+takeaway order. Now the key-absent path hashes without phone/name (no PII digest) instead of
+throwing; the loyalty paths still fail closed.
+
+**H-2 (high, owner decision):** the rate limits from P7a can **refuse legitimate customers**.
+Guest quotes consume the `RESTAURANT` (30/h ≈ 10 orders) and `EDGE_IP` (20/h ≈ 6–7 orders)
+buckets, and one order consumes them ~3×. Restaurant customers share the venue's WiFi IP; with no
+XFF every caller shares `unknown` at 10/h. The limits come from the frozen contract, so this is a
+contract/owner decision, not a code fix.
+
+Also recorded: M-1 (enumeration "miss" = new enrolment → false alerts; a no-consent probe is
+invisible), M-2 (`SecurityEvent` needs an index), M-3 (`SecurityEvent` has no `restaurantId`).
+
+**P7b is `owner_decision_required` and is not committed.**
+

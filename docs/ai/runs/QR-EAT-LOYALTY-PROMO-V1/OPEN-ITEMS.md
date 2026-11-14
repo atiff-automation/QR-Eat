@@ -97,7 +97,7 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
 | # | Item | Severity | Source | Done when |
 |---|---|---|---|---|
-| P7b-1 | `buildCounterOrderRequestHash` is still an unkeyed SHA-256 over `customerPhone`, stored as `Order.idempotencyHash` with **no expiry**, and it survives anonymisation | **M** | `REVIEW-18` N-01 | Keyed with `hashPhone` (or the phone excluded) **and** `idempotencyHash` scrubbed on anonymise |
+| P7b-1 | `buildCounterOrderRequestHash` phone digest | **M** | `REVIEW-18` N-01 | **CLOSED (2026-11-14)** — keyed HMAC when the key is configured; a PII-free fallback (no phone/name) when it is not, so a loyalty-off deployment cannot 500. Scrubbing `idempotencyHash` on anonymise deliberately **not** done: replay compares the stored hash, so nulling it would turn a retry after deletion into `IDEMPOTENCY_MISMATCH`; keying already removes the brute-force risk. Accepted consequence: with no key, a phone-only or name-only change under a reused key replays instead of mismatching. |
 | P7b-2 | Shared-bucket cascade: a refusal at a later bucket does not undo earlier increments, so one client can exhaust the 30/h restaurant bucket for everyone | M | `REVIEW-18` F-02 | Check specific buckets first, or run the four increments in one transaction that rolls back on refusal |
 | P7b-3 | Trusted-IP depends on the edge appending `X-Forwarded-For`; if it does not, the last entry is client-controlled | **M** | `REVIEW-18` F-03 | Verified against the Railway edge, or a trusted-hop-count/fail-closed check added |
 | P7b-4 | Create limits apply to the legacy no-quote path, so a normal order consumes the restaurant bucket twice (≈15 orders/h) | L | `REVIEW-18` F-04 | Narrow to quote/phone-bearing creates, or document |
@@ -105,3 +105,12 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P7b-6 | The create route's generic `console.error` could log a Prisma error containing the IP subject | L | `REVIEW-18` F-07 | Generic message only |
 | P7b-7 | A missing HMAC key surfaces as a generic 500 rather than a typed configuration error on the member routes | L | `REVIEW-18` N-02 | Mapped to `LOYALTY_CONFIGURATION_ERROR` |
 | P7b-8 | Changing the request hashes invalidates in-flight idempotency records at deploy | L | `REVIEW-18` F-10 | P9 rollout note |
+
+## Added by P7b (`REVIEW-19`)
+
+| # | Item | Severity | Source | Done when |
+|---|---|---|---|---|
+| **H-2** | **The rate limits refuse real customers.** Guest (no-phone) quotes consume the `RESTAURANT` (30/h ≈ 10 orders) and `EDGE_IP` (20/h ≈ 6–7 orders) buckets, and one order consumes them ~3× (guest quote on mount + phone quote + create). Restaurant customers share the venue's WiFi public IP; with no XFF every caller shares `unknown` at 10/h. | **H** | `REVIEW-19` | **Owner decision** — see the options in the P7b report |
+| M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | `REVIEW-19` | Detection based on rate-limit refusals or junk-enrolment, or the contract definition explicitly accepted |
+| M-2 | `SecurityEvent` has no index on `(eventType, ipAddress, createdAt)`; every new-member request full-scans the table | M | `REVIEW-19` | Additive index migration |
+| M-3 | `SecurityEvent` has no `restaurantId`, so misses from different restaurants sharing an IP aggregate into one platform-wide alert | M | `REVIEW-19` | Tenant-scope the event, or record the cross-tenant interpretation at P10 |
