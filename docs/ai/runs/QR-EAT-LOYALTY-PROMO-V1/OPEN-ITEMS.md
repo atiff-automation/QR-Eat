@@ -3,7 +3,7 @@
 **Purpose:** one register for every carried finding, so nothing depends on chat memory.
 Check this at every phase gate; close it out at P10.
 
-**Status:** open · **Updated:** 2026-11-14 · **HEAD:** `7a884ce`
+**Status:** open · **Updated:** 2026-11-14 · **HEAD:** `b426412`
 
 Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
@@ -110,10 +110,10 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
 | # | Item | Severity | Source | Done when |
 |---|---|---|---|---|
-| **H-2** | **The rate limits refuse real customers.** Guest (no-phone) quotes consume the `RESTAURANT` (30/h ≈ 10 orders) and `EDGE_IP` (20/h ≈ 6–7 orders) buckets, and one order consumes them ~3× (guest quote on mount + phone quote + create). Restaurant customers share the venue's WiFi public IP; with no XFF every caller shares `unknown` at 10/h. | **H** | `REVIEW-19` | **Owner decision** — see the options in the P7b report |
+| **H-2** | ~~The rate limits refuse real customers~~ | **closed** | `REVIEW-19` | **CLOSED 2026-11-14** — P7c made one count per order and stopped guest quotes consuming buckets; the edge address is measured (`X-Real-IP`), so callers no longer share `unknown`; the IP floor is 120/h |
 | M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | `REVIEW-19` | Detection based on rate-limit refusals or junk-enrolment, or the contract definition explicitly accepted |
 | M-2 | `SecurityEvent` has no index on `(eventType, ipAddress, createdAt)`; every new-member request full-scans the table | M | `REVIEW-19` | Additive index migration |
-| M-3 | `SecurityEvent` has no `restaurantId`, so misses from different restaurants sharing an IP aggregate into one platform-wide alert | M | `REVIEW-19` | Tenant-scope the event, or record the cross-tenant interpretation at P10 |
+| M-3 | ~~`SecurityEvent` has no `restaurantId`~~ | **closed** | `REVIEW-19` | **CLOSED 2026-11-14** — the column exists (nullable, added P7c) and loyalty events populate it; pre-existing non-loyalty events remain null |
 
 ## Added by P7c (`REVIEW-20`)
 
@@ -179,3 +179,19 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | R-04 | Special-use ranges (`192.0.0/24`, `198.18/15`, `192.88.99/24`) are accepted as client addresses | L | Backlog; not exploitable behind the edge |
 | P9-10b-1 | Off-Railway (local/dev) audit `ipAddress` now resolves to `unknown` | L | Intended fail-closed posture; record if a non-Railway deployment ever exists |
 | P9-10b-2 | The health route's 5 s timeout-firing branch has no automated test | L | Backlog |
+
+## P10 closure (2026-11-14)
+
+All P10-owned items are recorded in `docs/PRODUCT/API-CONTRACT.md` §18.20.11 (the
+interpretation register) and, where the Counter can observe them, in
+`docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md`.
+
+Still open, and **not** closed by recording:
+
+| # | Item | Owner |
+|---|---|---|
+| P8-6 | `net` includes tax and service — needs an accountant's sign-off before the P&L is treated as statutory | owner |
+| P8-2 | The Z lacks `discountBySource`, the reward line and a prior-period refunds line | backlog |
+| P8-3 | The loyalty report omits batchless positive payments | backlog |
+| F-03 | No automated guard that `SecurityUtils.getClientIP` delegates to the resolver | backlog |
+| P9-03 | Concurrency drills use sleeps, not a readiness barrier | P11 |

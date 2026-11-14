@@ -1374,3 +1374,31 @@ Carried: F-03 (no automated guard for the delegation), R-04 (special-use ranges)
 P9-10b-1 (off-Railway audit resolves to `unknown`).
 
 **P9-10b: COMPLETE.**
+
+**P10 — contract freeze (2026-11-14):**
+
+Author: Lead (documentation). Verifiers `ses_e25f21768ffekEmPklHQ1W8msg` (**FAIL**),
+`ses_e25d3a1d5ffeUzwr1ytwvJCEEA` (**FAIL**), `ses_e25c3415effev1iRb6B8ARuUe5` (**PASS**).
+Two correction cycles, nineteen findings. See `REVIEW-26.md`.
+
+Delivered: the §18.20 addendum in `docs/PRODUCT/API-CONTRACT.md` (surface with permissions and
+idempotency, shapes, state precedence, money and reporting, rate limits and the measured edge
+behaviour, privacy, offline, error registry, interpretation register, freeze record),
+`RELEASE-COMPATIBILITY.md` with the candidate and unbuilt-client rows,
+`COUNTER-HANDOFF-LOYALTY.md` as a self-contained handoff, and the open-items close-out.
+
+The reviews caught real errors that would have propagated into another repository: a
+`GET /api/promotions/{id}` that does not exist, the missing `PATCH /api/orders/{id}/modify`
+re-evaluation rule, a stale `SecurityEvent.restaurantId` finding, unconditional cash rounding,
+404-vs-403, the HMAC-key failure mode, and the payments replay permission (`payments:read`).
+
+```text
+git diff b426412 --stat   -> docs only
+npm run type-check        -> PASS
+npm test -- --runInBand   -> 1383 passed, 11 skipped
+```
+
+Candidate freeze: `e5f6046` (last commit that changed server behaviour). The final stamp is a
+two-line amendment after P11 PASS.
+
+**P10: COMPLETE.**
