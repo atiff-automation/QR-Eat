@@ -376,4 +376,24 @@ describe('loyalty settings service', () => {
       })
     ).rejects.toBeInstanceOf(OwnerIdempotencyMismatchError);
   });
+
+  it('turns an unrecognised unique conflict into a typed 409', async () => {
+    // No receipt to replay, so the P2002 came from the mutation's own data.
+    // It must be a typed conflict, not a 500.
+    tx.loyaltySettings.create.mockRejectedValue(
+      Object.assign(new Error('duplicate'), {
+        code: 'P2002',
+        meta: { target: ['loyalty_settings_partial_idx'] },
+      })
+    );
+
+    await expect(
+      updateLoyaltySettings({
+        restaurantId,
+        userId: 'user-1',
+        patch: { visitsRequired: 5, rewardLabel: 'Five visits' },
+        idempotencyKey: 'key-7',
+      })
+    ).rejects.toMatchObject({ code: 'CONFLICT', statusCode: 409 });
+  });
 });

@@ -26,6 +26,7 @@ import {
 
 export type LoyaltyCustomerErrorCode =
   | 'LOYALTY_DISABLED'
+  | 'CUSTOMER_CONFLICT'
   | PhoneErrorCode
   | ConsentErrorCode;
 
@@ -53,6 +54,8 @@ export interface ResolveOrCreateCustomerResult {
 
 const ERROR_MESSAGES: Record<LoyaltyCustomerErrorCode, string> = {
   LOYALTY_DISABLED: 'Loyalty is not available.',
+  CUSTOMER_CONFLICT:
+    'This member could not be saved. Check the phone number and try again.',
   PHONE_INVALID: 'Enter a valid mobile number.',
   CONSENT_REQUIRED: 'Please agree to the rewards notice to join.',
   CONSENT_VERSION_REQUIRED: 'Review the rewards notice before joining.',
@@ -190,6 +193,10 @@ export async function resolveOrCreateCustomer(
         where: { restaurantId, phoneHash, status: 'ACTIVE' },
       });
       if (raced) return success(raced.id, false);
+      // An unrecognised unique conflict (an index this code does not know
+      // about) is a typed failure, not a 500: the caller falls back to a guest
+      // order or shows the message on the Counter.
+      return failure('CUSTOMER_CONFLICT');
     }
     throw error;
   }

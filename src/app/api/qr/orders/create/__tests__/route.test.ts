@@ -801,6 +801,44 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     );
   });
 
+  it('takes the loyalty-bill lock before inserting an order (P9-2)', async () => {
+    (prepareLoyaltyCreate as jest.Mock).mockResolvedValue({
+      kind: 'ready',
+      plan: plan(),
+    });
+
+    const response = await createQrOrder(
+      request(
+        {
+          tableId,
+          sessionId,
+          quoteId: 'quote-1',
+          expectedTotal: '55.68',
+          customerInfo: {
+            phone: '+60123456789',
+            consent: true,
+            consentVersion: 'v1',
+            consentTextHash: 'hash',
+          },
+        },
+        { 'idempotency-key': 'key-1' }
+      )
+    );
+
+    expect(response.status).toBe(200);
+
+    // Payment serializes on this key and re-reads the bill under it
+    // (loyalty-payment-service: `acquireLock` → `resolvePaymentBill`). The table
+    // row lock is not enough: a payment never touches that row.
+    const lockKey = `loyalty-bill:${restaurantId}:${diningSessionId}`;
+    const rawCalls = (prisma.$queryRaw as jest.Mock).mock.calls;
+    const lockIndex = rawCalls.findIndex((call) => call[1] === lockKey);
+    expect(lockIndex).toBeGreaterThanOrEqual(0);
+    expect(
+      (prisma.$queryRaw as jest.Mock).mock.invocationCallOrder[lockIndex]
+    ).toBeLessThan(tx.order.create.mock.invocationCallOrder[0]);
+  });
+
   it('returns the projected reward label but stores the pre-reward order', async () => {
     (prepareLoyaltyCreate as jest.Mock).mockResolvedValue({
       kind: 'ready',

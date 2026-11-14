@@ -440,6 +440,93 @@ describe('GET /api/admin/reports/profit-loss', () => {
       ).not.toHaveProperty('status');
     });
 
+    it('excludes a payment exactly at the cutoff instant', async () => {
+      // Same half-open window as the Z: a payment at 2026-10-28T20:00:00Z is
+      // the first instant of 2026-10-29, so it is not on 2026-10-28.
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 0,
+        },
+      });
+      const atCutoff = new Date('2026-10-28T20:00:00.000Z');
+      (prisma.payment.aggregate as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const gte = where.createdAt.gte as Date;
+          const lt = where.createdAt.lt as Date;
+          return Promise.resolve({
+            _sum: { amount: atCutoff >= gte && atCutoff < lt ? -10 : 0 },
+          });
+        }
+      );
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const response = await ProfitLossRoute.GET(
+        createRequest({
+          restaurantId: RESTAURANT_ID,
+          startDate: '2026-10-28',
+          endDate: '2026-10-28',
+        })
+      );
+      const data = await response.json();
+
+      expect(data.report.revenue.refunds).toBe(0);
+    });
+
+    it('keeps a refund taken after an early close inside the same business date', async () => {
+      // The Z's post-close test (counter-reporting.test.ts) uses this same
+      // instant: 10:00 KL on 2026-10-28, after a 09:00 KL close and before the
+      // 04:00 KL cutoff. Both reports must attribute it to 2026-10-28.
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 0,
+        },
+      });
+      const refundAt = new Date('2026-10-28T02:00:00.000Z');
+      (prisma.payment.aggregate as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const gte = where.createdAt.gte as Date;
+          const lt = where.createdAt.lt as Date;
+          return Promise.resolve({
+            _sum: {
+              amount: refundAt >= gte && refundAt < lt ? -10 : 0,
+            },
+          });
+        }
+      );
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-10-28',
+        endDate: '2026-10-28',
+      });
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+
+      expect(data.report.revenue.refunds).toBe(10);
+      expect(prisma.payment.aggregate).toHaveBeenCalledWith({
+        where: {
+          order: { restaurantId: RESTAURANT_ID },
+          amount: { lt: 0 },
+          createdAt: {
+            gte: new Date('2026-10-27T20:00:00.000Z'),
+            lt: new Date('2026-10-28T20:00:00.000Z'),
+          },
+        },
+        _sum: { amount: true },
+      });
+    });
+
     it('attributes a 01:30 refund to the previous business date', async () => {
       setupOwnerAuth();
       (prisma.order.aggregate as jest.Mock).mockResolvedValue({

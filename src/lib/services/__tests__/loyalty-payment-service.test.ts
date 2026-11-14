@@ -830,6 +830,24 @@ describe('loyalty table payment — transaction', () => {
     expect(prisma.idempotencyRecord.deleteMany).toHaveBeenCalled();
   });
 
+  it('maps an unrecognised unique conflict to BILL_CHANGED, never a 500', async () => {
+    // A partial index or a table this code does not know about: the target
+    // matches no known conflict, so it must still be a typed 409.
+    tx.payment.create.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['payment_reference_partial_idx'] },
+      })
+    );
+
+    await expect(
+      processLoyaltyTablePayment(tableInput())
+    ).rejects.toMatchObject({ code: 'BILL_CHANGED', statusCode: 409 });
+
+    expect(prisma.idempotencyRecord.deleteMany).toHaveBeenCalled();
+  });
+
   it('keeps an offline-created order at full price with no benefit', async () => {
     tx.diningSession.findFirst.mockResolvedValue({
       id: sessionId,

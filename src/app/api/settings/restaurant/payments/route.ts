@@ -28,6 +28,7 @@ import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 import { PaymentMethodsSchema } from '@/lib/validation/settings-schemas';
 import {
   OwnerIdempotencyMismatchError,
+  OwnerMutationConflictError,
   runIdempotentOwnerMutation,
   stableRequestHash,
 } from '@/lib/services/loyalty-owner-idempotency';
@@ -274,6 +275,12 @@ function handlePaymentSettingsError(
   );
 
   if (error instanceof OwnerIdempotencyMismatchError) {
+    return NextResponse.json(
+      { success: false, error: error.message, code: error.code },
+      { status: error.statusCode }
+    );
+  }
+  if (error instanceof OwnerMutationConflictError) {
     return NextResponse.json(
       { success: false, error: error.message, code: error.code },
       { status: error.statusCode }

@@ -130,7 +130,10 @@ silently. Show "Loyalty unavailable offline."
 | 403 on a bill read | A cross-tenant staff/owner hit the legacy bill guard. Do not retry; refresh the session. (Member and loyalty routes return 404 instead.) |
 | `RATE_LIMITED` | Show `retryAfterSeconds`. |
 | `LOYALTY_DISABLED` | Render the neutral disabled state; the bill is still payable. |
-| `BUSINESS_DAY_BLOCKED` | Close refused. Read `details.blockers`; each entry has `type`, `label`, `count` and `amount`. Do not edit figures. Blocker types: `Z_DISCOUNT_SPLIT_MISMATCH` (the discount total does not match the promotion + reward rows) and `Z_IDENTITY_MISMATCH` (the revenue identity does not reconcile). Surface the `label` and `amount`; escalate. |
+| `CUSTOMER_CONFLICT` | The member could not be saved. Re-search the member by phone; retry once. If it persists, continue as a guest bill and take payment normally. |
+| `CONFLICT` | An owner mutation (settings, promotions, members) hit a unique conflict. Re-read the current state and retry with a **fresh** idempotency key; never reuse a key with a changed body. |
+| `RESTAURANT_HAS_HISTORY` | **Owner/admin surface only** — `DELETE /api/restaurants/{id}`. The Counter never receives it. Close the restaurant with `isActive: false`; do not retry the delete. |
+| `BUSINESS_DAY_BLOCKED` | Close refused. Read `details.blockers`; each entry has `type`, `label`, `count` and `amount`. Do not edit figures. Blocker types: `Z_DISCOUNT_SPLIT_MISMATCH` (the discount total does not match the promotion + reward rows) and `Z_IDENTITY_MISMATCH` (the revenue identity does not reconcile). Surface the `label` and `amount`; escalate. A third type, `AFTER_CLOSE_ACTIVITY`, is informational: it can appear on an already-closed day's live Z when a payment or refund was taken between the close and the cutoff. It never blocks a close; show it as a note, not an error. |
 
 ## Do not
 

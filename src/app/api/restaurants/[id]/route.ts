@@ -270,6 +270,37 @@ export async function PUT(
   }
 }
 
+function isForeignKeyConstraintError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'P2003'
+  );
+}
+
+/**
+ * A restaurant that holds financial or loyalty history cannot be deleted: the
+ * loyalty relations are `onDelete: Restrict` and the records must be kept for
+ * seven years (`docs/DATA-RETENTION.md`). The caller deactivates instead.
+ */
+const RESTAURANT_HAS_HISTORY_MESSAGE =
+  'This restaurant has financial or loyalty records and cannot be deleted. ' +
+  'Records are retained for 7 years. Deactivate it instead ' +
+  '(PATCH { "isActive": false }) to close the restaurant.';
+
+function hasHistoryResponse(history?: Record<string, number>) {
+  return NextResponse.json(
+    {
+      success: false,
+      error: RESTAURANT_HAS_HISTORY_MESSAGE,
+      code: 'RESTAURANT_HAS_HISTORY',
+      ...(history ? { history } : {}),
+    },
+    { status: 409 }
+  );
+}
+
 // DELETE - Delete restaurant
 export async function DELETE(
   request: NextRequest,
@@ -298,7 +329,40 @@ export async function DELETE(
       );
     }
 
-    // Delete the restaurant (cascade will handle related records)
+    // Count the history before deleting. A restaurant with any financial or
+    // loyalty record is closed by deactivation, never by deletion: the loyalty
+    // foreign keys are `onDelete: Restrict`, so a delete would otherwise surface
+    // as an untyped 500.
+    const [
+      orders,
+      paymentBatches,
+      businessDays,
+      customers,
+      loyaltyVisits,
+      orderDiscounts,
+    ] = await Promise.all([
+      prisma.order.count({ where: { restaurantId: id } }),
+      prisma.paymentBatch.count({ where: { restaurantId: id } }),
+      prisma.businessDay.count({ where: { restaurantId: id } }),
+      prisma.customer.count({ where: { restaurantId: id } }),
+      prisma.loyaltyVisit.count({ where: { restaurantId: id } }),
+      prisma.orderDiscount.count({ where: { restaurantId: id } }),
+    ]);
+
+    const history = {
+      orders,
+      paymentBatches,
+      businessDays,
+      customers,
+      loyaltyVisits,
+      orderDiscounts,
+    };
+
+    if (Object.values(history).some((count) => count > 0)) {
+      return hasHistoryResponse(history);
+    }
+
+    // No history: the restaurant and its configuration can be removed.
     await prisma.restaurant.delete({
       where: { id },
     });
@@ -308,6 +372,11 @@ export async function DELETE(
       message: `Restaurant "${restaurant.name}" deleted successfully`,
     });
   } catch (error) {
+    // A table the pre-check does not know about can still restrict the delete.
+    // Report the same typed conflict instead of a 500.
+    if (isForeignKeyConstraintError(error)) {
+      return hasHistoryResponse();
+    }
     console.error('Error deleting restaurant:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

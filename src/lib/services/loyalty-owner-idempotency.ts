@@ -31,6 +31,24 @@ export class OwnerIdempotencyMismatchError extends Error {
   }
 }
 
+/**
+ * A unique conflict the idempotency layer does not recognise.
+ *
+ * The receipt is unique per `(restaurantId, action, key)`. When a P2002 arrives
+ * with no receipt to replay, the conflict came from the mutation's own data
+ * (a unique column, or a partial index added later). It is a conflict the
+ * caller resolves by reloading, never a 500.
+ */
+export class OwnerMutationConflictError extends Error {
+  readonly code = 'CONFLICT';
+  readonly statusCode = 409;
+
+  constructor() {
+    super('The request conflicts with existing data. Reload and try again.');
+    this.name = 'OwnerMutationConflictError';
+  }
+}
+
 interface ReceiptEnvelope {
   requestHash: string;
   statusCode: number;
@@ -192,6 +210,8 @@ export async function runIdempotentOwnerMutation<T>(
       if (raced) {
         return replay<T>(raced.response, input.requestHash);
       }
+      // No receipt to replay: the P2002 came from the mutation's own data.
+      throw new OwnerMutationConflictError();
     }
     throw error;
   }

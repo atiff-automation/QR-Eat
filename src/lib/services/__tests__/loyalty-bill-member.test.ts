@@ -546,6 +546,24 @@ describe('Counter member attach/change', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  it('returns BILL_CHANGED for an unrecognised unique conflict, never a 500', async () => {
+    tx.diningSession.update.mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('duplicate', {
+        code: 'P2002',
+        clientVersion: 'test',
+        meta: { target: ['member_attach_partial_idx'] },
+      })
+    );
+
+    const result = await changeMember(baseTableInput());
+
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({
+      success: false,
+      code: 'BILL_CHANGED',
+    });
+  });
+
   it('returns 404 for a cross-tenant table', async () => {
     (prisma.table.findFirst as jest.Mock).mockResolvedValue(null);
 

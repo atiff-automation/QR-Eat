@@ -339,6 +339,15 @@ contract: `NOT_FOUND`, `CART_EMPTY`, `INVALID_REQUEST`,
 `IDEMPOTENCY_KEY_REQUIRED`, `MEMBER_ANONYMIZED`, `CONSENT_WITHDRAWN`,
 `LOYALTY_CONFIGURATION_ERROR`.
 
+Three codes were added by the pre-review fixes (P11-prep). None of them changes a
+figure; each names a state the caller must resolve:
+
+| Code | Status | Surface |
+|---|---|---|
+| `RESTAURANT_HAS_HISTORY` | 409 | Owner/admin `DELETE /api/restaurants/{id}` only. The pre-check body carries `history` counts; a `P2003` fallback returns the code only. Close with `PATCH { "isActive": false }`. |
+| `CUSTOMER_CONFLICT` | 422 | Counter member attach/change (`POST /api/counter/tables/{tableId}/member` and `POST /api/counter/orders/{orderId}/member`). The member could not be saved; the bill stays as it was. The QR create never returns it: a member-resolution failure degrades to a guest order with `loyaltyError`. |
+| `CONFLICT` | 409 | Owner loyalty, promotion, member and settings mutations. A unique conflict with no idempotency receipt to replay; retry with a fresh key after re-reading. |
+
 Registry codes not emitted: `MEMBER_ALREADY_ATTACHED` (attach is idempotent) and
 `LOYALTY_UNAVAILABLE_OFFLINE` (the offline state is client copy only). Both are
 recorded in the register below.
@@ -353,6 +362,15 @@ informational); each carries `type`, `label`, `count` and an absolute `amount`:
 They also appear in the live Z payload and in the Z PDF's blocker section. They
 are `details.blockers[].type` values, not new top-level error codes: the close
 fails with `409 BUSINESS_DAY_BLOCKED`, and the message names the blocker types.
+
+One more Z blocker is **informational and never blocks a close**:
+
+- `AFTER_CLOSE_ACTIVITY` — `Payments or refunds recorded after the day closed`
+  (carries `count` and the absolute `amount`). The live Z ranges over the
+  business-day cutoff, so a payment or refund taken between `closedAt` and the
+  cutoff is in the figures. The blocker says the live Z no longer matches the
+  filed `BusinessDay.snapshot`. It can only appear on an already-closed day,
+  which cannot be closed again.
 
 ## 18.20.11 Interpretation register
 
@@ -383,6 +401,9 @@ fails with `409 BUSINESS_DAY_BLOCKED`, and the message names the blocker types.
 | P10-14 | §18.20.15 B (30 per restaurant per hour) | The restaurant ceiling is owner-set, 1–1000, default 30 | Approved in P7c: a busy venue needs headroom, and the per-phone and per-session limits still bound one customer | No |
 | P9-09 | §18.20.11 | Flag-off payments write `PaymentBatch.outcome = 'GUEST'` | The contract asks for a non-null outcome; the pre-feature code wrote none | **Yes** — a new field appears with loyalty off |
 | P9-10 | §18.20.15 B | The client address is `X-Real-IP` on Railway, not the last `X-Forwarded-For` entry | Measured: the edge prepends the client and appends a per-connection hop | No |
+| D-1 | Retention (7 years, `docs/DATA-RETENTION.md`) | `DELETE /api/restaurants/{id}` returns `409 RESTAURANT_HAS_HISTORY` when the restaurant has orders, payment batches, business days, members, visits or discounts; a `P2003` from a table the pre-check misses maps to the same code | The loyalty foreign keys are `onDelete: Restrict` and the records must be kept for seven years; the old path surfaced a generic 500 | **Yes** — close a restaurant with `PATCH { "isActive": false }`; delete only an empty tenant |
+| D-2 | §18.20.9 (`members:pii`) | The Counter's order contact phone (`Order.customerPhone`) is **order-contact data**, not member PII: it stays unmasked on the Counter order/takeaway/pending responses and is not gated by `members:pii`. The member record's phone stays masked (`maskedPhone`) and gated | The number was given by the customer for that order; masking it breaks the Counter's call-back and delivery flow. The member record is the PII surface | **Yes** — read `customerPhone` for order contact, `member.maskedPhone` for the member |
+| P8-8 | §18.20.8 (the three reports agree) | The live Z ranges over the business-day cutoff — `getBusinessDayStart(businessDate)` to `getBusinessDayEnd(businessDate)` for a closed day, `now` for an open one — instead of `openedAt` → `closedAt`; `openedAt`/`closedAt` stay in the payload for display. A payment or refund after `closedAt` raises an informational `AFTER_CLOSE_ACTIVITY` blocker with `count` and the absolute `amount` | An early close put a post-close refund in a different period than the P&L and the loyalty report | **Yes** — one additive informational blocker type; the filed snapshot is unchanged |
 
 ## 18.20.12 Freeze, compatibility and rollout
 

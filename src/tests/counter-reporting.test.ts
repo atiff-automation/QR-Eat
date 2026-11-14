@@ -5,14 +5,21 @@ import {
   closeCounterBusinessDay,
   CounterReportError,
   getCounterBlockerOrders,
+  getCounterDailyTotals,
   getCounterDayOrders,
   getCounterDaySummary,
+  getCounterSalesPage,
 } from '@/lib/services/reporting/counter-report-service';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
     restaurant: { findUnique: jest.fn() },
-    businessDay: { findFirst: jest.fn() },
+    businessDay: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(),
+      update: jest.fn(),
+      updateMany: jest.fn(),
+    },
     order: {
       findMany: jest.fn(),
       count: jest.fn(),
@@ -97,6 +104,47 @@ function orderRow(overrides: Record<string, unknown> = {}) {
     modifications: [],
     ...overrides,
   };
+}
+
+/** A `Payment` row as `getDayPayments` selects it. */
+function paymentRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'payment-1',
+    orderId: 'order-1',
+    paymentMethod: 'cash',
+    amount: new Prisma.Decimal('20.00'),
+    status: 'PAID',
+    receiptNumber: 'R-1',
+    createdAt: new Date('2026-10-28T00:30:00.000Z'),
+    order: {
+      orderNumber: 'ORD-261028-001',
+      orderType: 'DINE_IN',
+      dailySeq: 1,
+      table: null,
+    },
+    ...overrides,
+  };
+}
+
+/**
+ * Apply the `createdAt` bounds the service sent to Postgres. Honours `lt` and
+ * `lte` separately so a boundary test fails if the service uses the wrong one.
+ */
+function applyCreatedAtRange(
+  rows: Array<{ createdAt: Date }>,
+  where: {
+    createdAt?: { gte: Date; lt?: Date; lte?: Date };
+  }
+) {
+  const range = where.createdAt;
+  if (!range) return [];
+  return rows.filter((row) => {
+    if (row.createdAt.getTime() < range.gte.getTime()) return false;
+    if (range.lt && row.createdAt.getTime() >= range.lt.getTime()) return false;
+    if (range.lte && row.createdAt.getTime() > range.lte.getTime())
+      return false;
+    return true;
+  });
 }
 
 describe('counter reporting', () => {
@@ -871,5 +919,246 @@ describe('counter reporting', () => {
     expect(() => assertVarianceReason(-5, null)).toThrow(/reason is required/i);
     expect(() => assertVarianceReason(-5, '  ')).toThrow(/reason is required/i);
     expect(() => assertVarianceReason(-5, 'Cash payout')).not.toThrow();
+  });
+
+  it('ranges the live Z over the cutoff and flags a refund taken after an early close', async () => {
+    // Business date 2026-10-28 in Asia/Kuala_Lumpur with a 04:00 cutoff spans
+    // 2026-10-27T20:00Z → 2026-10-28T20:00Z. The day closed at 09:00 KL
+    // (01:00Z); the refund was taken at 10:00 KL (02:00Z).
+    const snapshot = {
+      zNumber: 'Z-261028-001',
+      closedAt: '2026-10-28T01:00:00.000Z',
+      summary: { netSales: '20.00' },
+    };
+    (prisma.businessDay.findFirst as jest.Mock).mockResolvedValue({
+      ...day,
+      status: 'CLOSED',
+      openedAt: new Date('2026-10-27T20:00:00.000Z'),
+      closedAt: new Date('2026-10-28T01:00:00.000Z'),
+      snapshot,
+    });
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('20.00'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T00:30:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+      {
+        id: 'payment-2',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('-5.00'),
+        status: 'PAID',
+        receiptNumber: 'R-2',
+        createdAt: new Date('2026-10-28T02:00:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+    (prisma.payment.count as jest.Mock).mockResolvedValue(0);
+
+    const summary = await getCounterDaySummary(restaurantId, 'day-1');
+
+    // The same cutoff range the P&L and loyalty reports use, so the 02:00Z
+    // refund is inside this business date.
+    expect(prisma.payment.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: {
+            gte: new Date('2026-10-27T20:00:00.000Z'),
+            lt: new Date('2026-10-28T20:00:00.000Z'),
+          },
+        }),
+      })
+    );
+    expect(summary.refunds).toBe('5.00');
+    expect(summary.netSales).toBe('15.00');
+    expect(summary.blockers).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'AFTER_CLOSE_ACTIVITY',
+          count: 1,
+          label: 'Payments or refunds recorded after the day closed',
+          amount: '5.00',
+        },
+      ])
+    );
+    // `closedAt` stays for display; the filed snapshot is never rewritten.
+    expect(summary.closedAt).toBe('2026-10-28T01:00:00.000Z');
+    expect(prisma.businessDay.update).not.toHaveBeenCalled();
+    expect(prisma.businessDay.updateMany).not.toHaveBeenCalled();
+    expect(snapshot).toEqual({
+      zNumber: 'Z-261028-001',
+      closedAt: '2026-10-28T01:00:00.000Z',
+      summary: { netSales: '20.00' },
+    });
+  });
+
+  it('does not flag after-close activity on an open day', async () => {
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('20.00'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T01:20:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    expect(
+      summary.blockers.some(
+        (blocker) => blocker.type === 'AFTER_CLOSE_ACTIVITY'
+      )
+    ).toBe(false);
+    // An open day still ends at now, not at the cutoff.
+    const range = (prisma.payment.findMany as jest.Mock).mock.calls[0][0] as {
+      where: { createdAt: { gte: Date; lt: Date } };
+    };
+    expect(range.where.createdAt.gte).toEqual(
+      new Date('2026-10-27T20:00:00.000Z')
+    );
+    expect(range.where.createdAt.lt.getTime()).toBeGreaterThan(
+      Date.now() - 60_000
+    );
+  });
+
+  it('excludes a payment exactly at the cutoff instant from the Z (half-open)', async () => {
+    // Business date 2026-10-28 in Asia/Kuala_Lumpur with a 04:00 cutoff:
+    // [2026-10-27T20:00Z, 2026-10-28T20:00Z). A payment at the closing instant
+    // belongs to 2026-10-29, exactly as the P&L and the loyalty report count it.
+    const cutoffEnd = new Date('2026-10-28T20:00:00.000Z');
+    (prisma.businessDay.findFirst as jest.Mock).mockResolvedValue({
+      ...day,
+      status: 'CLOSED',
+      openedAt: new Date('2026-10-27T20:00:00.000Z'),
+      closedAt: new Date('2026-10-28T01:00:00.000Z'),
+      snapshot: { zNumber: 'Z-261028-001' },
+    });
+    const rows = [
+      paymentRow({
+        id: 'in-window',
+        amount: new Prisma.Decimal('20.00'),
+        createdAt: new Date(cutoffEnd.getTime() - 1),
+      }),
+      paymentRow({
+        id: 'at-cutoff',
+        amount: new Prisma.Decimal('7.00'),
+        createdAt: cutoffEnd,
+      }),
+    ];
+    (prisma.payment.findMany as jest.Mock).mockImplementation(
+      async ({ where }: { where: { createdAt?: { gte: Date; lt?: Date } } }) =>
+        applyCreatedAtRange(rows, where)
+    );
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([orderRow()]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+    (prisma.payment.count as jest.Mock).mockResolvedValue(0);
+
+    const summary = await getCounterDaySummary(restaurantId, 'day-1');
+
+    expect(prisma.payment.findMany).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        where: expect.objectContaining({
+          createdAt: {
+            gte: new Date('2026-10-27T20:00:00.000Z'),
+            lt: cutoffEnd,
+          },
+        }),
+      })
+    );
+    // Only the in-window 20.00 counts; a 7.00 at the closing instant would make
+    // this 27.00.
+    expect(summary.netSales).toBe('20.00');
+  });
+
+  it('includes a post-close refund in the sales page and the daily totals', async () => {
+    // Closed at 09:00 KL (01:00Z); the refund was taken at 10:00 KL (02:00Z),
+    // inside the 04:00 cutoff. The Z shows it, so the sales list and the 7-day
+    // chart must too.
+    const closedDay = {
+      ...day,
+      status: 'CLOSED',
+      businessDate: new Date('2026-10-28T00:00:00.000Z'),
+      openedAt: new Date('2026-10-27T20:00:00.000Z'),
+      closedAt: new Date('2026-10-28T01:00:00.000Z'),
+      snapshot: null,
+    };
+    const openDay = {
+      ...day,
+      id: 'day-2',
+      status: 'OPEN',
+      businessDate: new Date('2026-10-29T00:00:00.000Z'),
+      openedAt: new Date('2026-10-28T20:00:00.000Z'),
+      closedAt: null,
+    };
+    const refund = paymentRow({
+      id: 'refund-1',
+      amount: new Prisma.Decimal('-5.00'),
+      receiptNumber: 'R-2',
+      createdAt: new Date('2026-10-28T02:00:00.000Z'),
+    });
+    (prisma.businessDay.findFirst as jest.Mock).mockImplementation(
+      async ({ where }: { where: { id?: string } }) =>
+        where.id ? closedDay : openDay
+    );
+    (prisma.businessDay.findMany as jest.Mock).mockResolvedValue([
+      closedDay,
+      openDay,
+    ]);
+    (prisma.payment.findMany as jest.Mock).mockImplementation(
+      async ({ where }: { where: { createdAt?: { gte: Date; lt?: Date } } }) =>
+        applyCreatedAtRange([refund], where)
+    );
+    (prisma.payment.count as jest.Mock).mockResolvedValue(1);
+
+    const page = await getCounterSalesPage(restaurantId, {
+      businessDayId: 'day-1',
+    });
+
+    expect(page.businessDate).toBe('2026-10-28');
+    expect(page.rows).toHaveLength(1);
+    expect(page.rows[0]).toMatchObject({ id: 'refund-1', amount: '-5.00' });
+
+    const totals = await getCounterDailyTotals(restaurantId, 2);
+
+    expect(totals).toEqual([
+      { businessDate: '2026-10-28', netSales: '-5.00', orderCount: 1 },
+      { businessDate: '2026-10-29', netSales: '0.00', orderCount: 0 },
+    ]);
   });
 });

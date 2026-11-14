@@ -12,7 +12,10 @@ import {
   PromotionNotFoundError,
   PromotionValidationError,
 } from '@/lib/services/loyalty-promotion-service';
-import { OwnerIdempotencyMismatchError } from '@/lib/services/loyalty-owner-idempotency';
+import {
+  OwnerIdempotencyMismatchError,
+  OwnerMutationConflictError,
+} from '@/lib/services/loyalty-owner-idempotency';
 
 export function handlePromotionRouteError(
   error: unknown,
@@ -47,6 +50,13 @@ export function handlePromotionRouteError(
   }
 
   if (error instanceof OwnerIdempotencyMismatchError) {
+    return NextResponse.json(
+      { success: false, error: error.message, code: error.code },
+      { status: error.statusCode }
+    );
+  }
+
+  if (error instanceof OwnerMutationConflictError) {
     return NextResponse.json(
       { success: false, error: error.message, code: error.code },
       { status: error.statusCode }

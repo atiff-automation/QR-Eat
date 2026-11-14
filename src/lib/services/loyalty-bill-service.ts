@@ -1092,6 +1092,15 @@ function isUniqueConstraintError(error: unknown): boolean {
   );
 }
 
+function uniqueTarget(error: unknown): string[] {
+  if (typeof error !== 'object' || error === null) return [];
+  const meta = (error as { meta?: { target?: unknown } }).meta;
+  const target = meta?.target;
+  if (Array.isArray(target)) return target.map(String);
+  if (typeof target === 'string') return [target];
+  return [];
+}
+
 // ============================================================================
 // Member attach / remove
 // ============================================================================
@@ -1598,6 +1607,20 @@ async function applyMemberChange(input: {
       return memberError(error.status, error.code, error.message);
     }
     if (isUniqueConstraintError(error)) {
+      // The only unique key this path owns is the member-change idempotency
+      // receipt (`IdempotencyRecord` is unique on restaurantId+scope+key). Any
+      // other unique conflict — a partial index on a table added later — is
+      // still a conflict the cashier must resolve by reloading, never a 500.
+      const knownConflict = uniqueTarget(error).some(
+        (entry) => entry === 'key' || entry === 'idempotencyKey'
+      );
+      if (!knownConflict) {
+        return memberError(
+          409,
+          'BILL_CHANGED',
+          'The bill changed. Reload the bill before retrying.'
+        );
+      }
       const raced = await findMemberChangeRecord(
         input.restaurantId,
         input.idempotencyKey,

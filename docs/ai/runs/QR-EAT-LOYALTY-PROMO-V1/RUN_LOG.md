@@ -1432,3 +1432,28 @@ npx prisma migrate status -> up to date (35 migrations)
 ```
 
 **P10-close: COMPLETE.**
+
+**P11-prep — pre-review fixes (2026-11-15):**
+
+Implementer `ses_e23a0afbbffel5PGsOGkRwOqyr`. Verifier `ses_e239155e1ffeFQuCLsLt1uLj76`
+(PASS WITH NOTES). See `REVIEW-28.md`.
+
+Closed: **D-1** (restaurant delete is a typed 409 with history; close with `isActive: false`;
+erasure procedure documented), **D-2** (order contact phone recorded as order-contact data),
+**P8-8** (one half-open cutoff window for the Z, sales page, daily totals, P&L and loyalty
+report; `AFTER_CLOSE_ACTIVITY`), **P9-2** (QR create now takes the `loyalty-bill` lock before
+`tx.order.create`), **P9-3** (unrecognised `P2002` is a typed conflict).
+
+The significant find: QR create held only the `tables` row lock, which the payment path never
+takes, so a payment could settle a bill while a create was in flight. The lock is now taken
+inside the order transaction; ordering is acyclic.
+
+```text
+npx jest src/lib src/app/api src/tests --runInBand -> 1345 passed
+npm run type-check        -> PASS
+npm test -- --runInBand   -> 1418 passed, 11 skipped, 1429 total
+npm run build             -> PASS
+npx tsx scripts/rehearse-concurrency.ts -> PASS 47/47 (Lead run)
+```
+
+**P11-prep: COMPLETE.**

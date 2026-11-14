@@ -22,7 +22,10 @@ import {
   LoyaltySettingsPatchSchema,
   LoyaltySettingsValidationError,
 } from '@/lib/services/loyalty-settings-service';
-import { OwnerIdempotencyMismatchError } from '@/lib/services/loyalty-owner-idempotency';
+import {
+  OwnerIdempotencyMismatchError,
+  OwnerMutationConflictError,
+} from '@/lib/services/loyalty-owner-idempotency';
 
 export async function GET(request: NextRequest) {
   try {
@@ -128,6 +131,13 @@ function handleLoyaltySettingsError(
   }
 
   if (error instanceof OwnerIdempotencyMismatchError) {
+    return NextResponse.json(
+      { success: false, error: error.message, code: error.code },
+      { status: error.statusCode }
+    );
+  }
+
+  if (error instanceof OwnerMutationConflictError) {
     return NextResponse.json(
       { success: false, error: error.message, code: error.code },
       { status: error.statusCode }

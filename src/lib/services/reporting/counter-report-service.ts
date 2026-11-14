@@ -6,6 +6,7 @@ import {
   BusinessDayClock,
   formatBusinessDate,
   getBusinessDate,
+  getBusinessDayEnd,
   getBusinessDayStart,
   getNextBusinessDateAfterClose,
   parseBusinessDateFromDb,
@@ -347,7 +348,10 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
     where: {
       order: { restaurantId },
       status: 'PAID' as const,
-      createdAt: { gte: start, lte: end },
+      // Half-open `[start, end)`, the same window the P&L and the loyalty
+      // report use: a payment exactly at the cutoff instant belongs to the
+      // next business date.
+      createdAt: { gte: start, lt: end },
     },
     select: {
       id: true,
@@ -832,8 +836,15 @@ export async function getCounterDaySummary(
   }
 
   const businessDate = parseBusinessDateFromDb(businessDay.businessDate);
-  const start = businessDay.openedAt;
-  const end = businessDay.closedAt ?? new Date();
+  // One range source for the three reports (§18.20.8): the Z ranges over the
+  // business-day cutoff, not over the close instant. A day that closes early
+  // still owns every payment up to its 04:00 cutoff, so a late refund lands on
+  // the day the P&L and the loyalty report put it on. `openedAt`/`closedAt`
+  // stay in the payload for display only.
+  const start = getBusinessDayStart(businessDate, clock);
+  const end = businessDay.closedAt
+    ? getBusinessDayEnd(businessDate, clock)
+    : new Date();
   const payments = await getDayPayments(restaurantId, start, end);
   // A refund payment carries the original order id, but that order's money did
   // not come in on this business day. Only positive payments put an order into
@@ -975,6 +986,28 @@ export async function getCounterDaySummary(
   // `OrderDiscount` rows, and a legacy total can predate the tax/service
   // formula; neither may turn the report or the close path into a 500.
   const blockers: CounterBlocker[] = [];
+
+  // A day closed early can still collect a payment or a refund before its
+  // cutoff. The money is in the figures above (the range is the cutoff), and
+  // the note says why the live Z no longer matches the filed snapshot.
+  if (businessDay.closedAt) {
+    const closedAt = businessDay.closedAt;
+    const afterClose = payments.filter(
+      (payment) => payment.createdAt.getTime() > closedAt.getTime()
+    );
+    if (afterClose.length > 0) {
+      const afterCloseAmount = afterClose.reduce(
+        (sum, payment) => sum.plus(decimal(payment.amount).abs()),
+        decimal(0)
+      );
+      blockers.push({
+        type: 'AFTER_CLOSE_ACTIVITY',
+        count: afterClose.length,
+        label: 'Payments or refunds recorded after the day closed',
+        amount: money(afterCloseAmount),
+      });
+    }
+  }
 
   const discountSplitTotal = promotionDiscount.plus(rewardDiscount);
   const discountSplitDelta = discountSplitTotal.minus(decimal(discounts));
@@ -1254,14 +1287,19 @@ export async function getCounterSalesPage(
       404
     );
   }
-  const start = businessDay.openedAt;
-  const end = businessDay.closedAt ?? new Date();
+  const businessDate = parseBusinessDateFromDb(businessDay.businessDate);
+  const start = getBusinessDayStart(businessDate, clock);
+  const end = businessDay.closedAt
+    ? getBusinessDayEnd(businessDate, clock)
+    : new Date();
   const limit = Math.min(Math.max(options.limit ?? 30, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
   const where = {
     order: { restaurantId },
     status: 'PAID' as const,
-    createdAt: { gte: start, lte: end },
+    // The same cutoff window and half-open bounds as the Z, so a payment after
+    // an early close is on the day's sales list too.
+    createdAt: { gte: start, lt: end },
   };
   const [rows, total] = await Promise.all([
     prisma.payment.findMany({
@@ -1292,7 +1330,7 @@ export async function getCounterSalesPage(
   ]);
 
   return {
-    businessDate: parseBusinessDateFromDb(businessDay.businessDate),
+    businessDate,
     timezone: clock.timezone,
     asOf: new Date().toISOString(),
     rows: rows.map(
@@ -1328,6 +1366,7 @@ export async function getCounterDailyTotals(
 ): Promise<
   Array<{ businessDate: BusinessDate; netSales: string; orderCount: number }>
 > {
+  const { clock } = await getRestaurantClock(restaurantId);
   const current = await getOpenBusinessDay(restaurantId);
   const currentDate = parseBusinessDateFromDb(current.businessDate);
   const startDate = addBusinessDays(currentDate, -(Math.max(days, 1) - 1));
@@ -1356,10 +1395,12 @@ export async function getCounterDailyTotals(
       result.push({ businessDate: date, netSales: '0.00', orderCount: 0 });
       continue;
     }
+    // Same cutoff window and half-open bounds as the Z: a payment or refund
+    // after an early close still belongs to its business date.
     const payments = await getDayPayments(
       restaurantId,
-      day.openedAt,
-      day.closedAt ?? new Date()
+      getBusinessDayStart(date, clock),
+      day.closedAt ? getBusinessDayEnd(date, clock) : new Date()
     );
     const netSales = payments.reduce(
       (sum, payment) => sum + Number(payment.amount),

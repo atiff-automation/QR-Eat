@@ -2120,19 +2120,17 @@ async function processLoyaltyPayment(
         }
       }
 
-      if (!isVisitConflict) {
-        // A receipt-number collision or an unexpected unique conflict must not
-        // be reported as "already counted".
-        throw error;
-      }
-
-      // A live visit/card unique conflict means "already counted": no charge,
-      // no partial benefit. The whole transaction rolled back.
+      // Any P2002 this code does not recognise (a receipt-number collision, a
+      // partial index added later) is still a conflict, never a 500: the
+      // transaction rolled back, so nothing was charged and no benefit was
+      // applied. Only the visit/card conflict gets the "already counted" copy.
       if (claim.created) {
         await clearFailedPaymentRecord(input);
       }
       throw new LoyaltyPaymentError(
-        'Today’s visit is already counted. Reload the bill before taking payment.',
+        isVisitConflict
+          ? 'Today’s visit is already counted. Reload the bill before taking payment.'
+          : 'The bill changed. Reload the bill before taking payment.',
         'BILL_CHANGED',
         409
       );

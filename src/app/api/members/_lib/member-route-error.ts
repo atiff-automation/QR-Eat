@@ -8,7 +8,10 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { RBACError } from '@/lib/rbac/types';
-import { OwnerIdempotencyMismatchError } from '@/lib/services/loyalty-owner-idempotency';
+import {
+  OwnerIdempotencyMismatchError,
+  OwnerMutationConflictError,
+} from '@/lib/services/loyalty-owner-idempotency';
 import {
   MemberConfigurationError,
   MemberNotFoundError,
@@ -79,6 +82,13 @@ export function handleMemberRouteError(
   }
 
   if (error instanceof OwnerIdempotencyMismatchError) {
+    return NextResponse.json(
+      { success: false, error: error.message, code: error.code },
+      { status: error.statusCode }
+    );
+  }
+
+  if (error instanceof OwnerMutationConflictError) {
     return NextResponse.json(
       { success: false, error: error.message, code: error.code },
       { status: error.statusCode }

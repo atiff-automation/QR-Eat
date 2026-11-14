@@ -253,6 +253,26 @@ describe('loyalty customer service', () => {
     });
   });
 
+  it('returns a typed CUSTOMER_CONFLICT for an unrecognised unique conflict', async () => {
+    // No ACTIVE row to fall back to, so the P2002 target is not the known
+    // (restaurantId, phoneHash) index. It must not surface as a 500.
+    (prisma.customer.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.customer.create as jest.Mock).mockRejectedValue(
+      Object.assign(new Error('duplicate'), {
+        code: 'P2002',
+        meta: { target: ['customer_reference_partial_idx'] },
+      })
+    );
+
+    const result = await resolveOrCreateCustomer(baseInput());
+
+    expect(result.customerId).toBeNull();
+    expect(result.loyaltyError).toEqual({
+      code: 'CUSTOMER_CONFLICT',
+      message: expect.any(String),
+    });
+  });
+
   it('excludes an anonymised row from the ACTIVE lookup and re-enrols', async () => {
     (prisma.customer.findFirst as jest.Mock).mockImplementation(
       async ({ where }: { where: { status: string } }) =>

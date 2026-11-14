@@ -555,6 +555,26 @@ export async function POST(request: NextRequest) {
       const plan = loyaltyPlan;
       const loyaltyOrderId = plan ? newLoyaltyOrderId() : null;
 
+      // The bill is a shared object: this transaction inserts an order, writes
+      // its discount rows and bumps `billRevision`. Payment serializes on the
+      // `loyalty-bill:{restaurantId}:{sessionId}` advisory lock and re-reads the
+      // bill under it before validating `expectedBillRevision`
+      // (loyalty-payment-service.ts: `acquireLock` then `resolvePaymentBill`).
+      // `ensureOpenDiningSession` only takes the `tables` row lock, which a
+      // payment never touches, so without this lock a payment can commit
+      // against a bill read taken before this order exists and still pass its
+      // revision check. Take the same key here, before the order insert, so the
+      // two transactions are ordered: either the payment commits first and this
+      // order joins a settled bill, or it waits and sees the new revision.
+      // Lock order stays `tables` row → `loyalty-bill`; no bill path takes the
+      // `tables` row lock, so the pair cannot deadlock.
+      if (plan) {
+        const billLockKey = `loyalty-bill:${table.restaurant.id}:${diningSession.id}`;
+        await tx.$queryRaw<Array<{ lock: string }>>`
+          SELECT pg_advisory_xact_lock(hashtext(${billLockKey})::bigint)::text AS lock
+        `;
+      }
+
       if (plan && plan.idempotencyKey && plan.requestHash) {
         await startOrderCreateRecord(tx, {
           restaurantId: table.restaurant.id,
