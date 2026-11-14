@@ -5,6 +5,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
+import { LoyaltyConfigurationError } from '@/lib/loyalty/phone';
 import {
   changeMember,
   removeMember,
@@ -256,5 +257,70 @@ describe('Counter member routes', () => {
 
     expect(response.status).toBe(409);
     expect(json).toMatchObject({ success: false, code: 'BILL_CHANGED' });
+  });
+
+  type MemberHandler = (
+    request: NextRequest,
+    context: { params: Promise<Record<string, string>> }
+  ) => Promise<Response>;
+
+  async function expectConfigurationError(
+    handler: unknown,
+    params: Record<string, string>,
+    body: unknown,
+    service: jest.Mock
+  ) {
+    service.mockRejectedValueOnce(
+      new LoyaltyConfigurationError('PHONE_HMAC_KEY_MISSING')
+    );
+
+    const response = await (handler as MemberHandler)(
+      postRequest('/api/counter/member', body),
+      { params: Promise.resolve(params) }
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(500);
+    expect(json).toMatchObject({
+      success: false,
+      code: 'LOYALTY_CONFIGURATION_ERROR',
+    });
+    expect(json).not.toHaveProperty('phone');
+  }
+
+  it('maps a missing HMAC key on the table attach route', async () => {
+    await expectConfigurationError(
+      attachTableMember,
+      { tableId },
+      attachBody,
+      changeMember as jest.Mock
+    );
+  });
+
+  it('maps a missing HMAC key on the table remove route', async () => {
+    await expectConfigurationError(
+      removeTableMember,
+      { tableId },
+      { expectedBillRevision: 7 },
+      removeMember as jest.Mock
+    );
+  });
+
+  it('maps a missing HMAC key on the order attach route', async () => {
+    await expectConfigurationError(
+      attachOrderMember,
+      { orderId },
+      attachBody,
+      changeMember as jest.Mock
+    );
+  });
+
+  it('maps a missing HMAC key on the order remove route', async () => {
+    await expectConfigurationError(
+      removeOrderMember,
+      { orderId },
+      { expectedBillRevision: 7 },
+      removeMember as jest.Mock
+    );
   });
 });

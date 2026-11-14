@@ -371,7 +371,11 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     tx.loyaltyVisit.create.mockResolvedValue({});
     tx.loyaltyCard.update.mockResolvedValue({});
     (prisma.$transaction as jest.Mock).mockImplementation(
-      async (callback: (client: typeof tx) => unknown) => callback(tx)
+      async (
+        callback: (
+          client: typeof tx & { $queryRaw: typeof prisma.$queryRaw }
+        ) => unknown
+      ) => callback(Object.assign(tx, { $queryRaw: prisma.$queryRaw }))
     );
 
     (prepareLoyaltyCreate as jest.Mock).mockResolvedValue({ kind: 'legacy' });
@@ -447,6 +451,7 @@ describe('POST /api/qr/orders/create — loyalty', () => {
         _strings: TemplateStringsArray,
         ...values: unknown[]
       ): Promise<Array<{ count: number }>> => {
+        if (values.length < 5) return [];
         const [, restaurant, scope, subject, start] = values;
         const key = [
           restaurant,
@@ -460,14 +465,14 @@ describe('POST /api/qr/orders/create — loyalty', () => {
       }
     );
 
+    // A create without a quote still counts (P7c); a quote-bearing create does
+    // not re-count what the quote consumed.
     let response: Response | null = null;
     for (let attempt = 0; attempt < 11; attempt += 1) {
       response = await createQrOrder(
         request({
           tableId,
           sessionId,
-          quoteId: 'quote-1',
-          expectedTotal: '55.68',
           customerInfo: {
             phone: '+60123456789',
             consent: true,
@@ -487,11 +492,12 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     );
     expect(json).toEqual({
       success: false,
-      error: 'Too many attempts. Please try again later.',
+      error: 'Please order at the counter — our staff will help.',
       code: 'RATE_LIMITED',
       retryAfterSeconds: expect.any(Number),
     });
     expect(json.retryAfterSeconds).toBeGreaterThan(0);
+    expect(json.retryAfterSeconds % 10).toBe(0);
     expect(json).not.toHaveProperty('phone');
     expect(json).not.toHaveProperty('phoneHash');
     expect(json).not.toHaveProperty('visitState');
@@ -500,6 +506,153 @@ describe('POST /api/qr/orders/create — loyalty', () => {
 
     // The 11th attempt was refused before the loyalty create resolved a member.
     expect(prepareLoyaltyCreate).toHaveBeenCalledTimes(10);
+  });
+
+  it('does not re-count a create that carries a phone-bound quote (P7c)', async () => {
+    // A quote bound to a phone/member already consumed the buckets at quote
+    // time, so the create must not count again.
+    (getQuote as jest.Mock).mockResolvedValue({
+      quoteId: 'quote-1',
+      orderId: null,
+      customerId: 'customer-1',
+      phoneHash: 'hash-1',
+    });
+
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        if (values.length < 5) return [];
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    const response = await createQrOrder(
+      request({
+        tableId,
+        sessionId,
+        quoteId: 'quote-1',
+        expectedTotal: '55.68',
+        customerInfo: {
+          phone: '+60123456789',
+          consent: true,
+          consentVersion: 'v1',
+          consentTextHash: 'hash',
+        },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(counts.size).toBe(0);
+  });
+
+  it('does not give a guest quote a free pass when a phone is attached (F-01)', async () => {
+    // A guest quote consumed no bucket. Attaching a phone must still be
+    // limited, and the service rejects the mismatch before creating a member.
+    (getQuote as jest.Mock).mockResolvedValue({
+      quoteId: 'quote-1',
+      orderId: null,
+      customerId: null,
+      phoneHash: null,
+    });
+    (prepareLoyaltyCreate as jest.Mock).mockResolvedValue({
+      kind: 'error',
+      status: 409,
+      code: 'QUOTE_CHANGED',
+      message: 'The quote is no longer valid. Request a new quote.',
+    });
+
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        if (values.length < 5) return [];
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    const response = await createQrOrder(
+      request({
+        tableId,
+        sessionId,
+        quoteId: 'quote-1',
+        expectedTotal: '55.68',
+        customerInfo: {
+          phone: '+60123456789',
+          consent: true,
+          consentVersion: 'v1',
+          consentTextHash: 'hash',
+        },
+      })
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json).toMatchObject({
+      success: false,
+      code: 'QUOTE_CHANGED',
+    });
+    // The guest quote did not skip the limiter: one unit per bucket.
+    expect(counts.size).toBe(4);
+    expect(prepareLoyaltyCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('counts exactly one unit per bucket for a create without a quote', async () => {
+    const counts = new Map<string, number>();
+    (prisma.$queryRaw as jest.Mock).mockImplementation(
+      async (
+        _strings: TemplateStringsArray,
+        ...values: unknown[]
+      ): Promise<Array<{ count: number }>> => {
+        if (values.length < 5) return [];
+        const [, restaurant, scope, subject, start] = values;
+        const key = [
+          restaurant,
+          scope,
+          subject,
+          (start as Date).toISOString(),
+        ].join('|');
+        const next = (counts.get(key) ?? 0) + 1;
+        counts.set(key, next);
+        return [{ count: next }];
+      }
+    );
+
+    const response = await createQrOrder(
+      request({
+        tableId,
+        sessionId,
+        customerInfo: { phone: '+60123456789' },
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(counts.size).toBe(4);
+    for (const value of counts.values()) {
+      expect(value).toBe(1);
+    }
   });
 
   it('stores the customer session phone in E.164', async () => {
@@ -718,7 +871,7 @@ describe('POST /api/qr/orders/create — loyalty', () => {
       success: false,
       code: 'QUOTE_CHANGED',
     });
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.order.create).not.toHaveBeenCalled();
   });
 
   it('rejects a member-mismatched quote with QUOTE_CHANGED', async () => {
@@ -742,7 +895,7 @@ describe('POST /api/qr/orders/create — loyalty', () => {
 
     expect(response.status).toBe(409);
     expect(json.code).toBe('QUOTE_CHANGED');
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.order.create).not.toHaveBeenCalled();
   });
 
   it.each([
@@ -812,7 +965,7 @@ describe('POST /api/qr/orders/create — loyalty', () => {
 
     expect(response.status).toBe(200);
     expect(json.order.id).toBe('order-original');
-    expect(prisma.$transaction).not.toHaveBeenCalled();
+    expect(tx.order.create).not.toHaveBeenCalled();
     expect(consumeQuote).not.toHaveBeenCalled();
   });
 

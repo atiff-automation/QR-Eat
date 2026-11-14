@@ -37,6 +37,11 @@ import { toMoneyString } from '@/lib/loyalty/money';
 import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
 import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
 import {
+  recordLoyaltyLookupMiss,
+  recordRateLimited,
+  recordRateLimitUnavailable,
+} from '@/lib/loyalty/enumeration';
+import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
@@ -134,11 +139,12 @@ function idempotencyMismatchResponse() {
 
 function rateLimitedResponse(refusal: RateLimitRefusal) {
   // No phone, phoneHash, member id, count or scope: the refusal must not
-  // distinguish a member from a non-member.
+  // distinguish a member from a non-member. A refused QR customer is sent to
+  // the counter; the retry window stays in the header for clients that need it.
   return NextResponse.json(
     {
       success: false,
-      error: 'Too many attempts. Please try again later.',
+      error: 'Please order at the counter — our staff will help.',
       code: 'RATE_LIMITED',
       retryAfterSeconds: refusal.retryAfterSeconds,
     },
@@ -317,22 +323,61 @@ export async function POST(request: NextRequest) {
       '✅ [QR ORDER CREATE] Table status check passed, allowing order'
     );
 
-    // Durable hourly limits (§18.20.15 B). Loyalty must be active for the
-    // restaurant; a flag-off request writes no rows and follows the legacy
-    // path exactly. Enforcement happens before `prepareLoyaltyCreate` resolves
-    // a member, so an enumeration attempt costs nothing.
+    // Durable hourly limits (§18.20.15 B, P7c). Loyalty must be active for the
+    // restaurant; a flag-off request writes no rows and follows the legacy path
+    // exactly. A create that carries a `quoteId` does **not** re-count: the
+    // quote already consumed the buckets, so one order costs one unit. A create
+    // without a quote still counts. A guest request (no phone) is skipped inside
+    // the limiter. Enforcement happens before `prepareLoyaltyCreate` resolves a
+    // member, so an enumeration attempt costs nothing.
     if (isLoyaltyGloballyEnabled()) {
       const loyaltySettings = await prisma.loyaltySettings.findUnique({
         where: { restaurantId: table.restaurant.id },
       });
       if (isLoyaltyActive(loyaltySettings)) {
-        const refusal = await enforceRateLimits({
-          restaurantId: table.restaurant.id,
-          sessionId: tableCart.sessionId,
-          phone: customerInfo?.phone ?? null,
-          ip: trustedIp(request),
-        });
-        if (refusal) return rateLimitedResponse(refusal);
+        // A quote bound to a phone/member already consumed the buckets when it
+        // was issued, so a create must not re-count it. A **guest** quote
+        // consumed nothing and buys no free pass: the limiter still applies, and
+        // the service rejects the phone/quote mismatch before any member write
+        // (P7c F-01).
+        let quoteIsPhoneBound = false;
+        if (quoteId) {
+          const quote = await getQuote({
+            restaurantId: table.restaurant.id,
+            quoteId,
+            sessionId: tableCart.sessionId,
+            tableId,
+          });
+          quoteIsPhoneBound =
+            quote !== null &&
+            (quote.phoneHash !== null || quote.customerId !== null);
+        }
+
+        if (!quoteIsPhoneBound) {
+          const ip = trustedIp(request);
+          const decision = await enforceRateLimits({
+            restaurantId: table.restaurant.id,
+            sessionId: tableCart.sessionId,
+            phone: customerInfo?.phone ?? null,
+            ip,
+            limits: { restaurant: loyaltySettings?.lookupLimitPerHour },
+          });
+
+          if (decision.failedOpen) {
+            await recordRateLimitUnavailable({
+              restaurantId: table.restaurant.id,
+              ip,
+            });
+          } else if (!decision.allowed && decision.refusal) {
+            await recordRateLimited({
+              restaurantId: table.restaurant.id,
+              scope: decision.refusal.scope,
+              subject: decision.refusal.subject,
+              ip,
+            });
+            return rateLimitedResponse(decision.refusal);
+          }
+        }
       }
     }
 
@@ -452,6 +497,21 @@ export async function POST(request: NextRequest) {
     const loyaltyPlanForRequest: LoyaltyCreatePlan | null =
       loyalty.kind === 'ready' ? loyalty.plan : null;
     loyaltyPlan = loyaltyPlanForRequest;
+
+    // A valid, consented phone that created a new member was a phone-hash
+    // miss. Detection only: the response is unchanged (§18.20.15 B).
+    if (
+      loyalty.kind === 'ready' &&
+      loyalty.plan.memberIsNew &&
+      loyalty.plan.phoneHash
+    ) {
+      await recordLoyaltyLookupMiss({
+        restaurantId: table.restaurant.id,
+        ip: trustedIp(request),
+        phoneHash: loyalty.plan.phoneHash,
+        requestPath: request.nextUrl.pathname,
+      });
+    }
 
     // Generate sequential order number
     const { number: dailySeq, formatted: orderNumber } =
@@ -760,7 +820,9 @@ export async function POST(request: NextRequest) {
         'Order submitted successfully! Please pay at the counter when ready.',
     });
   } catch (error) {
-    console.error('QR order creation error:', error);
+    // P7b-6: never log the raw error object. A Prisma error from the
+    // rate-limit query can embed its parameters, including the IP subject.
+    console.error('QR order creation failed.');
 
     if (error instanceof QuoteChangedError) {
       return NextResponse.json(

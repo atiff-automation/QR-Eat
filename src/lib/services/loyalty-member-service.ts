@@ -968,6 +968,12 @@ export async function deleteMember(
             })
           : { count: 0 };
 
+      // P7b-1: `Order.idempotencyHash` is deliberately retained here. The
+      // counter replay path compares it to a freshly computed digest; nulling
+      // it would turn every legitimate retry after anonymisation into
+      // `IDEMPOTENCY_MISMATCH`. It is keyed with `hashPhone` when the key is
+      // configured, and otherwise omits the phone and name from the digest, so
+      // it is not brute-forceable either way.
       const orderUpdate = await tx.order.updateMany({
         where: {
           restaurantId: input.restaurantId,

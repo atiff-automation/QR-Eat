@@ -37,6 +37,7 @@ const {
 const initialData = {
   enabled: true,
   visitsRequired: '3',
+  lookupLimitPerHour: '30',
   rewardType: 'PERCENT' as const,
   rewardValue: '10.00',
   maxDiscount: '15.00',
@@ -82,6 +83,8 @@ describe('LoyaltySection states', () => {
     expect(markup).toContain('Changes apply to new visit card cycles');
     expect(markup).toContain('Enable rewards');
     expect(markup).toContain('Visits required');
+    expect(markup).toContain('Loyalty orders per hour');
+    expect(markup).toContain('contract minimum is 30');
     expect(markup).toContain('Receipt label');
     expect(markup).toContain('Save rewards settings');
   });

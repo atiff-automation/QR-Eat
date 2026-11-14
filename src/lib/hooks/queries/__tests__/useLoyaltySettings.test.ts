@@ -53,6 +53,7 @@ function getMutationConfig(hookFn: (...args: unknown[]) => unknown) {
 const baseForm = {
   enabled: true,
   visitsRequired: '3',
+  lookupLimitPerHour: '30',
   rewardType: 'PERCENT' as const,
   rewardValue: '10',
   maxDiscount: '15',
@@ -117,6 +118,7 @@ describe('loyalty settings form validation', () => {
       validateLoyaltySettingsForm({
         ...baseForm,
         visitsRequired: '2',
+        lookupLimitPerHour: '1',
         minDailySpend: '0.00',
         rewardValue: '0.00',
       })
@@ -126,10 +128,20 @@ describe('loyalty settings form validation', () => {
       validateLoyaltySettingsForm({
         ...baseForm,
         visitsRequired: '10',
+        lookupLimitPerHour: '1000',
         minDailySpend: '1000.00',
         rewardValue: '100.00',
       })
     ).toEqual({});
+  });
+
+  it('rejects lookupLimitPerHour outside 1–1000 and non-integers', () => {
+    for (const lookupLimitPerHour of ['0', '1001', '30.5', '']) {
+      expect(
+        validateLoyaltySettingsForm({ ...baseForm, lookupLimitPerHour })
+          .lookupLimitPerHour
+      ).toBeTruthy();
+    }
   });
 
   it('rejects visitsRequired outside 2–10 and non-integers', () => {

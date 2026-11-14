@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import { prisma } from '@/lib/database';
 import { hashNoticeText } from '@/lib/loyalty/consent';
+import { hashPhone } from '@/lib/loyalty/phone';
 import {
   CART_ORDER_ID,
   cartLinesFromItems,
@@ -28,6 +29,12 @@ jest.mock('@/lib/database', () => ({
     idempotencyRecord: { findFirst: jest.fn() },
   },
 }));
+
+jest.mock('@/lib/services/loyalty-customer-service', () => ({
+  resolveOrCreateCustomer: jest.fn(),
+}));
+
+import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
 
 const now = new Date('2026-11-13T10:00:00.000Z');
 
@@ -607,9 +614,41 @@ describe('prepareLoyaltyCreate guards', () => {
     expectedTotal: '55.68',
   };
 
+  function quoteRow(overrides: Record<string, unknown> = {}) {
+    return {
+      id: 'quote-1',
+      restaurantId: 'restaurant-1',
+      tableId: 'table-1',
+      sessionId: 'session-1',
+      cartKey: 'cart-key',
+      cartHash: 'cart-hash',
+      billRevision: 7,
+      customerId: null,
+      phoneHash: null,
+      promotionDiscountAmount: new Decimal('0.00'),
+      visitState: 'GUEST',
+      projectedRewardAmount: new Decimal('0.00'),
+      rewardLabel: null,
+      subtotal: new Decimal('60.00'),
+      discountAmount: new Decimal('0.00'),
+      taxAmount: new Decimal('3.60'),
+      serviceCharge: new Decimal('6.00'),
+      totalAmount: new Decimal('69.60'),
+      projectedTotal: new Decimal('69.60'),
+      cashPayable: new Decimal('69.60'),
+      issuedAt: new Date('2026-11-13T09:55:00.000Z'),
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      consumedAt: null,
+      orderId: null,
+      quotePromotions: [],
+      ...overrides,
+    };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.LOYALTY_ENABLED = 'true';
+    process.env.LOYALTY_PHONE_HMAC_KEY = 'test-key';
     (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue(
       settingsRow
     );
@@ -617,6 +656,7 @@ describe('prepareLoyaltyCreate guards', () => {
 
   afterAll(() => {
     delete process.env.LOYALTY_ENABLED;
+    delete process.env.LOYALTY_PHONE_HMAC_KEY;
   });
 
   it('returns legacy without a database read when the flag is off', async () => {
@@ -640,5 +680,67 @@ describe('prepareLoyaltyCreate guards', () => {
       code: 'QUOTE_CHANGED',
     });
     expect(prisma.quote.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('rejects a phone attached to a guest quote before creating a member (F-01)', async () => {
+    (resolveOrCreateCustomer as jest.Mock).mockResolvedValue({
+      customerId: 'customer-1',
+      isNew: true,
+      consentOk: true,
+      loyaltyError: null,
+    });
+    (prisma.quote.findFirst as jest.Mock).mockResolvedValue(quoteRow());
+
+    const result = await prepareLoyaltyCreate({
+      ...input,
+      customerInfo: {
+        phone: '+60123456789',
+        consent: true,
+        consentVersion: 'v1',
+        consentTextHash: hashNoticeText(noticeText),
+      },
+    });
+
+    expect(result).toMatchObject({
+      kind: 'error',
+      status: 409,
+      code: 'QUOTE_CHANGED',
+    });
+    // The guard runs before `resolveMember()`, so no Customer row is written.
+    expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
+  });
+
+  it('rejects a different phone on a phone-bound quote before creating a member (F-01a)', async () => {
+    (resolveOrCreateCustomer as jest.Mock).mockResolvedValue({
+      customerId: 'customer-a',
+      isNew: false,
+      consentOk: true,
+      loyaltyError: null,
+    });
+    (prisma.quote.findFirst as jest.Mock).mockResolvedValue(
+      quoteRow({
+        customerId: 'customer-a',
+        phoneHash: hashPhone('+60123456789'),
+      })
+    );
+
+    const result = await prepareLoyaltyCreate({
+      ...input,
+      customerInfo: {
+        // A different phone with valid consent. Without the binding check this
+        // would autocommit a Customer row for phone B.
+        phone: '+60198765432',
+        consent: true,
+        consentVersion: 'v1',
+        consentTextHash: hashNoticeText(noticeText),
+      },
+    });
+
+    expect(result).toMatchObject({
+      kind: 'error',
+      status: 409,
+      code: 'QUOTE_CHANGED',
+    });
+    expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
   });
 });

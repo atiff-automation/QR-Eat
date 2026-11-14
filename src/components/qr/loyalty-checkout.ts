@@ -141,7 +141,8 @@ const CONSENT_VERSION_REQUIRED_MESSAGE =
   'Review the rewards notice before joining.';
 const CONSENT_STALE_MESSAGE =
   'The rewards notice changed. Review and agree again.';
-const RATE_LIMITED_FALLBACK = 'Try again later.';
+const RATE_LIMITED_MESSAGE =
+  'Please order at the counter — our staff will help.';
 const LOYALTY_DISABLED_MESSAGE = 'Loyalty is off for this restaurant.';
 const GENERIC_LOYALTY_ERROR_MESSAGE =
   'Could not add rewards. Staff can help at the counter.';
@@ -353,14 +354,6 @@ export function quoteUnavailableCode(value: unknown): string | null {
   return null;
 }
 
-export function retryAfterSeconds(value: unknown): number | null {
-  if (!value || typeof value !== 'object') return null;
-  const record = value as Record<string, unknown>;
-  return typeof record.retryAfterSeconds === 'number'
-    ? record.retryAfterSeconds
-    : null;
-}
-
 export interface ApiFailure {
   code?: string | null;
   retryAfterSeconds?: number | null;
@@ -375,10 +368,7 @@ export type CreateFailureAction =
   | { action: 'disabled'; message: string }
   | { action: 'staff-help'; message: string };
 
-export function errorCopyFor(
-  code: string | null | undefined,
-  seconds?: number | null
-): string {
+export function errorCopyFor(code: string | null | undefined): string {
   switch (code) {
     case 'PHONE_INVALID':
       return PHONE_INVALID_MESSAGE;
@@ -388,11 +378,11 @@ export function errorCopyFor(
       return CONSENT_VERSION_REQUIRED_MESSAGE;
     case 'CONSENT_STALE':
       return CONSENT_STALE_MESSAGE;
-    case 'RATE_LIMITED': {
-      const retry = Math.ceil(seconds ?? 0);
-      if (!Number.isFinite(retry) || retry <= 0) return RATE_LIMITED_FALLBACK;
-      return `Try again in ${retry} ${retry === 1 ? 'second' : 'seconds'}.`;
-    }
+    case 'RATE_LIMITED':
+      // A refused QR customer is sent to the counter. The server rounds the
+      // retry window, but the customer is never told to schedule a retry: a
+      // refusal is not a transient error they can usefully repeat.
+      return RATE_LIMITED_MESSAGE;
     case 'LOYALTY_DISABLED':
       return LOYALTY_DISABLED_MESSAGE;
     default:
@@ -432,7 +422,7 @@ export function resolveCreateFailure(failure: ApiFailure): CreateFailureAction {
     case 'RATE_LIMITED':
       return {
         action: 'rate-limited',
-        message: errorCopyFor('RATE_LIMITED', failure.retryAfterSeconds),
+        message: errorCopyFor('RATE_LIMITED'),
       };
     case 'LOYALTY_DISABLED':
       return { action: 'disabled', message: errorCopyFor('LOYALTY_DISABLED') };

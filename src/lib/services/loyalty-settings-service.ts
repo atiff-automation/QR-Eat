@@ -53,6 +53,7 @@ function moneyInput(label: string) {
 export const LoyaltySettingsPatchSchema = z.object({
   enabled: z.boolean().optional(),
   visitsRequired: z.number().int().min(2).max(10).optional(),
+  lookupLimitPerHour: z.number().int().min(1).max(1000).optional(),
   rewardType: z.enum(['PERCENT', 'FIXED']).optional(),
   rewardValue: moneyInput('rewardValue').optional(),
   maxDiscount: moneyInput('maxDiscount').optional(),
@@ -81,6 +82,7 @@ export type LoyaltySettingsPatch = z.infer<typeof LoyaltySettingsPatchSchema>;
 interface EffectiveSettings {
   enabled: boolean;
   visitsRequired: number;
+  lookupLimitPerHour: number;
   rewardType: 'PERCENT' | 'FIXED';
   rewardValue: string;
   maxDiscount: string;
@@ -96,6 +98,7 @@ interface EffectiveSettings {
 const DEFAULT_SETTINGS: EffectiveSettings = {
   enabled: false,
   visitsRequired: 3,
+  lookupLimitPerHour: 30,
   rewardType: 'PERCENT',
   rewardValue: '10.00',
   maxDiscount: '15.00',
@@ -113,6 +116,7 @@ const DEFAULT_SETTINGS: EffectiveSettings = {
 export interface LoyaltySettingsView {
   enabled: boolean;
   visitsRequired: number;
+  lookupLimitPerHour: number;
   rewardType: 'PERCENT' | 'FIXED';
   rewardValue: string;
   maxDiscount: string;
@@ -131,6 +135,7 @@ export interface LoyaltySettingsView {
 interface LoyaltySettingsRow {
   enabled: boolean;
   visitsRequired: number;
+  lookupLimitPerHour: number;
   rewardType: 'PERCENT' | 'FIXED';
   rewardValue: Decimal | string | number;
   maxDiscount: Decimal | string | number;
@@ -154,6 +159,7 @@ function toView(row: LoyaltySettingsRow): LoyaltySettingsView {
   return {
     enabled: row.enabled,
     visitsRequired: row.visitsRequired,
+    lookupLimitPerHour: row.lookupLimitPerHour,
     rewardType: row.rewardType,
     rewardValue: moneyString(row.rewardValue),
     maxDiscount: moneyString(row.maxDiscount),
@@ -186,6 +192,7 @@ function effectiveFromRow(row: LoyaltySettingsRow): EffectiveSettings {
   return {
     enabled: row.enabled,
     visitsRequired: row.visitsRequired,
+    lookupLimitPerHour: row.lookupLimitPerHour,
     rewardType: row.rewardType,
     rewardValue: moneyString(row.rewardValue),
     maxDiscount: moneyString(row.maxDiscount),
@@ -206,6 +213,7 @@ function mergeSettings(
   return {
     enabled: patch.enabled ?? base.enabled,
     visitsRequired: patch.visitsRequired ?? base.visitsRequired,
+    lookupLimitPerHour: patch.lookupLimitPerHour ?? base.lookupLimitPerHour,
     rewardType: patch.rewardType ?? base.rewardType,
     rewardValue: patch.rewardValue ?? base.rewardValue,
     maxDiscount: patch.maxDiscount ?? base.maxDiscount,
@@ -239,6 +247,16 @@ export function validateEffectiveLoyaltySettings(
   ) {
     throw new LoyaltySettingsValidationError(
       'visitsRequired must be an integer between 2 and 10'
+    );
+  }
+
+  if (
+    !Number.isInteger(settings.lookupLimitPerHour) ||
+    settings.lookupLimitPerHour < 1 ||
+    settings.lookupLimitPerHour > 1000
+  ) {
+    throw new LoyaltySettingsValidationError(
+      'lookupLimitPerHour must be an integer between 1 and 1000'
     );
   }
 
@@ -381,6 +399,8 @@ export async function updateLoyaltySettings(
                 enabled: (existing as unknown as LoyaltySettingsRow).enabled,
                 visitsRequired: (existing as unknown as LoyaltySettingsRow)
                   .visitsRequired,
+                lookupLimitPerHour: (existing as unknown as LoyaltySettingsRow)
+                  .lookupLimitPerHour,
                 rewardType: (existing as unknown as LoyaltySettingsRow)
                   .rewardType,
                 rewardValue: moneyString(
@@ -401,6 +421,7 @@ export async function updateLoyaltySettings(
           newValues: {
             enabled: saved.enabled,
             visitsRequired: saved.visitsRequired,
+            lookupLimitPerHour: saved.lookupLimitPerHour,
             rewardType: saved.rewardType,
             rewardValue: moneyString(saved.rewardValue),
             maxDiscount: moneyString(saved.maxDiscount),

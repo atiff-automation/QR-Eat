@@ -151,7 +151,7 @@ describe('loyalty copy builders', () => {
   });
 
   describe('QR error copy', () => {
-    const guestError = (code: string, retryAfterSeconds?: number) =>
+    const guestError = (code: string) =>
       buildQuoteMessage({
         ...snapshot,
         visitState: 'GUEST',
@@ -160,7 +160,6 @@ describe('loyalty copy builders', () => {
         promotionLabel: null,
         promotionItems: [],
         loyaltyErrorCode: code,
-        retryAfterSeconds,
       });
 
     it('maps PHONE_INVALID to a field-level message', () => {
@@ -185,10 +184,9 @@ describe('loyalty copy builders', () => {
       );
     });
 
-    it('maps RATE_LIMITED to the retry window', () => {
-      expect(guestError('RATE_LIMITED', 30)).toBe('Try again in 30 seconds.');
-      expect(guestError('RATE_LIMITED', 1)).toBe('Try again in 1 second.');
-      expect(guestError('RATE_LIMITED')).toBe('Try again later.');
+    it('maps RATE_LIMITED to the counter, never a retry window', () => {
+      const counterCopy = 'Please order at the counter — our staff will help.';
+      expect(guestError('RATE_LIMITED')).toBe(counterCopy);
     });
 
     it('maps LOYALTY_DISABLED to neutral copy', () => {

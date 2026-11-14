@@ -970,6 +970,9 @@ model Payment {
 
 model SecurityEvent {
   id                String    @id @default(uuid())
+  /// Tenant scope for loyalty security events (P7c, M-3). Null for the
+  /// pre-existing platform-wide events.
+  restaurantId      String?
   eventType         String
   severity          String
   tableId           String?
@@ -988,6 +991,7 @@ model SecurityEvent {
   resolutionNotes   String?
   createdAt         DateTime  @default(now())
 
+  @@index([eventType, ipAddress, createdAt])
   @@map("security_events")
 }
 
@@ -1808,6 +1812,9 @@ model LoyaltySettings {
   restaurantId   String     @unique
   enabled        Boolean    @default(false)
   visitsRequired Int        @default(3)
+  /// Tenant ceiling for phone-bearing loyalty lookups per fixed hourly window
+  /// (P7c). The contract value is the default; a busy venue may raise it.
+  lookupLimitPerHour Int    @default(30)
   rewardType     RewardType @default(PERCENT)
   rewardValue    Decimal    @db.Decimal(10, 2)
   maxDiscount    Decimal    @db.Decimal(10, 2)

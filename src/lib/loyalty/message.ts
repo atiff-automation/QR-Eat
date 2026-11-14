@@ -29,8 +29,6 @@ export interface LoyaltyCopyContext {
   noPhone?: boolean;
   loyaltyDisabled?: boolean;
   loyaltyErrorCode?: string | null;
-  /** `RATE_LIMITED` retry window, in seconds. */
-  retryAfterSeconds?: number | null;
   currency?: string;
 }
 
@@ -53,6 +51,8 @@ const PAYMENT_BELOW_MINIMUM_MESSAGE =
 const GUEST_QR_MESSAGE =
   'Guest order - no visit tracked; staff can attach at the counter.';
 const GUEST_PAYMENT_MESSAGE = 'Guest order - no visit tracked.';
+const QR_RATE_LIMITED_MESSAGE =
+  'Please order at the counter — our staff will help.';
 
 function currencyOf(context: LoyaltyCopyContext): string {
   return context.currency ?? 'RM';
@@ -117,14 +117,6 @@ function hasPromotion(context: LoyaltyCopyContext): boolean {
   );
 }
 
-function rateLimitedMessage(context: LoyaltyCopyContext): string {
-  const seconds = Math.ceil(context.retryAfterSeconds ?? 0);
-  if (!Number.isFinite(seconds) || seconds <= 0) {
-    return 'Try again later.';
-  }
-  return `Try again in ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`;
-}
-
 function qrErrorMessage(context: LoyaltyCopyContext): string {
   switch (context.loyaltyErrorCode) {
     case 'PHONE_INVALID':
@@ -136,7 +128,9 @@ function qrErrorMessage(context: LoyaltyCopyContext): string {
     case 'CONSENT_VERSION_REQUIRED':
       return CONSENT_VERSION_REQUIRED_MESSAGE;
     case 'RATE_LIMITED':
-      return rateLimitedMessage(context);
+      // A refused QR customer is sent to the counter. The retry window is not
+      // customer copy: a refusal is not a transient error they can repeat.
+      return QR_RATE_LIMITED_MESSAGE;
     case 'LOYALTY_DISABLED':
       return DISABLED_MESSAGE;
     default:

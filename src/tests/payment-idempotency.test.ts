@@ -367,6 +367,7 @@ describe('order payment idempotency', () => {
     ).payment.order;
     expect(storedOrder).not.toHaveProperty('customerName');
     expect(storedOrder).not.toHaveProperty('customerPhone');
+    expect(storedOrder).not.toHaveProperty('customerEmail');
 
     const liveOrder = (
       result.response as {

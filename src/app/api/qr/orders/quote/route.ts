@@ -15,6 +15,11 @@ import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
 import { resolveNotice } from '@/lib/loyalty/consent';
 import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
 import {
+  recordLoyaltyLookupMiss,
+  recordRateLimited,
+  recordRateLimitUnavailable,
+} from '@/lib/loyalty/enumeration';
+import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
@@ -68,11 +73,12 @@ function mapMemberError(code: string | undefined): GuestReason {
 
 function rateLimitedResponse(refusal: RateLimitRefusal) {
   // No phone, phoneHash, member id, count or scope: the refusal must not
-  // distinguish a member from a non-member.
+  // distinguish a member from a non-member. A refused QR customer is sent to
+  // the counter; the retry window stays in the header for clients that need it.
   return NextResponse.json(
     {
       success: false,
-      error: 'Too many attempts. Please try again later.',
+      error: 'Please order at the counter — our staff will help.',
       code: 'RATE_LIMITED',
       retryAfterSeconds: refusal.retryAfterSeconds,
     },
@@ -155,16 +161,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Durable hourly limits (§18.20.15 B). This runs before any phone/member
-    // resolution so an enumeration attempt costs nothing and cannot reveal a
-    // member by timing or error shape. A flag-off request never reaches here.
-    const refusal = await enforceRateLimits({
-      restaurantId: table.restaurant.id,
-      sessionId: cart.sessionId,
-      phone,
-      ip: trustedIp(request),
-    });
-    if (refusal) return rateLimitedResponse(refusal);
+    // Durable hourly limits (§18.20.15 B, P7c). Guest requests carry no phone
+    // and are skipped entirely: a guest quote cannot enumerate, and counting it
+    // exhausted the shared restaurant and edge-IP buckets for real customers.
+    // A phone-bearing request is limited before any member resolution so an
+    // enumeration attempt costs nothing and cannot reveal a member by timing or
+    // error shape. A flag-off request never reaches here.
+    const ip = trustedIp(request);
+    if (phone) {
+      const decision = await enforceRateLimits({
+        restaurantId: table.restaurant.id,
+        sessionId: cart.sessionId,
+        phone,
+        ip,
+        limits: { restaurant: settings.lookupLimitPerHour },
+      });
+
+      if (decision.failedOpen) {
+        // Fail open: the lookup shares this database, so a counter outage
+        // already means the quote cannot be priced. Record one event, proceed.
+        await recordRateLimitUnavailable({
+          restaurantId: table.restaurant.id,
+          ip,
+        });
+      } else if (!decision.allowed && decision.refusal) {
+        await recordRateLimited({
+          restaurantId: table.restaurant.id,
+          scope: decision.refusal.scope,
+          subject: decision.refusal.subject,
+          ip,
+        });
+        return rateLimitedResponse(decision.refusal);
+      }
+    }
 
     let customerId: string | null = null;
     let phoneHash: string | null = null;
@@ -199,6 +228,17 @@ export async function POST(request: NextRequest) {
           }
         } else {
           guestReason = 'PHONE_INVALID';
+        }
+
+        // A valid, consented phone that created a new member was a phone-hash
+        // miss. Detection only: the response is unchanged (§18.20.15 B).
+        if (member.isNew && phoneHash) {
+          await recordLoyaltyLookupMiss({
+            restaurantId: table.restaurant.id,
+            ip,
+            phoneHash,
+            requestPath: request.nextUrl.pathname,
+          });
         }
       } else {
         guestReason = mapMemberError(member.loyaltyError?.code);

@@ -114,3 +114,17 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | `REVIEW-19` | Detection based on rate-limit refusals or junk-enrolment, or the contract definition explicitly accepted |
 | M-2 | `SecurityEvent` has no index on `(eventType, ipAddress, createdAt)`; every new-member request full-scans the table | M | `REVIEW-19` | Additive index migration |
 | M-3 | `SecurityEvent` has no `restaurantId`, so misses from different restaurants sharing an IP aggregate into one platform-wide alert | M | `REVIEW-19` | Tenant-scope the event, or record the cross-tenant interpretation at P10 |
+
+## Added by P7c (`REVIEW-20`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| P7c-1 | The `unknown` IP bucket is 10/h when no trusted XFF is present; now scoped per restaurant but still low | **M** | Verified the Railway edge appends XFF, or the fallback bounded deliberately |
+| P7c-2 | Fail-open can be self-inflicted: phone-bearing requests serialise on one counter row; a flood can time out transactions and fail open | M | Shorter lock footprint or bounded retry, if observed in the pilot |
+| P7c-3 | The IP floor (120/h) cannot be raised by the owner | L | Documented, or made configurable |
+| P7c-4 | The cleanup job never prunes at startup | L | One prune on start |
+| P7c-5 | The `SecurityEvent` index does not lead with `restaurantId` | L | Add if the report query grows |
+| P7c-6 | The owner report UI does not render `refusals` | L | One card in the loyalty report |
+| P7c-7 | A matching phone with a different name overwrites the member's name | L | Set `name` only on create or when null |
+| P7c-8 | A create on a guest quote with a known phone consumes that phone's bucket before the 409 | L | Accepted, or reorder |
+| P7c-9 | Plain `CREATE INDEX` on the existing `security_events` table | L | P9 deploy note |

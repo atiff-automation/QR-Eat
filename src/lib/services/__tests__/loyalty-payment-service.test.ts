@@ -1019,6 +1019,7 @@ describe('loyalty takeaway payment — transaction', () => {
     ).payment.order;
     expect(storedOrder).not.toHaveProperty('customerName');
     expect(storedOrder).not.toHaveProperty('customerPhone');
+    expect(storedOrder).not.toHaveProperty('customerEmail');
 
     const idempotencyCall = tx.idempotencyRecord.update.mock.calls
       .map(([arg]) => arg)
@@ -1031,6 +1032,7 @@ describe('loyalty takeaway payment — transaction', () => {
     ).payment.order;
     expect(storedIdempotencyOrder).not.toHaveProperty('customerName');
     expect(storedIdempotencyOrder).not.toHaveProperty('customerPhone');
+    expect(storedIdempotencyOrder).not.toHaveProperty('customerEmail');
     expect(tx.paymentBatch.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({

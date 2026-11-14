@@ -52,5 +52,16 @@ export async function register() {
       // Don't crash the server - SSE endpoint will try to initialize on first connection
       // This ensures the app still works even if initial connection fails
     }
+
+    // P7c: prune rate-limit counters older than the retention window. The job
+    // swallows its own errors; a failed import must not block startup.
+    try {
+      const { rateLimitCleanupCron } = await import(
+        './lib/rate-limit-cleanup-cron'
+      );
+      rateLimitCleanupCron.start();
+    } catch {
+      console.error('⚠️  [Server Startup] Rate-limit cleanup did not start');
+    }
   }
 }

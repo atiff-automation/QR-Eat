@@ -45,6 +45,7 @@ const context = {
 const settingsView = {
   enabled: false,
   visitsRequired: 3,
+  lookupLimitPerHour: 30,
   rewardType: 'PERCENT',
   rewardValue: '10.00',
   maxDiscount: '15.00',
@@ -100,6 +101,7 @@ describe('loyalty settings route', () => {
 
     expect(response.status).toBe(200);
     expect(json).toEqual({ success: true, settings: settingsView });
+    expect(json.settings.lookupLimitPerHour).toBe(30);
     expect(requirePermission).toHaveBeenCalledWith(context, 'settings', 'read');
     expect(getLoyaltySettings).toHaveBeenCalledWith(restaurantId);
   });
@@ -146,6 +148,27 @@ describe('loyalty settings route', () => {
     expect(json).toMatchObject({ success: false, code: 'INVALID_REQUEST' });
     expect(updateLoyaltySettings).not.toHaveBeenCalled();
   });
+
+  it('accepts the restaurant lookup ceiling in PATCH', async () => {
+    const response = await PATCH(patchRequest({ lookupLimitPerHour: 120 }));
+
+    expect(response.status).toBe(200);
+    expect(updateLoyaltySettings).toHaveBeenCalledWith(
+      expect.objectContaining({ patch: { lookupLimitPerHour: 120 } })
+    );
+  });
+
+  it.each([0, 1001])(
+    'rejects lookupLimitPerHour %i at the route',
+    async (value) => {
+      const response = await PATCH(patchRequest({ lookupLimitPerHour: value }));
+      const json = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(json).toMatchObject({ success: false, code: 'INVALID_REQUEST' });
+      expect(updateLoyaltySettings).not.toHaveBeenCalled();
+    }
+  );
 
   it('returns 403 when the caller lacks loyalty:configure', async () => {
     (requirePermission as jest.Mock).mockImplementationOnce(() => {

@@ -27,6 +27,7 @@ export type LoyaltyRewardType = 'PERCENT' | 'FIXED';
 export interface LoyaltySettings {
   enabled: boolean;
   visitsRequired: number;
+  lookupLimitPerHour: number;
   rewardType: LoyaltyRewardType;
   rewardValue: string;
   maxDiscount: string;
@@ -50,6 +51,7 @@ export interface LoyaltySettings {
 export interface LoyaltySettingsFormValues {
   enabled: boolean;
   visitsRequired: string;
+  lookupLimitPerHour: string;
   rewardType: LoyaltyRewardType;
   rewardValue: string;
   maxDiscount: string;
@@ -75,6 +77,7 @@ export type LoyaltySettingsErrors = Partial<
 export interface LoyaltySettingsPatchPayload {
   enabled: boolean;
   visitsRequired: number;
+  lookupLimitPerHour: number;
   rewardType: LoyaltyRewardType;
   rewardValue: string;
   maxDiscount: string;
@@ -111,6 +114,7 @@ export function buildLoyaltySettingsForm(
   return {
     enabled: settings.enabled,
     visitsRequired: String(settings.visitsRequired),
+    lookupLimitPerHour: String(settings.lookupLimitPerHour),
     rewardType: settings.rewardType,
     rewardValue: settings.rewardValue,
     maxDiscount: settings.maxDiscount,
@@ -146,6 +150,17 @@ export function validateLoyaltySettingsForm(
   ) {
     errors.visitsRequired =
       'Visits required must be a whole number from 2 to 10';
+  }
+
+  const lookupLimit = Number(form.lookupLimitPerHour);
+  if (
+    form.lookupLimitPerHour.trim() === '' ||
+    !Number.isInteger(lookupLimit) ||
+    lookupLimit < 1 ||
+    lookupLimit > 1000
+  ) {
+    errors.lookupLimitPerHour =
+      'Loyalty orders per hour must be a whole number from 1 to 1000';
   }
 
   const maxDiscount = form.maxDiscount.trim();
@@ -239,6 +254,7 @@ export function buildLoyaltySettingsPayload(
   return {
     enabled: form.enabled,
     visitsRequired: Number(form.visitsRequired),
+    lookupLimitPerHour: Number(form.lookupLimitPerHour),
     rewardType: form.rewardType,
     rewardValue: toMoneyString(form.rewardValue),
     maxDiscount: toMoneyString(form.maxDiscount),

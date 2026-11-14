@@ -23,6 +23,7 @@ const existingRow = {
   restaurantId,
   enabled: true,
   visitsRequired: 4,
+  lookupLimitPerHour: 30,
   rewardType: 'PERCENT' as const,
   rewardValue: '10.00',
   maxDiscount: '15.00',
@@ -98,6 +99,7 @@ describe('loyalty settings service', () => {
     expect(settings).toMatchObject({
       enabled: false,
       visitsRequired: 3,
+      lookupLimitPerHour: 30,
       rewardType: 'PERCENT',
       rewardValue: '10.00',
       maxDiscount: '15.00',
@@ -148,9 +150,26 @@ describe('loyalty settings service', () => {
     expect(result.settings.noticeTextHash).not.toBe('client-supplied');
   });
 
+  it('stores the owner-set restaurant lookup ceiling', async () => {
+    const result = await updateLoyaltySettings({
+      restaurantId,
+      userId: 'user-1',
+      patch: { lookupLimitPerHour: 120 },
+      idempotencyKey: 'key-lookup',
+    });
+
+    expect(tx.loyaltySettings.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ lookupLimitPerHour: 120 }),
+    });
+    expect(result.settings.lookupLimitPerHour).toBe(120);
+  });
+
   it.each([
     { visitsRequired: 11 },
     { visitsRequired: 1 },
+    { lookupLimitPerHour: 0 },
+    { lookupLimitPerHour: 1001 },
+    { lookupLimitPerHour: 30.5 },
     { minDailySpend: '1000.01' },
     { minDailySpend: '-1.00' },
     { receiptLabel: 'Café' },

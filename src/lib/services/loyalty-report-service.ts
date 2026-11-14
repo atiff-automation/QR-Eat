@@ -18,6 +18,7 @@
 
 import Decimal from 'decimal.js';
 import { prisma } from '@/lib/database';
+import { RATE_LIMITED_EVENT } from '@/lib/loyalty/enumeration';
 import {
   getBusinessDayEnd,
   getBusinessDayStart,
@@ -124,6 +125,12 @@ export interface LoyaltyReport {
   };
   net: string;
   refunds: string;
+  /**
+   * Rate-limit refusals recorded for this restaurant in the range. One event
+   * per `(restaurantId, subject, hour)`, so this is a count of refused
+   * subjects, not raw attempts.
+   */
+  refusals: number;
   visits: {
     count: number;
     uniqueMembers: number;
@@ -364,6 +371,17 @@ export async function getLoyaltyReport(
       }),
     ]);
 
+  // Refusals are one event per `(restaurantId, subject, hour)`, written by the
+  // QR routes. Scoped by tenant so a shared IP cannot leak another venue's
+  // security activity into this report.
+  const refusals = await prisma.securityEvent.count({
+    where: {
+      restaurantId: input.restaurantId,
+      eventType: RATE_LIMITED_EVENT,
+      createdAt: { gte: rangeStart, lte: rangeEnd },
+    },
+  });
+
   return {
     range: {
       from,
@@ -383,6 +401,7 @@ export async function getLoyaltyReport(
     },
     net: money(net),
     refunds: money(refunds),
+    refusals,
     visits: {
       count: visitCount,
       uniqueMembers,

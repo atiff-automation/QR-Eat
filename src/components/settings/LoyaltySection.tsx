@@ -240,6 +240,46 @@ export function LoyaltySection({
             />
           </div>
 
+          <div>
+            <label
+              htmlFor="loyalty-lookup-limit"
+              className="mb-1 block text-xs font-semibold uppercase text-gray-500"
+            >
+              Loyalty orders per hour
+            </label>
+            <input
+              id="loyalty-lookup-limit"
+              type="number"
+              min={1}
+              max={1000}
+              step={1}
+              inputMode="numeric"
+              value={form.lookupLimitPerHour}
+              onChange={(event) =>
+                setField('lookupLimitPerHour', event.target.value)
+              }
+              className={INPUT_CLASS}
+              disabled={mutation.isPending}
+              aria-invalid={Boolean(errors.lookupLimitPerHour)}
+              aria-describedby={
+                errors.lookupLimitPerHour
+                  ? 'loyalty-lookup-limit-error'
+                  : 'loyalty-lookup-limit-help'
+              }
+            />
+            <p
+              id="loyalty-lookup-limit-help"
+              className="mt-1 text-xs text-gray-500"
+            >
+              About how many loyalty orders you serve in your busiest hour. The
+              contract minimum is 30; raise it for a busy venue.
+            </p>
+            <FieldError
+              id="loyalty-lookup-limit-error"
+              message={errors.lookupLimitPerHour}
+            />
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label

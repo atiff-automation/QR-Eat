@@ -7,6 +7,7 @@ import {
 } from '@/lib/tenant-context';
 import { counterAccessDenied } from '@/lib/counter/access';
 import { RBACError } from '@/lib/rbac/types';
+import { LoyaltyConfigurationError } from '@/lib/loyalty/phone';
 import { removeMember } from '@/lib/services/loyalty-bill-service';
 
 const RemoveMemberSchema = z.object({
@@ -91,6 +92,13 @@ function handleMemberRouteError(error: unknown): NextResponse {
     return NextResponse.json(
       { success: false, error: error.message, code: error.code },
       { status: error.statusCode }
+    );
+  }
+
+  if (error instanceof LoyaltyConfigurationError) {
+    return NextResponse.json(
+      { success: false, error: error.message, code: error.code },
+      { status: 500 }
     );
   }
 

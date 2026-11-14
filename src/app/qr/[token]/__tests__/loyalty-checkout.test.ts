@@ -374,18 +374,21 @@ describe('QUOTE_CHANGED and error handling', () => {
     });
   });
 
-  it('renders the rate-limit window and neutral disabled copy', () => {
+  it('sends a refused customer to the counter, not a retry window', () => {
     expect(
       resolveCreateFailure({ code: 'RATE_LIMITED', retryAfterSeconds: 12 })
     ).toEqual({
       action: 'rate-limited',
-      message: 'Try again in 12 seconds.',
+      message: 'Please order at the counter — our staff will help.',
     });
     expect(resolveCreateFailure({ code: 'LOYALTY_DISABLED' })).toEqual({
       action: 'disabled',
       message: 'Loyalty is off for this restaurant.',
     });
-    expect(errorCopyFor('RATE_LIMITED', 1)).toBe('Try again in 1 second.');
+    expect(errorCopyFor('RATE_LIMITED')).toBe(
+      'Please order at the counter — our staff will help.'
+    );
+    expect(errorCopyFor('RATE_LIMITED')).not.toContain('second');
   });
 
   it('uses staff-help only for non-recoverable codes', () => {
@@ -592,7 +595,7 @@ describe('copy uses server values, never snapshot constants', () => {
       errorCopyFor('PHONE_INVALID'),
       errorCopyFor('CONSENT_REQUIRED'),
       errorCopyFor('CONSENT_STALE'),
-      errorCopyFor('RATE_LIMITED', 9),
+      errorCopyFor('RATE_LIMITED'),
       errorCopyFor('LOYALTY_DISABLED'),
       errorCopyFor(null),
     ]

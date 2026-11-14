@@ -956,6 +956,8 @@ export interface LoyaltyCreatePlan {
   computation: BillQuoteComputation;
   customerId: string | null;
   phoneHash: string | null;
+  /** True when this request created the member (a phone-hash miss). */
+  memberIsNew: boolean;
   guestError: { code: string; message: string } | null;
   expectedTotal: string;
   cartHash: string;
@@ -1088,6 +1090,7 @@ async function resolveMember(
 ): Promise<{
   customerId: string | null;
   phoneHash: string | null;
+  isNew: boolean;
   guestReason: GuestReason | null;
 }> {
   const phone = customerInfo?.phone ?? null;
@@ -1096,6 +1099,7 @@ async function resolveMember(
     return {
       customerId: null,
       phoneHash: null,
+      isNew: false,
       guestReason: 'NO_PHONE',
     };
   }
@@ -1104,6 +1108,7 @@ async function resolveMember(
     return {
       customerId: null,
       phoneHash: null,
+      isNew: false,
       guestReason: 'CONSENT_REQUIRED',
     };
   }
@@ -1130,7 +1135,7 @@ async function resolveMember(
         ? code
         : 'MEMBER_RESOLUTION_FAILED';
 
-    return { customerId: null, phoneHash: null, guestReason };
+    return { customerId: null, phoneHash: null, isNew: false, guestReason };
   }
 
   const normalised = normalisePhone(phone);
@@ -1138,6 +1143,7 @@ async function resolveMember(
     return {
       customerId: null,
       phoneHash: null,
+      isNew: false,
       guestReason: 'PHONE_INVALID',
     };
   }
@@ -1146,12 +1152,14 @@ async function resolveMember(
     return {
       customerId: resolved.customerId,
       phoneHash: hashPhone(normalised.phone),
+      isNew: resolved.isNew,
       guestReason: null,
     };
   } catch {
     return {
       customerId: null,
       phoneHash: null,
+      isNew: false,
       guestReason: 'MEMBER_RESOLUTION_FAILED',
     };
   }
@@ -1202,6 +1210,49 @@ export async function prepareLoyaltyCreate(
   if (quote.consumedAt !== null) return quoteChanged();
   if (now.getTime() >= new Date(quote.expiresAt).getTime()) {
     return quoteChanged();
+  }
+
+  // A guest quote carries no member binding and consumed no rate-limit bucket.
+  // A create that attaches a phone to it must be rejected **before**
+  // `resolveMember()` can call `resolveOrCreateCustomer()` and write a Customer
+  // row (P7c F-01). The same QUOTE_CHANGED shape is used as any other mismatch.
+  const suppliedPhone = input.customerInfo?.phone;
+  if (
+    quote.customerId === null &&
+    quote.phoneHash === null &&
+    typeof suppliedPhone === 'string' &&
+    suppliedPhone.trim().length > 0
+  ) {
+    return quoteChanged();
+  }
+
+  // A phone-bound quote is an identity lock. Verify the supplied phone against
+  // the quote's keyed hash **before** `resolveMember()` can create a Customer
+  // for a different phone (P7c F-01a). A missing phone, an unverifiable
+  // binding, an invalid phone or a different hash is a changed quote, never a
+  // guest fallback. The hash is the practical identity test because
+  // `phoneHash` is the member key; comparing `customerId` alone would accept
+  // any phone that resolves to the same customer record.
+  if (quote.customerId !== null || quote.phoneHash !== null) {
+    if (
+      typeof suppliedPhone !== 'string' ||
+      suppliedPhone.trim().length === 0 ||
+      quote.phoneHash === null
+    ) {
+      return quoteChanged();
+    }
+
+    const normalised = normalisePhone(suppliedPhone);
+    if (!normalised.ok) return quoteChanged();
+
+    let suppliedHash: string;
+    try {
+      suppliedHash = hashPhone(normalised.phone);
+    } catch {
+      return quoteChanged();
+    }
+
+    if (suppliedHash !== quote.phoneHash) return quoteChanged();
   }
 
   const member = await resolveMember(
@@ -1291,6 +1342,7 @@ export async function prepareLoyaltyCreate(
       computation,
       customerId: member.customerId,
       phoneHash: member.phoneHash,
+      memberIsNew: member.isNew,
       guestError: guestErrorFor(member.guestReason),
       expectedTotal,
       cartHash: hash,

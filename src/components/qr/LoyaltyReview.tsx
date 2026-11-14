@@ -27,7 +27,6 @@ import {
   quoteNeedsRefresh,
   quoteUnavailableCode,
   resolveCreateFailure,
-  retryAfterSeconds,
   sanitizePhoneInput,
   visitStateBadge,
   type ApiFailure,
@@ -137,7 +136,7 @@ export function LoyaltyReview({
             return null;
           }
           if (unavailable === 'RATE_LIMITED') {
-            setFormError(errorCopyFor('RATE_LIMITED', retryAfterSeconds(data)));
+            setFormError(errorCopyFor('RATE_LIMITED'));
             return null;
           }
           setFormError(errorCopyFor(unavailable));

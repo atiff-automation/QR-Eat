@@ -1069,3 +1069,45 @@ invisible), M-2 (`SecurityEvent` needs an index), M-3 (`SecurityEvent` has no `r
 
 **P7b is `owner_decision_required` and is not committed.**
 
+
+**P7c — limiter rebalance for restaurant operation (2026-11-14):**
+
+Implementer `ses_e27d3313affe7QK5Xbb4XGTzgc`. Verifiers `ses_e27b82cfaffe6Q5vMzKXoMUZrG`
+(FAIL), `ses_e279fb9b1ffe4pczblwvGYK3i2` (FAIL), `ses_e27975154ffeK04OZg1oy4tCOl`
+(PASS WITH NOTES). Two correction cycles. See `REVIEW-20.md`.
+
+```text
+mod  prisma/schema.prisma + 2 additive migrations
+mod  src/lib/loyalty/{rate-limit,enumeration,message}.ts
+mod  src/app/api/qr/orders/{quote,create}/route.ts
+mod  src/lib/services/{loyalty-settings,loyalty-report}-service.ts
+mod  src/components/settings/LoyaltySection.tsx, src/components/qr/**
+mod  src/lib/hooks/queries/useLoyaltySettings.ts, src/instrumentation.ts
+new  src/lib/rate-limit-cleanup-cron.ts (+ test)
+```
+
+```text
+npx jest ... --runInBand  -> 1299 passed, 11 skipped
+npm run type-check        -> PASS
+npm run build             -> PASS
+npx prisma migrate deploy -> 2 migrations applied; status: up to date (35)
+npx prisma migrate diff   -> "-- This is an empty migration."
+```
+
+One order with a phone now costs **one** unit of each bucket; a guest quote costs none; per-phone
+10/h and per-session 10/h are unchanged. The restaurant ceiling is owner-set (default 30, 1–1000,
+zod + DB CHECK); the IP floor is 120/h; fail-open on limiter error; refusals recorded with
+`restaurantId` and counted in the report; QR refusal says "order at the counter"; a cleanup job
+prunes windows older than 24h.
+
+**Two FAILs, one root cause:** the limiter was skipped for any create with a `quoteId`, and a
+member row was written before the quote-binding check. Fixed in two steps — guest quote + phone
+rejected before any write, then `hashPhone(supplied)` compared to `quote.phoneHash` before
+`resolveMember()`. Verified: no unauthenticated attacker can create a `Customer` row uncounted.
+
+Deviations for P10: IP floor 120 vs contract 20; fixed windows retained; JSON-path refusal dedupe;
+`src/instrumentation.ts` added to owned files to start the cleanup job.
+
+**P7: COMPLETE.** P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals),
+P7c (rebalance) all closed.
+

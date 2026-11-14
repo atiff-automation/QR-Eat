@@ -5,13 +5,20 @@ import { getTableCart } from '@/lib/customer-session';
 import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
 import { issueQrQuote } from '@/lib/services/loyalty-qr-service';
 import { hashNoticeText } from '@/lib/loyalty/consent';
+import { hashPhone } from '@/lib/loyalty/phone';
 import { POST as quote } from '@/app/api/qr/orders/quote/route';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
     table: { findUnique: jest.fn() },
     loyaltySettings: { findUnique: jest.fn() },
+    securityEvent: {
+      create: jest.fn(),
+      findMany: jest.fn(),
+      findFirst: jest.fn(),
+    },
     $queryRaw: jest.fn(),
+    $transaction: jest.fn(),
   },
 }));
 
@@ -39,6 +46,7 @@ const settings = {
   restaurantId,
   enabled: true,
   visitsRequired: 3,
+  lookupLimitPerHour: 30,
   rewardType: 'PERCENT',
   rewardValue: new Decimal('10.00'),
   maxDiscount: new Decimal('15.00'),
@@ -122,6 +130,33 @@ function request(body: Record<string, unknown>) {
   });
 }
 
+/**
+ * In-memory counter for `rate_limit_counters`. The advisory-lock query from the
+ * security-event recorder has a single value and returns no rows.
+ */
+function installCounterMock(): Map<string, number> {
+  const counts = new Map<string, number>();
+  (prisma.$queryRaw as jest.Mock).mockImplementation(
+    async (
+      _strings: TemplateStringsArray,
+      ...values: unknown[]
+    ): Promise<Array<{ count: number }>> => {
+      if (values.length < 5) return [];
+      const [, restaurant, scope, subject, start] = values;
+      const key = [
+        restaurant,
+        scope,
+        subject,
+        (start as Date).toISOString(),
+      ].join('|');
+      const next = (counts.get(key) ?? 0) + 1;
+      counts.set(key, next);
+      return [{ count: next }];
+    }
+  );
+  return counts;
+}
+
 describe('POST /api/qr/orders/quote', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -133,6 +168,12 @@ describe('POST /api/qr/orders/quote', () => {
       settings
     );
     (prisma.$queryRaw as jest.Mock).mockResolvedValue([{ count: 1 }]);
+    (prisma.$transaction as jest.Mock).mockImplementation(
+      async (callback: (client: typeof prisma) => unknown) => callback(prisma)
+    );
+    (prisma.securityEvent.create as jest.Mock).mockResolvedValue({});
+    (prisma.securityEvent.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.securityEvent.findFirst as jest.Mock).mockResolvedValue(null);
     (getTableCart as jest.Mock).mockResolvedValue(cart);
     (resolveOrCreateCustomer as jest.Mock).mockResolvedValue({
       customerId: 'customer-1',
@@ -177,24 +218,7 @@ describe('POST /api/qr/orders/quote', () => {
   });
 
   it('returns RATE_LIMITED before phone resolution and leaks no PII', async () => {
-    const counts = new Map<string, number>();
-    (prisma.$queryRaw as jest.Mock).mockImplementation(
-      async (
-        _strings: TemplateStringsArray,
-        ...values: unknown[]
-      ): Promise<Array<{ count: number }>> => {
-        const [, restaurant, scope, subject, start] = values;
-        const key = [
-          restaurant,
-          scope,
-          subject,
-          (start as Date).toISOString(),
-        ].join('|');
-        const next = (counts.get(key) ?? 0) + 1;
-        counts.set(key, next);
-        return [{ count: next }];
-      }
-    );
+    installCounterMock();
 
     let response: Response | null = null;
     for (let attempt = 0; attempt < 11; attempt += 1) {
@@ -219,11 +243,13 @@ describe('POST /api/qr/orders/quote', () => {
     );
     expect(json).toEqual({
       success: false,
-      error: 'Too many attempts. Please try again later.',
+      error: 'Please order at the counter — our staff will help.',
       code: 'RATE_LIMITED',
       retryAfterSeconds: expect.any(Number),
     });
     expect(json.retryAfterSeconds).toBeGreaterThan(0);
+    // OWASP: the retry window is rounded, not a precise value to schedule on.
+    expect(json.retryAfterSeconds % 10).toBe(0);
     expect(json).not.toHaveProperty('phone');
     expect(json).not.toHaveProperty('phoneHash');
     expect(json).not.toHaveProperty('visitState');
@@ -233,35 +259,69 @@ describe('POST /api/qr/orders/quote', () => {
     // The 11th attempt was refused before the member was resolved.
     expect(resolveOrCreateCustomer).toHaveBeenCalledTimes(10);
     expect(issueQrQuote).toHaveBeenCalledTimes(10);
+
+    // One refusal event, tenant-scoped, carrying no raw phone.
+    const refusalEvents = (prisma.securityEvent.create as jest.Mock).mock.calls
+      .map(([arg]) => arg.data)
+      .filter((data) => data.eventType === 'loyalty_rate_limited');
+    expect(refusalEvents).toHaveLength(1);
+    expect(refusalEvents[0]).toMatchObject({ restaurantId });
+    expect(JSON.stringify(refusalEvents[0])).not.toContain('+60123456789');
+  });
+
+  it('does not count a guest quote at all (P7c)', async () => {
+    const counts = installCounterMock();
+
+    const response = await quote(request({ tableId, sessionId }));
+
+    expect(response.status).toBe(200);
+    expect(counts.size).toBe(0);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('fails open when the counter database errors', async () => {
+    (prisma.$transaction as jest.Mock).mockRejectedValue(
+      new Error('connection refused')
+    );
+
+    const response = await quote(
+      request({
+        tableId,
+        sessionId,
+        phone: '+60123456789',
+        consent: true,
+        consentVersion: 'v1',
+        consentTextHash: noticeTextHash,
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(issueQrQuote).toHaveBeenCalledTimes(1);
+
+    // Fail-open is not a refusal: no refusal event is recorded.
+    const refusalEvents = (prisma.securityEvent.create as jest.Mock).mock.calls
+      .map(([arg]) => arg.data)
+      .filter((data) => data.eventType === 'loyalty_rate_limited');
+    expect(refusalEvents).toHaveLength(0);
   });
 
   it('limits on the last X-Forwarded-For entry, not a spoofed first entry', async () => {
-    const counts = new Map<string, number>();
-    (prisma.$queryRaw as jest.Mock).mockImplementation(
-      async (
-        _strings: TemplateStringsArray,
-        ...values: unknown[]
-      ): Promise<Array<{ count: number }>> => {
-        const [, restaurant, scope, subject, start] = values;
-        const key = [
-          restaurant,
-          scope,
-          subject,
-          (start as Date).toISOString(),
-        ].join('|');
-        const next = (counts.get(key) ?? 0) + 1;
-        counts.set(key, next);
-        return [{ count: next }];
-      }
-    );
+    const counts = installCounterMock();
+    // Raise the tenant ceiling so the IP floor (120) is the first bucket to
+    // trip; the default 30 would refuse first.
+    (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue({
+      ...settings,
+      lookupLimitPerHour: 1000,
+    });
 
-    // Distinct sessions so only the IP bucket can trip. A spoofed first entry
-    // rotates every time; the real last entry is constant.
+    // Distinct sessions and phones so only the IP bucket can trip. A spoofed
+    // first entry rotates every time; the real last entry is constant.
     let response: Response | null = null;
-    for (let attempt = 0; attempt < 21; attempt += 1) {
+    for (let attempt = 0; attempt < 121; attempt += 1) {
+      const attemptSession = `${sessionId}-${attempt}`;
       (getTableCart as jest.Mock).mockResolvedValue({
         ...cart,
-        sessionId: `${sessionId}-${attempt}`,
+        sessionId: attemptSession,
       });
       response = await quote(
         new NextRequest('http://localhost/api/qr/orders/quote', {
@@ -270,7 +330,14 @@ describe('POST /api/qr/orders/quote', () => {
             'content-type': 'application/json',
             'x-forwarded-for': `10.0.0.${attempt}, 203.0.113.50`,
           },
-          body: JSON.stringify({ tableId, sessionId, phone: undefined }),
+          body: JSON.stringify({
+            tableId,
+            sessionId,
+            phone: `+6012345${String(attempt).padStart(4, '0')}`,
+            consent: true,
+            consentVersion: 'v1',
+            consentTextHash: noticeTextHash,
+          }),
         })
       );
     }
@@ -350,6 +417,48 @@ describe('POST /api/qr/orders/quote', () => {
         source: 'QR',
       })
     );
+  });
+
+  it('records a lookup miss with the phone hash, never the phone', async () => {
+    (resolveOrCreateCustomer as jest.Mock).mockResolvedValue({
+      customerId: 'customer-new',
+      isNew: true,
+      consentOk: true,
+      loyaltyError: null,
+    });
+
+    const response = await quote(
+      new NextRequest('http://localhost/api/qr/orders/quote', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-forwarded-for': '10.0.0.1, 203.0.113.50',
+        },
+        body: JSON.stringify({
+          tableId,
+          sessionId,
+          phone: '+60123456789',
+          consent: true,
+          consentVersion: 'v1',
+          consentTextHash: noticeTextHash,
+        }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    const created = (prisma.securityEvent.create as jest.Mock).mock.calls.map(
+      ([arg]) => arg.data
+    );
+    const miss = created.find(
+      (data) => data.eventType === 'loyalty_lookup_miss'
+    );
+    expect(miss).toMatchObject({
+      severity: 'info',
+      ipAddress: '203.0.113.50',
+      requestPath: '/api/qr/orders/quote',
+      eventData: { phoneHash: hashPhone('+60123456789') },
+    });
+    expect(JSON.stringify(miss)).not.toContain('+60123456789');
   });
 
   it('returns a guest quote when no phone is supplied', async () => {

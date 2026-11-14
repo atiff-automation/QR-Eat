@@ -16,6 +16,7 @@ const prismaMock = prisma as unknown as {
   promotion: { findMany: jest.Mock };
   loyaltyVisit: { groupBy: jest.Mock };
   customer: { count: jest.Mock };
+  securityEvent: { count: jest.Mock };
 };
 
 const restaurantId = '550e8400-e29b-41d4-a716-446655440001';
@@ -88,6 +89,9 @@ function installDefaultMocks() {
       return Promise.resolve(12);
     }),
   };
+  prismaMock.securityEvent = {
+    count: jest.fn().mockResolvedValue(3),
+  };
 }
 
 describe('loyalty report service', () => {
@@ -114,6 +118,23 @@ describe('loyalty report service', () => {
     expect(report.net).not.toBe('68.00');
     expect(report.refunds).toBe('5.00');
     expect(report.rewards).toEqual({ applied: 1, amount: '7.00' });
+    expect(report.refusals).toBe(3);
+  });
+
+  it('counts refusals for the tenant and range only', async () => {
+    await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    expect(prismaMock.securityEvent.count).toHaveBeenCalledWith({
+      where: {
+        restaurantId,
+        eventType: 'loyalty_rate_limited',
+        createdAt: { gte: expect.any(Date), lte: expect.any(Date) },
+      },
+    });
   });
 
   it('groups promotion redemptions by snapshot scope', async () => {
