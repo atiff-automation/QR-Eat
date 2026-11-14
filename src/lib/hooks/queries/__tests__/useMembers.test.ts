@@ -32,6 +32,7 @@ jest.mock('@/lib/api-client', () => ({
   ApiClient: {
     get: jest.fn(),
     post: jest.fn(),
+    patch: jest.fn(),
     delete: jest.fn(),
   },
 }));
@@ -176,6 +177,25 @@ describe('member mutations', () => {
 
     expect(first[0]).toBe('/members/member-1/marketing-consent');
     expect(first[1]).toEqual({ purpose: MARKETING_CONSENT_PURPOSE });
+    expect(first[2].headers['Idempotency-Key']).toBeTruthy();
+    expect(first[2].headers['Idempotency-Key']).not.toBe(
+      second[2].headers['Idempotency-Key']
+    );
+  });
+
+  it('renames with a fresh Idempotency-Key and the name in the PATCH body', async () => {
+    const { useRenameMember } = require('@/lib/hooks/queries/useMembers');
+    const config = getMutationConfig(useRenameMember);
+
+    await config.mutationFn({ memberId: 'member-1', name: 'Aisyah' });
+    await config.mutationFn({ memberId: 'member-1', name: null });
+
+    const first = (ApiClient.patch as jest.Mock).mock.calls[0];
+    const second = (ApiClient.patch as jest.Mock).mock.calls[1];
+
+    expect(first[0]).toBe('/members/member-1');
+    expect(first[1]).toEqual({ name: 'Aisyah' });
+    expect(second[1]).toEqual({ name: null });
     expect(first[2].headers['Idempotency-Key']).toBeTruthy();
     expect(first[2].headers['Idempotency-Key']).not.toBe(
       second[2].headers['Idempotency-Key']

@@ -11,10 +11,12 @@ import {
   exportMember,
   getMember,
   marketingMembersToCsv,
+  MEMBER_NAME_MAX_LENGTH,
   memberToCsv,
   MemberNotFoundError,
   MemberStateError,
   recordMarketingConsent,
+  renameMember,
   searchMembers,
   withdrawMemberConsent,
 } from '@/lib/services/loyalty-member-service';
@@ -75,6 +77,7 @@ function makeTx() {
     customer: {
       findFirst: jest.fn(),
       update: jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
     },
     order: {
       findMany: jest.fn().mockResolvedValue([]),
@@ -884,5 +887,262 @@ describe('loyalty member service', () => {
         idempotencyKey: 'marketing-4',
       })
     ).rejects.toBeInstanceOf(MemberStateError);
+  });
+
+  it('renames a member, trims the name and returns the updated view', async () => {
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({ ...memberRow, name: 'Aina Updated' });
+
+    const result = await renameMember({
+      restaurantId,
+      actorId: 'user-1',
+      actorType: 'restaurant_owner',
+      memberId,
+      name: '  Aina Updated  ',
+      revealPhone: true,
+      idempotencyKey: 'rename-1',
+    });
+
+    // The conditional write is tenant- and status-scoped (F-06).
+    expect(tx.customer.updateMany).toHaveBeenCalledWith({
+      where: { id: memberId, restaurantId, status: 'ACTIVE' },
+      data: { name: 'Aina Updated' },
+    });
+    // The view is re-read after the conditional write.
+    expect(tx.customer.findFirst).toHaveBeenLastCalledWith({
+      where: { id: memberId, restaurantId },
+      include: { loyaltyCard: true },
+    });
+    expect(result.member.name).toBe('Aina Updated');
+    expect(result.replayed).toBe(false);
+  });
+
+  it('clears the name when the trimmed value is empty or null', async () => {
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({ ...memberRow, name: null })
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({ ...memberRow, name: null });
+
+    const whitespace = await renameMember({
+      restaurantId,
+      actorId: 'user-1',
+      memberId,
+      name: '   ',
+      revealPhone: false,
+      idempotencyKey: 'rename-clear-1',
+    });
+    expect(tx.customer.updateMany.mock.calls[0][0].data).toEqual({
+      name: null,
+    });
+    expect(whitespace.member.name).toBeNull();
+
+    const explicitNull = await renameMember({
+      restaurantId,
+      actorId: 'user-1',
+      memberId,
+      name: null,
+      revealPhone: false,
+      idempotencyKey: 'rename-clear-2',
+    });
+    expect(tx.customer.updateMany.mock.calls[1][0].data).toEqual({
+      name: null,
+    });
+    expect(explicitNull.member.name).toBeNull();
+  });
+
+  it('rejects a name longer than 80 characters before writing', async () => {
+    await expect(
+      renameMember({
+        restaurantId,
+        actorId: 'user-1',
+        memberId,
+        name: 'A'.repeat(MEMBER_NAME_MAX_LENGTH + 1),
+        revealPhone: false,
+        idempotencyKey: 'rename-too-long',
+      })
+    ).rejects.toMatchObject({ code: 'INVALID_REQUEST' });
+
+    expect(tx.customer.updateMany).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('writes the audit row in the same transaction without the old or new name', async () => {
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({ ...memberRow, name: 'Aina Updated' });
+
+    await renameMember({
+      restaurantId,
+      actorId: 'user-1',
+      actorType: 'restaurant_owner',
+      memberId,
+      name: 'Aina Updated',
+      revealPhone: false,
+      idempotencyKey: 'rename-audit',
+    });
+
+    expect(prismaMock.$transaction).toHaveBeenCalledTimes(1);
+    const audit = tx.auditLog.create.mock.calls[0][0].data;
+    expect(audit).toMatchObject({
+      tableName: 'customers',
+      recordId: memberId,
+      operation: 'UPDATE',
+      changedBy: 'user-1',
+      changedByType: 'restaurant_owner',
+      description: 'Member name updated',
+      metadata: {
+        field: 'name',
+        changed: true,
+        cleared: false,
+        purpose: 'member rename',
+      },
+    });
+    const serialised = JSON.stringify(audit);
+    expect(serialised).not.toContain('Aina');
+    expect(serialised).not.toContain('Aina Updated');
+  });
+
+  it('returns 404 for a cross-tenant rename and asserts the tenant filter', async () => {
+    tx.customer.findFirst.mockResolvedValue(null);
+
+    await expect(
+      renameMember({
+        restaurantId,
+        actorId: 'user-1',
+        memberId,
+        name: 'Aina',
+        revealPhone: false,
+        idempotencyKey: 'rename-cross-tenant',
+      })
+    ).rejects.toBeInstanceOf(MemberNotFoundError);
+
+    // F-06: the read is tenant-scoped; without this the test would pass with
+    // the filter removed.
+    expect(tx.customer.findFirst).toHaveBeenCalledWith({
+      where: { id: memberId, restaurantId },
+      include: { loyaltyCard: true },
+    });
+    expect(tx.customer.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects renaming an anonymised member', async () => {
+    tx.customer.findFirst.mockResolvedValue({
+      ...memberRow,
+      status: 'ANONYMIZED',
+      name: null,
+      phone: null,
+    });
+
+    await expect(
+      renameMember({
+        restaurantId,
+        actorId: 'user-1',
+        memberId,
+        name: 'Aina',
+        revealPhone: false,
+        idempotencyKey: 'rename-anonymised',
+      })
+    ).rejects.toMatchObject({ code: 'MEMBER_ANONYMIZED' });
+
+    expect(tx.customer.updateMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a rename that races an anonymise and writes no name', async () => {
+    // The read still sees ACTIVE, but the conditional write matches 0 rows
+    // because a concurrent anonymise committed first.
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({
+        ...memberRow,
+        status: 'ANONYMIZED',
+        name: null,
+        phone: null,
+      });
+    tx.customer.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      renameMember({
+        restaurantId,
+        actorId: 'user-1',
+        memberId,
+        name: 'Aina Updated',
+        revealPhone: false,
+        idempotencyKey: 'rename-race-anonymise',
+      })
+    ).rejects.toMatchObject({ code: 'MEMBER_ANONYMIZED' });
+
+    expect(tx.customer.updateMany).toHaveBeenCalledWith({
+      where: { id: memberId, restaurantId, status: 'ACTIVE' },
+      data: { name: 'Aina Updated' },
+    });
+    // No name is written and no success audit row is created.
+    expect(tx.customer.update).not.toHaveBeenCalled();
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('returns not found when the row disappears before the conditional write', async () => {
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce(null);
+    tx.customer.updateMany.mockResolvedValue({ count: 0 });
+
+    await expect(
+      renameMember({
+        restaurantId,
+        actorId: 'user-1',
+        memberId,
+        name: 'Aina Updated',
+        revealPhone: false,
+        idempotencyKey: 'rename-race-delete',
+      })
+    ).rejects.toBeInstanceOf(MemberNotFoundError);
+
+    expect(tx.auditLog.create).not.toHaveBeenCalled();
+  });
+
+  it('replays a rename without re-running it and returns the live view', async () => {
+    tx.customer.findFirst
+      .mockResolvedValueOnce(memberRow)
+      .mockResolvedValueOnce({ ...memberRow, name: 'Aina Updated' });
+
+    const input = {
+      restaurantId,
+      actorId: 'user-1',
+      memberId,
+      name: 'Aina Updated',
+      revealPhone: true,
+      idempotencyKey: 'rename-replay',
+    } as const;
+
+    await renameMember(input);
+
+    const envelope = tx.orderActionReceipt.update.mock.calls[0][0].data
+      .response as {
+      requestHash: string;
+      statusCode: number;
+      body: { member: { name: string | null } };
+    };
+    // The 24h receipt must not retain the name.
+    expect(envelope.body.member.name).toBeNull();
+
+    const replayTx = makeTx();
+    tx = replayTx;
+    prismaMock.orderActionReceipt.findUnique.mockResolvedValue({
+      id: 'receipt-1',
+      createdAt: new Date(),
+      response: envelope,
+    });
+    prismaMock.customer.findFirst.mockResolvedValue({
+      ...memberRow,
+      name: 'Aina Updated',
+    });
+
+    const replay = await renameMember(input);
+
+    expect(replay.replayed).toBe(true);
+    expect(replay.member.name).toBe('Aina Updated');
+    expect(replayTx.customer.updateMany).not.toHaveBeenCalled();
   });
 });

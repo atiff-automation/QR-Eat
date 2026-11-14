@@ -23,6 +23,7 @@ import {
   useMemberProfile,
   useMemberSearch,
   useRecordMarketingConsent,
+  useRenameMember,
   useWithdrawConsent,
   type ConsentScope,
   type Member,
@@ -47,6 +48,7 @@ export default function MembersPage() {
   const { hasPermission, isLoading: roleLoading } = useRole();
   const canRead = hasPermission('members:read');
   const canViewPii = hasPermission('members:pii');
+  const canEditName = hasPermission('members:pii');
   const canExport = hasPermission('members:export');
   const canDelete = hasPermission('members:delete');
   const canWithdrawConsent = hasPermission('members:consent_withdraw');
@@ -67,6 +69,7 @@ export default function MembersPage() {
   });
   const withdrawMutation = useWithdrawConsent();
   const marketingMutation = useRecordMarketingConsent();
+  const renameMutation = useRenameMember();
   const deleteMutation = useDeleteMember();
 
   if (roleLoading) {
@@ -161,6 +164,19 @@ export default function MembersPage() {
     }
   };
 
+  const handleRename = async (member: Member, name: string | null) => {
+    setBanner(null);
+    const data = await renameMutation.mutateAsync({
+      memberId: member.id,
+      name,
+    });
+    replaceMember(data.member);
+    setBanner({
+      kind: 'success',
+      message: name === null ? 'Member name cleared.' : 'Member name updated.',
+    });
+  };
+
   const confirmDelete = async () => {
     if (!deleteTarget) return;
     setBanner(null);
@@ -189,6 +205,7 @@ export default function MembersPage() {
   const isBusy =
     withdrawMutation.isPending ||
     marketingMutation.isPending ||
+    renameMutation.isPending ||
     deleteMutation.isPending;
 
   return (
@@ -291,6 +308,7 @@ export default function MembersPage() {
                 <MemberProfileCard
                   member={selectedMember}
                   canViewPii={canViewPii}
+                  canEditName={canEditName}
                   canExport={canExport}
                   canWithdrawConsent={canWithdrawConsent}
                   canDelete={canDelete}
@@ -299,6 +317,7 @@ export default function MembersPage() {
                     setWithdrawTarget({ member, scope })
                   }
                   onMarketingConsent={handleMarketingConsent}
+                  onRename={(name) => handleRename(selectedMember, name)}
                   onDelete={setDeleteTarget}
                 />
               ) : (

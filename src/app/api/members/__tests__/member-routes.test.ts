@@ -16,6 +16,7 @@ import {
   MemberNotFoundError,
   MemberStateError,
   recordMarketingConsent,
+  renameMember,
   searchMembers,
   withdrawMemberConsent,
 } from '@/lib/services/loyalty-member-service';
@@ -23,6 +24,7 @@ import { POST as searchRoute } from '@/app/api/members/search/route';
 import {
   DELETE as deleteRoute,
   GET as profileRoute,
+  PATCH as renameRoute,
 } from '@/app/api/members/[id]/route';
 import { GET as exportRoute } from '@/app/api/members/[id]/export/route';
 import { GET as listExportRoute } from '@/app/api/members/export/route';
@@ -52,6 +54,7 @@ jest.mock('@/lib/services/loyalty-member-service', () => {
     withdrawMemberConsent: jest.fn(),
     recordMarketingConsent: jest.fn(),
     deleteMember: jest.fn(),
+    renameMember: jest.fn(),
   };
 });
 
@@ -98,6 +101,17 @@ const params = { params: Promise.resolve({ id: memberId }) };
 function postRequest(path: string, body: unknown, key = 'key-1'): NextRequest {
   return new NextRequest(`http://localhost${path}`, {
     method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      'idempotency-key': key,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function patchRequest(path: string, body: unknown, key = 'key-1'): NextRequest {
+  return new NextRequest(`http://localhost${path}`, {
+    method: 'PATCH',
     headers: {
       'content-type': 'application/json',
       'idempotency-key': key,
@@ -162,6 +176,11 @@ describe('owner member routes', () => {
     (deleteMember as jest.Mock).mockResolvedValue({
       member: { ...member, status: 'ANONYMIZED' },
       ordersAnonymised: 2,
+      replayed: false,
+      statusCode: 200,
+    });
+    (renameMember as jest.Mock).mockResolvedValue({
+      member: { ...member, name: 'Aina Updated' },
       replayed: false,
       statusCode: 200,
     });
@@ -451,6 +470,141 @@ describe('owner member routes', () => {
     expect(deleteMember).not.toHaveBeenCalled();
   });
 
+  it('renames a member behind members:pii and returns the updated view', async () => {
+    const response = await renameRoute(
+      patchRequest(
+        `/api/members/${memberId}`,
+        { name: '  Aina Updated  ' },
+        'rename-key'
+      ),
+      params
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(requirePermission).toHaveBeenCalledWith(context, 'members', 'pii');
+    expect(renameMember).toHaveBeenCalledWith({
+      restaurantId,
+      actorId: 'user-1',
+      actorType: 'restaurant_owner',
+      memberId,
+      name: 'Aina Updated',
+      revealPhone: true,
+      idempotencyKey: 'rename-key',
+    });
+    expect(json.member.name).toBe('Aina Updated');
+  });
+
+  it('passes null through to clear the name', async () => {
+    await renameRoute(
+      patchRequest(`/api/members/${memberId}`, { name: null }, 'rename-null'),
+      params
+    );
+
+    expect(renameMember).toHaveBeenCalledWith(
+      expect.objectContaining({ name: null, idempotencyKey: 'rename-null' })
+    );
+  });
+
+  it('denies rename without members:pii', async () => {
+    (requirePermission as jest.Mock).mockImplementation(
+      (_context: unknown, resource: string, action: string) => {
+        if (resource === 'members' && action === 'pii') {
+          throw new Error('Permission denied');
+        }
+      }
+    );
+
+    const response = await renameRoute(
+      patchRequest(`/api/members/${memberId}`, { name: 'Aina' }),
+      params
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(403);
+    expect(json.code).toBe('PERMISSION_DENIED');
+    expect(renameMember).not.toHaveBeenCalled();
+  });
+
+  it('requires an Idempotency-Key for rename', async () => {
+    const request = new NextRequest(
+      `http://localhost/api/members/${memberId}`,
+      {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'Aina' }),
+      }
+    );
+
+    const response = await renameRoute(request, params);
+    const json = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(json.code).toBe('IDEMPOTENCY_KEY_REQUIRED');
+    expect(renameMember).not.toHaveBeenCalled();
+  });
+
+  it('rejects a name longer than 80 characters', async () => {
+    const response = await renameRoute(
+      patchRequest(`/api/members/${memberId}`, { name: 'A'.repeat(81) }),
+      params
+    );
+
+    expect(response.status).toBe(400);
+    expect(renameMember).not.toHaveBeenCalled();
+  });
+
+  it('maps a cross-tenant rename to 404, not 403', async () => {
+    (renameMember as jest.Mock).mockRejectedValue(new MemberNotFoundError());
+
+    const response = await renameRoute(
+      patchRequest(`/api/members/${memberId}`, { name: 'Aina' }),
+      params
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(json.code).toBe('NOT_FOUND');
+  });
+
+  it('rejects an anonymised member with a clear code', async () => {
+    (renameMember as jest.Mock).mockRejectedValue(
+      new MemberStateError(
+        'An anonymised member cannot be renamed',
+        'MEMBER_ANONYMIZED'
+      )
+    );
+
+    const response = await renameRoute(
+      patchRequest(`/api/members/${memberId}`, { name: 'Aina' }),
+      params
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(409);
+    expect(json.code).toBe('MEMBER_ANONYMIZED');
+  });
+
+  it('flags a replayed rename with Idempotent-Replay', async () => {
+    (renameMember as jest.Mock).mockResolvedValue({
+      member: { ...member, name: 'Aina Updated' },
+      replayed: true,
+      statusCode: 200,
+    });
+
+    const response = await renameRoute(
+      patchRequest(
+        `/api/members/${memberId}`,
+        { name: 'Aina Updated' },
+        'replay-key'
+      ),
+      params
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('idempotent-replay')).toBe('true');
+  });
+
   it('denies every member endpoint without its permission', async () => {
     (requirePermission as jest.Mock).mockImplementation(() => {
       throw new Error('Permission denied');
@@ -474,6 +628,10 @@ describe('owner member routes', () => {
       ),
       marketingRoute(
         postRequest(`/api/members/${memberId}/marketing-consent`, {}),
+        params
+      ),
+      renameRoute(
+        patchRequest(`/api/members/${memberId}`, { name: 'Aina' }),
         params
       ),
       deleteRoute(deleteRequest(`/api/members/${memberId}`), params),

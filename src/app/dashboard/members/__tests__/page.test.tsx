@@ -29,6 +29,7 @@ jest.mock('@/lib/hooks/queries/useMembers', () => {
       mutateAsync: jest.fn(),
       isPending: false,
     }),
+    useRenameMember: () => ({ mutateAsync: jest.fn(), isPending: false }),
     useDeleteMember: () => ({ mutateAsync: jest.fn(), isPending: false }),
   };
 });
@@ -89,12 +90,14 @@ function renderProfile(overrides: Record<string, unknown> = {}) {
     <MemberProfileCard
       member={member}
       canViewPii={false}
+      canEditName={false}
       canExport={false}
       canWithdrawConsent={false}
       canDelete={false}
       isBusy={false}
       onWithdraw={noop}
       onMarketingConsent={noop}
+      onRename={noop}
       onDelete={noop}
       {...overrides}
     />
@@ -222,5 +225,28 @@ describe('MemberProfileCard', () => {
     expect(DELETE_MEMBER_CONFIRMATION_MESSAGE).toContain(
       'Financial records are kept'
     );
+  });
+
+  it('renders the edit-name control only with members:pii', () => {
+    const withoutPii = renderProfile();
+    expect(withoutPii).not.toContain('Edit name');
+    expect(withoutPii).not.toContain('Save name');
+    expect(withoutPii).not.toContain('Up to 80 characters');
+
+    const withPii = renderProfile({ canEditName: true });
+    expect(withPii).toContain('Edit name');
+    expect(withPii).toContain('Save name');
+    expect(withPii).toContain('Up to 80 characters');
+    expect(withPii).toContain('aria-describedby="member-name-help"');
+  });
+
+  it('hides the edit-name control for an anonymised member', () => {
+    const markup = renderProfile({
+      canEditName: true,
+      member: { ...member, status: 'ANONYMIZED', name: null },
+    });
+
+    expect(markup).not.toContain('Edit name');
+    expect(markup).not.toContain('Save name');
   });
 });

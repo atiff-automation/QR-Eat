@@ -7,6 +7,7 @@
 
 'use client';
 
+import { useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle,
@@ -22,6 +23,12 @@ import {
   memberVisitProgress,
   type Member,
 } from '@/lib/hooks/queries/useMembers';
+
+/** Maximum owner-entered member name, mirrored by the API (P7d). */
+export const MEMBER_NAME_MAX_LENGTH = 80;
+
+const NAME_INPUT_CLASS =
+  'h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-gray-900 outline-none focus:ring-2 focus:ring-blue-500';
 
 const ERROR_BANNER =
   'flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700';
@@ -215,26 +222,128 @@ function marketingSummary(member: Member): string {
   return 'No marketing consent';
 }
 
-/** Member profile with consent, export and delete actions. */
+/**
+ * Owner rename control behind `members:pii` (P7d). Trimmed, max 80
+ * characters; leaving it blank clears the name. Field-level errors use
+ * `aria-invalid`/`aria-describedby`. The input follows the standard 40px
+ * token; the submit button keeps a 44px touch target.
+ */
+export function MemberNameEditor({
+  member,
+  isBusy,
+  onRename,
+}: {
+  member: Member;
+  isBusy: boolean;
+  onRename: (name: string | null) => Promise<void> | void;
+}) {
+  const [value, setValue] = useState(member.name ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const trimmed = value.trim();
+  const tooLong = trimmed.length > MEMBER_NAME_MAX_LENGTH;
+  const displayError = tooLong
+    ? `A member name can be at most ${MEMBER_NAME_MAX_LENGTH} characters.`
+    : error;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(null);
+    if (tooLong) return;
+
+    setIsSaving(true);
+    try {
+      await onRename(trimmed.length === 0 ? null : trimmed);
+    } catch (submitError) {
+      setError(
+        submitError instanceof Error
+          ? submitError.message
+          : 'Could not update the name. Please try again.'
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="mt-4 rounded-xl border border-gray-100 bg-gray-50 p-4"
+      noValidate
+    >
+      <h3 className="text-sm font-semibold text-gray-900">Edit name</h3>
+      <p className="mt-1 text-sm text-gray-600">
+        Correct a name captured at enrolment. Leave it blank to clear the name.
+        This is recorded in the member audit log.
+      </p>
+      <label
+        htmlFor="member-name"
+        className="mt-3 mb-1 block text-xs font-semibold uppercase text-gray-500"
+      >
+        Member name
+      </label>
+      <input
+        id="member-name"
+        type="text"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        className={NAME_INPUT_CLASS}
+        disabled={isBusy || isSaving}
+        aria-invalid={Boolean(displayError) || undefined}
+        aria-describedby={
+          displayError ? 'member-name-error' : 'member-name-help'
+        }
+      />
+      <p id="member-name-help" className="mt-1 text-xs text-gray-500">
+        Up to {MEMBER_NAME_MAX_LENGTH} characters. Leading and trailing spaces
+        are removed.
+      </p>
+      {displayError && (
+        <p
+          id="member-name-error"
+          role="alert"
+          className="mt-1 text-xs text-red-700"
+        >
+          {displayError}
+        </p>
+      )}
+      <Button
+        type="submit"
+        className="mt-3 min-h-11"
+        loading={isSaving}
+        disabled={isBusy || isSaving}
+      >
+        Save name
+      </Button>
+    </form>
+  );
+}
+
+/** Member profile with consent, export, rename and delete actions. */
 export function MemberProfileCard({
   member,
   canViewPii,
+  canEditName,
   canExport,
   canWithdrawConsent,
   canDelete,
   isBusy,
   onWithdraw,
   onMarketingConsent,
+  onRename,
   onDelete,
 }: {
   member: Member;
   canViewPii: boolean;
+  canEditName: boolean;
   canExport: boolean;
   canWithdrawConsent: boolean;
   canDelete: boolean;
   isBusy: boolean;
   onWithdraw: (member: Member, scope: 'LOYALTY' | 'MARKETING') => void;
   onMarketingConsent: (member: Member) => void;
+  onRename: (name: string | null) => Promise<void> | void;
   onDelete: (member: Member) => void;
 }) {
   const phone = memberPhone(member, canViewPii);
@@ -351,6 +460,15 @@ export function MemberProfileCard({
           Your role can view this member but cannot {missingActions.join(', ')}.
           Ask an owner if you need to make those changes.
         </p>
+      )}
+
+      {canEditName && member.status === 'ACTIVE' && (
+        <MemberNameEditor
+          key={`${member.id}:${member.name ?? ''}`}
+          member={member}
+          isBusy={isBusy}
+          onRename={onRename}
+        />
       )}
 
       {canRecordMarketing && (

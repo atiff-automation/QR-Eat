@@ -152,6 +152,35 @@ function useMemberMutationCache() {
   };
 }
 
+/**
+ * Owner rename behind `members:pii` (P7d). Sends `{ name: string | null }`;
+ * `null` clears the name. A fresh `Idempotency-Key` is generated per submit so
+ * a double click cannot apply twice. The server returns the updated member and
+ * the profile cache is refreshed.
+ */
+export function useRenameMember() {
+  const { cacheMember } = useMemberMutationCache();
+
+  return useMutation({
+    mutationFn: async ({
+      memberId,
+      name,
+    }: {
+      memberId: string;
+      name: string | null;
+    }) => {
+      return ApiClient.patch<MemberMutationResponse>(
+        `/members/${memberId}`,
+        { name },
+        { headers: { 'Idempotency-Key': crypto.randomUUID() } }
+      );
+    },
+    onSuccess: (data) => {
+      if (data?.member) cacheMember(data.member);
+    },
+  });
+}
+
 export function useWithdrawConsent() {
   const { cacheMember } = useMemberMutationCache();
 

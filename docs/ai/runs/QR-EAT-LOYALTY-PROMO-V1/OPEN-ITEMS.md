@@ -133,5 +133,15 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
 | # | Item | Severity | Done when |
 |---|---|---|---|
-| P7c-10 | A name is now **write-once** with no corrective path — a name mistyped at first enrolment can only be fixed by anonymise and re-enrol | L | An owner rename behind `members:pii` with an audit row (product decision) |
+| P7c-10 | A name is now **write-once** with no corrective path | L | **CLOSED (2026-11-14)** — `PATCH /api/members/[id]` renames behind `members:pii` with an audited, name-free row; the attach paths still cannot rename. |
 | P7c-11 | Two concurrent first attaches on a **nameless** member can both capture a name; last write wins | L | Add `name: null` to the capture predicate if it ever matters |
+
+## Added by P7d (`REVIEW-21`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| P7d-1 | After an owner clears a name, a later enrolment by the same phone re-captures one | L | Recorded at P10 |
+| P7d-2 | `count !== 1` always reports `MEMBER_ANONYMIZED`; wrong if a third status is added | L | Comment updated when a status is added |
+| P7d-3 | A replayed rename re-reads the live member, so an intervening rename changes the replayed body | L | Accepted |
+| P7d-4 | Historical `Order.customerName` / `CustomerSession.customerName` copies keep the old name after a rename | L | Product decision at P10 |
+| P7d-5 | The 80-character name bound exists on rename only; `cleanName` on attach is unbounded | L | Apply the same bound on creation |

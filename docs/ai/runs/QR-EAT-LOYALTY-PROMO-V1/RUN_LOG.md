@@ -1138,3 +1138,33 @@ New notes: P7c-10 (a name is now write-once with no corrective path — an owner
 `members:pii` is a product decision) and P7c-11 (two concurrent first attaches on a nameless
 member can both capture).
 
+
+**P7d — owner rename behind `members:pii` (2026-11-14):**
+
+Implementer `ses_e277828c1ffeYcwuHD0KFX7Sui`. Verifiers `ses_e27667c6dffeg2iD4B7RomlszM`
+(PASS WITH NOTES) and `ses_e27523646ffe4sbB18MeT0gYDj` (correction, **PASS**). See `REVIEW-21.md`.
+
+Closes P7c-10. `PATCH /api/members/[id]` renames a member behind `members:pii` with an
+`Idempotency-Key`, writing an audit row in the same transaction that carries actor, target and
+`purpose: 'member rename'` — and **no old or new name**. Trimmed, 80 characters, `null` clears;
+tenant-scoped with cross-tenant 404; anonymised members rejected. The member profile gains an
+"Edit name" control rendered only for `members:pii` holders.
+
+The review found a rename-vs-anonymise race (F-02): a conditional `findFirst` followed by an
+unconditional update could leave a name on an ANONYMIZED row. Fixed with a conditional
+`updateMany` on `status: 'ACTIVE'` plus a re-read, mirroring the existing customer-service guard.
+
+```text
+npx jest src/app/api/members src/lib/services/__tests__ src/app/dashboard/members --runInBand
+                                   -> 14 suites, 265 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 108 passed / 1 skipped, 1322 passed, 11 skipped
+npm run build                      -> PASS
+```
+
+Verified: a name cannot survive on an ANONYMIZED row; no unauthenticated path can rename; the
+write-once attach rule is intact.
+
+**P7: COMPLETE.** P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals),
+P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename) all closed.
+

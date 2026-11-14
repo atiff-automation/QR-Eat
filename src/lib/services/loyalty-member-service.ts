@@ -33,6 +33,9 @@ import {
 /** Maximum rows a search may return (§18.20.7). */
 export const MEMBER_SEARCH_LIMIT = 50;
 
+/** Maximum length of an owner-entered member name (P7d). */
+export const MEMBER_NAME_MAX_LENGTH = 80;
+
 export class MemberValidationError extends Error {
   readonly code: string;
   readonly statusCode = 400;
@@ -365,6 +368,197 @@ export async function getMember(
 
   return {
     member: toMemberView(row as unknown as MemberRow, input.revealPhone),
+  };
+}
+
+/**
+ * Normalise an owner-entered name: trim, treat empty as "clear", and reject
+ * anything longer than `MEMBER_NAME_MAX_LENGTH` after trimming. The route
+ * applies the same bound; this guard covers direct service callers too.
+ */
+function normaliseMemberName(name: string | null): string | null {
+  if (name === null) return null;
+  if (typeof name !== 'string') {
+    throw new MemberValidationError(
+      'A member name must be text or null',
+      'INVALID_REQUEST'
+    );
+  }
+  const trimmed = name.trim();
+  if (trimmed.length === 0) return null;
+  if (trimmed.length > MEMBER_NAME_MAX_LENGTH) {
+    throw new MemberValidationError(
+      `A member name can be at most ${MEMBER_NAME_MAX_LENGTH} characters`,
+      'INVALID_REQUEST'
+    );
+  }
+  return trimmed;
+}
+
+export interface RenameMemberInput {
+  restaurantId: string;
+  actorId: string;
+  actorType?: string | null;
+  memberId: string;
+  name: string | null;
+  revealPhone: boolean;
+  idempotencyKey: string;
+}
+
+export interface RenameMemberResult {
+  member: MemberView;
+  replayed: boolean;
+  statusCode: number;
+}
+
+/**
+ * Owner rename behind `members:pii` (P7d, closes P7c-10).
+ *
+ * The QR and Counter attach paths stay write-once (`resolveOrCreateCustomer`);
+ * this is the only corrective path. The lookup is tenant-scoped, so a member
+ * from another restaurant is a 404. An anonymised member has nothing to rename
+ * and is rejected with `MEMBER_ANONYMIZED`.
+ *
+ * The audit row is written in the same transaction as the update and records
+ * only *that* the name changed: the old and new values are never stored in
+ * `oldValues`, `newValues` or `metadata`. It carries a purpose because the
+ * response can return the full phone to a `members:pii` caller (§18.20.14 A).
+ * The 24h idempotency receipt is also PII-free (the name and every phone
+ * representation are stripped), so a replay re-reads the live member to return
+ * the same view the first call returned. The request hash is keyed with
+ * `hashPhone`, so the persisted digest of the low-entropy name is not
+ * brute-forceable (same reasoning as F-08).
+ *
+ * The write is conditional on `status='ACTIVE'` and the tenant, so a concurrent
+ * `deleteMember` cannot leave a name on an `ANONYMIZED` row. This is the same
+ * race guard `resolveOrCreateCustomer` uses: `updateMany` + `count !== 1` +
+ * one re-read.
+ */
+export async function renameMember(
+  input: RenameMemberInput
+): Promise<RenameMemberResult> {
+  const name = normaliseMemberName(input.name);
+
+  let requestHash: string;
+  try {
+    requestHash = hashPhone(
+      JSON.stringify({
+        restaurantId: input.restaurantId,
+        memberId: input.memberId,
+        name,
+        actorId: input.actorId,
+        revealPhone: input.revealPhone,
+      })
+    );
+  } catch (error) {
+    if (error instanceof LoyaltyConfigurationError) {
+      throw new MemberConfigurationError();
+    }
+    throw error;
+  }
+
+  const result = await runIdempotentOwnerMutation<{ member: MemberView }>({
+    restaurantId: input.restaurantId,
+    action: 'members.rename',
+    key: input.idempotencyKey,
+    requestHash,
+    execute: async (tx: TransactionClient) => {
+      const existing = await tx.customer.findFirst({
+        where: { id: input.memberId, restaurantId: input.restaurantId },
+        include: { loyaltyCard: true },
+      });
+      if (!existing) throw new MemberNotFoundError();
+
+      if (existing.status === 'ANONYMIZED') {
+        throw new MemberStateError(
+          'An anonymised member cannot be renamed',
+          'MEMBER_ANONYMIZED'
+        );
+      }
+
+      // Conditional write: a concurrent anonymise moves the row out of
+      // ACTIVE, so this statement must not match it. Without the status and
+      // tenant predicates a rename could land a name on an ANONYMIZED row
+      // (PII retention violation).
+      const write = await tx.customer.updateMany({
+        where: {
+          id: existing.id,
+          restaurantId: input.restaurantId,
+          status: 'ACTIVE',
+        },
+        data: { name },
+      });
+
+      if (write.count !== 1) {
+        // Re-read once: the row is either gone or no longer ACTIVE.
+        const current = await tx.customer.findFirst({
+          where: { id: input.memberId, restaurantId: input.restaurantId },
+        });
+        if (!current) throw new MemberNotFoundError();
+        throw new MemberStateError(
+          'An anonymised member cannot be renamed',
+          'MEMBER_ANONYMIZED'
+        );
+      }
+
+      const updated = await tx.customer.findFirst({
+        where: { id: input.memberId, restaurantId: input.restaurantId },
+        include: { loyaltyCard: true },
+      });
+      if (!updated) throw new MemberNotFoundError();
+
+      // Never store the old or new name: only that the field changed and
+      // whether it now has a value. The purpose covers the full-phone read in
+      // the response (§18.20.14 A).
+      await tx.auditLog.create({
+        data: auditData({
+          tableName: 'customers',
+          recordId: existing.id,
+          operation: 'UPDATE',
+          description: 'Member name updated',
+          actor: input,
+          oldValues: { hadName: existing.name !== null },
+          newValues: { hasName: name !== null },
+          metadata: {
+            field: 'name',
+            changed: (existing.name ?? null) !== name,
+            cleared: name === null,
+            purpose: 'member rename',
+          },
+        }),
+      });
+
+      return {
+        body: {
+          member: toMemberView(
+            updated as unknown as MemberRow,
+            input.revealPhone
+          ),
+        },
+        receiptBody: {
+          member: toReceiptMemberView(updated as unknown as MemberRow),
+        },
+        statusCode: 200,
+      };
+    },
+  });
+
+  let member = result.body.member;
+  if (result.replayed) {
+    // The receipt must not retain PII, so a replay re-reads the live,
+    // tenant-scoped member instead of returning the masked receipt body.
+    const current = await prisma.customer.findFirst({
+      where: { id: input.memberId, restaurantId: input.restaurantId },
+      include: { loyaltyCard: true },
+    });
+    if (!current) throw new MemberNotFoundError();
+    member = toMemberView(current as unknown as MemberRow, input.revealPhone);
+  }
+
+  return {
+    member,
+    replayed: result.replayed,
+    statusCode: result.statusCode,
   };
 }
 
