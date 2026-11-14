@@ -471,6 +471,59 @@ HMAC (`hashPhone`) or exclude the phone from the request hash.
 earned/redeemed, promotion redemptions by scope; remove any double subtraction;
 Z/P&L discount line and rounding line.
 
+**P8 plan (approved 2026-11-14).** Inspection found four defects, not one.
+
+**Facts**
+- `Order.totalAmount` is **post-discount** (subtotal + tax + service − discount).
+- The P&L sets `grossSales = Σ totalAmount` and then `netSales = grossSales - discounts - refunds`
+  — subtracting a discount that is already inside the gross. That is the contract's "never
+  subtract a discount from a net figure", live today.
+- Refunds are written as `Payment { amount: -x, status: 'PAID' }`
+  (`order-adjustment-service.ts` `createRefundPayment`). The P&L queries `status: 'REFUNDED'`,
+  which matches nothing; the loyalty report only reads payments attached to a `PaymentBatch`,
+  and refund payments have no batch. Refunds therefore report `0.00`.
+- The Z report has no rounding line, so a drawer reconciled to the nearest 5 sen does not
+  reconcile on paper.
+
+**Decisions**
+- **Q1 = B.** P&L: `gross = Σ subtotalAmount`, `discounts = Σ discountAmount` shown separately,
+  `net = gross − discounts − refunds`. Gross before discount, matching §18.20.8 and how an
+  accountant reads it.
+- **Q2 = A.** A refund belongs to the business date on which it happened (the money leaving the
+  drawer), not the original sale date — a filed day's Z is never silently changed.
+- **Q3.** The rounding line goes in the **Z report only**.
+
+**Scope**
+1. `src/app/api/admin/reports/profit-loss/route.ts` — gross from `Σ subtotalAmount`; refunds from
+   **negative payments** in the range; `net = gross − discounts − refunds` with no double
+   subtraction.
+2. `src/lib/services/loyalty-report-service.ts` — refunds from negative payments, attributed by
+   the refund's own business date, including refunds with no `PaymentBatch`.
+3. `src/lib/services/reporting/counter-report-service.ts` — a rounding line per tender, summed
+   from `PaymentBatch.roundingAdjustment`, reconciled against `cashPayable`.
+4. Confirm the loyalty report's `gross`/`discounts`/`net` match §18.20.8 exactly.
+5. Tests: a refunded order reconciles in the P&L, the loyalty report and the Z; the old arithmetic
+   is pinned so the change is deliberate.
+
+**Acceptance criteria**
+1. P&L: `net = Σ subtotal − Σ discount − Σ refunds`; a discounted order is not double-subtracted.
+2. P&L refunds equal the sum of negative payments in the range, as a positive magnitude.
+3. Loyalty report refunds are non-zero after a refund, attributed to the refund's business date.
+4. Z shows a rounding total that reconciles `Σ cashPayable` against `Σ cashReceived − Σ changeGiven`.
+5. Loyalty report definitions match §18.20.8.
+6. Existing report tests still pass; the arithmetic change is asserted explicitly.
+
+**Non-goals**
+Changing the loyalty report's date-range semantics, adding rounding to the loyalty report,
+touching payment writes, or changing how refunds are recorded (they already write negative
+payments correctly).
+
+**Ownership**
+`src/app/api/admin/reports/profit-loss/route.ts`, `src/lib/services/loyalty-report-service.ts`,
+`src/lib/services/reporting/counter-report-service.ts`, the matching report UI if a figure label
+must change, and the tests. Reports are a sensitive area under `AGENTS.md`; this plan approval
+covers that.
+
 **P9 — Rehearsal and rollout.** Fresh-DB and upgrade-from-copy migrations on a
 throwaway Postgres; flag matrix (`LOYALTY_ENABLED` × `LoyaltySettings.enabled`);
 one-restaurant pilot; rollback drill (flag off; existing rows intact).
