@@ -10,7 +10,7 @@ Updated: 2026-11-14
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
 
-Current step: **P9, P9-10a and P9-10b complete and committed.** P10 (contract freeze) is next.
+Current step: **P10 complete and committed.** P11 (four-lens R3 review) is next.
 
 Last completed:
 - P0–P8 complete and committed.
@@ -28,11 +28,12 @@ Last completed:
   public URL.
 
 Next action:
-1. **P10 — contract freeze.** Update `docs/PRODUCT/API-CONTRACT.md` and
-   `RELEASE-COMPATIBILITY.md`; write the Counter handoff; record P8-1 (Z `grossSales` now
-   pre-tax), P8-6 (net includes tax — accounting sign-off), P7c-1 / **P9-10** (Railway
-   `X-Forwarded-For` unobserved), and P9-09 (`outcome = 'GUEST'` under flag off).
-2. **P11 — four-lens R3 review** (different model or human pass).
+1. **P11 — four-lens R3 review** (Security, correctness, data, product) by a different model
+   or a human. P11 is the last gate before the freeze stamp.
+2. **After P11 PASS:** stamp the final hash in `docs/PRODUCT/API-CONTRACT.md` and
+   `RELEASE-COMPATIBILITY.md` (two-line amendment), then pilot.
+3. **Pilot** (human): `LOYALTY_ENABLED=true`, `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled`
+   for one restaurant, `db:seed` present, `/api/health` `edgeIp.source = "x-real-ip"`.
 3. **Pilot** (human): `LOYALTY_ENABLED=true`, `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled`
    for one restaurant, `db:seed` present, edge warning absent. Follow `PILOT-RUNBOOK.md`.
 
