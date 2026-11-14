@@ -1,0 +1,62 @@
+# P9-10 — Railway edge client-address behaviour
+
+Date: 2026-11-14
+Method: a throwaway Node echo service deployed as a separate Railway project
+(`xff-probe`, same workspace/region), deleted after the test. The service
+classifies every address and never returns a raw value. The client address was
+identified by SHA-256 equality *within one request*, so no address was read,
+printed or recorded.
+
+## Test matrix
+
+| Test | Client sent | Observed |
+|---|---|---|
+| plain request | — | `X-Forwarded-For` present, 2 entries, both public; `X-Real-IP` present |
+| forged `X-Forwarded-For` | 198.51.100.7 | 2 entries, sentinel absent — header **replaced** by the edge |
+| forged `X-Real-IP` | 198.51.100.9 | sentinel absent — **overwritten** by the edge |
+| both forged | both sentinels | neither returned — both overwritten |
+| duplicate `X-Forwarded-For` | 198.51.100.7, 198.51.100.7 | 2 entries, sentinel absent — replaced |
+| RFC 7239 `Forwarded` | for=198.51.100.7 | passed through untouched (the app does not read it) |
+
+Client-supplied values are therefore **not spoofable**: the edge overwrites both
+headers.
+
+## Order — the finding
+
+Across three requests:
+
+- `X-Real-IP` hash == `X-Forwarded-For` entry[0] hash, every time
+  → **entry[0] is the client**.
+- `X-Forwarded-For` entry[1] hash differed between requests
+  → it is a Railway internal hop, **not the client**.
+- Socket peer is 100.64/10 (CGNAT) → internal and shared.
+
+So the client address is the **first** XFF entry, and is also exposed as
+`X-Real-IP`. The **last** entry is a per-connection Railway hop.
+
+## Consequence
+
+`trustedIp()` takes the **last** XFF entry. In production that is a varying
+internal hop, so the `EDGE_IP` rate-limit bucket is effectively
+per-connection: the per-IP floor limits nothing. The `unknown` warning never
+fires because the header is present, so the misconfiguration is silent.
+
+Not a spoofing bypass — a **wrong key**. The `PHONE_HASH`, `QR_SESSION` and
+`RESTAURANT` buckets are unaffected; only the IP dimension is inert.
+
+## Platform facts
+
+- Railway documents `X-Real-IP` as the client address. `X-Forwarded-For` is not
+  in its documented header list, but it is set, with the client **first**.
+- `RAILWAY_ENVIRONMENT` and other `RAILWAY_*` variables are present at runtime,
+  so a resolver can detect the platform and fail closed elsewhere.
+- Custom-domain behaviour was not tested; the same edge (`server:
+  railway-hikari`, `x-railway-edge: hkg1`) serves `*.up.railway.app` and
+  `tabtep.app`.
+
+## Verdict
+
+The P7a assumption "a proxy appends the peer address, so the last entry is the
+edge-observed client" is **false on Railway**: the edge prepends the client and
+appends an internal hop. `trustedIp()` must read the client from `X-Real-IP`
+(or the first XFF entry) and must validate it.
