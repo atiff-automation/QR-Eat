@@ -18,8 +18,8 @@
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout)
-**Phases open:** P10, P11
-**Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete**
+**Phases open:** P9-10a, P9-10b, P10, P11
+**Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
 > §18.20.14, §18.20.15 (v1.4.3), Tabtep task revision 14, approved 2026-11-13.
@@ -593,6 +593,106 @@ session; changing the contract.
 `scripts/rehearse-migrations.ts`, `scripts/rehearse-concurrency.ts`, a startup warning in the
 existing instrumentation/health path, `PILOT-RUNBOOK.md`, and the evidence in the run directory.
 `prisma/migrations` is **not** modified — this phase only replays it.
+
+**P9-10a — Edge client-IP resolution (approved 2026-11-14, "fix both").**
+
+The P9-10 probe (`evidence/P9-10-edge-headers.txt`) disproved the P7a assumption. Railway's
+edge **prepends** the client to `X-Forwarded-For` and appends an internal hop that changes per
+connection; it also sets `X-Real-IP` to the client and overwrites any client-supplied value.
+`trustedIp()` takes the **last** entry, so in production the `EDGE_IP` bucket is keyed on a
+per-connection internal hop and limits nothing. The `unknown` warning never fires.
+
+**Decisions**
+- The client address is `X-Real-IP`, validated; the first `X-Forwarded-For` entry is the
+  fallback, both **only when `RAILWAY_ENVIRONMENT` is set**. Off-Railway neither header is
+  trusted: they are client-controlled without a proxy.
+- A candidate must be a globally routable address. Reject private, loopback, link-local,
+  CGNAT (`100.64/10`), unspecified and multicast values; strip `:port` and `[v6]:port`; strip
+  an IPv6 zone id; lowercase IPv6.
+- The socket peer is used only when it is globally routable, so Railway's CGNAT hop can never
+  become a key.
+- A once-per-process canary warns when `X-Real-IP` and `X-Forwarded-For[0]` are both present
+  and disagree. That is what a future platform change looks like; it must not be silent.
+- `/api/health` reports `edgeIp: { source, xffEntries }` — never an address. The runbook check
+  reads this instead of the warning.
+
+**Scope**
+- New `src/lib/client-ip.ts` holding the resolver, the sentinel, the unknown warning and the
+  disagreement canary. `src/lib/loyalty/trusted-ip.ts` is **deleted** and its three importers
+  (`qr/orders/quote`, `qr/orders/create` ×2) plus the two test files move to the new module.
+  Exported names stay the same, so call sites change only the import path.
+- `src/app/api/health/route.ts` takes the request and adds the `edgeIp` block.
+- Tests: replace the case that asserts `X-Real-IP` is ignored (it encodes the false
+  assumption); add forged-header, multi-entry, port-form, private/CGNAT, non-IP and
+  Railway-on/off cases; assert the canary fires once.
+
+**Non-goals**
+Changing the rate-limit buckets or limits; changing the audit/security writers (P9-10b);
+adding a proxy-mode configuration for self-hosting (no such deployment exists).
+
+**Acceptance**
+1. On Railway, `trustedIp` returns the client from `X-Real-IP`; `X-Forwarded-For[0]` is the
+   fallback; a forged header cannot change the result.
+2. Off-Railway, header values are ignored and the socket peer or `unknown` is used.
+3. No private, loopback, CGNAT, unspecified, multicast, port-bearing or non-IP value can
+   become a rate-limit subject.
+4. The canary logs once per process on disagreement, with no address.
+5. `/api/health` reports the source and entry count with no address.
+6. Full suite green, type-check and build pass.
+
+**Verification**
+`npx jest src/lib src/app/api/qr src/app/api/health --runInBand`, `npm run type-check`,
+`npm test -- --runInBand`, `npm run build`.
+
+**Review focus**
+The Railway gate (can the resolver be made to trust a header off-Railway?), the private-address
+classification, and whether the health block leaks anything.
+
+**Context budget**
+Must read: this section, `evidence/P9-10-edge-headers.txt`, `src/lib/loyalty/trusted-ip.ts`,
+its two test files, `src/app/api/health/route.ts`, the three loyalty call sites.
+Read only if unclear: `src/lib/loyalty/rate-limit.ts` (how the subject is consumed).
+Do not read: other phases, `prisma/**`, reporting services.
+
+**P9-10b — Audit IP centralisation (approved 2026-11-14, "fix both").**
+
+Sixteen raw `x-forwarded-for` reads remain outside the resolver. Several persist the value into
+audit and security rows, so the log currently records Railway's per-connection hop instead of
+the client. `SecurityUtils.getClientIP` already splits on the **first** entry, which is correct
+on Railway but unvalidated and duplicated.
+
+**Scope**
+- `src/lib/security.ts` — `getClientIP` delegates to the resolver; the duplicate reads go.
+- `src/lib/tenant-context.ts` (2 sites) and `src/lib/rbac/route-helpers.ts` (3 sites) — the
+  persisted `ipAddress` uses the resolver.
+- Seven routes that persist `ipAddress` for audit: `orders/[id]/status` (2),
+  `pos/payment/[orderId]`, `admin/menu/items/[id]/availability`,
+  `counter/menu/items/[itemId]/availability`, `counter/orders/[orderId]/send`,
+  `counter/orders`, `tables/[id]/regenerate-qr`.
+- The value written stays a string; the `unknown` sentinel replaces the raw header fallback.
+
+**Non-goals**
+Changing audit schemas, retention, or which events are recorded.
+
+**Acceptance**
+1. `grep -rn "x-forwarded-for" src --include='*.ts' | grep -v client-ip.ts | grep -v __tests__`
+   returns nothing.
+2. Persisted `ipAddress` values are the resolved client or `unknown`, never a raw header.
+3. Existing audit behaviour (event type, severity, metadata) is unchanged.
+4. Full suite green, type-check and build pass.
+
+**Verification**
+`npx jest src/lib src/app/api --runInBand`, `npm run type-check`, `npm test -- --runInBand`,
+`npm run build`.
+
+**Review focus**
+Whether any site needs the raw header for a reason the resolver breaks; whether auth-adjacent
+behaviour changes beyond the stored value.
+
+**Context budget**
+Must read: this section, `src/lib/client-ip.ts`, the three library files, the seven routes.
+Read only if unclear: the audit service that consumes `ipAddress`.
+Do not read: other phases, `prisma/**`, reporting services.
 
 **P10 — Contract freeze.** Update `docs/PRODUCT/API-CONTRACT.md` and
 `docs/PRODUCT/RELEASE-COMPATIBILITY.md` with the loyalty surface; record the
