@@ -11,6 +11,7 @@ jest.mock('@/lib/database', () => ({ prisma: {} }));
 const prismaMock = prisma as unknown as {
   restaurant: { findUnique: jest.Mock };
   paymentBatch: { findMany: jest.Mock };
+  payment: { findMany: jest.Mock };
   order: { aggregate: jest.Mock };
   orderDiscount: { findMany: jest.Mock };
   promotion: { findMany: jest.Mock };
@@ -33,16 +34,20 @@ function installDefaultMocks() {
     findMany: jest.fn().mockResolvedValue([
       {
         id: 'batch-1',
-        payments: [
-          { orderId: 'order-1', amount: new Decimal('50.00') },
-          { orderId: 'order-1', amount: new Decimal('-5.00') },
-        ],
+        payments: [{ orderId: 'order-1', amount: new Decimal('50.00') }],
       },
       {
         id: 'batch-2',
         payments: [{ orderId: 'order-2', amount: new Decimal('30.00') }],
       },
     ]),
+  };
+  // Refund payments are written with no batch; they are read by their own
+  // createdAt business date rather than through `PaymentBatch`.
+  prismaMock.payment = {
+    findMany: jest
+      .fn()
+      .mockResolvedValue([{ amount: new Decimal('-5.00'), batchId: null }]),
   };
   prismaMock.order = {
     aggregate: jest.fn().mockResolvedValue({
@@ -113,12 +118,96 @@ describe('loyalty report service', () => {
       PROMOTION: '15.00',
       LOYALTY_REWARD: '7.00',
     });
-    // net is the payment total (50 - 5 + 30), not gross - discounts (68.00).
+    // net is the payment total: 50 + 30 (sales) - 5 (batchless refund).
     expect(report.net).toBe('75.00');
     expect(report.net).not.toBe('68.00');
     expect(report.refunds).toBe('5.00');
     expect(report.rewards).toEqual({ applied: 1, amount: '7.00' });
     expect(report.refusals).toBe(3);
+  });
+
+  it('reads refunds from negative payments by the refund business date', async () => {
+    const refundCreatedAt = new Date('2026-11-02T05:00:00.000Z'); // 13:00 KL
+    prismaMock.paymentBatch.findMany.mockImplementation(({ where }) => {
+      const day = (where.businessDate.gte as Date).toISOString().slice(0, 10);
+      return Promise.resolve(
+        day === '2026-11-01'
+          ? [
+              {
+                id: 'batch-1',
+                payments: [
+                  { orderId: 'order-1', amount: new Decimal('50.00') },
+                ],
+              },
+            ]
+          : []
+      );
+    });
+    prismaMock.order.aggregate.mockResolvedValue({
+      _sum: { subtotalAmount: new Decimal('50.00') },
+    });
+    prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      const from = where.createdAt.gte as Date;
+      const to = where.createdAt.lt as Date;
+      return Promise.resolve(
+        refundCreatedAt >= from && refundCreatedAt < to
+          ? [{ amount: new Decimal('-5.00'), batchId: null }]
+          : []
+      );
+    });
+
+    const saleDay = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-01',
+    });
+    expect(saleDay.refunds).toBe('0.00');
+    expect(saleDay.net).toBe('50.00');
+
+    const refundDay = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-02',
+      to: '2026-11-02',
+    });
+    expect(refundDay.refunds).toBe('5.00');
+    expect(refundDay.net).toBe('-5.00');
+  });
+
+  it('counts a refund with no PaymentBatch', async () => {
+    const report = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    expect(report.refunds).toBe('5.00');
+    const where = prismaMock.payment.findMany.mock.calls[0][0].where;
+    expect(where).not.toHaveProperty('batchId');
+    expect(where.amount).toEqual({ lt: 0 });
+  });
+
+  it('does not add a batch-attached refund to net twice', async () => {
+    prismaMock.paymentBatch.findMany.mockResolvedValue([
+      {
+        id: 'batch-1',
+        payments: [
+          { orderId: 'order-1', amount: new Decimal('50.00') },
+          { orderId: 'order-1', amount: new Decimal('-5.00') },
+        ],
+      },
+    ]);
+    prismaMock.payment.findMany.mockResolvedValue([
+      { amount: new Decimal('-5.00'), batchId: 'batch-1' },
+    ]);
+
+    const report = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    expect(report.refunds).toBe('5.00');
+    expect(report.net).toBe('45.00'); // 50 - 5, not 50 - 5 - 5
   });
 
   it('counts refusals for the tenant and range only', async () => {
@@ -228,6 +317,17 @@ describe('loyalty report service', () => {
     expect(prismaMock.order.aggregate).toHaveBeenCalledWith({
       where: { restaurantId, id: { in: ['order-1', 'order-2'] } },
       _sum: { subtotalAmount: true },
+    });
+    expect(prismaMock.payment.findMany).toHaveBeenCalledWith({
+      where: {
+        order: { restaurantId },
+        amount: { lt: 0 },
+        createdAt: {
+          gte: expect.any(Date),
+          lt: expect.any(Date),
+        },
+      },
+      select: { amount: true, batchId: true },
     });
     expect(prismaMock.orderDiscount.findMany).toHaveBeenCalledWith({
       where: {

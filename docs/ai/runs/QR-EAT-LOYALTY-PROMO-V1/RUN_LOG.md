@@ -1168,3 +1168,37 @@ write-once attach rule is intact.
 **P7: COMPLETE.** P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals),
 P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename) all closed.
 
+
+**P8 — reporting fixes (2026-11-14):**
+
+Implementers `ses_e274172c6ffecMujy3lz6BA5yl`, `ses_e27162980ffefrAsPO5EYLJibr`,
+`ses_e26ddbf26ffes5qyAwVrnmSBfJ`, `ses_e26d1688affeexsZtGdaVE3W1P`. Verifiers
+`ses_e2733fe8dffekIWULh7e35gPqK` (**FAIL**), `ses_e270536d3ffeEjnIKm4v7f7hd7`,
+`ses_e26d7435bffeb8l3pTA7rdTUKe`, `ses_e26ca987effeepkA20wReR2icB` (PASS WITH NOTES).
+Three correction cycles. See `REVIEW-22.md`.
+
+Four defects fixed: the P&L double-subtracted discounts; refunds were invisible in the P&L and the
+loyalty report (they are negative `PAID` payments, not `status: 'REFUNDED'`); the Z had no rounding
+line; the Z's gross was post-tax.
+
+**My Q1 recommendation was wrong** and the first review caught it: `gross = Σ subtotal` with
+`net = gross − discounts − refunds` double-subtracted tax and service, so a fully refunded taxed
+order reported `-(tax + service)`. Q4=A replaced it with `net = Σ totalAmount − refunds` and the
+identity `gross − discounts + tax + service − refunds = net`.
+
+```text
+npx jest ... --runInBand  -> 1340 passed, 11 skipped
+npm run type-check        -> PASS
+npm run build             -> PASS
+```
+
+Verified: the Z, the P&L and the loyalty report agree on a sale day **and** a refund day; the Z's
+order block comes from positive payments only, so a refund no longer drags the original order into
+the refund day's gross; business dates throughout; Decimal money; the PDF prints an honest
+reconciliation status.
+
+Carried: P8-1 (Z gross semantic change → P10/Counter), P8-6 (net includes tax → accounting
+sign-off), P8-8 (early-close boundary → P9), P8-2/P8-3 (Z lines, batchless positives).
+
+**P8: COMPLETE.**
+

@@ -239,8 +239,8 @@ describe('Expense Query Hooks', () => {
   describe('useProfitLoss', () => {
     it('should use ApiClient.get with correct endpoint and params', async () => {
       const { useProfitLoss } = require('@/hooks/reports/useProfitLoss');
-      const start = new Date('2025-01-01');
-      const end = new Date('2025-01-31');
+      const start = new Date(2025, 0, 1);
+      const end = new Date(2025, 0, 31);
 
       const config = getQueryConfig(useProfitLoss, {
         restaurantId: 'rest-1',
@@ -255,8 +255,8 @@ describe('Expense Query Hooks', () => {
       expect(config.queryKey).toEqual(
         queryKeys.profitLoss.report({
           restaurantId: 'rest-1',
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
+          startDate: '2025-01-01',
+          endDate: '2025-01-31',
         })
       );
 
@@ -266,8 +266,8 @@ describe('Expense Query Hooks', () => {
         {
           params: {
             restaurantId: 'rest-1',
-            startDate: start.toISOString(),
-            endDate: end.toISOString(),
+            startDate: '2025-01-01',
+            endDate: '2025-01-31',
           },
         }
       );

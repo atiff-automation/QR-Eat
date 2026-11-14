@@ -27,6 +27,27 @@ export interface CounterPaymentMethodTotal {
   method: string;
   amount: string;
   count: number;
+  /** Cash-rounding adjustment collected on this tender for the day. */
+  rounding: string;
+}
+
+export interface CounterCashReconciliation {
+  cashPayable: string;
+  cashReceived: string;
+  changeGiven: string;
+  /**
+   * True when at least one cash batch carried a `cashPayable`. Legacy batches
+   * and card/e-wallet batches cannot participate in the drawer identity.
+   */
+  checked: boolean;
+  /** `Σ cashPayable == Σ cashReceived − Σ changeGiven` for cash batches. */
+  reconciled: boolean;
+  /**
+   * True when a cash batch existed but carried no `cashPayable`, i.e. it
+   * predates the reconciliation field. Lets a report say "not checked
+   * (legacy)" instead of "no rounded cash batches" when cash was taken.
+   */
+  legacy: boolean;
 }
 
 export interface CounterSaleRow {
@@ -65,9 +86,13 @@ export interface CounterDaySummary {
   tax: string;
   serviceCharge: string;
   discounts: string;
+  /** Refunds paid out on this business date, as a positive magnitude. */
+  refunds: string;
   orderCount: number;
   averageCheck: string;
   paymentMethods: CounterPaymentMethodTotal[];
+  roundingTotal: string;
+  cashReconciliation: CounterCashReconciliation;
   cashExpected: string;
   cashCounted: string | null;
   cashVariance: string | null;
@@ -202,6 +227,12 @@ function money(
   value: number | string | { toString(): string } | null | undefined
 ): string {
   return Number(value ?? 0).toFixed(2);
+}
+
+function decimal(
+  value: number | string | { toString(): string } | null | undefined
+): Prisma.Decimal {
+  return new Prisma.Decimal(value?.toString() ?? '0');
 }
 
 export function assertVarianceReason(
@@ -756,11 +787,14 @@ export async function getCounterBlockerOrders(
   };
 }
 
-function emptyMethodTotals(): Map<string, { amount: number; count: number }> {
+function emptyMethodTotals(): Map<
+  string,
+  { amount: number; count: number; rounding: Prisma.Decimal }
+> {
   return new Map([
-    ['cash', { amount: 0, count: 0 }],
-    ['card', { amount: 0, count: 0 }],
-    ['ewallet', { amount: 0, count: 0 }],
+    ['cash', { amount: 0, count: 0, rounding: decimal(0) }],
+    ['card', { amount: 0, count: 0, rounding: decimal(0) }],
+    ['ewallet', { amount: 0, count: 0, rounding: decimal(0) }],
   ]);
 }
 
@@ -786,8 +820,16 @@ export async function getCounterDaySummary(
   const start = businessDay.openedAt;
   const end = businessDay.closedAt ?? new Date();
   const payments = await getDayPayments(restaurantId, start, end);
+  // A refund payment carries the original order id, but that order's money did
+  // not come in on this business day. Only positive payments put an order into
+  // the day's gross/tax/service/discount/order-count block; the refund itself is
+  // reported on the `refunds` line instead.
   const orderIds = Array.from(
-    new Set(payments.map((payment) => payment.orderId))
+    new Set(
+      payments
+        .filter((payment) => decimal(payment.amount).gt(0))
+        .map((payment) => payment.orderId)
+    )
   );
   const orders = orderIds.length
     ? await prisma.order.findMany({
@@ -795,6 +837,7 @@ export async function getCounterDaySummary(
         select: {
           id: true,
           totalAmount: true,
+          subtotalAmount: true,
           taxAmount: true,
           serviceCharge: true,
           discountAmount: true,
@@ -802,6 +845,20 @@ export async function getCounterDaySummary(
         },
       })
     : [];
+
+  const batches = await prisma.paymentBatch.findMany({
+    where: {
+      restaurantId,
+      businessDate: toDbBusinessDate(businessDate),
+    },
+    select: {
+      paymentMethod: true,
+      cashPayable: true,
+      cashReceived: true,
+      changeGiven: true,
+      roundingAdjustment: true,
+    },
+  });
 
   const methods = emptyMethodTotals();
   let netSales = 0;
@@ -811,14 +868,53 @@ export async function getCounterDaySummary(
     const current = methods.get(payment.paymentMethod) ?? {
       amount: 0,
       count: 0,
+      rounding: decimal(0),
     };
     current.amount += amount;
     current.count += 1;
     methods.set(payment.paymentMethod, current);
   }
 
+  // Rounding is recorded on the payment batch. Show it per tender and sum only
+  // cash rounding for the Z rounding line. Reconcile the drawer from the cash
+  // batches that recorded a cash payable: legacy batches have none, and
+  // card/e-wallet batches never carry cash figures, so neither participates in
+  // the identity.
+  let roundingTotal = decimal(0);
+  let cashPayable = decimal(0);
+  let cashReceived = decimal(0);
+  let changeGiven = decimal(0);
+  let cashBatchCount = 0;
+  let legacyCashBatchCount = 0;
+  for (const batch of batches) {
+    const rounding = decimal(batch.roundingAdjustment);
+    if (!rounding.isZero()) {
+      const current = methods.get(batch.paymentMethod) ?? {
+        amount: 0,
+        count: 0,
+        rounding: decimal(0),
+      };
+      current.rounding = current.rounding.plus(rounding);
+      methods.set(batch.paymentMethod, current);
+    }
+    if (batch.paymentMethod !== 'cash') continue;
+    roundingTotal = roundingTotal.plus(rounding);
+    if (batch.cashPayable !== null && batch.cashPayable !== undefined) {
+      cashBatchCount += 1;
+      cashPayable = cashPayable.plus(decimal(batch.cashPayable));
+      cashReceived = cashReceived.plus(decimal(batch.cashReceived));
+      changeGiven = changeGiven.plus(decimal(batch.changeGiven));
+    } else {
+      legacyCashBatchCount += 1;
+    }
+  }
+  const cashChecked = cashBatchCount > 0;
+  const reconciled =
+    cashChecked &&
+    cashPayable.minus(cashReceived.minus(changeGiven)).abs().lt(0.005);
+
   const grossSales = orders.reduce(
-    (sum, order) => sum + Number(order.totalAmount),
+    (sum, order) => sum + Number(order.subtotalAmount),
     0
   );
   const tax = orders.reduce((sum, order) => sum + Number(order.taxAmount), 0);
@@ -830,6 +926,10 @@ export async function getCounterDaySummary(
     (sum, order) => sum + Number(order.discountAmount),
     0
   );
+  const refunds = payments.reduce((sum, payment) => {
+    const amount = Number(payment.amount);
+    return amount < 0 ? sum - amount : sum;
+  }, 0);
   const orderCount = orderIds.length;
   const averageCheck = orderCount ? netSales / orderCount : 0;
 
@@ -874,7 +974,13 @@ export async function getCounterDaySummary(
 
   const topItems = await getCounterTopItems(restaurantId, orderIds, 3);
   const cash = methods.get('cash')?.amount ?? 0;
-  const cashExpected = Number(businessDay.openingFloat) + cash;
+  // The drawer holds the rounded cash payable, so the rounding adjustment is
+  // part of expected cash. Without it, a correctly rounded drawer shows a
+  // variance equal to the rounding total and demands a note. Card/e-wallet are
+  // exact, so their rounding adjustment is always zero by contract.
+  const cashExpected = decimal(businessDay.openingFloat)
+    .plus(decimal(cash))
+    .plus(roundingTotal);
 
   return {
     businessDate,
@@ -889,13 +995,24 @@ export async function getCounterDaySummary(
     tax: money(tax),
     serviceCharge: money(serviceCharge),
     discounts: money(discounts),
+    refunds: money(refunds),
     orderCount,
     averageCheck: money(averageCheck),
     paymentMethods: Array.from(methods.entries()).map(([method, value]) => ({
       method,
       amount: money(value.amount),
       count: value.count,
+      rounding: money(value.rounding),
     })),
+    roundingTotal: money(roundingTotal),
+    cashReconciliation: {
+      cashPayable: money(cashPayable),
+      cashReceived: money(cashReceived),
+      changeGiven: money(changeGiven),
+      checked: cashChecked,
+      reconciled,
+      legacy: legacyCashBatchCount > 0,
+    },
     cashExpected: money(cashExpected),
     cashCounted:
       businessDay.countedCash === null ? null : money(businessDay.countedCash),
@@ -1235,14 +1352,11 @@ export async function closeCounterBusinessDay(input: {
     );
   }
 
-  const expectedCash =
-    Number(summary.openingFloat) +
-    Number(
-      summary.paymentMethods.find((row) => row.method === 'cash')?.amount ?? 0
-    );
-  const variance = input.countedCash - expectedCash;
+  const expectedCash = decimal(summary.cashExpected);
+  const countedCash = decimal(input.countedCash);
+  const variance = countedCash.minus(expectedCash);
   const closeNote = input.notes?.trim() || null;
-  assertVarianceReason(variance, closeNote);
+  assertVarianceReason(variance.toNumber(), closeNote);
   const businessDate = summary.businessDate;
   const closedCount = await prisma.businessDay.count({
     where: { restaurantId: input.restaurantId, status: 'CLOSED' },
@@ -1267,7 +1381,7 @@ export async function closeCounterBusinessDay(input: {
       ...summary,
       status: 'CLOSED' as const,
       cashExpected: money(expectedCash),
-      cashCounted: money(input.countedCash),
+      cashCounted: money(countedCash),
       cashVariance: money(variance),
       openingFloat: money(summary.openingFloat),
     },
@@ -1283,8 +1397,8 @@ export async function closeCounterBusinessDay(input: {
         closedByName: input.closedByName,
         closeNote,
         countedCash: input.countedCash,
-        expectedCash,
-        variance,
+        expectedCash: expectedCash.toNumber(),
+        variance: variance.toNumber(),
         zNumber,
         closeIdempotencyKey: input.idempotencyKey,
         snapshot:

@@ -10,6 +10,18 @@ interface ProfitLossParams {
   endDate: Date;
 }
 
+/**
+ * The P&L API takes business dates, not instants. Format the picker's local
+ * calendar date so a browser outside the restaurant timezone cannot shift the
+ * selected day.
+ */
+function toBusinessDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 interface ProfitLossData {
   period: {
     startDate: string;
@@ -19,6 +31,8 @@ interface ProfitLossData {
   revenue: {
     grossSales: number;
     discounts: number;
+    tax: number;
+    service: number;
     refunds: number;
     netSales: number;
   };
@@ -65,8 +79,8 @@ export function useProfitLoss({
   return useQuery<ProfitLossData>({
     queryKey: queryKeys.profitLoss.report({
       restaurantId,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      startDate: toBusinessDate(startDate),
+      endDate: toBusinessDate(endDate),
     }),
     queryFn: async () => {
       const response = await ApiClient.get<{
@@ -75,8 +89,8 @@ export function useProfitLoss({
       }>('/api/admin/reports/profit-loss', {
         params: {
           restaurantId,
-          startDate: startDate.toISOString(),
-          endDate: endDate.toISOString(),
+          startDate: toBusinessDate(startDate),
+          endDate: toBusinessDate(endDate),
         },
       });
       return response.report;

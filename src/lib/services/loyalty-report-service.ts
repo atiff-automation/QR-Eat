@@ -6,7 +6,8 @@
  * - `gross = Σ Order.subtotalAmount` for the orders paid in the range;
  * - `discounts = Σ ACTIVE OrderDiscount.amount`, split by source;
  * - `net = Σ Payment.amount` (the contract also permits `Σ Order.totalAmount`);
- * - `refunds = −Σ negative Payment.amount` reported as a positive magnitude.
+ * - `refunds = −Σ negative Payment.amount` reported as a positive magnitude,
+ *   attributed to the business date on which the refund payment was created.
  *
  * A discount is **never** subtracted from a net figure: `net` comes from the
  * payment/order total, not from `gross − discounts`.
@@ -225,14 +226,33 @@ export async function getLoyaltyReport(
   }
 
   let net = new Decimal(MONEY_ZERO);
-  let refunds = new Decimal(MONEY_ZERO);
   for (const batch of batches) {
     for (const payment of batch.payments) {
-      const amount = decimal(payment.amount);
-      net = net.plus(amount);
-      if (amount.isNegative()) {
-        refunds = refunds.minus(amount);
-      }
+      net = net.plus(decimal(payment.amount));
+    }
+  }
+
+  // Refunds are written as negative payments and have no `PaymentBatch`, so a
+  // batch-only read always reports `0.00`. Attribute each refund to the
+  // business date on which it happened (the refund's own `createdAt` through
+  // the restaurant clock), never to the original sale date. No batch filter:
+  // batchless refunds must be counted too.
+  const refundRows = await prisma.payment.findMany({
+    where: {
+      order: { restaurantId: input.restaurantId },
+      amount: { lt: 0 },
+      createdAt: { gte: rangeStart, lt: rangeEnd },
+    },
+    select: { amount: true, batchId: true },
+  });
+  let refunds = new Decimal(MONEY_ZERO);
+  for (const row of refundRows) {
+    refunds = refunds.plus(decimal(row.amount).abs());
+    // A refund payment has no batch, so it is absent from `net` above. Add it
+    // once here. Batch-attached payments are already in `net`, so they are not
+    // added again (§18.20.8 `net = Σ Payment.amount`, no double-count).
+    if (row.batchId === null) {
+      net = net.plus(decimal(row.amount));
     }
   }
 

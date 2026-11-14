@@ -2,6 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { Prisma } from '@prisma/client';
+import {
+  getBusinessDate,
+  getBusinessDayEnd,
+  getBusinessDayStart,
+  toDbBusinessDate,
+  type BusinessDate,
+} from '@/lib/time/business-day';
 
 // ============================================================================
 // Types
@@ -14,8 +21,11 @@ interface ProfitLossReport {
     days: number;
   };
   revenue: {
+    /** Σ Order.subtotalAmount — pre-tax, pre-service, pre-discount. */
     grossSales: number;
     discounts: number;
+    tax: number;
+    service: number;
     refunds: number;
     netSales: number;
   };
@@ -55,6 +65,91 @@ interface ProfitLossReport {
 }
 
 // ============================================================================
+// Helpers
+// ============================================================================
+
+const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function isRealDateOnly(value: string): boolean {
+  const match = DATE_ONLY_PATTERN.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
+}
+
+function calendarDateInTimeZone(instant: Date, timezone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(instant);
+  const read = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find((part) => part.type === type)?.value;
+    if (!value) throw new Error(`Unable to read ${type} for ${timezone}`);
+    return value;
+  };
+  return `${read('year')}-${read('month')}-${read('day')}`;
+}
+
+/**
+ * Accept either a business date (`YYYY-MM-DD`) or an instant. An instant is
+ * reduced to the restaurant-local calendar date, so the caller's "1 February"
+ * means the same date regardless of the browser's UTC offset.
+ */
+function parseBusinessDateInput(
+  value: string,
+  label: string,
+  timezone: string
+): BusinessDate {
+  const trimmed = value.trim();
+  if (DATE_ONLY_PATTERN.test(trimmed)) {
+    if (!isRealDateOnly(trimmed)) {
+      throw new Error(`${label} must be a valid date`);
+    }
+    return trimmed;
+  }
+
+  const instant = new Date(trimmed);
+  if (Number.isNaN(instant.getTime())) {
+    throw new Error(`${label} must be a valid date`);
+  }
+  const date = calendarDateInTimeZone(instant, timezone);
+  if (!isRealDateOnly(date)) {
+    throw new Error(`${label} must be a valid date`);
+  }
+  return date;
+}
+
+function firstDayOfMonth(date: BusinessDate): BusinessDate {
+  return `${date.slice(0, 7)}-01`;
+}
+
+function inclusiveDays(start: BusinessDate, end: BusinessDate): number {
+  return (
+    Math.round(
+      (toDbBusinessDate(end).getTime() - toDbBusinessDate(start).getTime()) /
+        DAY_MS
+    ) + 1
+  );
+}
+
+function toDecimal(
+  value: Prisma.Decimal | number | string | null | undefined
+): Prisma.Decimal {
+  if (value === null || value === undefined) return new Prisma.Decimal(0);
+  return new Prisma.Decimal(value.toString());
+}
+
+// ============================================================================
 // GET Handler - Generate P&L Report
 // ============================================================================
 
@@ -89,21 +184,6 @@ export async function GET(request: NextRequest) {
     if (!restaurantId) {
       return NextResponse.json(
         { error: 'Restaurant ID is required' },
-        { status: 400 }
-      );
-    }
-
-    // Set default date range (current month) if not provided
-    const now = new Date();
-    const defaultStartDate = startDate
-      ? new Date(startDate)
-      : new Date(now.getFullYear(), now.getMonth(), 1);
-    const defaultEndDate = endDate ? new Date(endDate) : now;
-
-    // Validate date range
-    if (defaultEndDate < defaultStartDate) {
-      return NextResponse.json(
-        { error: 'End date must be after start date' },
         { status: 400 }
       );
     }
@@ -150,50 +230,110 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid user type' }, { status: 403 });
     }
 
+    // The P&L is a business-date report. Resolve the restaurant clock first so
+    // the order and refund ranges match the Z and loyalty reports instead of
+    // using UTC/server calendar midnights.
+    const restaurant = await prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { timezone: true, businessDayCloseTime: true },
+    });
+    if (!restaurant) {
+      return NextResponse.json(
+        { error: 'Restaurant not found' },
+        { status: 404 }
+      );
+    }
+    const clock = {
+      timezone: restaurant.timezone || 'Asia/Kuala_Lumpur',
+      closeTime: restaurant.businessDayCloseTime || '04:00',
+    };
+
+    const now = new Date();
+    const currentBusinessDate = getBusinessDate(now, clock);
+    let startBusinessDate: BusinessDate;
+    let endBusinessDate: BusinessDate;
+    try {
+      startBusinessDate = startDate
+        ? parseBusinessDateInput(startDate, 'startDate', clock.timezone)
+        : firstDayOfMonth(currentBusinessDate);
+      endBusinessDate = endDate
+        ? parseBusinessDateInput(endDate, 'endDate', clock.timezone)
+        : currentBusinessDate;
+    } catch (error) {
+      return NextResponse.json(
+        { error: (error as Error).message },
+        { status: 400 }
+      );
+    }
+
+    if (endBusinessDate < startBusinessDate) {
+      return NextResponse.json(
+        { error: 'End date must be after start date' },
+        { status: 400 }
+      );
+    }
+
+    const rangeStart = getBusinessDayStart(startBusinessDate, clock);
+    const rangeEnd = getBusinessDayEnd(endBusinessDate, clock);
+    const expenseStart = toDbBusinessDate(startBusinessDate);
+    const expenseEnd = toDbBusinessDate(endBusinessDate);
+
     // Generate P&L report
     {
       // ================================================================
       // 1. Calculate Revenue Section
       // ================================================================
 
-      // Get gross sales from completed orders
+      // The revenue set is every order with at least one positive PAID payment
+      // in the business-date range, regardless of the order's current status.
+      // A paid-then-cancelled order therefore contributes its total here and
+      // its refund offsets it to zero instead of leaving a negative net.
       const revenueData = await prisma.order.aggregate({
         where: {
           restaurantId,
-          createdAt: {
-            gte: defaultStartDate,
-            lte: defaultEndDate,
+          payments: {
+            some: {
+              status: 'PAID',
+              amount: { gt: 0 },
+              createdAt: { gte: rangeStart, lt: rangeEnd },
+            },
           },
-          status: 'SERVED',
         },
         _sum: {
-          totalAmount: true,
+          subtotalAmount: true,
           discountAmount: true,
+          taxAmount: true,
+          serviceCharge: true,
+          totalAmount: true,
         },
       });
 
-      const grossSales = Number(revenueData._sum.totalAmount || 0);
-      const discounts = Number(revenueData._sum.discountAmount || 0);
+      // `grossSales` is pre-discount and pre-tax/service. `totalAmount` already
+      // contains discount, tax and service, so `netSales` is the order-total
+      // basis minus refunds — never `gross − discounts − refunds` (§18.20.8).
+      const grossSales = toDecimal(revenueData._sum.subtotalAmount);
+      const discounts = toDecimal(revenueData._sum.discountAmount);
+      const tax = toDecimal(revenueData._sum.taxAmount);
+      const service = toDecimal(revenueData._sum.serviceCharge);
+      const orderTotal = toDecimal(revenueData._sum.totalAmount);
 
-      // Get refunds from payments
+      // Refunds are recorded as `Payment { amount: -x, status: 'PAID' }`, not
+      // as `REFUNDED` payments. Sum the negative payments by the refund's own
+      // business date and report the magnitude; `netSales` subtracts it once.
       const refundsData = await prisma.payment.aggregate({
         where: {
-          order: {
-            restaurantId,
-            createdAt: {
-              gte: defaultStartDate,
-              lte: defaultEndDate,
-            },
-          },
-          status: 'REFUNDED',
+          order: { restaurantId },
+          amount: { lt: 0 },
+          createdAt: { gte: rangeStart, lt: rangeEnd },
         },
         _sum: {
           amount: true,
         },
       });
 
-      const refunds = Number(refundsData._sum.amount || 0);
-      const netSales = grossSales - discounts - refunds;
+      const refunds = toDecimal(refundsData._sum.amount).abs();
+      const netSales = orderTotal.minus(refunds);
+      const netSalesValue = netSales.toNumber();
 
       // ================================================================
       // 2. Calculate COGS Section (from expenses table directly)
@@ -211,8 +351,8 @@ export async function GET(request: NextRequest) {
           FROM expenses e
           JOIN expense_categories ec ON e."categoryId" = ec.id
           WHERE e."restaurantId" = ${restaurantId}
-            AND e."expenseDate" >= ${defaultStartDate}
-            AND e."expenseDate" <= ${defaultEndDate}
+            AND e."expenseDate" >= ${expenseStart}
+            AND e."expenseDate" <= ${expenseEnd}
             AND ec."categoryType" = 'COGS'
           GROUP BY ec.name
           ORDER BY total_amount DESC
@@ -222,22 +362,25 @@ export async function GET(request: NextRequest) {
         categoryName: item.category_name,
         amount: Number(item.total_amount),
         percentage:
-          netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
+          netSalesValue > 0
+            ? (Number(item.total_amount) / netSalesValue) * 100
+            : 0,
       }));
 
       const totalCOGS = cogsBreakdown.reduce(
         (sum, item) => sum + item.amount,
         0
       );
-      const cogsPercentage = netSales > 0 ? (totalCOGS / netSales) * 100 : 0;
+      const cogsPercentage =
+        netSalesValue > 0 ? (totalCOGS / netSalesValue) * 100 : 0;
 
       // ================================================================
       // 3. Calculate Gross Profit
       // ================================================================
 
-      const grossProfit = netSales - totalCOGS;
+      const grossProfit = netSalesValue - totalCOGS;
       const grossProfitMargin =
-        netSales > 0 ? (grossProfit / netSales) * 100 : 0;
+        netSalesValue > 0 ? (grossProfit / netSalesValue) * 100 : 0;
 
       // ================================================================
       // 4. Calculate Operating Expenses (from expenses table directly)
@@ -255,8 +398,8 @@ export async function GET(request: NextRequest) {
           FROM expenses e
           JOIN expense_categories ec ON e."categoryId" = ec.id
           WHERE e."restaurantId" = ${restaurantId}
-            AND e."expenseDate" >= ${defaultStartDate}
-            AND e."expenseDate" <= ${defaultEndDate}
+            AND e."expenseDate" >= ${expenseStart}
+            AND e."expenseDate" <= ${expenseEnd}
             AND ec."categoryType" = 'OPERATING'
           GROUP BY ec.name
           ORDER BY total_amount DESC
@@ -266,7 +409,9 @@ export async function GET(request: NextRequest) {
         categoryName: item.category_name,
         amount: Number(item.total_amount),
         percentage:
-          netSales > 0 ? (Number(item.total_amount) / netSales) * 100 : 0,
+          netSalesValue > 0
+            ? (Number(item.total_amount) / netSalesValue) * 100
+            : 0,
       }));
 
       const totalOperatingExpenses = opexBreakdown.reduce(
@@ -274,14 +419,15 @@ export async function GET(request: NextRequest) {
         0
       );
       const opexPercentage =
-        netSales > 0 ? (totalOperatingExpenses / netSales) * 100 : 0;
+        netSalesValue > 0 ? (totalOperatingExpenses / netSalesValue) * 100 : 0;
 
       // ================================================================
       // 5. Calculate Net Profit
       // ================================================================
 
       const netProfit = grossProfit - totalOperatingExpenses;
-      const netProfitMargin = netSales > 0 ? (netProfit / netSales) * 100 : 0;
+      const netProfitMargin =
+        netSalesValue > 0 ? (netProfit / netSalesValue) * 100 : 0;
 
       // ================================================================
       // 6. Calculate Key Metrics
@@ -292,7 +438,8 @@ export async function GET(request: NextRequest) {
         cogsBreakdown.find((item) =>
           item.categoryName.toLowerCase().includes('food')
         )?.amount || 0;
-      const foodCostPercentage = netSales > 0 ? (foodCost / netSales) * 100 : 0;
+      const foodCostPercentage =
+        netSalesValue > 0 ? (foodCost / netSalesValue) * 100 : 0;
 
       // Labor cost (from operating expenses)
       const laborCost =
@@ -302,12 +449,12 @@ export async function GET(request: NextRequest) {
             item.categoryName.toLowerCase().includes('wages')
         )?.amount || 0;
       const laborCostPercentage =
-        netSales > 0 ? (laborCost / netSales) * 100 : 0;
+        netSalesValue > 0 ? (laborCost / netSalesValue) * 100 : 0;
 
       // Prime cost (COGS + Labor)
       const primeCost = totalCOGS + laborCost;
       const primeCostPercentage =
-        netSales > 0 ? (primeCost / netSales) * 100 : 0;
+        netSalesValue > 0 ? (primeCost / netSalesValue) * 100 : 0;
 
       // Break-even revenue (total expenses / (1 - target profit margin))
       // Assuming 10% target profit margin
@@ -318,23 +465,21 @@ export async function GET(request: NextRequest) {
       // 7. Build Report Object
       // ================================================================
 
-      const days =
-        Math.ceil(
-          (defaultEndDate.getTime() - defaultStartDate.getTime()) /
-            (1000 * 60 * 60 * 24)
-        ) + 1;
+      const days = inclusiveDays(startBusinessDate, endBusinessDate);
 
       const report: ProfitLossReport = {
         period: {
-          startDate: defaultStartDate.toISOString(),
-          endDate: defaultEndDate.toISOString(),
+          startDate: toDbBusinessDate(startBusinessDate).toISOString(),
+          endDate: toDbBusinessDate(endBusinessDate).toISOString(),
           days,
         },
         revenue: {
-          grossSales,
-          discounts,
-          refunds,
-          netSales,
+          grossSales: grossSales.toNumber(),
+          discounts: discounts.toNumber(),
+          tax: tax.toNumber(),
+          service: service.toNumber(),
+          refunds: refunds.toNumber(),
+          netSales: netSalesValue,
         },
         cogs: {
           breakdown: cogsBreakdown,

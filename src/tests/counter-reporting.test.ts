@@ -4,6 +4,7 @@ import {
   assertVarianceReason,
   getCounterBlockerOrders,
   getCounterDayOrders,
+  getCounterDaySummary,
 } from '@/lib/services/reporting/counter-report-service';
 
 jest.mock('@/lib/database', () => ({
@@ -16,7 +17,13 @@ jest.mock('@/lib/database', () => ({
       groupBy: jest.fn(),
       aggregate: jest.fn(),
     },
-    payment: { aggregate: jest.fn() },
+    payment: {
+      aggregate: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
+    },
+    paymentBatch: { findMany: jest.fn() },
+    orderItem: { groupBy: jest.fn() },
   },
 }));
 
@@ -122,6 +129,10 @@ describe('counter reporting', () => {
     (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
       _sum: { amount: new Prisma.Decimal('20.00') },
     });
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.payment.count as jest.Mock).mockResolvedValue(0);
+    (prisma.paymentBatch.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.orderItem.groupBy as jest.Mock).mockResolvedValue([]);
   });
 
   it('returns day orders with item and payment details', async () => {
@@ -173,6 +184,286 @@ describe('counter reporting', () => {
         }),
       })
     );
+  });
+
+  it('shows a rounding total and reconciles the cash drawer identity', async () => {
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('55.68'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T01:20:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([
+      orderRow({ totalAmount: new Prisma.Decimal('55.68') }),
+    ]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+    (prisma.paymentBatch.findMany as jest.Mock).mockResolvedValue([
+      {
+        paymentMethod: 'cash',
+        cashPayable: new Prisma.Decimal('55.70'),
+        cashReceived: new Prisma.Decimal('60.00'),
+        changeGiven: new Prisma.Decimal('4.30'),
+        roundingAdjustment: new Prisma.Decimal('0.02'),
+      },
+      {
+        paymentMethod: 'card',
+        cashPayable: null,
+        cashReceived: null,
+        changeGiven: null,
+        roundingAdjustment: null,
+      },
+    ]);
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    expect(summary.roundingTotal).toBe('0.02');
+    expect(
+      summary.paymentMethods.find((method) => method.method === 'cash')
+        ?.rounding
+    ).toBe('0.02');
+    // Opening float 100.00 + cash 55.68 + rounding 0.02.
+    expect(summary.cashExpected).toBe('155.70');
+    expect(summary.cashReconciliation).toEqual({
+      cashPayable: '55.70',
+      cashReceived: '60.00',
+      changeGiven: '4.30',
+      checked: true,
+      reconciled: true,
+      legacy: false,
+    });
+    const cash = summary.cashReconciliation;
+    expect(
+      Number(cash.cashPayable) ===
+        Number(cash.cashReceived) - Number(cash.changeGiven)
+    ).toBe(true);
+  });
+
+  it('keeps a legacy cash batch out of the reconciliation but in expected cash', async () => {
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('55.68'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T01:20:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([
+      orderRow({ totalAmount: new Prisma.Decimal('55.68') }),
+    ]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+    // Legacy batches predate `cashPayable`: they still carry received/change
+    // but cannot participate in the payable identity.
+    (prisma.paymentBatch.findMany as jest.Mock).mockResolvedValue([
+      {
+        paymentMethod: 'cash',
+        cashPayable: null,
+        cashReceived: new Prisma.Decimal('60.00'),
+        changeGiven: new Prisma.Decimal('4.30'),
+        roundingAdjustment: null,
+      },
+    ]);
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    expect(summary.roundingTotal).toBe('0.00');
+    expect(summary.cashReconciliation).toEqual({
+      cashPayable: '0.00',
+      cashReceived: '0.00',
+      changeGiven: '0.00',
+      checked: false,
+      reconciled: false,
+      legacy: true,
+    });
+    // Opening float 100.00 + cash 55.68; no rounding on a legacy batch.
+    expect(summary.cashExpected).toBe('155.68');
+  });
+
+  it('reports gross sales before tax from the order subtotal', async () => {
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('115.00'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T01:20:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([
+      orderRow({
+        totalAmount: new Prisma.Decimal('115.00'),
+        subtotalAmount: new Prisma.Decimal('100.00'),
+        taxAmount: new Prisma.Decimal('6.00'),
+        serviceCharge: new Prisma.Decimal('9.00'),
+        discountAmount: new Prisma.Decimal('0.00'),
+      }),
+    ]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    // Contract §18.20.8: gross is the pre-tax subtotal, never Σ totalAmount.
+    expect(summary.grossSales).toBe('100.00');
+    expect(summary.netSales).toBe('115.00');
+    expect(summary.tax).toBe('6.00');
+    expect(summary.serviceCharge).toBe('9.00');
+    expect(summary.discounts).toBe('0.00');
+    expect(summary.refunds).toBe('0.00');
+    expect(summary.orderCount).toBe(1);
+    expect(
+      Number(summary.grossSales) -
+        Number(summary.discounts) +
+        Number(summary.tax) +
+        Number(summary.serviceCharge) -
+        Number(summary.refunds)
+    ).toBeCloseTo(Number(summary.netSales), 2);
+  });
+
+  it('excludes non-cash batches from rounding and cash reconciliation', async () => {
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'payment-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('20.00'),
+        status: 'PAID',
+        receiptNumber: 'R-1',
+        createdAt: new Date('2026-10-28T01:20:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([orderRow()]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+    // The DB CHECK does not enforce the tender, so a malformed card batch can
+    // carry cash figures. They must not enter the cash line.
+    (prisma.paymentBatch.findMany as jest.Mock).mockResolvedValue([
+      {
+        paymentMethod: 'card',
+        cashPayable: new Prisma.Decimal('30.00'),
+        cashReceived: new Prisma.Decimal('31.00'),
+        changeGiven: new Prisma.Decimal('1.00'),
+        roundingAdjustment: new Prisma.Decimal('0.05'),
+      },
+    ]);
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    expect(summary.roundingTotal).toBe('0.00');
+    expect(summary.cashReconciliation).toEqual({
+      cashPayable: '0.00',
+      cashReceived: '0.00',
+      changeGiven: '0.00',
+      checked: false,
+      reconciled: false,
+      legacy: false,
+    });
+  });
+
+  it('reports a refund on its own day without replaying the original order', async () => {
+    (prisma.businessDay.findFirst as jest.Mock).mockResolvedValue({
+      ...day,
+      businessDate: new Date('2026-10-29T00:00:00.000Z'),
+      openedAt: new Date('2026-10-28T20:00:00.000Z'),
+    });
+    // A full refund of a 115.00 sale made the day before. The refund row keeps
+    // the original order id, but no money for that order came in today.
+    (prisma.payment.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: 'refund-1',
+        orderId: 'order-1',
+        paymentMethod: 'cash',
+        amount: new Prisma.Decimal('-115.00'),
+        status: 'PAID',
+        receiptNumber: 'R-2',
+        createdAt: new Date('2026-10-29T01:00:00.000Z'),
+        order: {
+          orderNumber: 'ORD-261028-001',
+          orderType: 'DINE_IN',
+          dailySeq: 1,
+          table: null,
+        },
+      },
+    ]);
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([
+      orderRow({
+        totalAmount: new Prisma.Decimal('115.00'),
+        subtotalAmount: new Prisma.Decimal('100.00'),
+        taxAmount: new Prisma.Decimal('10.00'),
+        serviceCharge: new Prisma.Decimal('5.00'),
+        discountAmount: new Prisma.Decimal('0.00'),
+      }),
+    ]);
+    (prisma.order.count as jest.Mock).mockResolvedValue(0);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: new Prisma.Decimal('0.00') },
+      _count: { id: 0, _all: 0 },
+    });
+
+    const summary = await getCounterDaySummary(restaurantId);
+
+    expect(summary.grossSales).toBe('0.00');
+    expect(summary.tax).toBe('0.00');
+    expect(summary.serviceCharge).toBe('0.00');
+    expect(summary.discounts).toBe('0.00');
+    expect(summary.refunds).toBe('115.00');
+    expect(summary.netSales).toBe('-115.00');
+    expect(summary.orderCount).toBe(0);
+    expect(summary.averageCheck).toBe('0.00');
+    expect(
+      Number(summary.grossSales) -
+        Number(summary.discounts) +
+        Number(summary.tax) +
+        Number(summary.serviceCharge) -
+        Number(summary.refunds)
+    ).toBeCloseTo(Number(summary.netSales), 2);
   });
 
   it('requires a reason only when cash variance is non-zero', () => {

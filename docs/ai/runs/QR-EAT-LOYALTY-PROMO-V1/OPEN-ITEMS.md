@@ -145,3 +145,16 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P7d-3 | A replayed rename re-reads the live member, so an intervening rename changes the replayed body | L | Accepted |
 | P7d-4 | Historical `Order.customerName` / `CustomerSession.customerName` copies keep the old name after a rename | L | Product decision at P10 |
 | P7d-5 | The 80-character name bound exists on rename only; `cleanName` on attach is unbounded | L | Apply the same bound on creation |
+
+## Added by P8 (`REVIEW-22`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| P8-1 | **The Z's `grossSales` now means pre-tax subtotal** — client-visible semantic change for any Counter build displaying it | **M** | Recorded in the P10 contract freeze and the Counter handoff |
+| P8-2 | The Z lacks `discountBySource`, the reward line, and the "refunds against prior-period sales" line §18.20.15 asks for | M | Added, or explicitly deferred at P10 |
+| P8-3 | The loyalty report omits batchless **positive** payments (legacy POS route) from gross/net | M | Included, or the legacy route deprecated |
+| P8-4 | `getCounterDailyTotals` counts a refund-only order in the 7-day chart | L | Same positive-payment filter as the Z |
+| P8-5 | Legacy snapshot PDFs print `0.00` cash figures beside "Not checked (legacy)" | L | Print `—` |
+| P8-6 | `net` now includes tax and service by design (Q4=A); gross profit and margins include tax | **M** | Accounting sign-off recorded at P10 |
+| P8-7 | P&L returns numbers, not decimal strings | L | Backlog |
+| P8-8 | Early/late business-day close: the Z uses `openedAt`/`closedAt` while the P&L and loyalty report use the 04:00 cutoff; a refund after an early close can land in a different period | **M** | **P9** clock/boundary test |
