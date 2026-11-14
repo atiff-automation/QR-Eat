@@ -293,7 +293,69 @@ scope, member counts, repeat rate). Both reuse the P6B APIs unchanged.
 9. `GLOSSARY.md` and `docs/TERMINOLOGY.md` carry the new vocabulary.
 
 
-**P7 — Security and privacy.** **Note (2026-11-13): R-02 is already closed in P6B cycle 3** —
+
+**P7 — Security and privacy.** Plan drafted 2026-11-14; two passes.
+
+**What already exists (verified, not assumed):**
+- `rate_limit_counters` table from P1: `restaurantId`, `scope`, `subject`, `windowStart`,
+  `count`, unique `(restaurantId, scope, subject, windowStart)`, index on `windowStart`, and a
+  raw-SQL CHECK limiting `scope` to `PHONE_HASH | RESTAURANT | QR_SESSION | EDGE_IP`.
+- `SecurityUtils.isRateLimited` in `src/lib/security.ts` is an **in-process `Map`** — not
+  durable and not shared across instances. It must **not** be reused for these limits.
+- IP handling today is ad hoc: several routes read `x-forwarded-for` / `x-real-ip` straight
+  from headers, which is exactly the client-supplied-header problem §18.20.15 B forbids.
+- `orderCreateRequestHash` hashes raw `phone`, `name` and `email` with an **unkeyed** SHA-256
+  and the result is persisted in `IdempotencyRecord` for 24 hours (F-08).
+
+**P7a — the pilot blocker (limiter, trusted IP, F-08).**
+1. `src/lib/loyalty/rate-limit.ts` — durable fixed-window limiter over `rate_limit_counters`
+   using one atomic statement (`INSERT … ON CONFLICT (restaurantId, scope, subject,
+   windowStart) DO UPDATE SET count = count + 1 RETURNING count`). Returns
+   `{ allowed, retryAfterSeconds }`. No read-then-write race.
+2. The four buckets of §18.20.15 B, applied to **quote and create as one shared budget**:
+   `PHONE_HASH` 10/hour per `(restaurantId, phoneHash)`; `RESTAURANT` 30/hour;
+   `QR_SESSION` 10/hour; `EDGE_IP` 20/hour.
+3. `src/lib/loyalty/trusted-ip.ts` — resolve the **proxy-appended** address only, stripping any
+   client-supplied `X-Forwarded-For`; fall back to the socket address where available; if
+   neither exists, fall back to one shared sentinel subject so the strictest limit applies.
+   Never trust a client header.
+4. Wire into `POST /api/qr/orders/quote` and `POST /api/qr/orders/create`. A blocked request
+   returns `RATE_LIMITED` with `retryAfterSeconds` and the "try again in N seconds" copy; the
+   order must not be created.
+5. **F-08** — replace the raw phone in `orderCreateRequestHash` with the keyed HMAC
+   (`hashPhone`), and drop `name`/`email` from the persisted hash (member identity is already
+   bound by the quote's `customerId`/`phoneHash`). No raw PII in the idempotency record.
+
+**P7b — alerting, audit and tenant status.**
+6. Enumeration alert: 5 distinct `phoneHash` misses from one trusted IP in 10 minutes.
+   **Decision needed:** the `scope` CHECK admits only four values, so this needs either one
+   added value (`ENUMERATION_IP`) via a small additive migration, or detection derived from
+   audit rows (which currently do not carry the IP). Recommend the additive migration.
+7. Full-phone audit completeness — every read, search and export audited with actor, target,
+   purpose and timestamp.
+8. Verify **R-02** (customer PII no longer persisted in `PaymentBatch.response`,
+   `IdempotencyRecord.responseJson` or `OrderEvent.payload`) and add a test if one is missing.
+   Do not rebuild it.
+9. Cross-tenant status on the legacy bill route: currently 403 via `requireTableAccess`.
+   **Decision needed:** keep 403 for the frozen legacy route, or align to 404.
+
+**Acceptance criteria for P7**
+1. Each of the four buckets blocks at its stated rate and returns `RATE_LIMITED` with a correct
+   `retryAfterSeconds`; a request under the limit succeeds.
+2. Quote and create share one budget per bucket — a caller cannot double its allowance by
+   alternating endpoints.
+3. A spoofed `X-Forwarded-For` does not change the bucket a request lands in.
+4. The limiter is durable: two app instances share the counter (proven on real Postgres at P9).
+5. `orderCreateRequestHash` contains no raw phone, name or email, and cannot be reversed to the
+   phone without the HMAC key.
+6. An enumeration pattern (5 distinct hashes / IP / 10 min) is detected and surfaced.
+7. Every full-phone read, search and export writes an audit row with actor, target, purpose and
+   timestamp.
+8. R-02 is verified by test.
+9. Cross-tenant behaviour on the legacy bill route is decided and recorded.
+10. No PII in logs, errors or rate-limit subjects (subjects use `phoneHash`, session id or IP).
+
+**P7 context.** **Note (2026-11-13): R-02 is already closed in P6B cycle 3** —
 customer phone/email are no longer persisted in `PaymentBatch.response` or `OrderEvent.payload`,
 and `deleteMember` nulls the remaining name copy. Do not re-implement it in P7; verify it instead.
 P7 still owns: durable rate limits per §18.20.15 B, trusted edge
