@@ -425,6 +425,39 @@ Postgres apply of the migration and a rollback check.
 The fail-open path, the single-count guarantee, the settings bound, the migration's
 additivity, and that the per-phone control is untouched.
 
+**P7d — owner rename behind `members:pii` (approved 2026-11-14).**
+
+Closes P7c-10. The name is now write-once, so a name mistyped at first enrolment can only be
+fixed by anonymise-and-re-enrol. The contract expects an owner rename: "the name is set only on
+creation; changing an existing name requires `members:pii` and is audited."
+
+**Scope**
+1. `PATCH /api/members/[id]` on the existing route — body `{ name: string | null }`, trimmed,
+   max 80 characters, `null` clears it.
+2. Permission **`members:pii`** (a name is PII, and this is the permission the contract names
+   for it). `Idempotency-Key` required.
+3. Audit row **in the same transaction** as the update, recording actor, member id and that the
+   name changed — **never the old or new name**, consistent with "no PII in audit metadata".
+4. Tenant-scoped lookup; cross-tenant is 404. An `ANONYMIZED` member is rejected — there is
+   nothing to rename.
+5. UI: the member profile gains an "Edit name" control, rendered only for callers holding
+   `members:pii`, saving through the new endpoint and refreshing the profile.
+6. Tests: rename persists; `members:pii` missing ⇒ 403; audit written without names;
+   cross-tenant ⇒ 404; anonymised ⇒ rejected; idempotent replay; trim and 80-char bound.
+
+**Non-goals**
+Renaming from the QR or Counter flows (creation-only stays), editing any other member field,
+changing the write-once rule in `resolveOrCreateCustomer`.
+
+**Acceptance criteria**
+1. An owner with `members:pii` can rename a member, and the change persists.
+2. A caller without `members:pii` cannot.
+3. The audit row is written in the same transaction and contains no name.
+4. Cross-tenant returns 404; an anonymised member is rejected.
+5. A replayed request with the same key returns the same result.
+6. The UI control appears only with `members:pii` and the QR/Counter attach path still cannot
+   rename.
+
 **P7b — hardening.** Enumeration alert (`SecurityEvent`, 5 distinct `phoneHash` misses per IP per
 10 minutes), full-phone audit completeness, verify R-02 rather than rebuild it, and the P10 records
 from Q6/Q7.
