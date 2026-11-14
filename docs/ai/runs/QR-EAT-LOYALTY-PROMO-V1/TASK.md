@@ -534,6 +534,66 @@ covers that.
 throwaway Postgres; flag matrix (`LOYALTY_ENABLED` × `LoyaltySettings.enabled`);
 one-restaurant pilot; rollback drill (flag off; existing rows intact).
 
+**P9 plan (approved 2026-11-14).** This is the pilot gate: every prior phase is proven against
+mocks; this is where the database, the locks and the deployment are exercised for real.
+
+**Decisions**
+- **Q1 = A.** Rehearse on `qrorder_dev` with `prisma migrate reset --force`. No real users exist,
+  so the loss of dev data is accepted. Do not touch any other database.
+- **Q2 = A.** P9 delivers the drill **plus a runbook**. The pilot itself is a human action:
+  setting `LOYALTY_ENABLED` and `LOYALTY_PHONE_HMAC_KEY` is production configuration and stays
+  with the owner.
+- **Q3 = both.** Record the Railway edge's `X-Forwarded-For` behaviour, and make the app say so:
+  a startup/health warning when no trusted address is available, instead of silently rate-limiting
+  everyone at the strictest limit.
+- **Q4 = A.** The rehearsal scripts are committed under `scripts/`, so the next person to touch the
+  payment path can re-run them.
+
+**Deployment facts**
+- `railway.json`: `numReplicas: 1` (no multi-instance race on the cleanup job);
+  `startCommand` is `npm run start`, i.e. **`prisma migrate deploy && next start`** — migrations run
+  on every deploy, which makes the upgrade drill the most important of the set.
+- Seed: `prisma db seed` → `tsx prisma/seed.ts`.
+
+**Scope**
+1. **9a Fresh drill** — `prisma migrate reset --force`: drop, replay all 35 migrations from empty,
+   run the seed; then `migrate status` up to date and `migrate diff` live→datamodel empty.
+2. **9b Upgrade drill** — new `scripts/rehearse-migrations.ts`: drop the schema, replay migrations
+   up to the pre-loyalty cutoff, insert representative rows (restaurant, order, payment batch,
+   order event), replay the remaining migrations, and assert the rows survived, the new NOT NULL
+   columns took their defaults, and the CHECK constraints validate.
+3. **9c Concurrency drill** — new `scripts/rehearse-concurrency.ts`, two live sessions:
+   - two payments on one bill ⇒ one charge, one visit, no double benefit;
+   - member change vs payment ⇒ `BILL_CHANGED`, no double benefit;
+   - rename vs anonymise ⇒ no name on an `ANONYMIZED` row;
+   - concurrent rate-limit increments ⇒ no lost count, refusal rolls back cleanly.
+4. **9d Rollback drill** — flag off: no loyalty rows, no behaviour change, existing data intact.
+5. **9e Seed and permissions** — after the seed, all ten loyalty permissions exist and are mapped
+   to owner/manager as §18.20.14 A specifies.
+6. **9f Edge** — a warning when no trusted address is available; record the Railway behaviour.
+7. **9g Pilot runbook** — `PILOT-RUNBOOK.md`: how to enable one restaurant, what to watch for the
+   first two weeks, and the exact rollback step.
+
+**Acceptance criteria**
+1. Fresh: all 35 migrations apply from empty, the seed succeeds, `migrate diff` is empty.
+2. Upgrade: representative pre-loyalty rows survive; new columns take their defaults; every CHECK
+   validates; no data loss.
+3. The four races produce the specified outcomes, with no double charge, double visit or double
+   benefit.
+4. Rollback: flag off produces no loyalty rows and no behaviour change; existing data intact.
+5. Every loyalty endpoint's permission resolves after a seed.
+6. A deployment without a trusted address logs a warning rather than failing silently.
+7. The runbook is executable by someone who has not read this task.
+
+**Non-goals**
+Enabling the flag in any environment; setting production secrets; a real restaurant pilot in this
+session; changing the contract.
+
+**Ownership**
+`scripts/rehearse-migrations.ts`, `scripts/rehearse-concurrency.ts`, a startup warning in the
+existing instrumentation/health path, `PILOT-RUNBOOK.md`, and the evidence in the run directory.
+`prisma/migrations` is **not** modified — this phase only replays it.
+
 **P10 — Contract freeze.** Update `docs/PRODUCT/API-CONTRACT.md` and
 `docs/PRODUCT/RELEASE-COMPATIBILITY.md` with the loyalty surface; record the
 frozen commit hash for the Counter handoff.
