@@ -10,7 +10,7 @@ Updated: 2026-11-14
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
 
-Current step: **P10-close complete and committed.** P11 (four-lens R3 review) is next.
+Current step: **P11-prep complete and committed.** P11 (four-lens R3 review, different model) is next.
 
 Last completed:
 - P0–P8 complete and committed.
@@ -30,9 +30,9 @@ Last completed:
 Next action:
 1. **P11 — four-lens R3 review** (Security, correctness, data, product) by a different model
    or a human. P11 is the last gate before the freeze stamp.
-   Carry into it: **D-1** (restaurant delete), **D-2** (phone on Counter responses),
-   **P8-8** (early-close boundary), **P9-2** (billRevision lock), **P9-3** (unique-conflict
-   classification), **M-1** (enumeration false alerts), **P6C2b-1** (export failure).
+   D-1, D-2, P8-8, P9-2 and P9-3 are closed in P11-prep. Still carried into P11:
+   **M-1** (enumeration false alerts), **P6C2b-1** (export failure), **P7-2** (QR idempotency),
+   **P7c-2** (fail-open under flood), **P9-4** (dev PII cleanup).
 2. **After P11 PASS:** stamp the final hash in `docs/PRODUCT/API-CONTRACT.md` and
    `RELEASE-COMPATIBILITY.md` (two-line amendment), then pilot.
 3. **Pilot** (human): `LOYALTY_ENABLED=true`, `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled`

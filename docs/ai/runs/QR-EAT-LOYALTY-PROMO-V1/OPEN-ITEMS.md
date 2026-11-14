@@ -17,8 +17,8 @@ renamed `P5C-1`.
 
 | # | Item | Severity | Context | Done when |
 |---|---|---|---|---|
-| D-1 | Restaurant delete: `Restrict` FKs vs `prisma.restaurant.delete` in `src/app/api/restaurants/[id]/route.ts` | **D, M** | Deleting a restaurant with members or discounts may fail as a generic 500. Product choice: typed 409, or soft-delete tenants. | A ruling is recorded and the route returns a typed error or a soft delete. |
-| D-2 | Full phone on Counter responses | **D, M** | `counter/orders`, `counter/takeaway` and `counter/pending` return `customerPhone` to any `orders:read` holder; §18.20.9 requires `members:pii`. | Mask, gate behind `members:pii`, or accept with a recorded rationale. |
+| ~~D-1~~ | ~~Restaurant delete~~ | **closed** | **CLOSED 2026-11-15** — typed `409 RESTAURANT_HAS_HISTORY` with the deactivate guidance; close with `isActive: false`; erasure procedure in `DATA-RETENTION.md` (`REVIEW-28`) |
+| ~~D-2~~ | ~~Full phone on Counter responses~~ | **closed** | **CLOSED 2026-11-15** — recorded as order-contact data, not member PII; member phones stay masked and gated (`REVIEW-28`) |
 | P8-6 | Should `net` / gross profit include tax and service? | **D, M** | Current arithmetic follows `net = Σ totalAmount − refunds`; gross profit includes tax. The P&L is captioned non-statutory until signed. | `docs/PRODUCT/P8-6-ACCOUNTING-SIGNOFF.md` signed by the owner/accountant, or Option B chosen. |
 
 ## Open — material
@@ -26,9 +26,9 @@ renamed `P5C-1`.
 | # | Item | Severity | Owner | Done when |
 |---|---|---|---|---|
 | P7-2 | QR create sends no `Idempotency-Key`; the server accepts an optional one | M | next | The QR client sends a key per order |
-| P8-8 | Early/late business-day close: the Z uses `openedAt`/`closedAt` while the P&L and loyalty report use the close-time cutoff; a refund after an early close can land in a different period | **M** | next | A boundary test with an early close |
-| P9-2 | QR create bumps `billRevision` inside its transaction; confirm it holds the bill lock like the Counter writers | **M** | next | Verified under the lock, or the gap closed |
-| P9-3 | Unique-conflict classification depends on `P2002`; a raw-SQL partial-index conflict may surface as a 500 | M | next | Proven against Postgres, or index-name aware |
+| ~~P8-8~~ | ~~Early/late close boundary~~ | **closed** | **CLOSED 2026-11-15** — one half-open cutoff window for the Z, sales page, daily totals, P&L and loyalty report; `AFTER_CLOSE_ACTIVITY` flags post-close activity (`REVIEW-28`) |
+| ~~P9-2~~ | ~~QR create `billRevision` lock~~ | **closed** | **CLOSED 2026-11-15** — the table row lock was not sufficient; create now takes `loyalty-bill` inside the order transaction (`REVIEW-28`) |
+| ~~P9-3~~ | ~~Unique-conflict classification~~ | **closed** | **CLOSED 2026-11-15** — unrecognised `P2002` is a typed conflict (`BILL_CHANGED` 409, `CUSTOMER_CONFLICT` 422, `CONFLICT` 409) (`REVIEW-28`) |
 | P9-4 | Pre-existing environments need `evidence/dev-pii-cleanup.sql` | M | deploy | Run on every environment created before the P6B normalisation |
 | M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | next | Detection based on refusals or junk enrolment, or the definition accepted |
 | P6C2b-1 | A failed export renders or saves the JSON error body, so an owner may believe a subject-access export succeeded | M | next | Export fetches with error handling and shows a banner |
@@ -131,3 +131,14 @@ Every row below was open at some point and is now fixed, verified, or explicitly
 | F-03 | `SecurityUtils.getClientIP` delegation pinned by a test | P10-close; `REVIEW-27` |
 | P9-10b-1 | Off-Railway audit resolves to `unknown`; intended, no such deployment | recorded |
 | P9-4 (dev reset) | `qrorder_dev` was reset in P9 | `REVIEW-23` |
+
+## Added by P11-prep (`REVIEW-28`)
+
+| # | Item | Severity | Owner | Done when |
+|---|---|---|---|---|
+| P11p-1 | `getCounterDayOrders` (the day's order list) still uses `openedAt → closedAt`; an order created after an early close can be missing while its payment is in the Z | L | backlog | Same cutoff window |
+| P11p-2 | An unrecognised `P2002` on a receipt-number collision reports `BILL_CHANGED`, slightly inaccurate | L | backlog | A distinct code, or accept |
+| P11p-3 | The P9-2 test proves invocation order, not that the lock is inside the transaction | L | backlog | Assert the transaction boundary |
+| P11p-4 | The D-1 test does not assert the history counts are tenant-scoped | L | backlog | Assert the `where` clause |
+| P11p-5 | `hashtext` is a 32-bit advisory-lock space; collisions serialize unrelated bills | L | accepted | Contention only |
+| P11p-6 | `AFTER_CLOSE_ACTIVITY` is strict at exactly `closedAt` | L | accepted | Documented |
