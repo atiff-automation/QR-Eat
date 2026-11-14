@@ -162,6 +162,9 @@ describe('POST /api/qr/orders/quote', () => {
     jest.clearAllMocks();
     process.env.LOYALTY_ENABLED = 'true';
     process.env.LOYALTY_PHONE_HMAC_KEY = 'test-key';
+    // Production runs behind Railway's edge, which sets X-Real-IP and replaces
+    // X-Forwarded-For. Resolver tests cover the platform-off path.
+    process.env.RAILWAY_ENVIRONMENT = 'production';
 
     (prisma.table.findUnique as jest.Mock).mockResolvedValue(table);
     (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue(
@@ -191,6 +194,7 @@ describe('POST /api/qr/orders/quote', () => {
   afterAll(() => {
     delete process.env.LOYALTY_ENABLED;
     delete process.env.LOYALTY_PHONE_HMAC_KEY;
+    delete process.env.RAILWAY_ENVIRONMENT;
   });
 
   it('returns LOYALTY_DISABLED without touching the database when the flag is off', async () => {
@@ -305,7 +309,7 @@ describe('POST /api/qr/orders/quote', () => {
     expect(refusalEvents).toHaveLength(0);
   });
 
-  it('limits on the last X-Forwarded-For entry, not a spoofed first entry', async () => {
+  it('limits on the X-Real-IP client address, not a spoofed X-Forwarded-For entry', async () => {
     const counts = installCounterMock();
     // Raise the tenant ceiling so the IP floor (120) is the first bucket to
     // trip; the default 30 would refuse first.
@@ -314,8 +318,9 @@ describe('POST /api/qr/orders/quote', () => {
       lookupLimitPerHour: 1000,
     });
 
-    // Distinct sessions and phones so only the IP bucket can trip. A spoofed
-    // first entry rotates every time; the real last entry is constant.
+    // Distinct sessions and phones so only the IP bucket can trip. The edge
+    // sets X-Real-IP to the client; the X-Forwarded-For entries are internal
+    // hops that rotate per connection and must never become the subject.
     let response: Response | null = null;
     for (let attempt = 0; attempt < 121; attempt += 1) {
       const attemptSession = `${sessionId}-${attempt}`;
@@ -328,7 +333,8 @@ describe('POST /api/qr/orders/quote', () => {
           method: 'POST',
           headers: {
             'content-type': 'application/json',
-            'x-forwarded-for': `10.0.0.${attempt}, 203.0.113.50`,
+            'x-real-ip': '203.0.113.50',
+            'x-forwarded-for': `10.0.0.${attempt}, 10.0.1.${attempt}`,
           },
           body: JSON.stringify({
             tableId,
@@ -352,6 +358,9 @@ describe('POST /api/qr/orders/quote', () => {
       .map((key) => key.split('|')[2]);
     expect(ipSubjects).toContain('203.0.113.50');
     expect(ipSubjects.some((subject) => subject.startsWith('10.0.0.'))).toBe(
+      false
+    );
+    expect(ipSubjects.some((subject) => subject.startsWith('10.0.1.'))).toBe(
       false
     );
   });
@@ -432,7 +441,8 @@ describe('POST /api/qr/orders/quote', () => {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-forwarded-for': '10.0.0.1, 203.0.113.50',
+          'x-real-ip': '203.0.113.50',
+          'x-forwarded-for': '203.0.113.50, 10.0.0.1',
         },
         body: JSON.stringify({
           tableId,

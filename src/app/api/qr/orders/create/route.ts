@@ -45,7 +45,7 @@ import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
-import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/loyalty/trusted-ip';
+import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/client-ip';
 import { consumeQuote, getQuote } from '@/lib/services/loyalty-quote-service';
 import {
   completeOrderCreateRecord,

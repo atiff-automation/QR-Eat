@@ -23,7 +23,7 @@ import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
-import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/loyalty/trusted-ip';
+import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/client-ip';
 import { buildQuoteMessage } from '@/lib/loyalty/message';
 import { toMoneyString } from '@/lib/loyalty/money';
 import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';

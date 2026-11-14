@@ -10,7 +10,7 @@ import {
   windowStart,
   type RateLimitSubjectInput,
 } from '@/lib/loyalty/rate-limit';
-import { UNKNOWN_TRUSTED_IP } from '@/lib/loyalty/trusted-ip';
+import { UNKNOWN_TRUSTED_IP } from '@/lib/client-ip';
 
 jest.mock('@/lib/database', () => ({
   prisma: { $queryRaw: jest.fn(), $transaction: jest.fn() },

@@ -1315,3 +1315,32 @@ under flag off → P10), **P9-10 (Railway XFF unobserved — owner action before
 P9-13/P9-14/P9-15.
 
 **P9: COMPLETE.** The pilot is a human action.
+
+**P9-10a — edge client-IP resolution (2026-11-14):**
+
+Implementer `ses_e264020b8ffe33ATbe72w6nS5F`. Verifier `ses_e26353cd1ffe1CqYsOG4j5QmYg`
+(PASS WITH NOTES). See `REVIEW-24.md`.
+
+The P9-10 probe (`evidence/P9-10-edge-headers.txt`) disproved the P7a assumption: Railway
+**prepends** the client to `X-Forwarded-For` and appends a per-connection hop. The resolver took
+the last entry, so the `EDGE_IP` bucket was keyed on a varying internal hop and the per-IP floor
+limited nothing. The `unknown` warning never fired because the header was present.
+
+The resolver moved to `src/lib/client-ip.ts`: on Railway, validated `X-Real-IP`, then
+`X-Forwarded-For[0]`; off-Railway neither header is trusted; socket peer only if globally
+routable; then `unknown`. Private, loopback, link-local, CGNAT, unspecified, multicast, non-IP,
+port-bearing and zone-bearing values are rejected at every position. A once-per-process canary
+warns when `X-Real-IP` and `XFF[0]` disagree. `/api/health` reports
+`edgeIp: { source, xffEntries }` with no address.
+
+```text
+npx jest src/lib src/app/api/qr src/app/api/health --runInBand -> 651 passed
+npm run type-check  -> PASS
+npm test -- --runInBand -> 1378 passed, 11 skipped
+npm run build       -> PASS
+```
+
+Carried: R-01/R-02/R-03/R-05/R-06/R-07 into P9-10b (runbook, health payload consistency,
+`'platform'` source, test completeness, warning wording).
+
+**P9-10a: COMPLETE.**

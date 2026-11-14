@@ -1,3 +1,5 @@
+import type { NextRequest } from 'next/server';
+import { resolveClientIp } from '@/lib/client-ip';
 import { sendSuccess, sendError } from '@/lib/utils/api-response';
 
 /**
@@ -7,8 +9,9 @@ import { sendSuccess, sendError } from '@/lib/utils/api-response';
  * CRITICAL: This endpoint must respond quickly to pass Railway's health check.
  * We check environment variables first, then attempt database connection.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  const clientIp = resolveClientIp(request);
 
   try {
     // 1. Check critical environment variables FIRST
@@ -72,6 +75,12 @@ export async function GET() {
       version: process.env.npm_package_version || '1.0.0',
       env: process.env.NODE_ENV,
       envCheck,
+      // Source and entry count only: an address is personal data and must
+      // never be returned. The pilot runbook reads this instead of a log line.
+      edgeIp: {
+        source: clientIp.source,
+        xffEntries: clientIp.xffEntries,
+      },
     };
 
     // If database is down, return 503 but with detailed info

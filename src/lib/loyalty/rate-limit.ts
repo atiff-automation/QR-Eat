@@ -35,7 +35,7 @@
 import { randomUUID } from 'node:crypto';
 import { prisma, type TransactionClient } from '@/lib/database';
 import { hashPhone, normalisePhone } from './phone';
-import { UNKNOWN_TRUSTED_IP } from './trusted-ip';
+import { UNKNOWN_TRUSTED_IP } from '../client-ip';
 
 /** The four scopes allowed by the `rate_limit_counters_scope_check` CHECK. */
 export type RateLimitScope =
