@@ -18,7 +18,7 @@
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze), P10-close (six items)
-**Phases open:** P11
+**Phases open:** P11-prep, P11
 **Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
@@ -828,6 +828,87 @@ Must read: this section, `OPEN-ITEMS.md`, the two report services, the PDF route
 script's parent/child orchestration, `src/lib/security.ts`.
 Read only if unclear: the business-day helper, the payment batch service.
 Do not read: earlier reviews, migrations, UI components unrelated to the P&L caption.
+
+**P11-prep plan (approved 2026-11-15, "all q1-q5 as recommended").**
+
+Pre-review fixes. Code, tests and docs; no schema change, no migration, no deployment.
+
+**Decisions**
+- **Q1 = A (D-1).** `DELETE /api/restaurants/{id}` is allowed only when the restaurant has no
+  financial or loyalty history. Otherwise a typed **409** names the reason and points to
+  `isActive: false`. A `P2003` fallback covers any table the pre-check misses. The genuine-erasure
+  procedure (export → anonymise → delete, after the 7-year retention) is recorded in
+  `docs/DATA-RETENTION.md`. Closing a restaurant forever is `isActive = false`, which already
+  works and retains the records.
+- **Q2 = B (D-2).** The order contact phone stays on the Counter responses: it is the number the
+  customer gave for that order, not member PII. Member phones remain masked and gated by
+  `members:pii`; the bill returns `maskedPhone`. Recorded in the addendum register.
+- **Q3 = A (P8-8).** All three reports range over the **cutoff**: `getBusinessDayStart/End`. The Z
+  stops using `closedAt` as its range end (it stays for display); an open day ends at `now`, a
+  closed day at the cutoff end. A payment or refund between `closedAt` and the cutoff end raises
+  an `AFTER_CLOSE_ACTIVITY` note. The filed `BusinessDay.snapshot` stays immutable.
+- **Q5 = A.** These fixes land **before** P11, so the four lenses review the final state.
+
+**Scope**
+1. `src/app/api/restaurants/[id]/route.ts` — pre-check orders, payments, business days, members,
+   visits and discounts; 409 `RESTAURANT_HAS_HISTORY` with the deactivate guidance; catch
+   `P2003` as the same 409. Test: a restaurant with history is refused and not deleted; an empty
+   one still deletes.
+2. `docs/DATA-RETENTION.md` — the erasure procedure, and the distinction between deactivate and
+   delete.
+3. `src/lib/services/reporting/counter-report-service.ts` — cutoff range; `AFTER_CLOSE_ACTIVITY`
+   with `count` and `amount`; keep `openedAt`/`closedAt` in the payload. Test: a day closed at
+   01:00 with a refund at 02:00 and a 04:00 cutoff → the live Z includes the refund, the note is
+   present, and the P&L reports the same date; the stored snapshot is unchanged.
+4. **P9-2** — prove whether QR create holds a bill lock when it increments `billRevision`. If it
+   only locks the table/session row, either take the `loyalty-bill` lock or record why the row
+   lock is sufficient. Do not assume; show the code path.
+5. **P9-3** — any `P2002` whose `meta.target` does not match a known conflict becomes a typed
+   conflict (`BILL_CHANGED`/409), never a 500. Test with an unknown target string.
+6. Addendum register — add D-1, D-2 and P8-8 rows.
+
+**Non-goals**
+Soft delete; a scheduled 7-year retention job; masking the order contact phone; changing the
+payment or visit rules; the freeze stamp.
+
+**Acceptance**
+1. A restaurant with any order/payment/business-day/member/visit/discount returns 409 and is not
+   deleted; an empty one deletes.
+2. The Z, the P&L and the loyalty report agree on a day with an early close and a post-close
+   refund; the live Z carries `AFTER_CLOSE_ACTIVITY`; the stored snapshot is untouched.
+3. QR create's `billRevision` write is proven to run under a lock, or the lock is added.
+4. An unrecognised `P2002` returns a typed conflict, not a 500.
+5. Full suite green, type-check and build pass; no schema or migration change.
+
+**Verification**
+`npx jest src/lib src/app/api src/tests --runInBand`, `npm run type-check`,
+`npm test -- --runInBand`, `npm run build`, and a fresh verifier.
+
+**P11 plan (approved 2026-11-15).**
+
+Read-only four-lens review of the final pre-freeze state, by a **different model**, plus a human
+pass on the payment and migration paths (P11-2).
+
+- **Lenses:** Security (tenant isolation, PII, consent, rate limits, the resolver); Payments and
+  Reliability (atomicity, idempotency, locks, the Z and reports); Data and Migration (schema,
+  constraints, retention, rollback); Product and UX (the six client-visible changes, the
+  handoff, the pilot runbook).
+- **Inputs:** the candidate commit, `TASK.md`, `REVIEW-*.md`, `OPEN-ITEMS.md`, the addendum, the
+  handoff, the runbook, and the evidence files.
+- **Output:** `REVIEW-28.md` with PASS / PASS WITH NOTES / FAIL and findings with file:line.
+- **P11 is read-only.** Any blocker becomes a `P11-fix` cycle with its own implementer and a
+  narrow re-review. Maximum three cycles.
+- **Then:** the freeze stamp — a two-line amendment in `docs/PRODUCT/API-CONTRACT.md` and
+  `RELEASE-COMPATIBILITY.md` naming the final commit — then the pilot.
+
+**Non-goals**
+Fixing findings inside P11; changing the contract; deploying.
+
+**Context budget**
+Must read: this section, `OPEN-ITEMS.md`, the addendum, the handoff, the runbook, the latest
+reviews.
+Read only if unclear: the route or service behind a disputed finding.
+Do not read: the whole repository, migrations unrelated to the finding.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
