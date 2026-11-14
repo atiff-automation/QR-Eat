@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   requireAuth,
@@ -84,10 +85,7 @@ export async function POST(request: NextRequest) {
       idempotencyKey,
       {
         overrideStation,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ||
-          request.headers.get('x-real-ip') ||
-          'unknown',
+        ipAddress: trustedIp(request),
       }
     );
 

@@ -30,6 +30,7 @@ export type ClientIpSource =
   | 'x-real-ip'
   | 'x-forwarded-for'
   | 'socket'
+  | 'platform'
   | 'unknown';
 
 /** The resolver's result. `xffEntries` counts non-empty comma entries. */
@@ -66,7 +67,7 @@ export function warnIfUnknownTrustedIp(ip: string): void {
   if (ip !== UNKNOWN_TRUSTED_IP || warnedUnknownTrustedIp) return;
   warnedUnknownTrustedIp = true;
   console.warn(
-    '[loyalty] No trusted client address (X-Forwarded-For is missing); the strictest loyalty rate limit applies to all callers.'
+    '[loyalty] No trusted client address; the strictest loyalty rate limit applies to all callers.'
   );
 }
 
@@ -134,7 +135,7 @@ export function resolveClientIp(request: TrustedIpRequest): ResolvedClientIp {
 
   const platformAddress = normaliseClientIp(request.ip);
   if (platformAddress !== null) {
-    return { ip: platformAddress, source: 'socket', xffEntries };
+    return { ip: platformAddress, source: 'platform', xffEntries };
   }
 
   return { ip: UNKNOWN_TRUSTED_IP, source: 'unknown', xffEntries };

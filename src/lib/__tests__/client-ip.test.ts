@@ -176,12 +176,35 @@ describe('resolveClientIp on Railway', () => {
     ).toBe('8.8.8.8');
   });
 
-  it('rejects a non-public socket peer and uses request.ip', () => {
+  it('rejects a non-public socket peer and uses request.ip as the platform source', () => {
     expect(
-      trustedIp(
+      resolveClientIp(
         request({}, { socket: { remoteAddress: '100.64.0.1' }, ip: '8.8.4.4' })
       )
-    ).toBe('8.8.4.4');
+    ).toEqual({
+      ip: '8.8.4.4',
+      source: 'platform',
+      xffEntries: 0,
+    });
+  });
+
+  it('strips port and zone forms at the socket and request.ip positions', () => {
+    expect(
+      trustedIp(request({}, { socket: { remoteAddress: '1.2.3.4:5678' } }))
+    ).toBe('1.2.3.4');
+    expect(
+      trustedIp(request({}, { socket: { remoteAddress: '[2001:db8::1]:443' } }))
+    ).toBe('2001:db8::1');
+    expect(
+      trustedIp(request({}, { socket: { remoteAddress: '2001:db8::1%eth0' } }))
+    ).toBe('2001:db8::1');
+    expect(trustedIp(request({}, { ip: '1.2.3.4:5678' }))).toBe('1.2.3.4');
+    expect(trustedIp(request({}, { ip: '[2001:db8::1]:443' }))).toBe(
+      '2001:db8::1'
+    );
+    expect(trustedIp(request({}, { ip: '2001:db8::1%eth0' }))).toBe(
+      '2001:db8::1'
+    );
   });
 
   it.each(NON_PUBLIC_CANDIDATES)(
@@ -241,10 +264,16 @@ describe('resolveClientIp off Railway', () => {
     });
   });
 
-  it('ignores the headers and uses request.ip', () => {
+  it('ignores the headers and uses request.ip as the platform source', () => {
     expect(
-      trustedIp(request({ 'x-real-ip': '203.0.113.9' }, { ip: '8.8.4.4' }))
-    ).toBe('8.8.4.4');
+      resolveClientIp(
+        request({ 'x-real-ip': '203.0.113.9' }, { ip: '8.8.4.4' })
+      )
+    ).toEqual({
+      ip: '8.8.4.4',
+      source: 'platform',
+      xffEntries: 0,
+    });
   });
 
   it('returns unknown when only client-controlled headers are present', () => {

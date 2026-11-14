@@ -1344,3 +1344,33 @@ Carried: R-01/R-02/R-03/R-05/R-06/R-07 into P9-10b (runbook, health payload cons
 `'platform'` source, test completeness, warning wording).
 
 **P9-10a: COMPLETE.**
+
+**P9-10b — audit IP centralisation (2026-11-14):**
+
+Implementers `ses_e26280cbdffeOc7p13Njykng2g`, `ses_e2614fbd1ffeJ0UNiRs1zckjaw`. Verifiers
+`ses_e262103eeffek7ep0cT17I9wjG` (PASS WITH NOTES), `ses_e26137826ffedoWOWr2MeumAZU` (PASS).
+See `REVIEW-25.md`.
+
+Every persisted `ipAddress` now comes from the resolver. `SecurityUtils.getClientIP` delegates
+to `trustedIp`, which covers ~20 auth/admin routes at once; `tenant-context` (2),
+`rbac/route-helpers` (3) and seven routes follow. `grep -rni "x-forwarded-for|x-real-ip" src`
+now matches only `client-ip.ts` and tests. No IP is used for a decision — audit only.
+
+Folded in REVIEW-24 notes: `'platform'` source, `edgeIp` on every health payload, port/zone
+tests at all positions, a health shape test, a cause-neutral warning message, and a runbook
+check that reads `/api/health` on the public URL.
+
+Correction cycle F-01/F-02: the health route's 5 s timeout is now cleared on every path (the
+`Jest did not exit` warning is gone), and the test restores its `process.uptime` spy.
+
+```text
+npx jest src/lib src/app/api --runInBand -> 763 passed
+npm run type-check  -> PASS
+npm test -- --runInBand -> 1383 passed, 11 skipped
+npm run build       -> PASS
+```
+
+Carried: F-03 (no automated guard for the delegation), R-04 (special-use ranges),
+P9-10b-1 (off-Railway audit resolves to `unknown`).
+
+**P9-10b: COMPLETE.**

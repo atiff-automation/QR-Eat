@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { trustedIp } from '@/lib/client-ip';
 import { v4 as uuidv4 } from 'uuid';
 import { buildSubdomainUrl } from '@/lib/config/domains';
 import {
@@ -58,10 +59,7 @@ export async function POST(
         oldValues: { qrCodeToken: currentTable.qrCodeToken },
         newValues: { qrCodeToken: newQrCodeToken },
         changedBy: context!.userId,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ||
-          request.headers.get('x-real-ip') ||
-          'unknown',
+        ipAddress: trustedIp(request),
       },
     });
 

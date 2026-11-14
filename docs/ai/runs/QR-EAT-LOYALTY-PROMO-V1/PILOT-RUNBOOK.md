@@ -153,21 +153,30 @@ row without the notice hash.
 1. Set `LOYALTY_ENABLED=true` in the hosting provider (exact lower-case
    `true`; `1`, `TRUE` and `yes` are treated as off).
 2. Redeploy or restart. Both switches are now on for the pilot restaurant only.
-3. Check the edge address on the **first phone-bearing quote**, not at deploy
-   time. The warning is emitted by any loyalty-active quote or create, not at
-   boot, and a guest request can trigger it too, so it cannot appear in the
-   deploy log. Open a QR table link and request a quote with a test phone, then
-   check the log. If it contains
-   `No trusted client address (X-Forwarded-For is missing)`, the edge is not
-   forwarding a client address. Loyalty still works, but every caller shares
-   the strictest rate-limit bucket. Treat this as a blocker for a busy pilot and
-   ask engineering to fix the proxy header. The warning is printed once per
-   process (module instance) and never contains an address or request data.
+3. Check the edge address on the **public** URL, not the internal healthcheck
+   log. Call `/api/health` from outside, for example:
 
-   Because it prints only once, an earlier guest request may already have
-   consumed the line. Absence of a new line after your test quote is **not**
-   proof the edge is fine: check the log since the last restart, or restart and
-   send the phone-bearing quote before any guest traffic.
+   ```bash
+   curl -s https://<public-host>/api/health
+   ```
+
+   Read the `edgeIp` block in the response:
+
+   - `source: "x-real-ip"` with `xffEntries: 2` is healthy: the edge supplied
+     the client in `X-Real-IP` and prepended it to `X-Forwarded-For`.
+   - `source: "unknown"` with `xffEntries: 0` means the edge is not providing
+     client headers. Loyalty still works, but every caller shares the strictest
+     rate-limit bucket. Treat this as a blocker for a busy pilot and ask
+     engineering to fix the proxy header.
+
+   The healthcheck itself may legitimately show `source: "unknown"` because
+   Railway can run it internally, where the request never crosses the edge. That
+   is why the check must use the public URL, not the healthcheck log. The
+   `edgeIp` block never contains an address.
+
+   The once-per-process log line `No trusted client address` is a secondary
+   signal only. An earlier guest request can consume it, so its absence is not
+   proof the edge is healthy.
 4. Smoke test:
    - Open a QR table link and request a quote with a test phone. The review page
      shows the visit state and the final total.

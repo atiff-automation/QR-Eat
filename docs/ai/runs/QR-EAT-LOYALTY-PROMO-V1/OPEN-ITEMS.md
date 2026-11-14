@@ -166,7 +166,16 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P9-03 | Concurrency drills 1–3 synchronise with fixed sleeps, not a readiness barrier; a slow machine can degenerate the race to sequential and still pass | L | Barrier or `pg_locks` wait before release |
 | P9-08 | `scripts/**` is outside `tsconfig.json` `include`; `npm run type-check` does not cover the rehearsal scripts | L | `tsconfig.scripts.json` check, or keep the disclosure |
 | P9-09 | Flag-off payments write `PaymentBatch.outcome = 'GUEST'`, a value the pre-feature code never wrote | L | Recorded as an interpretation at P10 |
-| P9-10 | **The Railway edge's `X-Forwarded-For` behaviour is unobserved**; if absent, every pilot caller shares the strictest bucket | **M** | **Owner confirms the header before inviting guests**; record in the P10 contract freeze |
+| P9-10 | ~~The Railway edge's `X-Forwarded-For` behaviour is unobserved~~ | **closed** | **CLOSED 2026-11-14** — probed: the edge prepends the client and appends a per-connection hop; `X-Real-IP` is the client. Fixed in P9-10a/P9-10b (`REVIEW-24`, `REVIEW-25`) |
 | P9-13 | The rollback drill mutates the parent process env, not a real deploy/restart | L | P11 |
 | P9-14 | The runbook SQL fallback enables settings without validating the notice, so the dashboard can show "On" while runtime is off | L | Runbook watch item |
 | P9-15 | The runbook SQL fallback overwrites `privacyUrl`; an unreplaced placeholder breaks the notice link while loyalty activates | L | Runbook watch item |
+
+## Added by P9-10b (`REVIEW-25`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| F-03 | Acceptance "persisted value is the resolver output" is guarded only by a manual grep, not a test | L | One test pins `SecurityUtils.getClientIP` delegation |
+| R-04 | Special-use ranges (`192.0.0/24`, `198.18/15`, `192.88.99/24`) are accepted as client addresses | L | Backlog; not exploitable behind the edge |
+| P9-10b-1 | Off-Railway (local/dev) audit `ipAddress` now resolves to `unknown` | L | Intended fail-closed posture; record if a non-Railway deployment ever exists |
+| P9-10b-2 | The health route's 5 s timeout-firing branch has no automated test | L | Backlog |

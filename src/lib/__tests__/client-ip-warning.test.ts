@@ -27,7 +27,7 @@ describe('warnIfUnknownTrustedIp', () => {
 
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn.mock.calls[0]?.[0]).toBe(
-        '[loyalty] No trusted client address (X-Forwarded-For is missing); the strictest loyalty rate limit applies to all callers.'
+        '[loyalty] No trusted client address; the strictest loyalty rate limit applies to all callers.'
       );
       expect(String(warn.mock.calls[0]?.[0])).not.toContain('203.0.113.9');
       warn.mockRestore();

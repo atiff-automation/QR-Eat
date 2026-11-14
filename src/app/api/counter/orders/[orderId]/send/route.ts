@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   requireAuth,
@@ -97,10 +98,7 @@ export async function POST(
         isAdmin: context!.isAdmin,
       },
       overrideStation,
-      ipAddress:
-        request.headers.get('x-forwarded-for') ||
-        request.headers.get('x-real-ip') ||
-        'unknown',
+      ipAddress: trustedIp(request),
     });
 
     return NextResponse.json({
