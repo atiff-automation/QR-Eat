@@ -45,7 +45,7 @@ import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
-import { trustedIp } from '@/lib/loyalty/trusted-ip';
+import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/loyalty/trusted-ip';
 import { consumeQuote, getQuote } from '@/lib/services/loyalty-quote-service';
 import {
   completeOrderCreateRecord,
@@ -355,6 +355,7 @@ export async function POST(request: NextRequest) {
 
         if (!quoteIsPhoneBound) {
           const ip = trustedIp(request);
+          warnIfUnknownTrustedIp(ip);
           const decision = await enforceRateLimits({
             restaurantId: table.restaurant.id,
             sessionId: tableCart.sessionId,
@@ -505,9 +506,11 @@ export async function POST(request: NextRequest) {
       loyalty.plan.memberIsNew &&
       loyalty.plan.phoneHash
     ) {
+      const ip = trustedIp(request);
+      warnIfUnknownTrustedIp(ip);
       await recordLoyaltyLookupMiss({
         restaurantId: table.restaurant.id,
-        ip: trustedIp(request),
+        ip,
         phoneHash: loyalty.plan.phoneHash,
         requestPath: request.nextUrl.pathname,
       });

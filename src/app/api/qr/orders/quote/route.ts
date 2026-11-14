@@ -23,7 +23,7 @@ import {
   enforceRateLimits,
   type RateLimitRefusal,
 } from '@/lib/loyalty/rate-limit';
-import { trustedIp } from '@/lib/loyalty/trusted-ip';
+import { trustedIp, warnIfUnknownTrustedIp } from '@/lib/loyalty/trusted-ip';
 import { buildQuoteMessage } from '@/lib/loyalty/message';
 import { toMoneyString } from '@/lib/loyalty/money';
 import { resolveOrCreateCustomer } from '@/lib/services/loyalty-customer-service';
@@ -168,6 +168,7 @@ export async function POST(request: NextRequest) {
     // enumeration attempt costs nothing and cannot reveal a member by timing or
     // error shape. A flag-off request never reaches here.
     const ip = trustedIp(request);
+    warnIfUnknownTrustedIp(ip);
     if (phone) {
       const decision = await enforceRateLimits({
         restaurantId: table.restaurant.id,

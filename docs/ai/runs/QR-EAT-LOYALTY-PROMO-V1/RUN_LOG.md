@@ -1202,3 +1202,116 @@ sign-off), P8-8 (early-close boundary → P9), P8-2/P8-3 (Z lines, batchless pos
 
 **P8: COMPLETE.**
 
+
+**P9 — rehearsal and rollout (2026-11-14):**
+
+Implementer: `ame-implementer` (P9 subagent). Evidence: `evidence/P9-9a-fresh-drill.txt`,
+`evidence/P9-9b-upgrade-drill.txt`, `evidence/P9-9c-concurrency.txt`,
+`evidence/P9-9e-permissions.txt`; runbook: `PILOT-RUNBOOK.md`.
+
+Delivered the pilot gate against `qrorder_dev` only:
+
+- **9a fresh drill** — `prisma migrate reset --force` dropped the schema, applied all 35
+  migrations from empty and ran the seed; `migrate status` up to date; live-DB→datamodel
+  `migrate diff` empty.
+- **9b upgrade drill** — new `scripts/rehearse-migrations.ts` drops `public`, replays the 30
+  pre-loyalty migrations through `prisma db execute`, inserts a synthetic owner/restaurant/
+  table/session/order/payment batch/order event/security event, replays the 3 loyalty-core
+  migrations, inserts a legacy `idempotency_records` row after the first loyalty
+  migration, inserts a pre-rebalance `loyalty_settings` row, replays the 2 rebalance
+  migrations, then asserts 45 checks: old rows survive, `Order.discountVersion = 0`,
+  `DiningSession.billRevision = 0`, `LoyaltySettings.lookupLimitPerHour = 30`,
+  `security_events.restaurantId` null, `payment_batches.roundingAdjustment` null, all 17
+  CHECKs validated, three CHECKs reject bad writes, and the partial unique indexes exist.
+  The script then restores recorded migration history with `prisma migrate deploy`.
+- **9c concurrency drill** — new `scripts/rehearse-concurrency.ts`; each race runs the real
+  service in two child processes so each has its own Prisma client/pool. Two payments on one
+  bill: one batch, one visit, one card increment, one payment; loser `BILL_PAID`. Member change
+  vs payment: member change wins, payment `BILL_CHANGED`, no batch, revision +1. Rename vs
+  anonymise: final row `ANONYMIZED` with `name = null` (rename either succeeded then was
+  nulled, or was refused `MEMBER_ANONYMIZED`); a deterministic second case runs the
+  anonymise to completion first and asserts the rename is refused `MEMBER_ANONYMIZED` and
+  the row stays `ANONYMIZED` with no name. Rate limits: two workers × 25 increments = 50;
+  five concurrent attempts at limit 2 = 2 allowed, 3 refused, every counter left at 2 (no
+  partial increments). Cleanup removes every rehearsal restaurant it creates.
+- **9d rollback drill** — the rollback restaurant has `LoyaltySettings.enabled = true`; the
+  drill unsets `LOYALTY_ENABLED` and asserts the restaurant row is still `true`, so the env
+  flag alone wins. The QR quote returns `LOYALTY_DISABLED` before any DB access. A guest bill
+  and a bill with the sentinel member attached both take the legacy path: legacy response
+  shape, exactly one `PaymentBatch` per bill, no `Customer`/`LoyaltyVisit`/`LoyaltyCard`/
+  `OrderDiscount`/`Quote`/`RateLimitCounter` writes, existing member and bill totals
+  untouched.
+- **9e seed and permissions** — after `prisma db seed`, all ten permissions exist and are
+  active; owner has all ten; manager has all except `members:export` and `members:delete`
+  (§18.20.14 A). 31/31 checks.
+- **9f edge warning** — `warnIfUnknownTrustedIp()` logs once per process (module instance)
+  when `trustedIp` returns the `unknown` sentinel; it logs no address or request data. Wired
+  into the QR quote and create routes, so it first fires on a phone-bearing loyalty-active
+  quote, not at deploy time. Unit test proves once-only, the exact message, and no address in
+  the message.
+- **9g pilot runbook** — `PILOT-RUNBOOK.md` covers enabling one restaurant (both switches,
+  HMAC key, `LoyaltySettings.enabled`, hourly ceiling), two-week watch items
+  (`loyalty_rate_limited`, `loyalty_enumeration_alert`, `loyalty_rate_limit_unavailable`,
+  payment/Z reconciliation), and the exact flag-off rollback.
+
+```text
+npx tsx scripts/rehearse-migrations.ts          -> PASS 45/45
+npx prisma db seed                              -> PASS
+npx tsx scripts/rehearse-migrations.ts --permissions-only -> PASS 31/31
+npx tsx scripts/rehearse-concurrency.ts         -> PASS 47/47
+npx prisma migrate status                       -> up to date (35 migrations)
+npx prisma migrate diff ... --script            -> empty
+npm run type-check                              -> PASS
+npm test -- --runInBand                         -> 110 suites passed, 1341 passed, 11 skipped
+npm run build                                   -> PASS
+```
+
+Deviations recorded: the upgrade drill inserts the pre-rebalance settings row between the
+loyalty-core and rebalance migration groups so the `lookupLimitPerHour = 30` default is proven
+on an existing row; `idempotency_records` is created by the first loyalty-core migration (it is
+not a pre-loyalty table), so its legacy row is inserted immediately after that migration and
+must survive the remaining loyalty migrations; the concurrency races use child processes because
+the service entry points use the shared Prisma client, and two processes is the only way to
+guarantee two distinct clients; 9d lives in the concurrency script rather than a third file.
+
+Residual risks: the Railway edge's `X-Forwarded-For` behaviour could not be observed from this
+session — the new once-per-process warning is the deployment detector; `LOYALTY_PHONE_HMAC_KEY`
+rotation/backfill remains deferred; `scripts/**` is outside `tsconfig.json` `include`, so
+`npm run type-check` does not type-check the two rehearsal scripts (they are executed end to end
+by the commands above and linted with ESLint).
+
+**P9 correction cycle 1 and runbook delta (2026-11-14):**
+
+Implementers `ses_e269928ccffex0Kuz6q1KFEVw1`, `ses_e267ec957ffemF6ykM2K3JB4j1`.
+Verifiers `ses_e26a47575ffegrbng3QS33zgSy`, `ses_e268960fdffe2lIiFSjNU5ps9t`,
+`ses_e267bbcf1ffew1hd4vQeHx9sgz` (all PASS WITH NOTES). See `REVIEW-23.md`.
+
+The finding that mattered: **P9-01** — the rollback drill created its restaurant with no
+`LoyaltySettings` row, so it could not distinguish "honours `LOYALTY_ENABLED`" from "only checks
+the per-restaurant row". The operator's real rollback state is the opposite: env flag off while
+the restaurant is still enabled. A regression ignoring the env flag would have passed the gate.
+Fixed: settings `enabled = true`, member attached, quote returns `200 LOYALTY_DISABLED`, zero
+loyalty rows, both bills pay through the legacy path.
+
+Also: 9b now carries an `idempotency_records` row across the loyalty replay (the table is created
+by `20261113120000`, not pre-existing — the original finding's premise was wrong); drill 3 gained
+a deterministic anonymise-then-rename case; the runbook gained the `db:seed` prerequisite, moved
+the edge-warning check after enabling, and its SQL fallback no longer writes `noticeText` without
+`noticeTextHash` (which silently disabled loyalty).
+
+```text
+npx tsx scripts/rehearse-migrations.ts    -> PASS 45/45
+npx tsx scripts/rehearse-concurrency.ts   -> PASS 47/47
+npx tsx scripts/rehearse-migrations.ts --permissions-only -> PASS 31/31
+npx prisma migrate status                 -> up to date (35 migrations)
+npx prisma migrate diff ... --script      -> empty
+npm run type-check                        -> PASS
+npm test -- --runInBand                   -> 1341 passed, 11 skipped
+npm run build                             -> PASS
+```
+
+Carried: P9-03 (sleep-based race), P9-08 (scripts untype-checked), P9-09 (`outcome = 'GUEST'`
+under flag off → P10), **P9-10 (Railway XFF unobserved — owner action before the pilot)**,
+P9-13/P9-14/P9-15.
+
+**P9: COMPLETE.** The pilot is a human action.

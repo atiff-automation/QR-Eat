@@ -158,3 +158,15 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P8-6 | `net` now includes tax and service by design (Q4=A); gross profit and margins include tax | **M** | Accounting sign-off recorded at P10 |
 | P8-7 | P&L returns numbers, not decimal strings | L | Backlog |
 | P8-8 | Early/late business-day close: the Z uses `openedAt`/`closedAt` while the P&L and loyalty report use the 04:00 cutoff; a refund after an early close can land in a different period | **M** | **P9** clock/boundary test |
+
+## Added by P9 (`REVIEW-23`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| P9-03 | Concurrency drills 1–3 synchronise with fixed sleeps, not a readiness barrier; a slow machine can degenerate the race to sequential and still pass | L | Barrier or `pg_locks` wait before release |
+| P9-08 | `scripts/**` is outside `tsconfig.json` `include`; `npm run type-check` does not cover the rehearsal scripts | L | `tsconfig.scripts.json` check, or keep the disclosure |
+| P9-09 | Flag-off payments write `PaymentBatch.outcome = 'GUEST'`, a value the pre-feature code never wrote | L | Recorded as an interpretation at P10 |
+| P9-10 | **The Railway edge's `X-Forwarded-For` behaviour is unobserved**; if absent, every pilot caller shares the strictest bucket | **M** | **Owner confirms the header before inviting guests**; record in the P10 contract freeze |
+| P9-13 | The rollback drill mutates the parent process env, not a real deploy/restart | L | P11 |
+| P9-14 | The runbook SQL fallback enables settings without validating the notice, so the dashboard can show "On" while runtime is off | L | Runbook watch item |
+| P9-15 | The runbook SQL fallback overwrites `privacyUrl`; an unreplaced placeholder breaks the notice link while loyalty activates | L | Runbook watch item |
