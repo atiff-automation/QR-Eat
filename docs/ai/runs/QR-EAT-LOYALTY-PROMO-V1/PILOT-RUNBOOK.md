@@ -243,7 +243,50 @@ signal. Count refusals in the loyalty report and in `loyalty_rate_limited`.
 - `AMOUNT_MISMATCH` means the cashier collected a different total. Nothing was
   charged; reload and re-tender.
 
-### 5.4 Data growth and cleanup
+### 5.4 Z blockers at close
+
+The Z report can carry two **money blockers**. They do not crash the report and
+they do not change any figure. They mean the server cannot prove that the Z's
+numbers add up, so it refuses to close the day until someone checks.
+
+| Blocker type | What it means |
+|---|---|
+| `Z_DISCOUNT_SPLIT_MISMATCH` | The day's total discount does not equal the promotion discounts plus the reward discounts. Usually a legacy order has a discount amount but no matching active discount row. |
+| `Z_IDENTITY_MISMATCH` | `gross sales − discounts + tax + service charge − refunds` does not equal net sales. Usually a legacy order total predates the current tax/service formula, or a payment/refund was corrected without updating the order total. |
+
+**What you will see**
+
+- The live Z / day report lists the blocker with its `label` and `amount`. The
+  `amount` is the size of the difference.
+- Closing the day returns **`409 BUSINESS_DAY_BLOCKED`**. The response contains
+  `details.blockers` with the same `type`, `label`, `amount` and `count`.
+- The Z PDF prints the same blocker under **Blockers**.
+
+**What to do**
+
+1. Do not close the day by editing numbers, and do not re-enter the cash count
+   hoping the blocker disappears.
+2. Note the business date, blocker type and `amount`.
+3. Check the day's orders in the Counter:
+   - For a discount blocker, find orders with a discount but no visible
+     promotion or reward on the bill.
+   - For an identity blocker, compare the order total with
+     `subtotal − discount + tax + service`. A difference of the same size as the
+     blocker points at the order.
+4. Write down the order number(s) and the difference. Do not change financial
+   rows in the database.
+5. Escalate to the pilot owner and engineering with the restaurant id, business
+   date, blocker type, `amount` and the order number(s). Do not include customer
+   names or phone numbers.
+
+**Escalation path**
+
+Pilot owner → engineering on-call (Atiff). If the blocker appears on a normal
+sale made after the pilot started — not on a clearly legacy order — stop taking
+payments for that restaurant, keep the day open, and escalate immediately. A
+legacy-only blocker can wait for a planned fix; a new blocker is an incident.
+
+### 5.5 Data growth and cleanup
 
 - `rate_limit_counters` rows older than 24 hours are pruned by the cleanup job.
   The job is safe to run repeatedly.
@@ -252,7 +295,7 @@ signal. Count refusals in the loyalty report and in `loyalty_rate_limited`.
 - Check that the nightly backup still succeeds and that the restore test is
   still scheduled.
 
-### 5.5 Permissions
+### 5.6 Permissions
 
 The pilot owner and manager roles should match §18.20.14 A:
 

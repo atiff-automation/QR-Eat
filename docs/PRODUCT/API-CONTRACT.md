@@ -343,6 +343,17 @@ Registry codes not emitted: `MEMBER_ALREADY_ATTACHED` (attach is idempotent) and
 `LOYALTY_UNAVAILABLE_OFFLINE` (the offline state is client copy only). Both are
 recorded in the register below.
 
+The close endpoint's `409 BUSINESS_DAY_BLOCKED` response carries
+`details.blockers`. Two additive blocker types **block the close** (they are not
+informational); each carries `type`, `label`, `count` and an absolute `amount`:
+
+- `Z_DISCOUNT_SPLIT_MISMATCH` — `Discount split does not match the discount total`
+- `Z_IDENTITY_MISMATCH` — `Z report does not reconcile`
+
+They also appear in the live Z payload and in the Z PDF's blocker section. They
+are `details.blockers[].type` values, not new top-level error codes: the close
+fails with `409 BUSINESS_DAY_BLOCKED`, and the message names the blocker types.
+
 ## 18.20.11 Interpretation register
 
 | # | Clause | What we built | Why | Counter must care |
@@ -363,8 +374,8 @@ recorded in the register below.
 | P7d-1 | §18.20.9 | After a name is cleared, a later enrolment by the same phone re-captures a name | Name is write-once per membership, not per phone forever | No |
 | P7d-4 | §18.20.9 | Historical `Order.customerName`/`CustomerSession.customerName` copies keep the old name after a rename | Those are order-contact copies, not the member record | No |
 | P8-1 | §18.20.8 | The Z's `grossSales` is the pre-tax subtotal | Matches `gross = Σ subtotalAmount` and the other two reports | **Yes** — the figure changed meaning |
-| P8-2 | §18.20.15 | The Z lacks `discountBySource`, the reward line and a prior-period refunds line | The loyalty report carries discount-by-source and the reward; the P&L carries only aggregate discounts/refunds; prior-period refunds remain deferred | No |
-| P8-3 | §18.20.8 | The loyalty report omits batchless positive payments (legacy POS route) | The legacy route predates batches; recorded as debt | No |
+| P8-2 | §18.20.15 | The Z now carries `discountBySource`, a reward total and a prior-period refunds subset; split/identity discrepancies are visible blockers | Implemented in P10-close; figures are unchanged on consistent data | **Yes** — additive Z fields and blocker types |
+| P8-3 | §18.20.8 | The loyalty report includes batchless positive `PAID` payments | The loyalty report's definition is unchanged; a legacy omission is corrected | No |
 | P8-6 | §18.20.8 | `net` includes tax and service | Follows `net = Σ totalAmount`; all three reports agree | **Yes** — not statutory until signed |
 | P10-12 | §18.20.12 | `MEMBER_ALREADY_ATTACHED` is never emitted; attach is idempotent | Re-attaching the same member succeeds without a state change | No |
 | P10-13 | §18.20.12 | `LOYALTY_UNAVAILABLE_OFFLINE` is never emitted; offline is client copy | The server is unreachable offline, so it cannot return a code | **Yes** — render the offline state locally |

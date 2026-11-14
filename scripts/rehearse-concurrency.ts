@@ -24,16 +24,31 @@
  */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { PrismaClient } from '@prisma/client';
 import { hashPhone } from '@/lib/loyalty/phone';
+import { getBusinessDate } from '@/lib/time/business-day';
 
 const REPO_ROOT = process.cwd();
 const SCRIPT_PATH = process.argv[1];
 const HMAC_KEY = 'p9-rehearsal-only-hmac-key';
 const NOTICE_TEXT = 'P9 rehearsal loyalty notice';
+const FIXTURE_CLOCK = {
+  timezone: 'Asia/Kuala_Lumpur',
+  closeTime: '04:00',
+};
+/** Bounded wait for the readiness barrier. A timeout fails the drill. */
+const BARRIER_TIMEOUT_MS = 20_000;
+/** Bounded wait for the children to reach the parent's lock after `go`. */
+const WAITER_TIMEOUT_MS = 3_000;
+/** The child fails if the parent never creates its `go` file. */
+const CHILD_GO_TIMEOUT_MS = 30_000;
+const BARRIER_POLL_MS = 25;
+const RUN_ID = randomUUID().slice(0, 8);
+const APP_PREFIX = `drill-${RUN_ID}-`;
 
 interface WorkerResult {
   ok: boolean;
@@ -83,6 +98,114 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolveDelay) => setTimeout(resolveDelay, ms));
 }
 
+/**
+ * The advisory lock keys the services themselves take. They must stay
+ * byte-for-byte identical to `loyalty-payment-service.ts` /
+ * `loyalty-bill-service.ts`, otherwise the parent would not block the child.
+ */
+function billLockKey(restaurantId: string, sessionId: string): string {
+  return `loyalty-bill:${restaurantId}:${sessionId}`;
+}
+
+function dayLockKey(
+  restaurantId: string,
+  customerId: string,
+  businessDate: string
+): string {
+  return `loyalty-day:${restaurantId}:${customerId}:${businessDate}`;
+}
+
+interface BarrierObservation {
+  ok: boolean;
+  reason: string;
+}
+
+/**
+ * Wait until every child has written its ready marker. The children do not
+ * enter the service until the parent creates their `go` files, so a slow
+ * import cannot burn the service's interactive-transaction timeout.
+ */
+async function waitForFiles(
+  paths: string[],
+  timeoutMs: number,
+  label: string
+): Promise<BarrierObservation> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (paths.every((path) => existsSync(path))) {
+      console.log(`MARKERS  ${label} — ready`);
+      return { ok: true, reason: 'markers ready' };
+    }
+    await delay(BARRIER_POLL_MS);
+  }
+  const missing = paths.filter((path) => !existsSync(path)).length;
+  return {
+    ok: false,
+    reason: `${label}: markers missing=${missing} after ${timeoutMs}ms`,
+  };
+}
+
+/**
+ * Count distinct waiters whose PostgreSQL session carries this drill's
+ * application_name prefix. Scoping by the child sessions means an unrelated
+ * session on the same database can never satisfy the barrier.
+ */
+async function countScopedWaiters(
+  db: PrismaClient,
+  applicationPrefix: string
+): Promise<number> {
+  const rows = await db.$queryRaw<Array<{ count: number }>>`
+    SELECT count(DISTINCT l.pid)::int AS count
+    FROM pg_locks l
+    JOIN pg_stat_activity a ON a.pid = l.pid
+    WHERE NOT l.granted
+      AND a.application_name LIKE ${`${applicationPrefix}%`}
+  `;
+  return rows[0]?.count ?? 0;
+}
+
+async function waitForScopedWaiters(
+  db: PrismaClient,
+  applicationPrefix: string,
+  minimumWaiters: number,
+  label: string
+): Promise<BarrierObservation> {
+  const deadline = Date.now() + WAITER_TIMEOUT_MS;
+  let waiters = 0;
+  while (Date.now() < deadline) {
+    waiters = await countScopedWaiters(db, applicationPrefix);
+    if (waiters >= minimumWaiters) {
+      console.log(
+        `BARRIER  ${label} — app=${applicationPrefix}*, waiters=${waiters}/${minimumWaiters}`
+      );
+      return { ok: true, reason: `waiters=${waiters}` };
+    }
+    await delay(BARRIER_POLL_MS);
+  }
+  return {
+    ok: false,
+    reason: `${label}: scoped waiters ${waiters}/${minimumWaiters} after ${WAITER_TIMEOUT_MS}ms (app=${applicationPrefix}*)`,
+  };
+}
+
+function createMarkerDir(): string {
+  return mkdtempSync(join(tmpdir(), 'p9-drill-'));
+}
+
+function markReady(markerPath: string | undefined): void {
+  if (markerPath) writeFileSync(markerPath, 'ready');
+}
+
+async function waitForGo(goPath: string | undefined): Promise<void> {
+  if (!goPath) return;
+  const deadline = Date.now() + CHILD_GO_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (existsSync(goPath)) return;
+    await delay(5);
+  }
+  throw new Error(`go file did not appear within ${CHILD_GO_TIMEOUT_MS}ms`);
+}
+
 function ensureDatabaseUrl(): void {
   if (process.env.DATABASE_URL) return;
   const envPath = resolve(REPO_ROOT, '.env');
@@ -100,12 +223,21 @@ function npxCommand(): string {
   return process.platform === 'win32' ? 'npx.cmd' : 'npx';
 }
 
-function workerEnv(): NodeJS.ProcessEnv {
-  return {
+function appendApplicationName(url: string, applicationName: string): string {
+  const separator = url.includes('?') ? '&' : '?';
+  return `${url}${separator}application_name=${encodeURIComponent(applicationName)}`;
+}
+
+function workerEnv(applicationName?: string): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {
     ...process.env,
     LOYALTY_ENABLED: 'true',
     LOYALTY_PHONE_HMAC_KEY: process.env.LOYALTY_PHONE_HMAC_KEY ?? HMAC_KEY,
   };
+  if (applicationName && env.DATABASE_URL) {
+    env.DATABASE_URL = appendApplicationName(env.DATABASE_URL, applicationName);
+  }
+  return env;
 }
 
 function emit(result: WorkerResult): void {
@@ -141,7 +273,12 @@ function errorResult(error: unknown): WorkerResult {
 // Worker side
 // ---------------------------------------------------------------------------
 
-async function runWorker(role: string, encoded: string): Promise<void> {
+async function runWorker(
+  role: string,
+  encoded: string,
+  markerPath?: string,
+  goPath?: string
+): Promise<void> {
   ensureDatabaseUrl();
   process.env.LOYALTY_ENABLED = 'true';
   process.env.LOYALTY_PHONE_HMAC_KEY =
@@ -157,6 +294,8 @@ async function runWorker(role: string, encoded: string): Promise<void> {
         const { processTablePaymentBatch } = await import(
           '@/lib/services/payment-batch-service'
         );
+        markReady(markerPath);
+        await waitForGo(goPath);
         const result = await processTablePaymentBatch({
           tableId: String(payload.tableId),
           restaurantId: String(payload.restaurantId),
@@ -176,6 +315,8 @@ async function runWorker(role: string, encoded: string): Promise<void> {
         const { changeMember } = await import(
           '@/lib/services/loyalty-bill-service'
         );
+        markReady(markerPath);
+        await waitForGo(goPath);
         const result = await changeMember({
           restaurantId: String(payload.restaurantId),
           target: { kind: 'table', tableId: String(payload.tableId) },
@@ -197,6 +338,8 @@ async function runWorker(role: string, encoded: string): Promise<void> {
         const { renameMember } = await import(
           '@/lib/services/loyalty-member-service'
         );
+        markReady(markerPath);
+        await waitForGo(goPath);
         const result = await renameMember({
           restaurantId: String(payload.restaurantId),
           memberId: String(payload.memberId),
@@ -213,6 +356,8 @@ async function runWorker(role: string, encoded: string): Promise<void> {
         const { deleteMember } = await import(
           '@/lib/services/loyalty-member-service'
         );
+        markReady(markerPath);
+        await waitForGo(goPath);
         const result = await deleteMember({
           restaurantId: String(payload.restaurantId),
           memberId: String(payload.memberId),
@@ -287,21 +432,23 @@ async function runWorker(role: string, encoded: string): Promise<void> {
 
 function runWorkerProcess(
   role: string,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  markerPath?: string,
+  goPath?: string,
+  applicationName?: string
 ): Promise<WorkerResult> {
   const encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString(
     'base64'
   );
+  const args = ['tsx', SCRIPT_PATH, '--worker', role, encoded];
+  if (markerPath) args.push(markerPath);
+  if (goPath) args.push(goPath);
   return new Promise((resolveWorker, rejectWorker) => {
-    const child = spawn(
-      npxCommand(),
-      ['tsx', SCRIPT_PATH, '--worker', role, encoded],
-      {
-        cwd: REPO_ROOT,
-        env: workerEnv(),
-        stdio: ['ignore', 'pipe', 'pipe'],
-      }
-    );
+    const child = spawn(npxCommand(), args, {
+      cwd: REPO_ROOT,
+      env: workerEnv(applicationName),
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
 
     let stdout = '';
     let stderr = '';
@@ -513,104 +660,158 @@ async function raceTwoPayments(
   ownerId: string
 ): Promise<void> {
   console.log('\nDrill 1 — two concurrent payments on one bill');
-  const lockKey = `loyalty-bill:${fixture.restaurantId}:${bill.sessionId}`;
+  if (!bill.customerId) {
+    throw new Error('Drill 1 requires a member bill');
+  }
+  // A member bill's first service lock is `loyalty-day`, not `loyalty-bill`:
+  // both payment children block there before either reaches the bill lock.
+  // Holding the day lock is what makes two waiters observable on one key.
+  const lockKey = dayLockKey(
+    fixture.restaurantId,
+    bill.customerId,
+    getBusinessDate(new Date(), FIXTURE_CLOCK)
+  );
 
-  const workers = await db.$transaction(
-    async (tx) => {
-      await tx.$queryRaw`
-        SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
-      `;
-      const first = runWorkerProcess('payment', {
+  const markerDir = createMarkerDir();
+  const markers = [
+    join(markerDir, 'payment-a.ready'),
+    join(markerDir, 'payment-b.ready'),
+  ];
+  const goFiles = [
+    join(markerDir, 'payment-a.go'),
+    join(markerDir, 'payment-b.go'),
+  ];
+  const applicationNames = [`${APP_PREFIX}1a`, `${APP_PREFIX}1b`];
+
+  try {
+    const outcome = await db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
+        `;
+        const first = runWorkerProcess(
+          'payment',
+          {
+            restaurantId: fixture.restaurantId,
+            tableId: bill.tableId,
+            userId: ownerId,
+            userType: 'restaurant_owner',
+            idempotencyKey: `p9-race-pay-a-${randomUUID()}`,
+            paymentMethod: 'cash',
+            cashReceived: '100.00',
+            expectedTotal: '100.00',
+            expectedCashPayable: '100.00',
+            expectedBillRevision: 0,
+          },
+          markers[0],
+          goFiles[0],
+          applicationNames[0]
+        );
+        const second = runWorkerProcess(
+          'payment',
+          {
+            restaurantId: fixture.restaurantId,
+            tableId: bill.tableId,
+            userId: ownerId,
+            userType: 'restaurant_owner',
+            idempotencyKey: `p9-race-pay-b-${randomUUID()}`,
+            paymentMethod: 'cash',
+            cashReceived: '100.00',
+            expectedTotal: '100.00',
+            expectedCashPayable: '100.00',
+            expectedBillRevision: 0,
+          },
+          markers[1],
+          goFiles[1],
+          applicationNames[1]
+        );
+        const markersReady = await waitForFiles(
+          markers,
+          BARRIER_TIMEOUT_MS,
+          'drill 1'
+        );
+        // Let both children enter the service together. They then race for the
+        // day lock the parent holds.
+        writeFileSync(goFiles[0], 'go');
+        writeFileSync(goFiles[1], 'go');
+        const barrier = markersReady.ok
+          ? await waitForScopedWaiters(db, APP_PREFIX, 2, 'drill 1')
+          : markersReady;
+        return { workers: [first, second] as const, barrier };
+      },
+      { timeout: 60_000 }
+    );
+
+    const results = await Promise.all(outcome.workers);
+    if (!outcome.barrier.ok) {
+      fail(
+        'the parent released only after two waiters',
+        outcome.barrier.reason
+      );
+    }
+    const successes = results.filter((result) => result.ok);
+    const losers = results.filter((result) => !result.ok);
+    check(
+      'exactly one payment succeeded',
+      successes.length === 1,
+      `successes=${successes.length}`
+    );
+    check(
+      'the loser got BILL_CHANGED or BILL_PAID',
+      losers.length === 1 &&
+        (losers[0]?.code === 'BILL_CHANGED' || losers[0]?.code === 'BILL_PAID'),
+      losers[0]?.code
+    );
+    check(
+      'the loser never reported an unexpected error',
+      losers.every((result) => result.unexpected !== true)
+    );
+
+    const batches = await db.paymentBatch.count({
+      where: { restaurantId: fixture.restaurantId, tableId: bill.tableId },
+    });
+    check('exactly one PaymentBatch', batches === 1, `count=${batches}`);
+
+    const visits = await db.loyaltyVisit.count({
+      where: {
         restaurantId: fixture.restaurantId,
-        tableId: bill.tableId,
-        userId: ownerId,
-        userType: 'restaurant_owner',
-        idempotencyKey: `p9-race-pay-a-${randomUUID()}`,
-        paymentMethod: 'cash',
-        cashReceived: '100.00',
-        expectedTotal: '100.00',
-        expectedCashPayable: '100.00',
-        expectedBillRevision: 0,
-      });
-      const second = runWorkerProcess('payment', {
-        restaurantId: fixture.restaurantId,
-        tableId: bill.tableId,
-        userId: ownerId,
-        userType: 'restaurant_owner',
-        idempotencyKey: `p9-race-pay-b-${randomUUID()}`,
-        paymentMethod: 'cash',
-        cashReceived: '100.00',
-        expectedTotal: '100.00',
-        expectedCashPayable: '100.00',
-        expectedBillRevision: 0,
-      });
-      await delay(1200);
-      return [first, second] as const;
-    },
-    { timeout: 30_000 }
-  );
+        customerId: bill.customerId ?? undefined,
+      },
+    });
+    check('exactly one LoyaltyVisit', visits === 1, `count=${visits}`);
 
-  const results = await Promise.all(workers);
-  const successes = results.filter((result) => result.ok);
-  const losers = results.filter((result) => !result.ok);
-  check(
-    'exactly one payment succeeded',
-    successes.length === 1,
-    `successes=${successes.length}`
-  );
-  check(
-    'the loser got BILL_CHANGED or BILL_PAID',
-    losers.length === 1 &&
-      (losers[0]?.code === 'BILL_CHANGED' || losers[0]?.code === 'BILL_PAID'),
-    losers[0]?.code
-  );
-  check(
-    'the loser never reported an unexpected error',
-    losers.every((result) => result.unexpected !== true)
-  );
+    const card = bill.cardId
+      ? await db.loyaltyCard.findUnique({ where: { id: bill.cardId } })
+      : null;
+    check(
+      'exactly one card increment',
+      card?.visitsInCycle === 1,
+      `visitsInCycle=${card?.visitsInCycle}`
+    );
 
-  const batches = await db.paymentBatch.count({
-    where: { restaurantId: fixture.restaurantId, tableId: bill.tableId },
-  });
-  check('exactly one PaymentBatch', batches === 1, `count=${batches}`);
+    const payments = await db.payment.count({
+      where: { order: { id: bill.orderId } },
+    });
+    check('exactly one Payment row', payments === 1, `count=${payments}`);
 
-  const visits = await db.loyaltyVisit.count({
-    where: {
-      restaurantId: fixture.restaurantId,
-      customerId: bill.customerId ?? undefined,
-    },
-  });
-  check('exactly one LoyaltyVisit', visits === 1, `count=${visits}`);
+    const order = await db.order.findUnique({ where: { id: bill.orderId } });
+    check(
+      'the bill is PAID',
+      order?.paymentStatus === 'PAID',
+      order?.paymentStatus
+    );
 
-  const card = bill.cardId
-    ? await db.loyaltyCard.findUnique({ where: { id: bill.cardId } })
-    : null;
-  check(
-    'exactly one card increment',
-    card?.visitsInCycle === 1,
-    `visitsInCycle=${card?.visitsInCycle}`
-  );
-
-  const payments = await db.payment.count({
-    where: { order: { id: bill.orderId } },
-  });
-  check('exactly one Payment row', payments === 1, `count=${payments}`);
-
-  const order = await db.order.findUnique({ where: { id: bill.orderId } });
-  check(
-    'the bill is PAID',
-    order?.paymentStatus === 'PAID',
-    order?.paymentStatus
-  );
-
-  const discounts = await db.orderDiscount.count({
-    where: { restaurantId: fixture.restaurantId, orderId: bill.orderId },
-  });
-  check(
-    'no double benefit (no discount rows)',
-    discounts === 0,
-    `count=${discounts}`
-  );
+    const discounts = await db.orderDiscount.count({
+      where: { restaurantId: fixture.restaurantId, orderId: bill.orderId },
+    });
+    check(
+      'no double benefit (no discount rows)',
+      discounts === 0,
+      `count=${discounts}`
+    );
+  } finally {
+    rmSync(markerDir, { recursive: true, force: true });
+  }
 }
 
 async function raceMemberChangeVsPayment(
@@ -621,78 +822,123 @@ async function raceMemberChangeVsPayment(
   phone: string
 ): Promise<void> {
   console.log('\nDrill 2 — member change vs payment');
-  const lockKey = `loyalty-bill:${fixture.restaurantId}:${bill.sessionId}`;
+  const lockKey = billLockKey(fixture.restaurantId, bill.sessionId);
 
-  const workers = await db.$transaction(
-    async (tx) => {
-      await tx.$queryRaw`
-        SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
-      `;
-      // The member change is started first so it is ahead of the payment in
-      // the advisory-lock wait queue. Both are blocked while the parent holds
-      // the lock, so the race is real rather than sequential.
-      const member = runWorkerProcess('member-change', {
+  const markerDir = createMarkerDir();
+  const memberMarker = join(markerDir, 'member.ready');
+  const memberGo = join(markerDir, 'member.go');
+  const paymentMarker = join(markerDir, 'payment.ready');
+  const paymentGo = join(markerDir, 'payment.go');
+
+  try {
+    const outcome = await db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`
+          SELECT pg_advisory_xact_lock(hashtext(${lockKey})::bigint)::text AS lock
+        `;
+        const member = runWorkerProcess(
+          'member-change',
+          {
+            restaurantId: fixture.restaurantId,
+            tableId: bill.tableId,
+            userId: ownerId,
+            phone,
+            expectedBillRevision: 0,
+            idempotencyKey: `p9-race-member-${randomUUID()}`,
+          },
+          memberMarker,
+          memberGo,
+          `${APP_PREFIX}2m`
+        );
+        const payment = runWorkerProcess(
+          'payment',
+          {
+            restaurantId: fixture.restaurantId,
+            tableId: bill.tableId,
+            userId: ownerId,
+            userType: 'restaurant_owner',
+            idempotencyKey: `p9-race-member-pay-${randomUUID()}`,
+            paymentMethod: 'cash',
+            cashReceived: '100.00',
+            expectedTotal: '100.00',
+            expectedCashPayable: '100.00',
+            expectedBillRevision: 0,
+          },
+          paymentMarker,
+          paymentGo,
+          `${APP_PREFIX}2p`
+        );
+        const markersReady = await waitForFiles(
+          [memberMarker, paymentMarker],
+          BARRIER_TIMEOUT_MS,
+          'drill 2'
+        );
+        // Release the member first and confirm it is queued on the parent's
+        // lock before releasing the payment. Both were ready before either
+        // entered the service, so the member's transaction cannot time out
+        // waiting for a slow payment start.
+        writeFileSync(memberGo, 'go');
+        const memberQueued = markersReady.ok
+          ? await waitForScopedWaiters(
+              db,
+              APP_PREFIX,
+              1,
+              'drill 2 member queue'
+            )
+          : markersReady;
+        writeFileSync(paymentGo, 'go');
+        const barrier = memberQueued.ok
+          ? await waitForScopedWaiters(db, APP_PREFIX, 2, 'drill 2')
+          : memberQueued;
+        return { workers: [member, payment] as const, barrier };
+      },
+      { timeout: 60_000 }
+    );
+
+    const [member, payment] = await Promise.all(outcome.workers);
+    if (!outcome.barrier.ok) {
+      fail(
+        'the parent released only after two waiters',
+        outcome.barrier.reason
+      );
+    }
+    check('the member change succeeded', member.ok, member.code);
+    check(
+      'the payment got BILL_CHANGED',
+      !payment.ok && payment.code === 'BILL_CHANGED',
+      payment.code
+    );
+    check(
+      'no payment batch was written',
+      (await db.paymentBatch.count({
+        where: { restaurantId: fixture.restaurantId, tableId: bill.tableId },
+      })) === 0
+    );
+
+    const session = await db.diningSession.findUnique({
+      where: { id: bill.sessionId },
+    });
+    check(
+      'the bill revision advanced exactly once',
+      session?.billRevision === 1,
+      `billRevision=${session?.billRevision}`
+    );
+    check(
+      'the member was attached once',
+      session?.customerId === bill.customerId,
+      String(session?.customerId)
+    );
+
+    const visits = await db.loyaltyVisit.count({
+      where: {
         restaurantId: fixture.restaurantId,
-        tableId: bill.tableId,
-        userId: ownerId,
-        phone,
-        expectedBillRevision: 0,
-        idempotencyKey: `p9-race-member-${randomUUID()}`,
-      });
-      await delay(700);
-      const payment = runWorkerProcess('payment', {
-        restaurantId: fixture.restaurantId,
-        tableId: bill.tableId,
-        userId: ownerId,
-        userType: 'restaurant_owner',
-        idempotencyKey: `p9-race-member-pay-${randomUUID()}`,
-        paymentMethod: 'cash',
-        cashReceived: '100.00',
-        expectedTotal: '100.00',
-        expectedCashPayable: '100.00',
-        expectedBillRevision: 0,
-      });
-      await delay(700);
-      return [member, payment] as const;
-    },
-    { timeout: 30_000 }
-  );
-
-  const [member, payment] = await Promise.all(workers);
-  check('the member change succeeded', member.ok, member.code);
-  check(
-    'the payment got BILL_CHANGED',
-    !payment.ok && payment.code === 'BILL_CHANGED',
-    payment.code
-  );
-  check(
-    'no payment batch was written',
-    (await db.paymentBatch.count({
-      where: { restaurantId: fixture.restaurantId, tableId: bill.tableId },
-    })) === 0
-  );
-
-  const session = await db.diningSession.findUnique({
-    where: { id: bill.sessionId },
-  });
-  check(
-    'the bill revision advanced exactly once',
-    session?.billRevision === 1,
-    `billRevision=${session?.billRevision}`
-  );
-  check(
-    'the member was attached once',
-    session?.customerId === bill.customerId,
-    String(session?.customerId)
-  );
-
-  const visits = await db.loyaltyVisit.count({
-    where: {
-      restaurantId: fixture.restaurantId,
-      customerId: bill.customerId ?? undefined,
-    },
-  });
-  check('no visit was created by the losing payment', visits === 0);
+        customerId: bill.customerId ?? undefined,
+      },
+    });
+    check('no visit was created by the losing payment', visits === 0);
+  } finally {
+    rmSync(markerDir, { recursive: true, force: true });
+  }
 }
 
 async function raceRenameVsAnonymise(
@@ -703,54 +949,94 @@ async function raceRenameVsAnonymise(
 ): Promise<void> {
   console.log('\nDrill 3 — rename vs anonymise');
 
-  const workers = await db.$transaction(
-    async (tx) => {
-      await tx.$queryRaw`
-        SELECT "id" FROM "customers" WHERE "id" = ${memberId} FOR UPDATE
-      `;
-      const rename = runWorkerProcess('rename', {
-        restaurantId: fixture.restaurantId,
-        memberId,
-        actorId: ownerId,
-        idempotencyKey: `p9-race-rename-${randomUUID()}`,
-        name: 'Renamed By Rehearsal',
-      });
-      const anonymise = runWorkerProcess('anonymise', {
-        restaurantId: fixture.restaurantId,
-        memberId,
-        actorId: ownerId,
-        idempotencyKey: `p9-race-anonymise-${randomUUID()}`,
-      });
-      await delay(1200);
-      return [rename, anonymise] as const;
-    },
-    { timeout: 30_000 }
-  );
+  const markerDir = createMarkerDir();
+  const renameMarker = join(markerDir, 'rename.ready');
+  const renameGo = join(markerDir, 'rename.go');
+  const anonymiseMarker = join(markerDir, 'anonymise.ready');
+  const anonymiseGo = join(markerDir, 'anonymise.go');
 
-  const [rename, anonymise] = await Promise.all(workers);
-  check('the anonymise succeeded', anonymise.ok, anonymise.code);
-  check(
-    'the rename either succeeded or was refused as anonymised',
-    rename.ok || rename.code === 'MEMBER_ANONYMIZED',
-    rename.code
-  );
+  try {
+    const outcome = await db.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`
+          SELECT "id" FROM "customers" WHERE "id" = ${memberId} FOR UPDATE
+        `;
+        // The member services serialise on this row, not on an advisory lock.
+        // The barrier scopes the waiter count to these two child sessions.
+        const rename = runWorkerProcess(
+          'rename',
+          {
+            restaurantId: fixture.restaurantId,
+            memberId,
+            actorId: ownerId,
+            idempotencyKey: `p9-race-rename-${randomUUID()}`,
+            name: 'Renamed By Rehearsal',
+          },
+          renameMarker,
+          renameGo,
+          `${APP_PREFIX}3r`
+        );
+        const anonymise = runWorkerProcess(
+          'anonymise',
+          {
+            restaurantId: fixture.restaurantId,
+            memberId,
+            actorId: ownerId,
+            idempotencyKey: `p9-race-anonymise-${randomUUID()}`,
+          },
+          anonymiseMarker,
+          anonymiseGo,
+          `${APP_PREFIX}3a`
+        );
+        const markersReady = await waitForFiles(
+          [renameMarker, anonymiseMarker],
+          BARRIER_TIMEOUT_MS,
+          'drill 3'
+        );
+        // Release both children together; they then race for the row lock.
+        writeFileSync(renameGo, 'go');
+        writeFileSync(anonymiseGo, 'go');
+        const barrier = markersReady.ok
+          ? await waitForScopedWaiters(db, APP_PREFIX, 2, 'drill 3')
+          : markersReady;
+        return { workers: [rename, anonymise] as const, barrier };
+      },
+      { timeout: 60_000 }
+    );
 
-  const customer = await db.customer.findUnique({ where: { id: memberId } });
-  check(
-    'the member is ANONYMIZED',
-    customer?.status === 'ANONYMIZED',
-    customer?.status
-  );
-  check(
-    'no name remains on the ANONYMIZED row',
-    customer?.name === null,
-    String(customer?.name)
-  );
-  check(
-    'the anonymised timestamp is set',
-    customer?.anonymizedAt !== null,
-    String(customer?.anonymizedAt)
-  );
+    const [rename, anonymise] = await Promise.all(outcome.workers);
+    if (!outcome.barrier.ok) {
+      fail(
+        'the parent released only after two waiters',
+        outcome.barrier.reason
+      );
+    }
+    check('the anonymise succeeded', anonymise.ok, anonymise.code);
+    check(
+      'the rename either succeeded or was refused as anonymised',
+      rename.ok || rename.code === 'MEMBER_ANONYMIZED',
+      rename.code
+    );
+
+    const customer = await db.customer.findUnique({ where: { id: memberId } });
+    check(
+      'the member is ANONYMIZED',
+      customer?.status === 'ANONYMIZED',
+      customer?.status
+    );
+    check(
+      'no name remains on the ANONYMIZED row',
+      customer?.name === null,
+      String(customer?.name)
+    );
+    check(
+      'the anonymised timestamp is set',
+      customer?.anonymizedAt !== null,
+      String(customer?.anonymizedAt)
+    );
+  } finally {
+    rmSync(markerDir, { recursive: true, force: true });
+  }
 }
 
 async function renameAfterAnonymise(
@@ -1413,10 +1699,12 @@ async function main(): Promise<void> {
   if (workerIndex !== -1) {
     const role = process.argv[workerIndex + 1];
     const payload = process.argv[workerIndex + 2];
+    const markerPath = process.argv[workerIndex + 3];
+    const goPath = process.argv[workerIndex + 4];
     if (!role || !payload) {
       throw new Error('Worker mode requires a role and a payload');
     }
-    await runWorker(role, payload);
+    await runWorker(role, payload, markerPath, goPath);
     return;
   }
 

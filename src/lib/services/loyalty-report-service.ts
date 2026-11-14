@@ -208,12 +208,29 @@ export async function getLoyaltyReport(
     },
   });
 
+  // A legacy payment can have no `PaymentBatch`, so it has no `businessDate`.
+  // Attribute it by its own `createdAt` through the shared business-day
+  // helper (the `rangeStart`/`rangeEnd` instants), exactly like a refund.
+  // `batchId: null` is disjoint from every payment counted through a batch, so
+  // this can never double-count one.
+  const batchlessPositives = await prisma.payment.findMany({
+    where: {
+      order: { restaurantId: input.restaurantId },
+      amount: { gt: 0 },
+      batchId: null,
+      status: 'PAID',
+      createdAt: { gte: rangeStart, lt: rangeEnd },
+    },
+    select: { orderId: true, amount: true },
+  });
+
   const orderIds = Array.from(
-    new Set(
-      batches.flatMap((batch) =>
+    new Set([
+      ...batches.flatMap((batch) =>
         batch.payments.map((payment) => payment.orderId)
-      )
-    )
+      ),
+      ...batchlessPositives.map((payment) => payment.orderId),
+    ])
   );
 
   let gross = new Decimal(MONEY_ZERO);
@@ -230,6 +247,9 @@ export async function getLoyaltyReport(
     for (const payment of batch.payments) {
       net = net.plus(decimal(payment.amount));
     }
+  }
+  for (const payment of batchlessPositives) {
+    net = net.plus(decimal(payment.amount));
   }
 
   // Refunds are written as negative payments and have no `PaymentBatch`, so a

@@ -130,6 +130,7 @@ silently. Show "Loyalty unavailable offline."
 | 403 on a bill read | A cross-tenant staff/owner hit the legacy bill guard. Do not retry; refresh the session. (Member and loyalty routes return 404 instead.) |
 | `RATE_LIMITED` | Show `retryAfterSeconds`. |
 | `LOYALTY_DISABLED` | Render the neutral disabled state; the bill is still payable. |
+| `BUSINESS_DAY_BLOCKED` | Close refused. Read `details.blockers`; each entry has `type`, `label`, `count` and `amount`. Do not edit figures. Blocker types: `Z_DISCOUNT_SPLIT_MISMATCH` (the discount total does not match the promotion + reward rows) and `Z_IDENTITY_MISMATCH` (the revenue identity does not reconcile). Surface the `label` and `amount`; escalate. |
 
 ## Do not
 

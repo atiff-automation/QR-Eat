@@ -1,197 +1,133 @@
 # Open items — QR-EAT-LOYALTY-PROMO-V1
 
 **Purpose:** one register for every carried finding, so nothing depends on chat memory.
-Check this at every phase gate; close it out at P10.
+Check this at every phase gate.
 
-**Status:** open · **Updated:** 2026-11-14 · **HEAD:** `b426412`
+**Status:** open · **Updated:** 2026-11-15 · **Base:** `d2ad02b` (P10-close start)
 
 Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
+The register was rewritten at P10-close: every row that later work had already fixed
+is closed with its evidence, and the duplicate `P8-2` (promotion-swap history) is
+renamed `P5C-1`.
+
 ---
 
-## Decisions needed before P9
+## Decisions needed
 
 | # | Item | Severity | Context | Done when |
 |---|---|---|---|---|
-| D-1 | Restaurant delete: `Restrict` FKs vs the cascade in `src/app/api/restaurants/[id]/route.ts` (P1 `REVIEW-01` R-01) | **D, M** | Deleting a restaurant with members or discounts may now fail as a generic 500. Product choice: fail closed with a typed 409, or soft-delete tenants. | A ruling is recorded and the admin route returns a typed error or a soft delete. |
-| D-2 | Full phone on the Counter bill response (P5A `REVIEW-07` R-02) | **D, M** | A cashier with `orders:read` but not `members:pii` receives `orders[].customerPhone`. Pre-existing; §18.20.9 requires `members:pii`. | Mask, gate behind `members:pii`, or accept with a recorded rationale. |
+| D-1 | Restaurant delete: `Restrict` FKs vs `prisma.restaurant.delete` in `src/app/api/restaurants/[id]/route.ts` | **D, M** | Deleting a restaurant with members or discounts may fail as a generic 500. Product choice: typed 409, or soft-delete tenants. | A ruling is recorded and the route returns a typed error or a soft delete. |
+| D-2 | Full phone on Counter responses | **D, M** | `counter/orders`, `counter/takeaway` and `counter/pending` return `customerPhone` to any `orders:read` holder; §18.20.9 requires `members:pii`. | Mask, gate behind `members:pii`, or accept with a recorded rationale. |
+| P8-6 | Should `net` / gross profit include tax and service? | **D, M** | Current arithmetic follows `net = Σ totalAmount − refunds`; gross profit includes tax. The P&L is captioned non-statutory until signed. | `docs/PRODUCT/P8-6-ACCOUNTING-SIGNOFF.md` signed by the owner/accountant, or Option B chosen. |
 
-## P7 — security and privacy
+## Open — material
 
-| # | Item | Severity | Source | Done when |
+| # | Item | Severity | Owner | Done when |
 |---|---|---|---|---|
-| P7-1 | `ORDER_CREATE.requestHash` is an unkeyed SHA-256 over the raw phone, persisted 24h — brute-forceable | **H** | `REVIEW-13` F-08 | Keyed HMAC (`hashPhone`) or the phone excluded from the hash. |
-| P7-2 | QR create sends no `Idempotency-Key` | M | `REVIEW-15` V-03 | A key is sent; depends on P7-1 so the hash is not unkeyed. |
-| P7-3 | Durable rate limits per §18.20.15 B (10/phoneHash/hr, 30/restaurant/hr, 10/session/hr, 20/edge-IP/hr) | **H** | `REVIEW-01`/`REVIEW-03` | Enforced and tested against a real database. |
-| P7-4 | Trusted edge IP (proxy-appended only; never a client header) | **H** | §18.20.15 B | Client-supplied `X-Forwarded-For` is provably ignored. |
-| P7-5 | Enumeration alert: 5 distinct `phoneHash` misses from one IP in 10 min | M | `REVIEW-03` N-03 | A detection path exists with a documented response. |
-| P7-6 | `rate_limit_counters.scope` is free `TEXT`; a typo fails as Postgres 23514 at runtime | L | `REVIEW-03` N-02 | One typed constant shared, and the failure mapped to a contract error. |
-| P7-7 | Full-phone audit completeness | M | §18.20.14 A | Every full-phone read, search and export audited with actor, target, purpose, timestamp. |
-| P7-8 | Cross-tenant returns 403 on the legacy bill route (`requireTableAccess`) instead of 404 | L | `REVIEW-09` | A decision recorded: keep 403 for the frozen legacy route, or align to 404. |
-| P7-9 | Verify R-02 (PII in payment/event JSON) rather than rebuild it | — | `REVIEW-13` | Confirmed implemented and covered by a test. |
+| P7-2 | QR create sends no `Idempotency-Key`; the server accepts an optional one | M | next | The QR client sends a key per order |
+| P8-8 | Early/late business-day close: the Z uses `openedAt`/`closedAt` while the P&L and loyalty report use the close-time cutoff; a refund after an early close can land in a different period | **M** | next | A boundary test with an early close |
+| P9-2 | QR create bumps `billRevision` inside its transaction; confirm it holds the bill lock like the Counter writers | **M** | next | Verified under the lock, or the gap closed |
+| P9-3 | Unique-conflict classification depends on `P2002`; a raw-SQL partial-index conflict may surface as a 500 | M | next | Proven against Postgres, or index-name aware |
+| P9-4 | Pre-existing environments need `evidence/dev-pii-cleanup.sql` | M | deploy | Run on every environment created before the P6B normalisation |
+| M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | next | Detection based on refusals or junk enrolment, or the definition accepted |
+| P6C2b-1 | A failed export renders or saves the JSON error body, so an owner may believe a subject-access export succeeded | M | next | Export fetches with error handling and shows a banner |
+| P7c-2 | Fail-open can be self-inflicted: phone-bearing requests serialise on one counter row; a flood can time out and fail open | M | pilot | Observed, then a shorter lock footprint or bounded retry |
 
-## P8 — reports
+## Open — low
 
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| P8-1 | `refunds` is structurally `0.00` — the refund path writes no negative `Payment` | **M** | `REVIEW-12` F-04 | Refunds derived from `paymentStatus = REFUNDED`, or negative `Payment` rows written; decision recorded against §18.20.8. |
-| P8-2 | Promotion swap updates the ACTIVE row in place, so redemption history relies on the audit log | L | `REVIEW-09` F-8 | Either append a new row or document that P8 reads the audit log. |
+| # | Item | Owner | Done when |
+|---|---|---|---|
+| P5C-1 | Promotion swap updates the ACTIVE row in place, so redemption history relies on the audit log (renamed from the duplicate `P8-2`) | backlog | Append a row, or document that reports read the audit log |
+| P6C2b-2 | The report's default range uses the browser's local date | backlog | Default from the restaurant business date |
+| P6C2b-3 | Repeat rate renders a raw ratio (`0.3333`) | backlog | Rendered as a percentage |
+| P6C2b-4 | The reports index "Rewards" card and nav item are not gated on `loyalty:report` | backlog | Gated like the rest |
+| P6C2b-5 | `ConfirmationModal` buttons are 40px and Escape is unhandled | backlog | Shared-component a11y pass |
+| P7-6 | `rate_limit_counters.scope` is free `TEXT`; a typo fails as Postgres 23514 | backlog | Failure mapped to a contract error |
+| P7-7 | Full-phone audit completeness across every read/search/export | backlog | Audited with actor, target, purpose, timestamp |
+| P7b-6 | The create route's generic `console.error` could log a Prisma error containing the IP subject | backlog | Generic message only |
+| P7b-7 | A missing HMAC key returns a 500 `LOYALTY_CONFIGURATION_ERROR` on member routes (now documented in the addendum) | backlog | Mapped to a 4xx or a startup check |
+| P7b-8 | Changing the request hashes invalidates in-flight idempotency records at deploy | deploy | Rollout note |
+| P7c-4 | The cleanup job never prunes at startup | backlog | One prune on start |
+| P7c-5 | The `SecurityEvent` index does not lead with `restaurantId` | backlog | Add if the report query grows |
+| P7c-6 | The owner report UI does not render `refusals` | backlog | One card in the loyalty report |
+| P7c-8 | A create on a guest quote with a known phone consumes that phone's bucket before the 409 | backlog | Accepted, or reordered |
+| P7c-9 | Plain `CREATE INDEX` on the existing `security_events` table | deploy | Deploy note |
+| P7c-11 | Two concurrent first attaches on a nameless member can both capture a name | backlog | Add `name: null` to the capture predicate |
+| P7d-5 | The 80-character name bound exists on rename only; attach is unbounded | backlog | Same bound on creation |
+| P8-4 | `getCounterDailyTotals` counts a refund-only order in the 7-day chart | backlog | Same positive-payment filter as the Z |
+| P8-5 | Legacy snapshot PDFs still print `0.00` for the cash block beside "Not checked (legacy)" | backlog | Print `—` (the three new Z lines already do) |
+| P8-7 | The P&L returns numbers, not decimal strings | backlog | Backlog |
+| P9-08 | `scripts/**` is outside `tsconfig.json`; `npm run type-check` does not cover the rehearsal scripts | accepted | `tsconfig.scripts.json`, or keep the disclosure |
+| P9-13 | The rollback drill mutates the parent process env, not a real deploy/restart | P11 | Recorded |
+| P9-14 | The runbook SQL fallback enables settings without validating the notice | runbook | Watch item (documented) |
+| P9-15 | The runbook SQL fallback overwrites `privacyUrl` | runbook | Watch item (documented) |
+| P9-10b-2 | The health route's 5 s timeout-firing branch has no automated test | backlog | Backlog |
+| R-04 | Special-use ranges (`192.0.0/0/24`, `198.18/15`, `192.88.99/24`) are accepted as client addresses | backlog | Not exploitable behind the edge |
+| L-05 | The Z's gross/tax/service/discount/net are accumulated as JS numbers; the identity check converts to Decimal | backlog | Accumulate as Decimal |
+| L-09 | The PDF blocker section is structurally legacy-only (a new close with blockers never produces a snapshot) | recorded | The live Z payload is the surface |
 
-## P9 — rollout (the pilot gate)
-
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| P9-1 | No real-Postgres proof of locks, unique constraints, CHECKs, `@db.Date` or concurrency | **H** | `REVIEW-08`, `REVIEW-09` | A seeded scratch-DB drill passes the list in `REVIEW-08`. |
-| P9-2 | QR create bumps `billRevision` without the `loyalty-bill` lock; counter create never bumps it | **H** | `REVIEW-09` F-10 | Every bill-mutating writer bumps the revision under the lock. |
-| P9-3 | Unique-conflict classification depends on Prisma `meta.target`; a raw-SQL partial-index P2002 surfaces as a 500 | M | `REVIEW-08` F-04 | Proven against Postgres, or classification made index-name aware. |
-| P9-4 | Pre-existing environments need `evidence/dev-pii-cleanup.sql` | M | `REVIEW-13` F-02/F-03 | Run on every environment created before the P6B normalisation. |
-| P9-5 | `db:seed` must be re-run for the new permission rows, or every owner endpoint 403s | **H** | `REVIEW-11`, `REVIEW-12` | Deployment runbook includes the seed step. |
-| P9-6 | Migration fresh + upgrade paths and a rollback drill | **H** | `REVIEW-01` R-05 | Both paths pass; rollback (flag off) drilled. |
-| P9-7 | Pre-existing `expenses` index-name drift can emit an unrelated `RenameIndex` | L | `REVIEW-03` N-12 | Fixed or explicitly ignored. |
-
-## P10 — contract freeze and Counter handoff
-
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| P10-1 | Join tables used instead of `uuid[]` (J permits, D says `uuid[]`) | M | `REVIEW-03` N-09 | Recorded in `docs/PRODUCT/API-CONTRACT.md` citing §18.20.14 J. |
-| P10-2 | `MEMBER_RESOLUTION_FAILED` reuses `LOYALTY_DISABLED` | L | `REVIEW-06` F-03 | Recorded as a contract gap or given a dedicated code. |
-| P10-3 | Stored/replayed payment bodies no longer carry `customerName`/`customerPhone`; the live response does | M | `REVIEW-13` F-05 | Recorded; Counter told not to rely on those fields in the recovery path. |
-| P10-4 | A malformed phone now also drops the guest name/email | L | `REVIEW-13` F-04 | Recorded. |
-| P10-5 | Marketing consent reachable from the owner API although §18.20.9 says "Counter-only" | L | `REVIEW-12` R-05 | Recorded as an extension with the actor and source fields. |
-| P10-6 | Generic request codes outside §18.20.12 (`NOT_FOUND`, `CART_EMPTY`, `INVALID_REQUEST`, `IDEMPOTENCY_KEY_REQUIRED`, `MEMBER_ANONYMIZED`, `CONSENT_WITHDRAWN`, `LOYALTY_CONFIGURATION_ERROR`) | L | `REVIEW-06`, `REVIEW-11`, `REVIEW-12` | Confirmed permitted or recorded. |
-| P10-7 | Payments `PUT` treats a missing `Idempotency-Key` as success, against the literal §18.20.7 | L | `REVIEW-11` M-02 | Recorded or a contract amendment obtained. |
-| P10-8 | `businessDayCloseTime` is returned by payments `GET` but not accepted by `PUT` | L | `REVIEW-11` L-07 | Interpretation recorded. |
-| P10-9 | The promotions form blocks same-day windows the server would accept | L | `REVIEW-16` R-09 | Recorded, or the rule relaxed to `endsAt < startsAt`. |
-| P10-10 | The QR confirmation shows the whole session bill, not just the created order | L | `REVIEW-15` V-02 | Recorded for the Counter handoff. |
-| P10-11 | A projected reward in the displayed total can differ from an offline-settled amount | L | `REVIEW-15` V-05 | Recorded against acceptance 19. |
-
-## Backlog — separate tasks, not this one
+## Backlog — separate tasks
 
 | # | Item | Source |
 |---|---|---|
-| B-1 | `docs/WEB-UI-STANDARD.md` prescribes `text-red-600` on `red-50` = 4.41:1, below 4.5:1, on every page | `REVIEW-16` L-02 |
-| B-2 | Lint baseline is red (62 errors, 11 warnings) | `AGENTS.md`, AME-002 |
-| B-3 | Duplicated projection/label/money helpers across loyalty services and UI | `REVIEW-09` F-7, `REVIEW-16` R-05 |
+| B-1 | `docs/WEB-UI-STANDARD.md` prescribes `text-red-600` on `red-50` = 4.41:1 | `REVIEW-16` L-02 |
+| B-2 | Lint baseline is red (62 errors, 11 warnings) | `AGENTS.md` |
+| B-3 | Duplicated projection/label/money helpers across services and UI | `REVIEW-09`, `REVIEW-16` |
 | B-4 | No jsdom, so no React render/interaction tests | `REVIEW-15` V-07 |
-| B-5 | Cosmetic: raw permission keys in owner copy; one-frame `hasChanges`; passthrough test | `REVIEW-16` L-03/L-04/L-07 |
-| B-6 | A stale linked worktree remains at `.../worktree/770812/cosmic-squid` | Session note |
+| B-5 | Cosmetic: raw permission keys in owner copy; one-frame `hasChanges`; passthrough test | `REVIEW-16` |
+| B-6 | A stale linked worktree remains at `.../worktree/770812/cosmic-squid` | session note |
 
 ## P11 — final R3 review
 
 | # | Item | Done when |
 |---|---|---|
 | P11-1 | Four-lens review (Security, Payments & Reliability, Data & Migration, Product/UX) | `REVIEW-*.md` written, PASS/PASS WITH NOTES |
-| P11-2 | Different-model or human pass on the payment and migration paths | Recorded — every review so far has been same-model |
+| P11-2 | Different-model or human pass on the payment and migration paths | Recorded |
 
-## Added by P6C2b (`REVIEW-17`)
+---
 
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| P6C2b-1 | A failed export is not surfaced in-page — `<a download>` renders or saves the JSON error body, so an owner may believe a subject-access export succeeded | M | `REVIEW-17` L-01 | Export fetches with error handling and shows a banner, or the route returns a non-download error shape |
-| P6C2b-2 | The report's default range uses the browser's local date; it can be a day off near the business-day close | L | `REVIEW-17` L-04 | Default derived from the restaurant business date |
-| P6C2b-3 | Repeat rate renders the raw ratio (`0.3333`) rather than a percentage | L | `REVIEW-17` L-05 | Rendered as a percentage, formatted server-side |
-| P6C2b-4 | The reports index "Rewards" card and nav item are not gated on `loyalty:report` | L | `REVIEW-17` L-06 | Gated like the rest of the index |
-| P6C2b-5 | `ConfirmationModal` buttons are 40px and it has no Escape handling (pre-existing shared component) | L | `REVIEW-17` L-07 | Backlog: shared-component a11y pass |
+## Closed register
 
-## Added by P7a (`REVIEW-18`)
+Every row below was open at some point and is now fixed, verified, or explicitly recorded.
 
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| P7b-1 | `buildCounterOrderRequestHash` phone digest | **M** | `REVIEW-18` N-01 | **CLOSED (2026-11-14)** — keyed HMAC when the key is configured; a PII-free fallback (no phone/name) when it is not, so a loyalty-off deployment cannot 500. Scrubbing `idempotencyHash` on anonymise deliberately **not** done: replay compares the stored hash, so nulling it would turn a retry after deletion into `IDEMPOTENCY_MISMATCH`; keying already removes the brute-force risk. Accepted consequence: with no key, a phone-only or name-only change under a reused key replays instead of mismatching. |
-| P7b-2 | Shared-bucket cascade: a refusal at a later bucket does not undo earlier increments, so one client can exhaust the 30/h restaurant bucket for everyone | M | `REVIEW-18` F-02 | Check specific buckets first, or run the four increments in one transaction that rolls back on refusal |
-| P7b-3 | Trusted-IP depends on the edge appending `X-Forwarded-For`; if it does not, the last entry is client-controlled | **M** | `REVIEW-18` F-03 | Verified against the Railway edge, or a trusted-hop-count/fail-closed check added |
-| P7b-4 | Create limits apply to the legacy no-quote path, so a normal order consumes the restaurant bucket twice (≈15 orders/h) | L | `REVIEW-18` F-04 | Narrow to quote/phone-bearing creates, or document |
-| P7b-5 | No retention/cleanup job for `rate_limit_counters` | L | `REVIEW-18` F-06 | A sweeper on `windowStart` |
-| P7b-6 | The create route's generic `console.error` could log a Prisma error containing the IP subject | L | `REVIEW-18` F-07 | Generic message only |
-| P7b-7 | A missing HMAC key surfaces as a generic 500 rather than a typed configuration error on the member routes | L | `REVIEW-18` N-02 | Mapped to `LOYALTY_CONFIGURATION_ERROR` |
-| P7b-8 | Changing the request hashes invalidates in-flight idempotency records at deploy | L | `REVIEW-18` F-10 | P9 rollout note |
-
-## Added by P7b (`REVIEW-19`)
-
-| # | Item | Severity | Source | Done when |
-|---|---|---|---|---|
-| **H-2** | ~~The rate limits refuse real customers~~ | **closed** | `REVIEW-19` | **CLOSED 2026-11-14** — P7c made one count per order and stopped guest quotes consuming buckets; the edge address is measured (`X-Real-IP`), so callers no longer share `unknown`; the IP floor is 120/h |
-| M-1 | The enumeration "miss" is a successful first-time enrolment, so new members raise false alerts and a no-consent probe raises none | M | `REVIEW-19` | Detection based on rate-limit refusals or junk-enrolment, or the contract definition explicitly accepted |
-| M-2 | `SecurityEvent` has no index on `(eventType, ipAddress, createdAt)`; every new-member request full-scans the table | M | `REVIEW-19` | Additive index migration |
-| M-3 | ~~`SecurityEvent` has no `restaurantId`~~ | **closed** | `REVIEW-19` | **CLOSED 2026-11-14** — the column exists (nullable, added P7c) and loyalty events populate it; pre-existing non-loyalty events remain null |
-
-## Added by P7c (`REVIEW-20`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| P7c-1 | The `unknown` IP bucket is 10/h when no trusted XFF is present; now scoped per restaurant but still low | **M** | Verified the Railway edge appends XFF, or the fallback bounded deliberately |
-| P7c-2 | Fail-open can be self-inflicted: phone-bearing requests serialise on one counter row; a flood can time out transactions and fail open | M | Shorter lock footprint or bounded retry, if observed in the pilot |
-| P7c-3 | The IP floor (120/h) cannot be raised by the owner | L | Documented, or made configurable |
-| P7c-4 | The cleanup job never prunes at startup | L | One prune on start |
-| P7c-5 | The `SecurityEvent` index does not lead with `restaurantId` | L | Add if the report query grows |
-| P7c-6 | The owner report UI does not render `refusals` | L | One card in the loyalty report |
-| P7c-7 | A matching phone with a different name overwrote the member's name | L | **CLOSED (2026-11-14)** — the name is now write-once: set on create, or on an attach only when the stored name is null/empty. Verified no unauthenticated rename. |
-| P7c-8 | A create on a guest quote with a known phone consumes that phone's bucket before the 409 | L | Accepted, or reorder |
-| P7c-9 | Plain `CREATE INDEX` on the existing `security_events` table | L | P9 deploy note |
-
-## Added by the P7c-7 fix (`REVIEW-21`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| P7c-10 | A name is now **write-once** with no corrective path | L | **CLOSED (2026-11-14)** — `PATCH /api/members/[id]` renames behind `members:pii` with an audited, name-free row; the attach paths still cannot rename. |
-| P7c-11 | Two concurrent first attaches on a **nameless** member can both capture a name; last write wins | L | Add `name: null` to the capture predicate if it ever matters |
-
-## Added by P7d (`REVIEW-21`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| P7d-1 | After an owner clears a name, a later enrolment by the same phone re-captures one | L | Recorded at P10 |
-| P7d-2 | `count !== 1` always reports `MEMBER_ANONYMIZED`; wrong if a third status is added | L | Comment updated when a status is added |
-| P7d-3 | A replayed rename re-reads the live member, so an intervening rename changes the replayed body | L | Accepted |
-| P7d-4 | Historical `Order.customerName` / `CustomerSession.customerName` copies keep the old name after a rename | L | Product decision at P10 |
-| P7d-5 | The 80-character name bound exists on rename only; `cleanName` on attach is unbounded | L | Apply the same bound on creation |
-
-## Added by P8 (`REVIEW-22`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| P8-1 | **The Z's `grossSales` now means pre-tax subtotal** — client-visible semantic change for any Counter build displaying it | **M** | Recorded in the P10 contract freeze and the Counter handoff |
-| P8-2 | The Z lacks `discountBySource`, the reward line, and the "refunds against prior-period sales" line §18.20.15 asks for | M | Added, or explicitly deferred at P10 |
-| P8-3 | The loyalty report omits batchless **positive** payments (legacy POS route) from gross/net | M | Included, or the legacy route deprecated |
-| P8-4 | `getCounterDailyTotals` counts a refund-only order in the 7-day chart | L | Same positive-payment filter as the Z |
-| P8-5 | Legacy snapshot PDFs print `0.00` cash figures beside "Not checked (legacy)" | L | Print `—` |
-| P8-6 | `net` now includes tax and service by design (Q4=A); gross profit and margins include tax | **M** | Accounting sign-off recorded at P10 |
-| P8-7 | P&L returns numbers, not decimal strings | L | Backlog |
-| P8-8 | Early/late business-day close: the Z uses `openedAt`/`closedAt` while the P&L and loyalty report use the 04:00 cutoff; a refund after an early close can land in a different period | **M** | **P9** clock/boundary test |
-
-## Added by P9 (`REVIEW-23`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| P9-03 | Concurrency drills 1–3 synchronise with fixed sleeps, not a readiness barrier; a slow machine can degenerate the race to sequential and still pass | L | Barrier or `pg_locks` wait before release |
-| P9-08 | `scripts/**` is outside `tsconfig.json` `include`; `npm run type-check` does not cover the rehearsal scripts | L | `tsconfig.scripts.json` check, or keep the disclosure |
-| P9-09 | Flag-off payments write `PaymentBatch.outcome = 'GUEST'`, a value the pre-feature code never wrote | L | Recorded as an interpretation at P10 |
-| P9-10 | ~~The Railway edge's `X-Forwarded-For` behaviour is unobserved~~ | **closed** | **CLOSED 2026-11-14** — probed: the edge prepends the client and appends a per-connection hop; `X-Real-IP` is the client. Fixed in P9-10a/P9-10b (`REVIEW-24`, `REVIEW-25`) |
-| P9-13 | The rollback drill mutates the parent process env, not a real deploy/restart | L | P11 |
-| P9-14 | The runbook SQL fallback enables settings without validating the notice, so the dashboard can show "On" while runtime is off | L | Runbook watch item |
-| P9-15 | The runbook SQL fallback overwrites `privacyUrl`; an unreplaced placeholder breaks the notice link while loyalty activates | L | Runbook watch item |
-
-## Added by P9-10b (`REVIEW-25`)
-
-| # | Item | Severity | Done when |
-|---|---|---|---|
-| F-03 | Acceptance "persisted value is the resolver output" is guarded only by a manual grep, not a test | L | One test pins `SecurityUtils.getClientIP` delegation |
-| R-04 | Special-use ranges (`192.0.0/24`, `198.18/15`, `192.88.99/24`) are accepted as client addresses | L | Backlog; not exploitable behind the edge |
-| P9-10b-1 | Off-Railway (local/dev) audit `ipAddress` now resolves to `unknown` | L | Intended fail-closed posture; record if a non-Railway deployment ever exists |
-| P9-10b-2 | The health route's 5 s timeout-firing branch has no automated test | L | Backlog |
-
-## P10 closure (2026-11-14)
-
-All P10-owned items are recorded in `docs/PRODUCT/API-CONTRACT.md` §18.20.11 (the
-interpretation register) and, where the Counter can observe them, in
-`docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md`.
-
-Still open, and **not** closed by recording:
-
-| # | Item | Owner |
+| # | Resolution | Evidence |
 |---|---|---|
-| P8-6 | `net` includes tax and service — needs an accountant's sign-off before the P&L is treated as statutory | owner |
-| P8-2 | The Z lacks `discountBySource`, the reward line and a prior-period refunds line | backlog |
-| P8-3 | The loyalty report omits batchless positive payments | backlog |
-| F-03 | No automated guard that `SecurityUtils.getClientIP` delegates to the resolver | backlog |
-| P9-03 | Concurrency drills use sleeps, not a readiness barrier | P11 |
+| P7-1 | Unkeyed phone hash replaced by a keyed HMAC with a PII-free fallback | P7b-1; `REVIEW-19` |
+| P7-3 | Durable rate limits (10 phone / 10 session / 30 restaurant / 120 IP) | P7c; `REVIEW-20` |
+| P7-4 | Trusted edge IP, proven on the platform | P7a; P9-10 |
+| P7-5 | Enumeration alert path with a documented response | P7b; `REVIEW-19` |
+| P7-8 | Cross-tenant 403 on bill routes recorded as an exception to the 404 rule | P10 register P7-8 |
+| P7-9 | R-02 PII in payment/event JSON verified rather than rebuilt | P7b |
+| P8-1 (refunds) | Refunds are negative `PAID` payments and are now read | P8; `REVIEW-22` |
+| P8-2 (Z lines) | `discountBySource`, `rewardTotal`, `refundsPriorPeriod` added; blockers, not 500s | P10-close; `REVIEW-27` |
+| P8-3 | Batchless positive payments included in gross and net once | P10-close; `REVIEW-27` |
+| P9-1 | Real-Postgres locks, constraints, CHECKs and concurrency drilled | P9; `REVIEW-23` |
+| P9-5 | `db:seed` is a runbook prerequisite | P9 runbook |
+| P9-6 | Fresh, upgrade and rollback migration drills | P9 9a/9b |
+| P9-7 | Expenses index drift gone; `migrate diff` empty | P9 9a |
+| P10-1…11 | Recorded in the addendum's interpretation register | `REVIEW-26` |
+| P10-12/13 | `MEMBER_ALREADY_ATTACHED` / `LOYALTY_UNAVAILABLE_OFFLINE` registered as not emitted | `REVIEW-26` |
+| P7b-1 | Keyed HMAC + PII-free fallback | `REVIEW-19` |
+| P7b-2 | Four buckets increment in one transaction that rolls back on refusal | P7c; drill 4 |
+| P7b-3 | Edge behaviour measured; resolver fixed | P9-10a/b |
+| P7b-4 | Guest quotes no longer consume buckets; one count per order | P7c |
+| P7b-5 | Rate-limit cleanup job | P7c |
+| H-2 | One count per order, guest quotes uncounted, measured edge address, 120/h floor | P10-close register; `REVIEW-26` |
+| M-2 | `SecurityEvent` index `(eventType, ipAddress, createdAt)` exists | schema check |
+| M-3 | `SecurityEvent.restaurantId` exists and loyalty events populate it | P7c; `REVIEW-26` |
+| P7c-1 | `unknown` bucket no longer the normal path; edge measured | P9-10 |
+| P7c-3 | 120/h IP floor recorded as an interpretation | P10 register |
+| P7c-7 | Name is write-once | P7c-7; `REVIEW-20` |
+| P7c-10 | Owner rename behind `members:pii`, audited | P7d; `REVIEW-21` |
+| P7d-1 | Recorded in the addendum | P10 register |
+| P7d-2 | Accepted; comment updated when a status is added | recorded |
+| P7d-3 | Accepted | recorded |
+| P7d-4 | Recorded in the addendum | P10 register |
+| P8-1 (Z gross) | Pre-tax `grossSales` recorded for the Counter | P10 register; handoff |
+| P9-03 | Drill barrier: markers + `application_name`-scoped waiters + go handshake; timeout fails | P10-close; `REVIEW-27` |
+| P9-09 | `outcome = 'GUEST'` under flag off recorded | P10 register |
+| P9-10 | Edge probed, resolver fixed, health diagnostic added | `REVIEW-24`, `REVIEW-25` |
+| F-03 | `SecurityUtils.getClientIP` delegation pinned by a test | P10-close; `REVIEW-27` |
+| P9-10b-1 | Off-Railway audit resolves to `unknown`; intended, no such deployment | recorded |
+| P9-4 (dev reset) | `qrorder_dev` was reset in P9 | `REVIEW-23` |

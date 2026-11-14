@@ -86,8 +86,23 @@ export interface CounterDaySummary {
   tax: string;
   serviceCharge: string;
   discounts: string;
+  /**
+   * ACTIVE discount rows for the day's positive-payment orders, split by
+   * source. The two shares sum to `discounts`.
+   */
+  discountBySource: {
+    promotion: string;
+    reward: string;
+  };
+  /** The `LOYALTY_REWARD` share of `discounts`. */
+  rewardTotal: string;
   /** Refunds paid out on this business date, as a positive magnitude. */
   refunds: string;
+  /**
+   * The part of `refunds` whose original sale happened on an earlier business
+   * date. A subset of `refunds`; the identity is unchanged.
+   */
+  refundsPriorPeriod: string;
   orderCount: number;
   averageCheck: string;
   paymentMethods: CounterPaymentMethodTotal[];
@@ -846,6 +861,29 @@ export async function getCounterDaySummary(
       })
     : [];
 
+  // The split is read from the durable discount rows, not from the order
+  // columns: the two sources are the only values the enum allows, so the
+  // split must reconcile to the day's discount total.
+  const discountRows = orderIds.length
+    ? await prisma.orderDiscount.findMany({
+        where: {
+          restaurantId,
+          orderId: { in: orderIds },
+          status: 'ACTIVE',
+        },
+        select: { source: true, amount: true },
+      })
+    : [];
+  let promotionDiscount = decimal(0);
+  let rewardDiscount = decimal(0);
+  for (const row of discountRows) {
+    if (row.source === 'PROMOTION') {
+      promotionDiscount = promotionDiscount.plus(decimal(row.amount));
+    } else if (row.source === 'LOYALTY_REWARD') {
+      rewardDiscount = rewardDiscount.plus(decimal(row.amount));
+    }
+  }
+
   const batches = await prisma.paymentBatch.findMany({
     where: {
       restaurantId,
@@ -930,6 +968,94 @@ export async function getCounterDaySummary(
     const amount = Number(payment.amount);
     return amount < 0 ? sum - amount : sum;
   }, 0);
+
+  // Discrepancies are surfaced as blockers, not exceptions: the Z must still
+  // return its figures so an operator can see and investigate the difference.
+  // A legacy order can carry a `discountAmount` with no ACTIVE
+  // `OrderDiscount` rows, and a legacy total can predate the tax/service
+  // formula; neither may turn the report or the close path into a 500.
+  const blockers: CounterBlocker[] = [];
+
+  const discountSplitTotal = promotionDiscount.plus(rewardDiscount);
+  const discountSplitDelta = discountSplitTotal.minus(decimal(discounts));
+  if (discountSplitDelta.abs().gte(0.005)) {
+    blockers.push({
+      type: 'Z_DISCOUNT_SPLIT_MISMATCH',
+      count: 1,
+      label: 'Discount split does not match the discount total',
+      amount: money(discountSplitDelta.abs()),
+    });
+  }
+
+  // A refund carries the original order id. Its original business date is the
+  // `businessDate` of that order's positive payment batch. A refund whose
+  // original sale was on an earlier business date is prior-period; it is a
+  // subset of `refunds`, so the identity below is unchanged.
+  const negativePayments = payments.filter((payment) =>
+    decimal(payment.amount).lt(0)
+  );
+  let refundsPriorPeriod = decimal(0);
+  if (negativePayments.length > 0) {
+    const originalOrderIds = Array.from(
+      new Set(negativePayments.map((payment) => payment.orderId))
+    );
+    const originalPayments = await prisma.payment.findMany({
+      where: {
+        orderId: { in: originalOrderIds },
+        order: { restaurantId },
+        status: 'PAID',
+        amount: { gt: 0 },
+      },
+      select: {
+        orderId: true,
+        batch: { select: { businessDate: true } },
+      },
+      // A split payment could span batches; the earliest positive payment is
+      // the original sale date.
+      orderBy: { createdAt: 'asc' },
+    });
+    const originalDateByOrder = new Map<string, BusinessDate>();
+    for (const original of originalPayments) {
+      if (!original.batch?.businessDate) {
+        // A legacy batchless (or undated) original has no business date to
+        // compare against. Count its refund in the current period; this is a
+        // known limitation of batchless history.
+        continue;
+      }
+      if (!originalDateByOrder.has(original.orderId)) {
+        originalDateByOrder.set(
+          original.orderId,
+          parseBusinessDateFromDb(original.batch.businessDate)
+        );
+      }
+    }
+    for (const refund of negativePayments) {
+      const originalDate = originalDateByOrder.get(refund.orderId);
+      if (originalDate && originalDate !== businessDate) {
+        refundsPriorPeriod = refundsPriorPeriod.plus(
+          decimal(refund.amount).abs()
+        );
+      }
+    }
+  }
+
+  // The Z identity is load-bearing for the close path and the PDF:
+  // gross − discounts + tax + service − refunds = net.
+  const identity = decimal(grossSales)
+    .minus(decimal(discounts))
+    .plus(decimal(tax))
+    .plus(decimal(serviceCharge))
+    .minus(decimal(refunds));
+  const identityDelta = identity.minus(decimal(netSales));
+  if (identityDelta.abs().gte(0.005)) {
+    blockers.push({
+      type: 'Z_IDENTITY_MISMATCH',
+      count: 1,
+      label: 'Z report does not reconcile',
+      amount: money(identityDelta.abs()),
+    });
+  }
+
   const orderCount = orderIds.length;
   const averageCheck = orderCount ? netSales / orderCount : 0;
 
@@ -948,7 +1074,6 @@ export async function getCounterDaySummary(
     where: { order: { restaurantId }, status: 'PENDING' },
   });
 
-  const blockers: CounterBlocker[] = [];
   if (openOrders > 0) {
     blockers.push({
       type: 'OPEN_ORDERS',
@@ -995,7 +1120,13 @@ export async function getCounterDaySummary(
     tax: money(tax),
     serviceCharge: money(serviceCharge),
     discounts: money(discounts),
+    discountBySource: {
+      promotion: money(promotionDiscount),
+      reward: money(rewardDiscount),
+    },
+    rewardTotal: money(rewardDiscount),
     refunds: money(refunds),
+    refundsPriorPeriod: money(refundsPriorPeriod),
     orderCount,
     averageCheck: money(averageCheck),
     paymentMethods: Array.from(methods.entries()).map(([method, value]) => ({
@@ -1344,8 +1475,11 @@ export async function closeCounterBusinessDay(input: {
     businessDay.id
   );
   if (summary.blockers.length > 0) {
+    const blockerClasses = Array.from(
+      new Set(summary.blockers.map((blocker) => blocker.type))
+    ).join(', ');
     throw new CounterReportError(
-      'Resolve all orders and payments before closing the day',
+      `Resolve the business-day blockers before closing: ${blockerClasses}`,
       'BUSINESS_DAY_BLOCKED',
       409,
       { blockers: summary.blockers }

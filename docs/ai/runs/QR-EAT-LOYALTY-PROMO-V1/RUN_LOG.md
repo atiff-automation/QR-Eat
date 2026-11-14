@@ -1402,3 +1402,33 @@ Candidate freeze: `e5f6046` (last commit that changed server behaviour). The fin
 two-line amendment after P11 PASS.
 
 **P10: COMPLETE.**
+
+**P10-close — the six pending items (2026-11-14/15):**
+
+Implementer `ses_e25875a52ffenUI6EjvI8K17Xv`. Verifiers `ses_e256ab70dffe8jdfSybhCzpl4H`,
+`ses_e25455b69ffef0KjEyWDY1qkEi` (PASS WITH NOTES), `ses_e2476f9c4ffemofT3lHUjzYy2W` (PASS).
+Two correction cycles. See `REVIEW-27.md`.
+
+Closed: P8-2 (Z discount split, reward line, prior-period refunds), P8-3 (batchless positive
+payments), F-03 (a test pins the client-IP delegation), P9-03 (the drill barrier now waits for
+scoped waiters and fails on timeout), P8-6 (sign-off packet + non-statutory caption), and the
+register (21 stale rows closed, duplicate `P8-2` renamed `P5C-1`).
+
+The first review caught a false-pass in drill 3 (database-wide waiter count), a barrier that
+could outlive the services' transaction timeouts, and no remediation path for a Z blocker. The
+second caught that the batchless query omitted `status: 'PAID'` and that a legacy closed Z
+printed `0.00` for the new lines.
+
+Mid-flight correction: the Z "assertions" were first written as runtime 500s; they are now
+blockers, so a legacy mismatch surfaces without breaking the close.
+
+```text
+npx jest ... --runInBand  -> 1323 passed
+npm run type-check        -> PASS
+npm test -- --runInBand   -> 1397 passed, 11 skipped, 1408 total
+npm run build             -> PASS
+npx tsx scripts/rehearse-concurrency.ts -> PASS 47/47 (Lead run)
+npx prisma migrate status -> up to date (35 migrations)
+```
+
+**P10-close: COMPLETE.**

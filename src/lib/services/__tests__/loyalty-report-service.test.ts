@@ -45,9 +45,10 @@ function installDefaultMocks() {
   // Refund payments are written with no batch; they are read by their own
   // createdAt business date rather than through `PaymentBatch`.
   prismaMock.payment = {
-    findMany: jest
-      .fn()
-      .mockResolvedValue([{ amount: new Decimal('-5.00'), batchId: null }]),
+    findMany: jest.fn().mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) return Promise.resolve([]);
+      return Promise.resolve([{ amount: new Decimal('-5.00'), batchId: null }]);
+    }),
   };
   prismaMock.order = {
     aggregate: jest.fn().mockResolvedValue({
@@ -147,6 +148,7 @@ describe('loyalty report service', () => {
       _sum: { subtotalAmount: new Decimal('50.00') },
     });
     prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) return Promise.resolve([]);
       const from = where.createdAt.gte as Date;
       const to = where.createdAt.lt as Date;
       return Promise.resolve(
@@ -181,9 +183,11 @@ describe('loyalty report service', () => {
     });
 
     expect(report.refunds).toBe('5.00');
-    const where = prismaMock.payment.findMany.mock.calls[0][0].where;
-    expect(where).not.toHaveProperty('batchId');
-    expect(where.amount).toEqual({ lt: 0 });
+    const refundCall = prismaMock.payment.findMany.mock.calls.find(
+      ([arg]) => arg.where.amount?.lt !== undefined
+    );
+    expect(refundCall?.[0].where).not.toHaveProperty('batchId');
+    expect(refundCall?.[0].where.amount).toEqual({ lt: 0 });
   });
 
   it('does not add a batch-attached refund to net twice', async () => {
@@ -196,9 +200,12 @@ describe('loyalty report service', () => {
         ],
       },
     ]);
-    prismaMock.payment.findMany.mockResolvedValue([
-      { amount: new Decimal('-5.00'), batchId: 'batch-1' },
-    ]);
+    prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) return Promise.resolve([]);
+      return Promise.resolve([
+        { amount: new Decimal('-5.00'), batchId: 'batch-1' },
+      ]);
+    });
 
     const report = await getLoyaltyReport({
       restaurantId,
@@ -208,6 +215,112 @@ describe('loyalty report service', () => {
 
     expect(report.refunds).toBe('5.00');
     expect(report.net).toBe('45.00'); // 50 - 5, not 50 - 5 - 5
+  });
+
+  it('includes a batchless positive payment in gross and net exactly once', async () => {
+    prismaMock.paymentBatch.findMany.mockResolvedValue([
+      {
+        id: 'batch-1',
+        payments: [{ orderId: 'order-1', amount: new Decimal('50.00') }],
+      },
+    ]);
+    prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) {
+        return Promise.resolve([
+          { orderId: 'order-2', amount: new Decimal('30.00') },
+        ]);
+      }
+      return Promise.resolve([{ amount: new Decimal('-5.00'), batchId: null }]);
+    });
+    prismaMock.order.aggregate.mockResolvedValue({
+      _sum: { subtotalAmount: new Decimal('80.00') },
+    });
+
+    const report = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    // 50 batched + 30 batchless - 5 refund; gross covers both orders once.
+    expect(report.gross).toBe('80.00');
+    expect(report.net).toBe('75.00');
+    expect(report.refunds).toBe('5.00');
+    expect(prismaMock.order.aggregate).toHaveBeenCalledWith({
+      where: { restaurantId, id: { in: ['order-1', 'order-2'] } },
+      _sum: { subtotalAmount: true },
+    });
+    const positiveCall = prismaMock.payment.findMany.mock.calls.find(
+      ([arg]) => arg.where.amount?.gt !== undefined
+    );
+    expect(positiveCall?.[0].where.batchId).toBeNull();
+    expect(positiveCall?.[0].where.status).toBe('PAID');
+  });
+
+  it('excludes a batchless PENDING positive payment', async () => {
+    prismaMock.paymentBatch.findMany.mockResolvedValue([
+      {
+        id: 'batch-1',
+        payments: [{ orderId: 'order-1', amount: new Decimal('50.00') }],
+      },
+    ]);
+    prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) {
+        // The query asks for PAID rows only, so the PENDING row is absent.
+        return Promise.resolve([]);
+      }
+      return Promise.resolve([{ amount: new Decimal('-5.00'), batchId: null }]);
+    });
+    prismaMock.order.aggregate.mockResolvedValue({
+      _sum: { subtotalAmount: new Decimal('50.00') },
+    });
+
+    const report = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    expect(report.gross).toBe('50.00');
+    expect(report.net).toBe('45.00');
+    const positiveCall = prismaMock.payment.findMany.mock.calls.find(
+      ([arg]) => arg.where.amount?.gt !== undefined
+    );
+    expect(positiveCall?.[0].where.status).toBe('PAID');
+  });
+
+  it('counts an order once when it has batched and batchless positive payments', async () => {
+    prismaMock.paymentBatch.findMany.mockResolvedValue([
+      {
+        id: 'batch-1',
+        payments: [{ orderId: 'order-1', amount: new Decimal('50.00') }],
+      },
+    ]);
+    prismaMock.payment.findMany.mockImplementation(({ where }) => {
+      if (where.amount?.gt !== undefined) {
+        return Promise.resolve([
+          { orderId: 'order-1', amount: new Decimal('30.00') },
+        ]);
+      }
+      return Promise.resolve([]);
+    });
+    prismaMock.order.aggregate.mockResolvedValue({
+      _sum: { subtotalAmount: new Decimal('50.00') },
+    });
+
+    const report = await getLoyaltyReport({
+      restaurantId,
+      from: '2026-11-01',
+      to: '2026-11-30',
+    });
+
+    // The same order is in both payment sets; the Set deduplicates gross.
+    expect(report.gross).toBe('50.00');
+    expect(report.net).toBe('80.00');
+    expect(prismaMock.order.aggregate).toHaveBeenCalledWith({
+      where: { restaurantId, id: { in: ['order-1'] } },
+      _sum: { subtotalAmount: true },
+    });
   });
 
   it('counts refusals for the tenant and range only', async () => {
@@ -328,6 +441,19 @@ describe('loyalty report service', () => {
         },
       },
       select: { amount: true, batchId: true },
+    });
+    expect(prismaMock.payment.findMany).toHaveBeenCalledWith({
+      where: {
+        order: { restaurantId },
+        amount: { gt: 0 },
+        batchId: null,
+        status: 'PAID',
+        createdAt: {
+          gte: expect.any(Date),
+          lt: expect.any(Date),
+        },
+      },
+      select: { orderId: true, amount: true },
     });
     expect(prismaMock.orderDiscount.findMany).toHaveBeenCalledWith({
       where: {

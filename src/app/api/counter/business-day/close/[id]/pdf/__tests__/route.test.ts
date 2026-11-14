@@ -48,8 +48,11 @@ function zReport() {
       grossSales: '55.68',
       tax: '0.00',
       serviceCharge: '0.00',
-      discounts: '0.00',
-      refunds: '0.00',
+      discounts: '10.00',
+      discountBySource: { promotion: '7.00', reward: '3.00' },
+      rewardTotal: '3.00',
+      refunds: '5.00',
+      refundsPriorPeriod: '2.50',
       orderCount: 1,
       averageCheck: '55.68',
       paymentMethods: [
@@ -95,7 +98,13 @@ describe('Z report PDF', () => {
     expect(lines).toContain('Cash payable: MYR 55.70');
     expect(lines).toContain('Cash received: MYR 60.00');
     expect(lines).toContain('Change given: MYR 4.30');
-    expect(lines).toContain('Refunds: MYR 0.00');
+    expect(lines).toContain('Discounts: MYR 10.00');
+    expect(lines).toContain('Promotion discounts: MYR 7.00');
+    expect(lines).toContain('Reward total: MYR 3.00');
+    expect(lines).toContain('Refunds: MYR 5.00');
+    expect(lines).toContain('Prior-period refunds: MYR 2.50');
+    expect(lines).toContain('Blockers');
+    expect(lines).toContain('None');
     expect(lines).toContain('Reconciled: Yes');
   });
 
@@ -207,5 +216,63 @@ describe('Z report PDF', () => {
     expect(response.status).toBe(200);
     const lines = mockText.mock.calls.map(([line]) => line);
     expect(lines).toContain('Reconciled: No');
+  });
+
+  it('prints reconciliation blockers without failing the PDF', async () => {
+    const report = zReport();
+    (getClosedBusinessDay as jest.Mock).mockResolvedValue({
+      ...report,
+      summary: {
+        ...report.summary,
+        blockers: [
+          {
+            type: 'Z_DISCOUNT_SPLIT_MISMATCH',
+            count: 1,
+            label: 'Discount split does not match the discount total',
+            amount: '15.00',
+          },
+        ],
+      },
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/counter/business-day/close/day-1/pdf'
+      ),
+      { params: Promise.resolve({ id: 'day-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    const lines = mockText.mock.calls.map(([line]) => line);
+    expect(lines).toContain('Blockers');
+    expect(lines).toContain(
+      'Discount split does not match the discount total (1) — MYR 15.00'
+    );
+    expect(lines).not.toContain('None');
+  });
+
+  it('prints an em dash for a legacy snapshot without the new fields', async () => {
+    const report = zReport();
+    const summary = { ...report.summary };
+    delete (summary as { discountBySource?: unknown }).discountBySource;
+    delete (summary as { rewardTotal?: unknown }).rewardTotal;
+    delete (summary as { refundsPriorPeriod?: unknown }).refundsPriorPeriod;
+    (getClosedBusinessDay as jest.Mock).mockResolvedValue({
+      ...report,
+      summary,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        'http://localhost/api/counter/business-day/close/day-1/pdf'
+      ),
+      { params: Promise.resolve({ id: 'day-1' }) }
+    );
+
+    expect(response.status).toBe(200);
+    const lines = mockText.mock.calls.map(([line]) => line);
+    expect(lines).toContain('Promotion discounts: —');
+    expect(lines).toContain('Reward total: —');
+    expect(lines).toContain('Prior-period refunds: —');
   });
 });
