@@ -889,6 +889,25 @@ payment or visit rules; the freeze stamp.
 Read-only four-lens review of the final pre-freeze state, by a **different model**, plus a human
 pass on the payment and migration paths (P11-2).
 
+**Staffing amendment (approved 2026-11-15, "hybrid").** The strong non-DeepSeek reviewers became
+unavailable at execution time: `commandcode` key expired, `opencode-go` monthly limit reached,
+`opencode` paid models have no credits. Independence bought at full capability was therefore not
+available. The review is staffed in three tiers instead, and the independence requirement is not
+waived:
+
+1. **Sweep — different families, unknown capability.** `big-pickle` reviews lens A (Security,
+   Data/Migration); `glm-5.3-flash-free` reviews lens B (Payments/Reliability, Product/UX). Cheap
+   and genuinely off my weights; valued for what it surfaces, not for its verdict.
+2. **Deep pass — my model, fresh `ame-verifier` session.** Runs after the sweep, reading the
+   candidate against the sweep's findings plus the carried residuals (M-1, P6C2b-1, P7-2, P7c-2,
+   P9-4, P11p-1…6). This is the pass whose analysis the PASS actually rests on.
+3. **Human pass on the payment and migration paths (P11-2), unchanged and mandatory.** This is
+   the tier that carries independence of judgement for the money path. P11 cannot close without
+   it.
+
+Recorded honestly: tier 2 shares my weights, so it cannot detect a blind spot I hold. Tiers 1 and
+3 are what compensate, and the residual risk is written into `REVIEW-29.md` rather than hidden.
+
 - **Lenses:** Security (tenant isolation, PII, consent, rate limits, the resolver); Payments and
   Reliability (atomicity, idempotency, locks, the Z and reports); Data and Migration (schema,
   constraints, retention, rollback); Product and UX (the six client-visible changes, the
