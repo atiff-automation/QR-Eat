@@ -10,16 +10,22 @@ Updated: 2026-11-14
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
 
-Current step: **P9 complete and committed.** P10 (contract freeze) is next.
+Current step: **P9, P9-10a and P9-10b complete and committed.** P10 (contract freeze) is next.
 
 Last completed:
 - P0–P8 complete and committed.
 - **P9 complete** (`REVIEW-23`): fresh drill, upgrade drill 45/45, concurrency 47/47,
   rollback, permissions 31/31, edge warning, `PILOT-RUNBOOK.md`.
   - `qrorder_dev` was reset, replayed (35 migrations), and left **migrated and seeded**.
-  - Correction cycle closed P9-01 (rollback drill now runs with `LoyaltySettings.enabled = true`
-    and the env flag off), P9-02 (idempotency row across the loyalty replay), P9-04 (deterministic
-    anonymise-then-rename), and five runbook items.
+- **P9-10 probed** (`4114847`): Railway's edge **prepends** the client to `X-Forwarded-For` and
+  appends a per-connection internal hop; `X-Real-IP` is the client. The old resolver took the
+  last entry, so the IP floor limited nothing and the warning never fired.
+- **P9-10a** (`afe15fc`, `REVIEW-24`): resolver moved to `src/lib/client-ip.ts`; on Railway
+  validated `X-Real-IP`, then `XFF[0]`; off-Railway headers untrusted; non-routable rejected;
+  disagreement canary; `edgeIp` diagnostic on `/api/health`.
+- **P9-10b** (`e5f6046`, `REVIEW-25`): every persisted `ipAddress` uses the resolver, including
+  `SecurityUtils.getClientIP` (which covers ~20 auth routes); runbook reads `edgeIp` on the
+  public URL.
 
 Next action:
 1. **P10 — contract freeze.** Update `docs/PRODUCT/API-CONTRACT.md` and
@@ -31,6 +37,5 @@ Next action:
    for one restaurant, `db:seed` present, edge warning absent. Follow `PILOT-RUNBOOK.md`.
 
 Blockers:
-- **P9-10** — the Railway edge's `X-Forwarded-For` behaviour is unobserved. The warning makes a
-  misconfigured deploy visible, but the header must be confirmed before inviting guests to a busy
-  pilot; otherwise every caller shares the 10/hour bucket.
+- none. P9-10 is closed: the edge behaviour is measured and recorded in
+  `evidence/P9-10-edge-headers.txt`, and the resolver is fixed.
