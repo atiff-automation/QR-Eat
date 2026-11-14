@@ -348,6 +348,83 @@ in logs.
    and the digest cannot be reproduced without the key.
 6. Flag-off: no rate-limit writes, no behaviour change, existing tests green.
 
+**P7c — rebalance the limiter for restaurant operation (approved 2026-11-14).**
+
+Objective: stop the limiter refusing real customers, without weakening the control that
+actually prevents enumeration, and without letting a security control become an outage.
+
+**Decisions settled in grilling**
+- **One count per order.** The quote consumes the buckets; create does not re-count. Today one
+  order costs three units because the page quotes on open and again on review.
+- **Guest quotes are not counted at all.** A request with no phone cannot enumerate anything.
+- **Per-phone 10/h and per-session 10/h are unchanged** — these are the controls that work.
+- **Per-restaurant becomes a configurable ceiling** on `LoyaltySettings.lookupLimitPerHour`
+  (default 30, range 1–1000), set by the owner when enabling rewards. Contract value is the
+  default; a busy venue raises it without a contract cycle.
+- **Per-IP becomes a floor at 120/h**, hardcoded. Deviation from the contract's 20 recorded at
+  P10; per-IP is a coarse control that proxies defeat and shared WiFi trips.
+- **Fixed hourly windows retained.** OWASP discourages fixed windows, but at 10–30/hour the
+  boundary burst is not a meaningful threat here; one less moving part near the payment path.
+  Recorded at P10.
+- **Fail-open when the limiter errors.** Log, write one `SecurityEvent`, allow the request. The
+  counter shares a database with the lookup, so a counter outage already means the lookup is
+  down. Payments remain fail-closed.
+- **A refusal is recorded** as `SecurityEvent` `loyalty_rate_limited` (deduped per subject and
+  window) so the owner can see refusals in the loyalty report.
+- **QR refusal copy points at the counter**, not "try again later".
+
+**Scope**
+1. `prisma/schema.prisma` + one additive migration: `LoyaltySettings.lookupLimitPerHour Int
+   NOT NULL DEFAULT 30` with a CHECK 1–1000; `SecurityEvent.restaurantId String?`; index
+   `SecurityEvent(eventType, ipAddress, createdAt)`.
+2. `src/lib/loyalty/rate-limit.ts` — accept a limits config; skip when no phone; return a
+   typed refusal; on a database error return `fail-open` rather than throwing; never count a
+   request that is refused part-way (single transaction retained).
+3. `src/app/api/qr/orders/quote/route.ts` — pass the tenant ceiling, skip guest requests.
+4. `src/app/api/qr/orders/create/route.ts` — do not re-count what the quote consumed.
+5. `src/lib/loyalty/enumeration.ts` — carry `restaurantId`; add the refusal recorder.
+6. `src/lib/services/loyalty-settings-service.ts` — new field, validation 1–1000, default 30.
+7. `src/components/settings/LoyaltySection.tsx` — one field: "loyalty orders per hour", with
+   plain-English meaning and the contract minimum shown.
+8. `src/components/qr/*` — refusal copy: "Please order at the counter — our staff will help."
+9. `src/lib/services/loyalty-report-service.ts` — a refusal count for the range.
+10. New cleanup job following `src/lib/cache-cleanup-cron.ts`: prune `rate_limit_counters`
+    rows older than 24 hours on an interval.
+
+**Non-goals**
+Sliding windows; per-IP configurability; changing the contract's per-phone or per-session
+values; any UI redesign beyond one field and one copy string; per-restaurant overrides of the
+IP floor.
+
+**Ownership**
+`prisma/schema.prisma`, one new migration, `src/lib/loyalty/{rate-limit,enumeration}.ts`,
+`src/app/api/qr/orders/{quote,create}/route.ts`, `src/lib/services/loyalty-settings-service.ts`,
+`src/lib/services/loyalty-report-service.ts`, `src/components/settings/LoyaltySection.tsx`,
+`src/components/qr/**`, one new cleanup job, and the matching tests.
+
+**Acceptance criteria**
+1. One order with a phone consumes exactly one unit of each bucket; a guest quote consumes none.
+2. Per-phone 10/h and per-session 10/h behave exactly as today.
+3. The restaurant ceiling is read from settings, defaults to 30, is owner-editable, and rejects
+   values outside 1–1000 in both the form and the server.
+4. The IP floor is 120/h.
+5. A limiter database error allows the request, logs once, records one event, and never returns
+   a 500.
+6. A refusal returns a generic 429 with a rounded `retryAfterSeconds`, records one event with
+   the restaurant id, and appears in the report's refusal count.
+7. A refused QR customer is told to order at the counter.
+8. The cleanup job prunes windows older than 24 hours and is safe to run repeatedly.
+9. Flag-off writes no rows and changes no behaviour.
+10. The migration is additive, needs no backfill, and leaves existing rows valid.
+
+**Verification**
+`npx jest`, `npm run type-check`, `npm test -- --runInBand`, `npm run build`; plus a real
+Postgres apply of the migration and a rollback check.
+
+**Review focus**
+The fail-open path, the single-count guarantee, the settings bound, the migration's
+additivity, and that the per-phone control is untouched.
+
 **P7b — hardening.** Enumeration alert (`SecurityEvent`, 5 distinct `phoneHash` misses per IP per
 10 minutes), full-phone audit completeness, verify R-02 rather than rebuild it, and the P10 records
 from Q6/Q7.
