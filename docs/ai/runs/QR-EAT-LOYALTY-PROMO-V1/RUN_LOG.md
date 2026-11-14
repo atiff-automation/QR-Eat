@@ -1111,3 +1111,30 @@ Deviations for P10: IP floor 120 vs contract 20; fixed windows retained; JSON-pa
 **P7: COMPLETE.** P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals),
 P7c (rebalance) all closed.
 
+
+**P7c-7 — member name is write-once (2026-11-14):**
+
+Implementer `ses_e278a774dffe0QpVeF5ZCs3fyc`. Verifier `ses_e2787355fffe3VXy2IEIoPrESA`.
+PASS WITH NOTES.
+
+A QR attach could rename an existing member: anyone who knew the phone and supplied valid
+consent could change the stored name. `resolveOrCreateCustomer` now writes `name` only when the
+caller supplied one **and** the stored name is null or empty — set on create, or captured once
+for a nameless member. Consent fields, source, withdrawal clearing and the create path are
+unchanged.
+
+```text
+npx jest src/lib/services/__tests__/loyalty-customer-service.test.ts src/app/api/qr --runInBand
+                                   -> 4 suites, 63 tests
+npm run type-check                 -> PASS
+npm test -- --runInBand            -> 108 passed / 1 skipped, 1302 passed, 11 skipped
+npm run build                      -> PASS
+```
+
+Verified: an unauthenticated caller can no longer change an existing member's name; the rename
+test is red-capable (proven by reverting the guard and observing the failure).
+
+New notes: P7c-10 (a name is now write-once with no corrective path — an owner rename behind
+`members:pii` is a product decision) and P7c-11 (two concurrent first attaches on a nameless
+member can both capture).
+

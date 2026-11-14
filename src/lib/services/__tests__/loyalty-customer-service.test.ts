@@ -182,6 +182,46 @@ describe('loyalty customer service', () => {
     expect(update.data).not.toHaveProperty('name');
   });
 
+  it('does not rename an existing member from a later attach', async () => {
+    (prisma.customer.findFirst as jest.Mock).mockResolvedValue({
+      id: 'cust-1',
+      name: 'Aisyah',
+    });
+    (prisma.customer.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    await resolveOrCreateCustomer(baseInput({ name: 'Impostor' }));
+
+    const update = (prisma.customer.updateMany as jest.Mock).mock
+      .calls[0][0] as { data: Record<string, unknown> };
+    expect(update.data).not.toHaveProperty('name');
+  });
+
+  it('captures a name for an existing member who has none', async () => {
+    (prisma.customer.findFirst as jest.Mock).mockResolvedValue({
+      id: 'cust-1',
+      name: null,
+    });
+    (prisma.customer.updateMany as jest.Mock).mockResolvedValue({ count: 1 });
+
+    await resolveOrCreateCustomer(baseInput({ name: 'Aisyah' }));
+
+    const update = (prisma.customer.updateMany as jest.Mock).mock
+      .calls[0][0] as { data: Record<string, unknown> };
+    expect(update.data.name).toBe('Aisyah');
+  });
+
+  it('still stores the supplied name when creating the member', async () => {
+    (prisma.customer.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.customer.create as jest.Mock).mockResolvedValue({ id: 'cust-1' });
+
+    await resolveOrCreateCustomer(baseInput({ name: '  Aisyah  ' }));
+
+    const create = (prisma.customer.create as jest.Mock).mock.calls[0][0] as {
+      data: Record<string, unknown>;
+    };
+    expect(create.data.name).toBe('Aisyah');
+  });
+
   it('creates a separate customer for the same phone at another restaurant', async () => {
     (prisma.customer.findFirst as jest.Mock).mockResolvedValue(null);
     (prisma.customer.create as jest.Mock).mockImplementation(

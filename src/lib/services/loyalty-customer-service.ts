@@ -135,6 +135,9 @@ export async function resolveOrCreateCustomer(
   });
 
   if (existing) {
+    // The name is captured on first enrolment only. An unauthenticated caller
+    // who knows a member's phone must not be able to rename their record.
+    const captureName = name !== null && cleanName(existing.name) === null;
     const updated = await prisma.customer.updateMany({
       where: { id: existing.id, restaurantId, status: 'ACTIVE' },
       data: {
@@ -143,7 +146,7 @@ export async function resolveOrCreateCustomer(
         consentTextHash: consentResult.consent.textHash,
         consentSource: input.source,
         consentWithdrawnAt: null,
-        ...(name ? { name } : {}),
+        ...(captureName ? { name } : {}),
       },
     });
 

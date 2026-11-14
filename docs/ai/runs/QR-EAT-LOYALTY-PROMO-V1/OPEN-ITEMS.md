@@ -125,6 +125,13 @@ Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 | P7c-4 | The cleanup job never prunes at startup | L | One prune on start |
 | P7c-5 | The `SecurityEvent` index does not lead with `restaurantId` | L | Add if the report query grows |
 | P7c-6 | The owner report UI does not render `refusals` | L | One card in the loyalty report |
-| P7c-7 | A matching phone with a different name overwrites the member's name | L | Set `name` only on create or when null |
+| P7c-7 | A matching phone with a different name overwrote the member's name | L | **CLOSED (2026-11-14)** — the name is now write-once: set on create, or on an attach only when the stored name is null/empty. Verified no unauthenticated rename. |
 | P7c-8 | A create on a guest quote with a known phone consumes that phone's bucket before the 409 | L | Accepted, or reorder |
 | P7c-9 | Plain `CREATE INDEX` on the existing `security_events` table | L | P9 deploy note |
+
+## Added by the P7c-7 fix (`REVIEW-21`)
+
+| # | Item | Severity | Done when |
+|---|---|---|---|
+| P7c-10 | A name is now **write-once** with no corrective path — a name mistyped at first enrolment can only be fixed by anonymise and re-enrol | L | An owner rename behind `members:pii` with an audit row (product decision) |
+| P7c-11 | Two concurrent first attaches on a **nameless** member can both capture a name; last write wins | L | Add `name: null` to the capture predicate if it ever matters |
