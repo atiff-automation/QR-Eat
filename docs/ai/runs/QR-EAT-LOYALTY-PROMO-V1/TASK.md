@@ -895,7 +895,7 @@ pass on the payment and migration paths (P11-2).
   handoff, the pilot runbook).
 - **Inputs:** the candidate commit, `TASK.md`, `REVIEW-*.md`, `OPEN-ITEMS.md`, the addendum, the
   handoff, the runbook, and the evidence files.
-- **Output:** `REVIEW-28.md` with PASS / PASS WITH NOTES / FAIL and findings with file:line.
+- **Output:** `REVIEW-29.md` with PASS / PASS WITH NOTES / FAIL and findings with file:line.
 - **P11 is read-only.** Any blocker becomes a `P11-fix` cycle with its own implementer and a
   narrow re-review. Maximum three cycles.
 - **Then:** the freeze stamp — a two-line amendment in `docs/PRODUCT/API-CONTRACT.md` and
