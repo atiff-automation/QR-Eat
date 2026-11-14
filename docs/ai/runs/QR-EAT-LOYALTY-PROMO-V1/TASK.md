@@ -18,7 +18,7 @@
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze)
-**Phases open:** P11
+**Phases open:** P10-close, P11
 **Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
@@ -758,6 +758,76 @@ Must read: this section, `OPEN-ITEMS.md`, `docs/PRODUCT/API-CONTRACT.md`,
 contract.
 Read only if unclear: the route handlers for a disputed field.
 Do not read: reporting services, migrations, earlier reviews.
+
+**P10-close plan (approved 2026-11-14, "six").**
+
+Closes the six pending items the owner named. Documentation, reports and drill scripts; no schema
+change, no migration, no deployment. P8-8, D-2, P7-2, M-1, P6C2b-1, P9-2 and P9-3 stay open and
+recorded.
+
+**Decisions**
+- **P8-2 prior-period refunds.** A refund carries the original `orderId`. Its original business
+  date is that order's positive `Payment.batch.businessDate`. A refund whose original date differs
+  from the current business date is `refundsPriorPeriod`. A batchless original (legacy) has no
+  date: count it in the current period and document the limitation. `refundsPriorPeriod` is a
+  **subset** of `refunds`; the identity is unchanged.
+- **P8-2 discount split.** `discountBySource` groups ACTIVE `OrderDiscount` rows for the day's
+  positive-payment orders by `source` (`PROMOTION`, `LOYALTY_REWARD`). Assert the split sums to
+  `discounts`.
+- **P8-3 batchless positives.** A batchless positive `Payment` is attributed by its own
+  `createdAt` through the shared business-day helper. Its order joins the gross set and its amount
+  joins `net`; a payment already counted through a batch is never counted twice.
+- **P9-03 barrier.** The parent holds the same advisory lock the service takes; each child signals
+  readiness with a marker file, and the parent releases only after both markers exist **and**
+  `pg_locks` shows two waiters on that key. A timeout **fails** the drill — it must not silently
+  degrade to sequential.
+- **P8-6** is prepared, not signed: a sign-off packet with the question, the arithmetic, two
+  options and a signature block, plus a caption on the P&L so it is not read as statutory.
+- **The freeze hash is not stamped here.** It is stamped after P11, as approved in P10.
+
+**Scope**
+1. `src/lib/services/reporting/counter-report-service.ts` — add `discountBySource`,
+   `rewardTotal`, `refundsPriorPeriod`; keep the identity.
+2. `src/app/api/counter/business-day/close/[id]/pdf/route.ts` — print the three new lines.
+3. `src/lib/services/loyalty-report-service.ts` — include batchless positive payments in gross
+   and net.
+4. `src/lib/__tests__/security-client-ip.test.ts` (new) — pin `SecurityUtils.getClientIP`
+   delegation: Railway header, off-Railway `unknown`.
+5. `scripts/rehearse-concurrency.ts` — readiness barrier for drills 1–3; re-run on `qrorder_dev`.
+6. `docs/PRODUCT/P8-6-ACCOUNTING-SIGNOFF.md` (new) and a P&L caption.
+7. `OPEN-ITEMS.md` — close the 21 stale rows with evidence, rename the duplicate `P8-2` to
+   `P5C-1`, and leave the rest with owners.
+
+**Non-goals**
+P8-8 (early-close boundary), D-2 (phone on Counter responses), P7-2 (QR idempotency key), M-1,
+P6C2b-1, P9-2, P9-3; any schema, migration, bucket or limit change; the freeze stamp.
+
+**Acceptance**
+1. The Z carries `discountBySource` (summing to `discounts`), `rewardTotal`, and
+   `refundsPriorPeriod` (a subset of `refunds`); `gross − discounts + tax + service − refunds =
+   net` still holds on a sale day and a refund day; the PDF prints all three.
+2. The loyalty report's gross and net include a batchless positive payment exactly once; a
+   batched payment is not double-counted; a test proves both.
+3. A test fails if `SecurityUtils.getClientIP` stops delegating to the resolver, in both
+   directions.
+4. Drills 1–3 release only after two waiters are observed; a timeout fails the drill; the suite
+   still passes.
+5. The P8-6 packet states the question, the two options, the numbers and a signature block; the
+   P&L caption says the figures include tax and service and are not statutory until signed.
+6. `OPEN-ITEMS.md` has no row that later work already fixed, no duplicate ID, and an owner for
+   every remaining row.
+7. Full suite green, type-check and build pass.
+
+**Verification**
+`npx jest src/lib src/app/api src/tests --runInBand`, `npm run type-check`,
+`npm test -- --runInBand`, `npm run build`, `npx tsx scripts/rehearse-concurrency.ts` on
+`qrorder_dev`, and a fresh verifier for the diff.
+
+**Context budget**
+Must read: this section, `OPEN-ITEMS.md`, the two report services, the PDF route, the drill
+script's parent/child orchestration, `src/lib/security.ts`.
+Read only if unclear: the business-day helper, the payment batch service.
+Do not read: earlier reviews, migrations, UI components unrelated to the P&L caption.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
