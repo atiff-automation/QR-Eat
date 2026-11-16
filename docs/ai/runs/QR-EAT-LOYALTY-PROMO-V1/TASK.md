@@ -18,7 +18,7 @@
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze), P10-close (six items), P11-prep (D-1, D-2, P8-8, P9-2, P9-3)
-**Phases open:** P11-fix, then re-review and stamp
+**Phases open:** P11-fix (in progress), then re-review and stamp
 **Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
@@ -937,6 +937,81 @@ Must read: this section, `OPEN-ITEMS.md`, the addendum, the handoff, the runbook
 reviews.
 Read only if unclear: the route or service behind a disputed finding.
 Do not read: the whole repository, migrations unrelated to the finding.
+
+**P11-fix plan (approved 2026-11-16, "all as recommended").**
+
+Closes the eight P11 blockers and the eight pre-pilot items. R3, because it touches payments and
+permissions. Verification uses **DeepSeek V4.1 Flash** (opencode-go), not glm.
+
+**Decisions (all = A)**
+- **Q1 (B-UX-1).** Server: a guest quote with a phone and no valid consent returns the promised
+  200 guest order with `loyaltyError` (`CONSENT_REQUIRED`, `PHONE_INVALID`, `CONSENT_STALE`);
+  consent-valid on a guest quote stays `QUOTE_CHANGED`. Client: do not send the phone when
+  consent is unticked. Copy: "Total updated. Review your order." (no "before paying").
+- **Q2 (S-1).** The financial settings route (tax, service, currency) requires the owner role in
+  addition to `settings:write`. No new permission; recorded in the addendum as an owner-only
+  control.
+- **Q3 (S-3).** Validate/normalise the phone before counting the restaurant bucket; a malformed
+  phone counts only the IP bucket.
+- **Q4 (B-PAY-1).** Cash rounding is applied in the legacy payment path: read `cashRounding`,
+  write `cashPayable`/`roundingAdjustment`, and compute change from `cashPayable`. Pre-existing
+  restaurants default `NONE`; new restaurants default `NEAREST_5_SEN` per the contract.
+- **Q5 (B-PAY-7).** Take a customer-level card lock `loyalty-card:{restaurant}:{customer}` before
+  the day lock. Order: card → day → bill.
+- **Q6 (B-PAY-2).** Attribute a payment to its batch `businessDate` when a batch exists, else to
+  the payment's own `createdAt` business date, in the Z, the P&L and the loyalty report.
+- **Q7 (D-1).** Register the 24-month inactive cleanup with an owner and a pilot-decision date;
+  implement as a separate task.
+
+**Scope**
+1. B-UX-1: `loyalty-qr-service.ts` guard, `components/qr/loyalty-checkout.ts` request + copy,
+   `LoyaltyReview.tsx` if it builds the phone payload.
+2. S-1: `settings/restaurant/financial/route.ts` owner check; addendum note.
+3. S-3: `rate-limit.ts` phone validation before the restaurant bucket.
+4. B-PAY-1: `payment-batch-service.ts` rounding on the legacy path.
+5. B-PAY-7: `loyalty-payment-service.ts` card lock.
+6. B-PAY-2: a shared effective-business-date helper used by the Z, P&L and loyalty report.
+7. S-2: new `docs/ENVIRONMENT.md` (names only); correct the local example if permitted.
+8. B-PAY-3: require `expectedCashPayable` for cash when loyalty is active.
+9. B-PAY-4: require `expectedTotal` on an offline replay.
+10. B-PAY-5: handoff wording for `PAYMENT_IN_PROGRESS`.
+11. B-PAY-6: quote-less create takes the bill lock and bumps the revision when loyalty is on.
+12. B-UX-2/B-UX-3: handoff notice shape and modify body contract.
+13. D-2: prune expired quotes and idempotency records in the cleanup cron.
+14. D-3: the PII cleanup gets a dry-run count and a date bound.
+15. D-6: runbook deploy note for the menu indexes.
+16. D-1: register with an owner and a date (Lead writes the register).
+
+**Non-goals**
+D-4, D-5, S-4, S-5, S-6, S-7, B-UX-4/5/6/8; any schema or migration change; the freeze stamp;
+the human pass.
+
+**Acceptance**
+1. Guest quote + phone + no consent → 200 guest order with `loyaltyError`; malformed phone →
+   200 guest with `PHONE_INVALID`; consent on a guest quote → 409. The QR sends no phone without
+   consent and the copy no longer says "before paying".
+2. A manager is refused the financial settings route; the owner succeeds.
+3. A malformed-phone flood does not exhaust the restaurant bucket; valid phones still count.
+4. Flag-off cash with `NEAREST_5_SEN` rounds, writes the fields, and reconciles the drawer;
+   `NONE` and card are unchanged.
+5. Two payments for one member on different business dates produce one reward.
+6. An offline replay across the cutoff is attributed to the same date in all three reports.
+7. Cash without `expectedCashPayable` is refused; an offline replay without `expectedTotal` is
+   refused.
+8. A quote-less create while loyalty is on takes the lock and bumps the revision.
+9. Expired quotes and idempotency records are pruned; the PII cleanup reports a dry-run count
+   and is date-bounded.
+10. The handoff documents the notice shape, the modify body and the `PAYMENT_IN_PROGRESS` retry.
+11. Full suite, type-check and build pass; the drill still passes.
+
+**Verification**
+`npx jest`, `npm run type-check`, `npm test -- --runInBand`, `npm run build`,
+`npx tsx scripts/rehearse-concurrency.ts`, then a fresh **DeepSeek V4.1 Flash** verifier.
+
+**Context budget**
+Must read: this section, `REVIEW-29.md`, the ten files named in Scope, the handoff, the addendum.
+Read only if unclear: the RBAC helpers, the cleanup cron, the business-day helper.
+Do not read: earlier reviews, unrelated UI, migrations.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
