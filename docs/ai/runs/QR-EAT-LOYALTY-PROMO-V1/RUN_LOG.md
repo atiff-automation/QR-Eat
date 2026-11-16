@@ -1476,3 +1476,19 @@ for them: a contention drill for the QR-create bill lock, and a Postgres probe o
 `P2002` classification.
 
 Root cause: two sessions on one branch. One session per branch, or a separate worktree.
+
+**P11 — four-lens review (2026-11-16): FAIL.** See `REVIEW-29.md`.
+
+Staffing per amendment 2: lens A and lens B by DeepSeek V4.1 Flash in fresh sessions; the money
+path by `opencode-go/glm-5.3`; the human pass is pending.
+
+Eight blockers: the guest-quote dead-end (a customer who declines consent cannot order), the
+manager `settings:write` reaching tax rates, the restaurant bucket exhaustible by malformed phones,
+cash rounding inert when loyalty is off, the cross-cutoff double-reward race, the example env file
+naming the wrong HMAC variable, offline replay not requiring `expectedTotal`, and the offline
+replay splitting the three reports.
+
+The money path is otherwise sound: lock order, atomicity, no double-charge, the promotion/visit
+rule, tenant isolation, PII handling and the migrations all passed.
+
+Next: P11-fix, then a narrow re-review, then the freeze stamp.
