@@ -1457,3 +1457,22 @@ npx tsx scripts/rehearse-concurrency.ts -> PASS 47/47 (Lead run)
 ```
 
 **P11-prep: COMPLETE.**
+
+**Session conflict and restore (2026-11-16):**
+
+A second AME session on the same branch re-planned and re-implemented P11-prep from a stale
+working tree. Its plan commit `0527549` reverted `TASK.md` to the pre-P11-prep record (removing
+`REVIEW-28`, the P11-prep row, the verifier session and the staffing amendment), and its
+uncommitted work reverted parts of `2ba40f0` in `loyalty-payment-service`, `loyalty-bill-service`,
+the member/promotion error mappers and the settings routes, and deleted `REVIEW-28.md`.
+
+**Nothing from the duplicate was committed.** The working tree was restored to `HEAD`, the
+duplicate was preserved at `/tmp/opencode/p11-prep-duplicate.patch`, and `TASK.md` was restored to
+its `cb7de07` content. The committed P11-prep (`2ba40f0`, reviewed by `REVIEW-28`) is
+authoritative.
+
+Two useful things were identified in the duplicate and are deferred to P11-fix if the review asks
+for them: a contention drill for the QR-create bill lock, and a Postgres probe of the partial-index
+`P2002` classification.
+
+Root cause: two sessions on one branch. One session per branch, or a separate worktree.

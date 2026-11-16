@@ -1,6 +1,6 @@
 # Task — QR-EAT-LOYALTY-PROMO-V1
 
-**Status:** ready_to_commit (P10-close) · P11 next
+**Status:** ready_to_commit (P11-prep) · P11 next
 **Revision:** 2
 **Approved revision:** 2
 **Approved by:** user
@@ -9,16 +9,16 @@
 **Next actor:** lead (commit), then P11
 **Implementer:** ame-implementer
 **Implementer session:** P9 `ses_e26bb1d60ffe7ze0ppgRcvRhCG` · P9 corrections `ses_e269928ccffex0Kuz6q1KFEVw1` · P9 runbook `ses_e267ec957ffemF6ykM2K3JB4j1` · P9-10a `ses_e264020b8ffe33ATbe72w6nS5F` · P9-10b `ses_e26280cbdffeOc7p13Njykng2g` · P9-10b c1 `ses_e2614fbd1ffeJ0UNiRs1zckjaw` · P0 `ses_e2de0829dffe62pTHH1kSKamu1` · P1 `ses_e2dd397c9ffeLKmDQzVENUI7Do` · P1b `ses_e2d9b93c9ffedk56s20qDTC4ol` · P2 `ses_e2d90c157ffedh0iNsagr0ZJjQ` · P4 `ses_e2d02ef0dffeL7EDq3XYrSlqSk` · P5A/P5B `ses_e2cc9a6f0ffea1CiddEIMiYNpM` · P5B `ses_e2c63e70dffebc9BjVK3kBJM7f` · P5B c1 `ses_e2c19f5d4ffeJHIKxPFFAIsdUU` · P5 close-out `ses_e2ba1ed40ffeepLapurhNzFKTs` · P6A `ses_e2b824b29ffe5T5edbmhZzWlfF` · P6B `ses_e2b308a53ffef8zBgoUbNIfidm`
-**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK` · P3 `ses_e2d295544ffe8Vs7xNUksYLs5d` · P3 delta `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy` · P4 `ses_e2ce6bd32ffes2uYjktCXaGJIw` · P4 delta `ses_e2cd8f112ffeyqarWSP10Ll68b` · P5A `ses_e2cbbf3f2ffeSCCW0NziqoU25V` (FAIL) · P5A re-review `ses_e2cac41c7ffevw5PW5VQexObc4` · P5B `ses_e2c3d0643ffeioiTKvvKP7IsVT` (FAIL) · P5B re-review `ses_e2bfc408dffebrZMgw0uNw4NVB` · P5C `ses_e2bd33272ffeZjtGGJJdzRYiYQ` · P5 close-out `ses_e2b97f14effeyUVdYA518PvbeX` · P6A `ses_e2b5f3e92ffeR1gX01awv4FIOc` (FAIL) · P6A re-review `ses_e2b50954affeDYGm5sDz89hAOJ` · P6B `ses_e2b1c62a2ffeBd8ztrgaTQGs0E` (FAIL) · P6B `ses_e2b034ebaffe2RbkZwSJECzySY` (FAIL) · P6B `ses_e2af54affffeZahV275aESNHGv` (FAIL) · P6B `ses_e2accf595ffeFp5Lat0XWgrIDY` (PASS WITH NOTES) · P6 close-out 1 `ses_e2a311999ffen0Cyq4Ze6gaPnT` · P6C1 `ses_e2a1178b9ffeQ78h2l9bqmSitV` (FAIL) · P6C1 `ses_e29f4f497ffey5tkkE0AwQInN6` · P6C1 `ses_e29e3b762ffeDpUMTpJJShBAX8` · P6C2a `ses_e28e6d7b7ffee1v9V6FFrteaU8` (FAIL) · P6C2a re-review `ses_e28d2c80fffe9KT7moRUSc2TQ1` · P6C2b `ses_e28b0f44bffe6Ws9GlgL3z5j3m` · P7a `ses_e285a545fffeecsG6KhTw2jcKH` · P7a F-01 delta `ses_e28383afaffemSeoCQysQKYZlp` · P7b `ses_e281a504fffettExTvLzJ0pxgL` (FAIL) · P7b H-1 `ses_e28086d12ffeCIiOwqnuOjL5jx` · P7c `ses_e27b82cfaffe6Q5vMzKXoMUZrG` (FAIL) · P7c `ses_e279fb9b1ffe4pczblwvGYK3i2` (FAIL) · P7c final `ses_e27975154ffeK04OZg1oy4tCOl` · P7c-7 `ses_e2787355fffe3VXy2IEIoPrESA` · P7d `ses_e27667c6dffeg2iD4B7RomlszM` · P7d correction `ses_e27523646ffe4sbB18MeT0gYDj` · P8 `ses_e2733fe8dffekIWULh7e35gPqK` (FAIL) · P8 `ses_e270536d3ffeEjnIKm4v7f7hd7` · P8 `ses_e26d7435bffeb8l3pTA7rdTUKe` · P8 final `ses_e26ca987effeepkA20wReR2icB` · P9 `ses_e26a47575ffegrbng3QS33zgSy` · P9 correction `ses_e268960fdffe2lIiFSjNU5ps9t` · P9 runbook `ses_e267bbcf1ffew1hd4vQeHx9sgz` · P9-10a `ses_e26353cd1ffe1CqYsOG4j5QmYg` · P9-10b `ses_e262103eeffek7ep0cT17I9wjG` · P9-10b delta `ses_e26137826ffedoWOWr2MeumAZU` · P10 `ses_e25f21768ffekEmPklHQ1W8msg` (FAIL) · P10 `ses_e25d3a1d5ffeUzwr1ytwvJCEEA` (FAIL) · P10 final `ses_e25c3415effev1iRb6B8ARuUe5` · P10-close `ses_e256ab70dffe8jdfSybhCzpl4H` · P10-close `ses_e25455b69ffef0KjEyWDY1qkEi` · P10-close final `ses_e2476f9c4ffemofT3lHUjzYy2W`
+**Verifier session:** P1 `ses_e2dc91ce1ffe9Gj1e62riUs66y` · P1 delta `ses_e2db52e0cffejD8ZjffivRLfsF` · P1b `ses_e2d9888eaffeXI115MtjTbXOdZ` · P2 `ses_e2d80edefffeqjhnMCswstMOQH` · P2 delta `ses_e2d62bad1ffeiujvlS3T8qONA4` · P2 F-01 `ses_e2d437e2affeYGfEQViy33f7aK` · P3 `ses_e2d295544ffe8Vs7xNUksYLs5d` · P3 delta `ses_e2d1c1ca8ffeuxRjKcsA2R9FXy` · P4 `ses_e2ce6bd32ffes2uYjktCXaGJIw` · P4 delta `ses_e2cd8f112ffeyqarWSP10Ll68b` · P5A `ses_e2cbbf3f2ffeSCCW0NziqoU25V` (FAIL) · P5A re-review `ses_e2cac41c7ffevw5PW5VQexObc4` · P5B `ses_e2c3d0643ffeioiTKvvKP7IsVT` (FAIL) · P5B re-review `ses_e2bfc408dffebrZMgw0uNw4NVB` · P5C `ses_e2bd33272ffeZjtGGJJdzRYiYQ` · P5 close-out `ses_e2b97f14effeyUVdYA518PvbeX` · P6A `ses_e2b5f3e92ffeR1gX01awv4FIOc` (FAIL) · P6A re-review `ses_e2b50954affeDYGm5sDz89hAOJ` · P6B `ses_e2b1c62a2ffeBd8ztrgaTQGs0E` (FAIL) · P6B `ses_e2b034ebaffe2RbkZwSJECzySY` (FAIL) · P6B `ses_e2af54affffeZahV275aESNHGv` (FAIL) · P6B `ses_e2accf595ffeFp5Lat0XWgrIDY` (PASS WITH NOTES) · P6 close-out 1 `ses_e2a311999ffen0Cyq4Ze6gaPnT` · P6C1 `ses_e2a1178b9ffeQ78h2l9bqmSitV` (FAIL) · P6C1 `ses_e29f4f497ffey5tkkE0AwQInN6` · P6C1 `ses_e29e3b762ffeDpUMTpJJShBAX8` · P6C2a `ses_e28e6d7b7ffee1v9V6FFrteaU8` (FAIL) · P6C2a re-review `ses_e28d2c80fffe9KT7moRUSc2TQ1` · P6C2b `ses_e28b0f44bffe6Ws9GlgL3z5j3m` · P7a `ses_e285a545fffeecsG6KhTw2jcKH` · P7a F-01 delta `ses_e28383afaffemSeoCQysQKYZlp` · P7b `ses_e281a504fffettExTvLzJ0pxgL` (FAIL) · P7b H-1 `ses_e28086d12ffeCIiOwqnuOjL5jx` · P7c `ses_e27b82cfaffe6Q5vMzKXoMUZrG` (FAIL) · P7c `ses_e279fb9b1ffe4pczblwvGYK3i2` (FAIL) · P7c final `ses_e27975154ffeK04OZg1oy4tCOl` · P7c-7 `ses_e2787355fffe3VXy2IEIoPrESA` · P7d `ses_e27667c6dffeg2iD4B7RomlszM` · P7d correction `ses_e27523646ffe4sbB18MeT0gYDj` · P8 `ses_e2733fe8dffekIWULh7e35gPqK` (FAIL) · P8 `ses_e270536d3ffeEjnIKm4v7f7hd7` · P8 `ses_e26d7435bffeb8l3pTA7rdTUKe` · P8 final `ses_e26ca987effeepkA20wReR2icB` · P9 `ses_e26a47575ffegrbng3QS33zgSy` · P9 correction `ses_e268960fdffe2lIiFSjNU5ps9t` · P9 runbook `ses_e267bbcf1ffew1hd4vQeHx9sgz` · P9-10a `ses_e26353cd1ffe1CqYsOG4j5QmYg` · P9-10b `ses_e262103eeffek7ep0cT17I9wjG` · P9-10b delta `ses_e26137826ffedoWOWr2MeumAZU` · P10 `ses_e25f21768ffekEmPklHQ1W8msg` (FAIL) · P10 `ses_e25d3a1d5ffeUzwr1ytwvJCEEA` (FAIL) · P10 final `ses_e25c3415effev1iRb6B8ARuUe5` · P10-close `ses_e256ab70dffe8jdfSybhCzpl4H` · P10-close `ses_e25455b69ffef0KjEyWDY1qkEi` · P10-close final `ses_e2476f9c4ffemofT3lHUjzYy2W` · P11-prep `ses_e239155e1ffeFQuCLsLt1uLj76`
 **Implementer (P1b):** `ses_e2d9b93c9ffedk56s20qDTC4ol`
 **Implementer (P2):** `ses_e2d90c157ffedh0iNsagr0ZJjQ`
 **Diff base:** fc1312a (task base) · checkpoints 27cd38a (P2) · 12bdcdf (P3) · 55dd7c4 (P4) · 27d3038 (P5A) · 35974d3 (P5B) · 1fd2c37 (P5C) · 8fc2770 (P5 close-out) · 42342ae (P6A) · 37ae549 (P6B)
 **Diff hash:** `b6bd9c3b6004a90b1e2a16a4740fbf8f4b14b4bd1d48b5b8d5791f7266263be8` (tracked product, rev 2) · migrations `1dba77cfbcff470bbaf89f8b30e885b03537e49abd11165579c346615b47dde4` · P2 `src/lib/loyalty/**` `b1b452e11e451eedbe4606b4b54ea6cb946656892c6d3ccfb722b83ffc49c42d` · P3 `77695a7b226eb9ce461b75ade930538b5120855ee23092f67d6886797917c41b` · P4 `320268cbb2d3deae98f920e7c0d2610839839c34c84f909fe6fd6493df86f8cd` · P5A `1f46331b82e752ab24cc451e651e8f957bf82964c0691e981ad7516ac82f3606` · P5B `05ca151edabda908ea56debb949177f341b62c804e40c227034ecf16148157b0` · P5C `bd7fa8e10acdd56e8bda1f0736290189ed398159c1f941c6b152ec5f10de4966`
-**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2) · `REVIEW-05.md` (P3) · `REVIEW-06.md` (P4) · `REVIEW-07.md` (P5A) · `REVIEW-08.md` (P5B) · `REVIEW-09.md` (P5C) · `REVIEW-10.md` (P5 close-out) · `REVIEW-11.md` (P6A) · `REVIEW-12.md` (P6B) · `REVIEW-13.md` (P6B) · `REVIEW-14.md` (P6 close-out 1) · `REVIEW-15.md` (P6C1) · `REVIEW-16.md` (P6C2a) · `REVIEW-17.md` (P6C2b) · `REVIEW-18.md` (P7a) · `REVIEW-19.md` (P7b) · `REVIEW-20.md` (P7c) · `REVIEW-21.md` (P7d) · `REVIEW-22.md` (P8) · `REVIEW-23.md` (P9) · `REVIEW-24.md` (P9-10a) · `REVIEW-25.md` (P9-10b) · `REVIEW-26.md` (P10) · `REVIEW-27.md` (P10-close)
+**Review file:** `REVIEW-01.md` · `REVIEW-02.md` (P1) · `REVIEW-03.md` (P1b) · `REVIEW-04.md` (P2) · `REVIEW-05.md` (P3) · `REVIEW-06.md` (P4) · `REVIEW-07.md` (P5A) · `REVIEW-08.md` (P5B) · `REVIEW-09.md` (P5C) · `REVIEW-10.md` (P5 close-out) · `REVIEW-11.md` (P6A) · `REVIEW-12.md` (P6B) · `REVIEW-13.md` (P6B) · `REVIEW-14.md` (P6 close-out 1) · `REVIEW-15.md` (P6C1) · `REVIEW-16.md` (P6C2a) · `REVIEW-17.md` (P6C2b) · `REVIEW-18.md` (P7a) · `REVIEW-19.md` (P7b) · `REVIEW-20.md` (P7c) · `REVIEW-21.md` (P7d) · `REVIEW-22.md` (P8) · `REVIEW-23.md` (P9) · `REVIEW-24.md` (P9-10a) · `REVIEW-25.md` (P9-10b) · `REVIEW-26.md` (P10) · `REVIEW-27.md` (P10-close) · `REVIEW-28.md` (P11-prep)
 **Risk:** R3
 **Workflow:** FEATURE / ARCHITECTURE
-**Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze), P10-close (six items)
-**Phases open:** P11-prep, P11
+**Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze), P10-close (six items), P11-prep (D-1, D-2, P8-8, P9-2, P9-3)
+**Phases open:** P11
 **Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
@@ -829,66 +829,105 @@ script's parent/child orchestration, `src/lib/security.ts`.
 Read only if unclear: the business-day helper, the payment batch service.
 Do not read: earlier reviews, migrations, UI components unrelated to the P&L caption.
 
-**P11-prep plan (approved 2026-11-15, Q1-Q5 as recommended).**
+**P11-prep plan (approved 2026-11-15, "all q1-q5 as recommended").**
 
-Closes the three decisions and the two correctness items before the final review. R2.
+Pre-review fixes. Code, tests and docs; no schema change, no migration, no deployment.
 
 **Decisions**
 - **Q1 = A (D-1).** `DELETE /api/restaurants/{id}` is allowed only when the restaurant has no
-  orders, payments, visits or discounts. Otherwise a typed **409** whose message says the tenant
-  has financial or loyalty history and points to `isActive: false`. A FK violation is mapped to
-  the same 409, not a 500. The erasure procedure (export → anonymise → delete) is recorded in
-  `docs/DATA-RETENTION.md`; "close the restaurant" is `isActive: false` and is already supported.
-- **Q2 = B (D-2).** The order contact phone stays on the Counter order/takeaway/pending responses
-  for `orders:read`. It is **order-contact data** (the number given for that order), not member
-  PII; `members:pii` governs member profiles, which stay masked. Recorded in the addendum and the
-  handoff. No code change.
-- **Q3 = A (P8-8).** Every report ranges over the **cutoff** (`getBusinessDayStart/End`); the Z
-  stops using `closedAt` for its range and keeps the timestamps for display. Activity between an
-  early `closedAt` and the cutoff end is surfaced as `AFTER_CLOSE_ACTIVITY` (count and amount).
-  The filed snapshot stays immutable.
-- **Q4 = A (P11).** The four lenses are reviewed by a **different model**; the payment and
-  migration paths also get a **human** pass.
-- **Q5 = A.** Fix first, review the final state, then a narrow re-review, then stamp.
+  financial or loyalty history. Otherwise a typed **409** names the reason and points to
+  `isActive: false`. A `P2003` fallback covers any table the pre-check misses. The genuine-erasure
+  procedure (export → anonymise → delete, after the 7-year retention) is recorded in
+  `docs/DATA-RETENTION.md`. Closing a restaurant forever is `isActive = false`, which already
+  works and retains the records.
+- **Q2 = B (D-2).** The order contact phone stays on the Counter responses: it is the number the
+  customer gave for that order, not member PII. Member phones remain masked and gated by
+  `members:pii`; the bill returns `maskedPhone`. Recorded in the addendum register.
+- **Q3 = A (P8-8).** All three reports range over the **cutoff**: `getBusinessDayStart/End`. The Z
+  stops using `closedAt` as its range end (it stays for display); an open day ends at `now`, a
+  closed day at the cutoff end. A payment or refund between `closedAt` and the cutoff end raises
+  an `AFTER_CLOSE_ACTIVITY` note. The filed `BusinessDay.snapshot` stays immutable.
+- **Q5 = A.** These fixes land **before** P11, so the four lenses review the final state.
 
 **Scope**
-1. D-1: pre-check and typed 409 in `src/app/api/restaurants/[id]/route.ts`; `DATA-RETENTION.md`
-   erasure procedure; tests (history → 409, empty → 200, FK race → 409).
-2. D-2: addendum and handoff paragraph; no code change.
-3. P8-8: cutoff range in `getCounterDaySummary`, `closedOutsideCutoff` and
-   `afterCloseActivity { count, amount }`, an `AFTER_CLOSE_ACTIVITY` blocker when non-zero, the
-   PDF line, and a boundary test (day closed 01:00, refund 02:00, cutoff 04:00) proving the Z,
-   the P&L and the loyalty report agree.
-4. P9-2: verify the QR create takes the `loyalty-bill` lock before incrementing `billRevision`;
-   add it if missing, and prove it in the concurrency drill.
-5. P9-3: prove `P2002` classification against Postgres for a partial unique index (two concurrent
-   first enrolments on one phone) and make the classifier index-aware if the probe fails.
+1. `src/app/api/restaurants/[id]/route.ts` — pre-check orders, payments, business days, members,
+   visits and discounts; 409 `RESTAURANT_HAS_HISTORY` with the deactivate guidance; catch
+   `P2003` as the same 409. Test: a restaurant with history is refused and not deleted; an empty
+   one still deletes.
+2. `docs/DATA-RETENTION.md` — the erasure procedure, and the distinction between deactivate and
+   delete.
+3. `src/lib/services/reporting/counter-report-service.ts` — cutoff range; `AFTER_CLOSE_ACTIVITY`
+   with `count` and `amount`; keep `openedAt`/`closedAt` in the payload. Test: a day closed at
+   01:00 with a refund at 02:00 and a 04:00 cutoff → the live Z includes the refund, the note is
+   present, and the P&L reports the same date; the stored snapshot is unchanged.
+4. **P9-2** — prove whether QR create holds a bill lock when it increments `billRevision`. If it
+   only locks the table/session row, either take the `loyalty-bill` lock or record why the row
+   lock is sufficient. Do not assume; show the code path.
+5. **P9-3** — any `P2002` whose `meta.target` does not match a known conflict becomes a typed
+   conflict (`BILL_CHANGED`/409), never a 500. Test with an unknown target string.
+6. Addendum register — add D-1, D-2 and P8-8 rows.
 
 **Non-goals**
-P7-2, M-1, P6C2b-1, P7c-2, the low items; any schema change; the freeze stamp.
+Soft delete; a scheduled 7-year retention job; masking the order contact phone; changing the
+payment or visit rules; the freeze stamp.
 
 **Acceptance**
-1. A restaurant with history returns 409 with a code and the `isActive` guidance; an empty one
-   deletes; a FK race returns 409.
-2. The addendum and handoff state the order-contact-phone distinction.
-3. A day closed early has the same net in the Z, the P&L and the loyalty report; the Z shows
-   `AFTER_CLOSE_ACTIVITY`; a normal day is unchanged.
-4. QR create holds the bill lock before bumping `billRevision` (drill evidence).
-5. A partial-index conflict is classified, not a 500 (drill evidence).
-6. Full suite green, type-check and build pass, drill 47/47 or more.
+1. A restaurant with any order/payment/business-day/member/visit/discount returns 409 and is not
+   deleted; an empty one deletes.
+2. The Z, the P&L and the loyalty report agree on a day with an early close and a post-close
+   refund; the live Z carries `AFTER_CLOSE_ACTIVITY`; the stored snapshot is untouched.
+3. QR create's `billRevision` write is proven to run under a lock, or the lock is added.
+4. An unrecognised `P2002` returns a typed conflict, not a 500.
+5. Full suite green, type-check and build pass; no schema or migration change.
 
 **Verification**
-`npx jest`, `npm run type-check`, `npm test -- --runInBand`, `npm run build`,
-`npx tsx scripts/rehearse-concurrency.ts`, fresh verifier.
+`npx jest src/lib src/app/api src/tests --runInBand`, `npm run type-check`,
+`npm test -- --runInBand`, `npm run build`, and a fresh verifier.
 
 **P11 plan (approved 2026-11-15).**
 
-Read-only four-lens review by a **different model**, plus a **human** pass on the payment and
-migration paths. Lenses: Security; Payments and Reliability; Data and Migration; Product and UX.
-It reviews the final state after P11-prep, records findings, and does not fix. Findings become a
-P11-fix phase with its own implementer and a narrow re-review. The freeze hash is stamped only
-after P11 passes (two-line amendment in `API-CONTRACT.md` and `RELEASE-COMPATIBILITY.md` naming
-the final code commit).
+Read-only four-lens review of the final pre-freeze state, by a **different model**, plus a human
+pass on the payment and migration paths (P11-2).
+
+**Staffing amendment (approved 2026-11-15, "hybrid").** The strong non-DeepSeek reviewers became
+unavailable at execution time: `commandcode` key expired, `opencode-go` monthly limit reached,
+`opencode` paid models have no credits. Independence bought at full capability was therefore not
+available. The review is staffed in three tiers instead, and the independence requirement is not
+waived:
+
+1. **Sweep — different families, unknown capability.** `big-pickle` reviews lens A (Security,
+   Data/Migration); `glm-5.3-flash-free` reviews lens B (Payments/Reliability, Product/UX). Cheap
+   and genuinely off my weights; valued for what it surfaces, not for its verdict.
+2. **Deep pass — my model, fresh `ame-verifier` session.** Runs after the sweep, reading the
+   candidate against the sweep's findings plus the carried residuals (M-1, P6C2b-1, P7-2, P7c-2,
+   P9-4, P11p-1…6). This is the pass whose analysis the PASS actually rests on.
+3. **Human pass on the payment and migration paths (P11-2), unchanged and mandatory.** This is
+   the tier that carries independence of judgement for the money path. P11 cannot close without
+   it.
+
+Recorded honestly: tier 2 shares my weights, so it cannot detect a blind spot I hold. Tiers 1 and
+3 are what compensate, and the residual risk is written into `REVIEW-29.md` rather than hidden.
+
+- **Lenses:** Security (tenant isolation, PII, consent, rate limits, the resolver); Payments and
+  Reliability (atomicity, idempotency, locks, the Z and reports); Data and Migration (schema,
+  constraints, retention, rollback); Product and UX (the six client-visible changes, the
+  handoff, the pilot runbook).
+- **Inputs:** the candidate commit, `TASK.md`, `REVIEW-*.md`, `OPEN-ITEMS.md`, the addendum, the
+  handoff, the runbook, and the evidence files.
+- **Output:** `REVIEW-29.md` with PASS / PASS WITH NOTES / FAIL and findings with file:line.
+- **P11 is read-only.** Any blocker becomes a `P11-fix` cycle with its own implementer and a
+  narrow re-review. Maximum three cycles.
+- **Then:** the freeze stamp — a two-line amendment in `docs/PRODUCT/API-CONTRACT.md` and
+  `RELEASE-COMPATIBILITY.md` naming the final commit — then the pilot.
+
+**Non-goals**
+Fixing findings inside P11; changing the contract; deploying.
+
+**Context budget**
+Must read: this section, `OPEN-ITEMS.md`, the addendum, the handoff, the runbook, the latest
+reviews.
+Read only if unclear: the route or service behind a disputed finding.
+Do not read: the whole repository, migrations unrelated to the finding.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
 Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
