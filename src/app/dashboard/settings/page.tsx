@@ -158,8 +158,15 @@ const SECTIONS = [
 
 function SettingsContent() {
   const [activeSection, setActiveSection] = useState<SectionKey>('general');
-  const { hasPermission, isLoading: roleLoading } = useRole();
+  const { hasPermission, isLoading: roleLoading, currentRole } = useRole();
   const canConfigureLoyalty = hasPermission('loyalty:configure');
+  // Financial settings (tax, service charge, currency, labels) are owner-only
+  // on the server. Hide the section for managers so the UI does not offer a
+  // write that will be refused (REVIEW-30 H-1).
+  const canEditFinancial = currentRole?.userType === 'restaurant_owner';
+  const visibleSections = canEditFinancial
+    ? SECTIONS
+    : SECTIONS.filter((section) => section.key !== 'financial');
   const {
     data: settings,
     isLoading,
@@ -298,6 +305,15 @@ function SettingsContent() {
           />
         );
       case 'financial':
+        if (!canEditFinancial) {
+          return (
+            <div className="p-6">
+              <p className="text-sm text-gray-700">
+                Only the restaurant owner can change financial settings.
+              </p>
+            </div>
+          );
+        }
         return (
           <FinancialSection
             initialData={{
@@ -435,7 +451,7 @@ function SettingsContent() {
               paddingRight: '2.5rem',
             }}
           >
-            {SECTIONS.map((section) => (
+            {visibleSections.map((section) => (
               <option key={section.key} value={section.key}>
                 {section.label}
               </option>
@@ -450,7 +466,7 @@ function SettingsContent() {
         <div className="w-64 bg-white border-r border-gray-200 p-5 overflow-y-auto">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Settings</h2>
           <nav className="space-y-1">
-            {SECTIONS.map((section) => {
+            {visibleSections.map((section) => {
               const Icon = section.icon;
               return (
                 <button

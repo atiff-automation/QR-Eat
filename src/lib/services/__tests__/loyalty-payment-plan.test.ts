@@ -370,6 +370,7 @@ describe('buildLoyaltyPaymentPlan — money', () => {
         pricing: built,
         method: 'cash',
         cashReceived: '100.00',
+        expectedCashPayable: '55.70',
       })
     );
 
@@ -414,7 +415,12 @@ describe('buildLoyaltyPaymentPlan — money', () => {
     expectLoyaltyError(
       () =>
         buildLoyaltyPaymentPlan(
-          planInput({ pricing: built, method: 'cash', cashReceived: '50.00' })
+          planInput({
+            pricing: built,
+            method: 'cash',
+            cashReceived: '50.00',
+            expectedCashPayable: '55.68',
+          })
         ),
       'INSUFFICIENT_CASH'
     );
@@ -514,6 +520,7 @@ describe('buildOfflinePaymentPlan', () => {
       method: 'cash',
       cashReceived: '70.00',
       expectedTotal: '69.60',
+      expectedCashPayable: '69.60',
       expectedBillRevision: 0,
       billRevision: 0,
       cashRounding: 'NONE',
@@ -541,6 +548,7 @@ describe('buildOfflinePaymentPlan', () => {
       method: 'cash',
       cashReceived: '70.00',
       expectedTotal: '69.60',
+      expectedCashPayable: '69.60',
       expectedBillRevision: 0,
       billRevision: 0,
       cashRounding: 'NONE',
@@ -652,6 +660,7 @@ describe('buildOfflinePaymentPlan', () => {
           method: 'cash',
           cashReceived: '50.00',
           expectedTotal: '49.68',
+          expectedCashPayable: '55.68',
           billRevision: 0,
           cashRounding: 'NONE',
           offlineCreated: false,

@@ -25,6 +25,14 @@ allocation, offline loyalty, or post-payment correction. Do not promise those.
    pilot (the rate-limit cleanup job assumes one instance).
 2. Take a database backup. The migration is additive and needs no backfill, but
    a backup is still the first rollback step for any production change.
+   **Deploy note (REVIEW-29 D-6):** the loyalty migration runs plain
+   `CREATE UNIQUE INDEX` on `menu_categories("restaurantId", "id")` and
+   `menu_items("restaurantId", "id")`, and a plain `CREATE INDEX` on
+   `security_events("eventType", "ipAddress", "createdAt")`, inside the
+   `migrate deploy` transaction. On a large existing table each build holds a
+   write lock for its duration; for the pilot restaurant the tables are small,
+   so expect a short pause, not a maintenance window. Do not raise
+   `numReplicas` to shorten it.
 3. Have the restaurant's owner dashboard login ready.
 4. Generate a phone HMAC key **once** for this deployment:
 

@@ -131,8 +131,7 @@ export interface QrQuoteRequest {
 export const QR_QUOTE_ENDPOINT = '/qr/orders/quote';
 export const QR_CREATE_ENDPOINT = '/qr/orders/create';
 
-export const TOTAL_UPDATED_MESSAGE =
-  'Total updated. Review the new total before paying.';
+export const TOTAL_UPDATED_MESSAGE = 'Total updated. Review your order.';
 
 const PHONE_EXAMPLE = '+60123456789';
 const PHONE_INVALID_MESSAGE = `Enter a valid mobile number (e.g. ${PHONE_EXAMPLE}); the client normalises spaces/hyphens to E.164.`;
@@ -319,6 +318,12 @@ export function buildCreateRequest(input: {
     body.expectedTotal = input.quote.projectedTotal;
   }
 
+  // The create body carries no phone unless the customer agreed to the notice
+  // and we can send the matching consent proof. Sending a phone without a valid
+  // consent proof is the dead-end REVIEW-29 B-UX-1 removed: the server now
+  // returns a guest order, but the QR should not offer a member phone at all.
+  if (input.consent !== true || !input.notice) return body;
+
   // A loyalty quote accepts a malformed phone and falls back to a guest order.
   // The legacy create schema still requires the pre-feature minimum length, so
   // omit a too-short number rather than fail the order.
@@ -328,11 +333,9 @@ export function buildCreateRequest(input: {
   if (!phoneAllowed) return body;
 
   body.customerInfo = { phone };
-  if (input.consent === true && input.notice) {
-    body.customerInfo.consent = true;
-    body.customerInfo.consentVersion = input.notice.version;
-    body.customerInfo.consentTextHash = input.notice.textHash;
-  }
+  body.customerInfo.consent = true;
+  body.customerInfo.consentVersion = input.notice.version;
+  body.customerInfo.consentTextHash = input.notice.textHash;
   return body;
 }
 

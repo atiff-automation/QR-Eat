@@ -9,6 +9,7 @@ import {
   getTenantContext,
   requireAuth,
   requirePermission,
+  UserType,
 } from '@/lib/tenant-context';
 import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 import { FinancialSettingsSchema } from '@/lib/validation/settings-schemas';
@@ -23,6 +24,20 @@ export async function PUT(request: NextRequest) {
     const context = await getTenantContext(request);
     requireAuth(context);
     requirePermission(context!, 'settings', 'write');
+
+    // Tax, service charge, currency and their labels are owner-only. The
+    // manager role also holds `settings:write` (it gates payment settings), so
+    // the permission alone would let a manager change tax (REVIEW-29 S-1).
+    if (context!.userType !== UserType.RESTAURANT_OWNER) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Only the restaurant owner can change financial settings',
+          code: 'PERMISSION_DENIED',
+        },
+        { status: 403 }
+      );
+    }
 
     const restaurantId = context!.restaurantId!;
     await requireRestaurantAccess(restaurantId, context!);

@@ -142,3 +142,28 @@ Every row below was open at some point and is now fixed, verified, or explicitly
 | P11p-4 | The D-1 test does not assert the history counts are tenant-scoped | L | backlog | Assert the `where` clause |
 | P11p-5 | `hashtext` is a 32-bit advisory-lock space; collisions serialize unrelated bills | L | accepted | Contention only |
 | P11p-6 | `AFTER_CLOSE_ACTIVITY` is strict at exactly `closedAt` | L | accepted | Documented |
+
+## P11 closure (2026-11-16)
+
+Closed by P11-fix (`REVIEW-30`): **B-UX-1** (the consent dead-end), **S-1** (financial settings are
+owner-only on both routes), **S-3** (malformed phones count only the IP bucket), **B-PAY-1** (legacy
+cash rounding), **B-PAY-2** (one attribution for offline replays), **B-PAY-3** (cash total
+required), **B-PAY-4** (offline total required), **B-PAY-5** (handoff retry wording), **B-PAY-6**
+(quote-less create lock), **B-PAY-7** (card lock), **S-2** (`docs/ENVIRONMENT.md`), **D-2** (prune),
+**D-3** (PII cleanup dry-run), **D-6** (deploy note), **B-UX-2/3** (handoff).
+
+Still open from P11:
+
+| # | Item | Severity | Owner |
+|---|---|---|---|
+| D-1 | No 24-month inactive-member anonymisation job | M | backlog (owner + date to be set) |
+| M-1 | The cross-cutoff card race is proven by inspection and a sequential test, not concurrency | M | drill extension |
+| L-1 | `getCounterSalesPage`/`getTopItemsForRange` still range by `createdAt` | L | backlog |
+| L-2 | An open day's Z range ends at the cutoff end, not `now` | L | recorded |
+| N-1 | Other `restaurant.update` routes spread the body (custom-role only) | L | backlog |
+| N-2 | The parent-route test covers one of the five financial fields | L | backlog |
+| N-3 | A platform admin on the parent settings PUT gets 500, not 403 | L | backlog |
+| D-4 | The live Z for pre-feature days shows zero tender (`businessDate` null) | L | recorded |
+| D-5 | The array-column drop is argued safe, not proven | L | recorded |
+| S-4..S-7 | Enumeration lock/scan; platform-admin PII; consent re-clear; orphaned security events | L | backlog |
+| B-UX-4/5/6/8 | Handoff guest-promotion copy; outcome field; contact-phone line; P&L caption wording | L | backlog |

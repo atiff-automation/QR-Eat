@@ -26,6 +26,7 @@ import {
   toDbBusinessDate,
   type BusinessDate,
 } from '@/lib/time/business-day';
+import { paymentBusinessDateRangeWhere } from '@/lib/services/reporting/payment-business-date';
 
 const DATE_ONLY_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const MONEY_ZERO = new Decimal(0);
@@ -209,17 +210,17 @@ export async function getLoyaltyReport(
   });
 
   // A legacy payment can have no `PaymentBatch`, so it has no `businessDate`.
-  // Attribute it by its own `createdAt` through the shared business-day
-  // helper (the `rangeStart`/`rangeEnd` instants), exactly like a refund.
-  // `batchId: null` is disjoint from every payment counted through a batch, so
-  // this can never double-count one.
+  // Attribute it with the shared payment-business-date rule (REVIEW-29
+  // B-PAY-2): `createdAt` through the restaurant clock. `batchId: null` is
+  // disjoint from every payment counted through a batch, so this can never
+  // double-count one.
   const batchlessPositives = await prisma.payment.findMany({
     where: {
       order: { restaurantId: input.restaurantId },
       amount: { gt: 0 },
       batchId: null,
       status: 'PAID',
-      createdAt: { gte: rangeStart, lt: rangeEnd },
+      ...paymentBusinessDateRangeWhere(from, to, clock),
     },
     select: { orderId: true, amount: true },
   });
@@ -253,15 +254,15 @@ export async function getLoyaltyReport(
   }
 
   // Refunds are written as negative payments and have no `PaymentBatch`, so a
-  // batch-only read always reports `0.00`. Attribute each refund to the
-  // business date on which it happened (the refund's own `createdAt` through
-  // the restaurant clock), never to the original sale date. No batch filter:
-  // batchless refunds must be counted too.
+  // batch-only read always reports `0.00`. Attribute each refund with the same
+  // shared payment-business-date rule as the Z and the P&L (REVIEW-29 B-PAY-2),
+  // never to the original sale date. No batch filter: batchless refunds must be
+  // counted too.
   const refundRows = await prisma.payment.findMany({
     where: {
       order: { restaurantId: input.restaurantId },
       amount: { lt: 0 },
-      createdAt: { gte: rangeStart, lt: rangeEnd },
+      ...paymentBusinessDateRangeWhere(from, to, clock),
     },
     select: { amount: true, batchId: true },
   });

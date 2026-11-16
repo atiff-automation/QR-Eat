@@ -226,6 +226,25 @@ describe('quote and create request bodies', () => {
     });
   });
 
+  it('omits the phone from the create body when consent is unticked (B-UX-1)', () => {
+    const body = buildCreateRequest({
+      tableId,
+      sessionId,
+      quote: quote(),
+      phone: '+60123456789',
+      consent: false,
+      notice,
+    });
+
+    expect(body).toEqual({
+      tableId,
+      sessionId,
+      quoteId: 'q_opaque_1',
+      expectedTotal: '55.68',
+    });
+    expect(body).not.toHaveProperty('customerInfo');
+  });
+
   it('does not send consent without a phone', () => {
     expect(
       buildQuoteRequest({
@@ -349,9 +368,7 @@ describe('QUOTE_CHANGED and error handling', () => {
       action: 'requote',
       message: TOTAL_UPDATED_MESSAGE,
     });
-    expect(TOTAL_UPDATED_MESSAGE).toBe(
-      'Total updated. Review the new total before paying.'
-    );
+    expect(TOTAL_UPDATED_MESSAGE).toBe('Total updated. Review your order.');
   });
 
   it('maps field and consent errors inline', () => {

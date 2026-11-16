@@ -149,8 +149,9 @@ describe('loyalty report service', () => {
     });
     prismaMock.payment.findMany.mockImplementation(({ where }) => {
       if (where.amount?.gt !== undefined) return Promise.resolve([]);
-      const from = where.createdAt.gte as Date;
-      const to = where.createdAt.lt as Date;
+      const range = where.OR[1].AND[1].createdAt;
+      const from = range.gte as Date;
+      const to = range.lt as Date;
       return Promise.resolve(
         refundCreatedAt >= from && refundCreatedAt < to
           ? [{ amount: new Decimal('-5.00'), batchId: null }]
@@ -431,29 +432,29 @@ describe('loyalty report service', () => {
       where: { restaurantId, id: { in: ['order-1', 'order-2'] } },
       _sum: { subtotalAmount: true },
     });
-    expect(prismaMock.payment.findMany).toHaveBeenCalledWith({
-      where: {
-        order: { restaurantId },
-        amount: { lt: 0 },
-        createdAt: {
-          gte: expect.any(Date),
-          lt: expect.any(Date),
-        },
-      },
-      select: { amount: true, batchId: true },
+    const refundWhere = prismaMock.payment.findMany.mock.calls.find(
+      ([arg]) => arg.where.amount?.lt !== undefined
+    )?.[0].where;
+    expect(refundWhere).toMatchObject({
+      order: { restaurantId },
+      amount: { lt: 0 },
     });
-    expect(prismaMock.payment.findMany).toHaveBeenCalledWith({
-      where: {
-        order: { restaurantId },
-        amount: { gt: 0 },
-        batchId: null,
-        status: 'PAID',
-        createdAt: {
-          gte: expect.any(Date),
-          lt: expect.any(Date),
-        },
-      },
-      select: { orderId: true, amount: true },
+    expect(refundWhere.OR[1].AND[1].createdAt).toEqual({
+      gte: expect.any(Date),
+      lt: expect.any(Date),
+    });
+    const positiveWhere = prismaMock.payment.findMany.mock.calls.find(
+      ([arg]) => arg.where.amount?.gt !== undefined
+    )?.[0].where;
+    expect(positiveWhere).toMatchObject({
+      order: { restaurantId },
+      amount: { gt: 0 },
+      batchId: null,
+      status: 'PAID',
+    });
+    expect(positiveWhere.OR[1].AND[1].createdAt).toEqual({
+      gte: expect.any(Date),
+      lt: expect.any(Date),
     });
     expect(prismaMock.orderDiscount.findMany).toHaveBeenCalledWith({
       where: {

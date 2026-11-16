@@ -4,11 +4,10 @@ import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import { Prisma } from '@prisma/client';
 import {
   getBusinessDate,
-  getBusinessDayEnd,
-  getBusinessDayStart,
   toDbBusinessDate,
   type BusinessDate,
 } from '@/lib/time/business-day';
+import { paymentBusinessDateRangeWhere } from '@/lib/services/reporting/payment-business-date';
 
 // ============================================================================
 // Types
@@ -273,8 +272,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const rangeStart = getBusinessDayStart(startBusinessDate, clock);
-    const rangeEnd = getBusinessDayEnd(endBusinessDate, clock);
     const expenseStart = toDbBusinessDate(startBusinessDate);
     const expenseEnd = toDbBusinessDate(endBusinessDate);
 
@@ -285,9 +282,12 @@ export async function GET(request: NextRequest) {
       // ================================================================
 
       // The revenue set is every order with at least one positive PAID payment
-      // in the business-date range, regardless of the order's current status.
-      // A paid-then-cancelled order therefore contributes its total here and
-      // its refund offsets it to zero instead of leaving a negative net.
+      // attributed to the business-date range. Attribution is shared with the
+      // Z and the loyalty report (REVIEW-29 B-PAY-2): the batch `businessDate`
+      // when one exists, else the payment's `createdAt` through the restaurant
+      // clock. An offline replay after the cutoff therefore stays on the
+      // offline day instead of moving the sale. A paid-then-cancelled order
+      // still contributes its total here and its refund offsets it to zero.
       const revenueData = await prisma.order.aggregate({
         where: {
           restaurantId,
@@ -295,7 +295,11 @@ export async function GET(request: NextRequest) {
             some: {
               status: 'PAID',
               amount: { gt: 0 },
-              createdAt: { gte: rangeStart, lt: rangeEnd },
+              ...paymentBusinessDateRangeWhere(
+                startBusinessDate,
+                endBusinessDate,
+                clock
+              ),
             },
           },
         },
@@ -324,7 +328,11 @@ export async function GET(request: NextRequest) {
         where: {
           order: { restaurantId },
           amount: { lt: 0 },
-          createdAt: { gte: rangeStart, lt: rangeEnd },
+          ...paymentBusinessDateRangeWhere(
+            startBusinessDate,
+            endBusinessDate,
+            clock
+          ),
         },
         _sum: {
           amount: true,

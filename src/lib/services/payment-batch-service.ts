@@ -21,6 +21,7 @@ import {
 import { SequenceManager } from '@/lib/sequence-manager';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
 import { getBusinessDate, toDbBusinessDate } from '@/lib/time/business-day';
+import { round5 } from '@/lib/loyalty/money';
 import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
 import {
   LoyaltyPaymentError,
@@ -228,6 +229,9 @@ const LEGACY_ORDER_INCLUDE = {
       ...ORDER_WITH_DETAILS_INCLUDE.restaurant.select,
       timezone: true,
       businessDayCloseTime: true,
+      // Cash rounding is independent of loyalty (§18.20.1). The legacy path
+      // reads the same setting the loyalty path does.
+      cashRounding: true,
     },
   },
 } as const;
@@ -268,6 +272,61 @@ function legacyBusinessDate(
     closeTime: restaurant.businessDayCloseTime || '04:00',
   };
   return toDbBusinessDate(getBusinessDate(now, clock));
+}
+
+/**
+ * Cash figures for the legacy payment path.
+ *
+ * Cash rounding is independent of loyalty (§18.20.1): the same
+ * `Restaurant.cashRounding` setting rounds the legacy cash total, records the
+ * adjustment and computes change from `cashPayable`, so the drawer identity
+ * `cashReceived − changeGiven = cashPayable` holds. Card and e-wallet charge
+ * the exact total and write no cash fields.
+ */
+function legacyCashFigures(input: {
+  method: CounterPaymentMethod;
+  totalAmount: Decimal;
+  cashRounding: 'NONE' | 'NEAREST_5_SEN' | null | undefined;
+  cashReceived?: number | string;
+}): {
+  cashPayable: Decimal | null;
+  roundingAdjustment: Decimal | null;
+  cashReceived: Decimal | null;
+  changeGiven: Decimal | null;
+} {
+  if (input.method !== 'cash') {
+    return {
+      cashPayable: null,
+      roundingAdjustment: null,
+      cashReceived: null,
+      changeGiven: null,
+    };
+  }
+
+  const cashPayable =
+    input.cashRounding === 'NEAREST_5_SEN'
+      ? round5(input.totalAmount)
+      : input.totalAmount;
+  const roundingAdjustment = cashPayable.minus(input.totalAmount);
+  const cashReceived =
+    input.cashReceived !== undefined
+      ? new Decimal(input.cashReceived)
+      : cashPayable;
+
+  if (cashReceived.lt(cashPayable)) {
+    throw new PaymentServiceError(
+      `Insufficient cash. Total: ${cashPayable}, received: ${cashReceived}`,
+      'INSUFFICIENT_CASH',
+      400
+    );
+  }
+
+  return {
+    cashPayable,
+    roundingAdjustment,
+    cashReceived,
+    changeGiven: cashReceived.minus(cashPayable),
+  };
 }
 
 /**
@@ -412,25 +471,16 @@ export async function processTablePaymentBatch(
         new Decimal(0)
       );
 
-      let cashReceived: Decimal | null = null;
-      let changeGiven: Decimal | null = null;
-
-      if (input.paymentMethod === 'cash') {
-        cashReceived =
-          input.cashReceived !== undefined
-            ? new Decimal(input.cashReceived)
-            : totalAmount;
-
-        if (cashReceived.lessThan(totalAmount)) {
-          throw new PaymentServiceError(
-            `Insufficient cash. Total: ${totalAmount}, received: ${cashReceived}`,
-            'INSUFFICIENT_CASH',
-            400
-          );
-        }
-
-        changeGiven = cashReceived.minus(totalAmount);
-      }
+      const cash = legacyCashFigures({
+        method: input.paymentMethod,
+        totalAmount,
+        cashRounding: orders[0].restaurant.cashRounding,
+        cashReceived: input.cashReceived,
+      });
+      const cashPayable = cash.cashPayable;
+      const roundingAdjustment = cash.roundingAdjustment;
+      const cashReceived = cash.cashReceived;
+      const changeGiven = cash.changeGiven;
 
       const batchId = randomUUID();
       const processedBy = getProcessedByFields(input.userId, input.userType);
@@ -447,6 +497,8 @@ export async function processTablePaymentBatch(
           totalAmount,
           cashReceived,
           changeGiven,
+          cashPayable,
+          roundingAdjustment,
           receiptNumber,
           status: 'COMPLETED',
           response: {},
@@ -782,25 +834,16 @@ export async function processOrderPaymentBatch(
       }
 
       const totalAmount = new Decimal(order.totalAmount);
-      let cashReceived: Decimal | null = null;
-      let changeGiven: Decimal | null = null;
-
-      if (input.paymentMethod === 'cash') {
-        cashReceived =
-          input.cashReceived !== undefined
-            ? new Decimal(input.cashReceived)
-            : totalAmount;
-
-        if (cashReceived.lessThan(totalAmount)) {
-          throw new PaymentServiceError(
-            `Insufficient cash. Total: ${totalAmount}, received: ${cashReceived}`,
-            'INSUFFICIENT_CASH',
-            400
-          );
-        }
-
-        changeGiven = cashReceived.minus(totalAmount);
-      }
+      const cash = legacyCashFigures({
+        method: input.paymentMethod,
+        totalAmount,
+        cashRounding: order.restaurant.cashRounding,
+        cashReceived: input.cashReceived,
+      });
+      const cashPayable = cash.cashPayable;
+      const roundingAdjustment = cash.roundingAdjustment;
+      const cashReceived = cash.cashReceived;
+      const changeGiven = cash.changeGiven;
 
       const batchId = randomUUID();
       const processedBy = getProcessedByFields(input.userId, input.userType);
@@ -818,6 +861,8 @@ export async function processOrderPaymentBatch(
           totalAmount,
           cashReceived,
           changeGiven,
+          cashPayable,
+          roundingAdjustment,
           receiptNumber,
           status: 'COMPLETED',
           response: {},

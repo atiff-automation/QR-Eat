@@ -243,6 +243,14 @@ withdrawal (loyalty or marketing), marketing consent, anonymise-on-delete.
 write-once at enrolment and this is the only corrective path. It writes an
 audited, name-free row.
 
+Financial settings (tax rate, service charge, currency and their labels) are an
+**owner-only** control: `PUT /api/settings/restaurant/financial` and the
+financial fields of `PUT /api/settings/restaurant` require `settings:write`
+**and** `userType = restaurant_owner`, because the manager role also holds
+`settings:write` for payment settings and must not change tax (REVIEW-29 S-1,
+REVIEW-30 H-1). A platform admin is refused by design, even when the token
+carries a restaurant context.
+
 ## 18.20.6 Money and reporting
 
 - Discount applies to the subtotal before tax/service; tax/service are

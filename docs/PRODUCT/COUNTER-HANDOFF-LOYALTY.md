@@ -30,12 +30,42 @@ The server is the system of record. The Counter renders state and sends intents.
 | Remove member | `POST .../member/remove` | `Idempotency-Key`, `expectedBillRevision` |
 | Pay | `POST /api/counter/orders/{orderId}/pay` or `POST /api/counter/payments` | `method`, `expectedTotal`, `expectedCashPayable`, `expectedBillRevision`, `cashReceived`, `Idempotency-Key` |
 | Replay a stored payment | `GET /api/counter/payments/{key}` | — |
-| Modify an unpaid order | `PATCH /api/orders/{id}/modify` | `Idempotency-Key`, order changes |
+| Modify an unpaid order | `PATCH /api/orders/{id}/modify` | body: `idempotencyKey`, `version`, `reason`, `customerNotified`, `itemChanges` |
 | Day reports | `GET /api/counter/reports/day` and the Z | — |
 
 `expectedTotal` is always `projectedTotal` from the bill — never a pre-reward
 total. For cash, `expectedCashPayable` is `cashPayable`; card and e-wallet
 charge `projectedTotal` exactly.
+
+**Modify is a body contract.** `PATCH /api/orders/{id}/modify` takes no
+`Idempotency-Key` header. Send `idempotencyKey` (UUID) in the JSON body together
+with `version` (the order version the cashier saw), `reason`
+(`out_of_stock` | `customer_request` | `kitchen_error` | `other`),
+`customerNotified` (boolean) and `itemChanges` (at least one
+`{ itemId, action: 'remove' | 'update_quantity', newQuantity? }`). A request that
+follows an `Idempotency-Key` header instead gets a 400.
+
+**Notice response shape.** `GET /api/counter/loyalty/notice` returns:
+
+```json
+{
+  "success": true,
+  "enabled": true,
+  "notice": {
+    "version": "v1",
+    "text": "…",
+    "textHash": "…",
+    "privacyUrl": "https://…",
+    "termsText": "…"
+  }
+}
+```
+
+Map it to the attach body as `version` → `consentVersion` and `textHash` →
+`consentTextHash`. When loyalty is off the route is a normal `200` with
+`enabled: false` and `notice: null`; do not attach, and render the neutral
+disabled state. A missing or stale `textHash` is `CONSENT_STALE`, never a
+client-side guess.
 
 ## Bill fields the Counter must render
 
@@ -102,7 +132,9 @@ total.
 Online-priced order paid offline: keep the promotion, collect `preRewardTotal`
 (or `preRewardCashPayable`), no reward, no visit. A queued payment carrying a
 projected reward is rejected or flagged for reconciliation — never settled
-silently. Show "Loyalty unavailable offline."
+silently. Show "Loyalty unavailable offline." An offline replay must **omit**
+`expectedTotal` when it is unknown: sending `null` is a 400 request error, not
+`BILL_CHANGED`.
 
 ## Client-visible changes from the current Counter
 
@@ -121,7 +153,7 @@ silently. Show "Loyalty unavailable offline."
 |---|---|
 | `BILL_CHANGED` / `AMOUNT_MISMATCH` | Re-read the bill; re-tender. "Not charged." |
 | `BILL_PAID` | The bill is already paid; refresh. |
-| `PAYMENT_IN_PROGRESS` | Retry with the same idempotency key. |
+| `PAYMENT_IN_PROGRESS` | Reload the bill, then `GET /api/counter/payments/{key}` to read the stored outcome. If it is still in progress, use a **new** idempotency key for the next attempt. Do not retry with the same key: the record stays in progress for 24h, so that retry cannot succeed. |
 | `QUOTE_CHANGED` | Re-quote (QR only). |
 | `CONSENT_REQUIRED` / `CONSENT_STALE` / `CONSENT_VERSION_REQUIRED` | Show the notice; re-capture consent. The bill stays `GUEST`. |
 | `INSUFFICIENT_CASH` | Re-enter the cash received. |

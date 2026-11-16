@@ -467,9 +467,80 @@ describe('loyalty table payment — transaction', () => {
     await processLoyaltyTablePayment(tableInput());
 
     const lockKeys = tx.$queryRaw.mock.calls.map((call) => call[1]);
-    expect(lockKeys).toHaveLength(2);
-    expect(lockKeys[0]).toContain(`loyalty-day:${restaurantId}:${customerId}:`);
-    expect(lockKeys[1]).toBe(`loyalty-bill:${restaurantId}:${sessionId}`);
+    expect(lockKeys).toHaveLength(3);
+    expect(lockKeys[0]).toBe(`loyalty-card:${restaurantId}:${customerId}`);
+    expect(lockKeys[1]).toContain(`loyalty-day:${restaurantId}:${customerId}:`);
+    expect(lockKeys[2]).toBe(`loyalty-bill:${restaurantId}:${sessionId}`);
+  });
+
+  it('applies one reward across a cutoff by serialising on the card lock (B-PAY-7)', async () => {
+    // A member at 2 of 3 visits pays two bills either side of the 04:00 cutoff.
+    // The day locks differ; the customer card lock must still serialise them.
+    let cardState = {
+      visitsInCycle: 2,
+      cycleNumber: 1,
+      visitsRequired: 3,
+      rewardType: 'PERCENT',
+      rewardValue: new Prisma.Decimal('10.00'),
+      maxDiscount: new Prisma.Decimal('15.00'),
+      rewardLabel: '10% off, max RM15',
+      minDailySpend: new Prisma.Decimal('20.00'),
+    };
+    tx.loyaltyCard.findUnique.mockImplementation(() =>
+      Promise.resolve(cardState)
+    );
+    tx.loyaltyCard.update.mockImplementation(
+      ({ data }: { data: Record<string, unknown> }) => {
+        const increment = data.cycleNumber as
+          | { increment?: number }
+          | undefined;
+        if (increment?.increment) {
+          cardState = {
+            ...cardState,
+            visitsInCycle: (data.visitsInCycle as number | undefined) ?? 0,
+            cycleNumber: cardState.cycleNumber + increment.increment,
+          };
+        } else {
+          const visits = data.visitsInCycle as
+            | { increment?: number }
+            | undefined;
+          if (visits?.increment) {
+            cardState = {
+              ...cardState,
+              visitsInCycle: cardState.visitsInCycle + visits.increment,
+            };
+          }
+        }
+        return Promise.resolve(cardState);
+      }
+    );
+
+    const first = await processLoyaltyTablePayment(
+      tableInput({
+        idempotencyKey: 'card-cutoff-key-1',
+        now: new Date('2026-11-13T15:00:00.000Z'), // 23:00 KL, date 13
+        // The bill projects the 3rd-visit reward: 69.60 − 6.96 = 62.64.
+        expectedTotal: '62.64',
+        expectedCashPayable: '62.64',
+        cashReceived: '70.00',
+      })
+    );
+    const second = await processLoyaltyTablePayment(
+      tableInput({
+        idempotencyKey: 'card-cutoff-key-2',
+        now: new Date('2026-11-13T21:00:00.000Z'), // 05:00 KL, date 14
+      })
+    );
+
+    expect(first.response.outcome).toBe('REWARD_APPLIED');
+    expect(second.response.outcome).toBe('VISIT_COUNTED');
+    expect(cardState.visitsInCycle).toBe(1);
+    expect(cardState.cycleNumber).toBe(2);
+
+    const lockKeys = tx.$queryRaw.mock.calls.map((call) => call[1]);
+    expect(
+      lockKeys.filter((key) => String(key).startsWith('loyalty-card:'))
+    ).toHaveLength(2);
   });
 
   it('rejects an already-paid bill instead of treating 0.00 as due (R-08)', async () => {
@@ -797,6 +868,28 @@ describe('loyalty table payment — transaction', () => {
     await expect(
       processLoyaltyTablePayment(tableInput({ expectedTotal: '1.00' }))
     ).rejects.toMatchObject({ code: 'AMOUNT_MISMATCH' });
+
+    expect(tx.paymentBatch.create).not.toHaveBeenCalled();
+    expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('requires expectedCashPayable for cash and writes nothing without it (B-PAY-3)', async () => {
+    await expect(
+      processLoyaltyTablePayment(tableInput({ expectedCashPayable: undefined }))
+    ).rejects.toMatchObject({ code: 'AMOUNT_MISMATCH' });
+
+    expect(tx.paymentBatch.create).not.toHaveBeenCalled();
+    expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();
+    expect(tx.payment.create).not.toHaveBeenCalled();
+  });
+
+  it('requires expectedTotal on an offline replay and writes nothing (B-PAY-4)', async () => {
+    await expect(
+      processLoyaltyTablePayment(
+        tableInput({ recordedOffline: true, expectedTotal: undefined })
+      )
+    ).rejects.toMatchObject({ code: 'BILL_CHANGED' });
 
     expect(tx.paymentBatch.create).not.toHaveBeenCalled();
     expect(tx.loyaltyVisit.create).not.toHaveBeenCalled();

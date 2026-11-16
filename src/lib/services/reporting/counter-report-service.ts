@@ -12,6 +12,10 @@ import {
   parseBusinessDateFromDb,
   toDbBusinessDate,
 } from '@/lib/time/business-day';
+import {
+  paymentBusinessDate,
+  paymentOnBusinessDateWhere,
+} from '@/lib/services/reporting/payment-business-date';
 
 export class CounterReportError extends Error {
   constructor(
@@ -343,15 +347,21 @@ export async function getOpenBusinessDay(restaurantId: string) {
   }
 }
 
-async function getDayPayments(restaurantId: string, start: Date, end: Date) {
-  return prisma.payment.findMany({
+async function getDayPayments(
+  restaurantId: string,
+  businessDate: BusinessDate,
+  clock: BusinessDayClock
+) {
+  // Attribute by the payment's effective business date (REVIEW-29 B-PAY-2):
+  // the batch `businessDate` when one exists, else `createdAt` through the
+  // restaurant clock. An offline replay after the cutoff therefore lands on the
+  // same day as its batch. The fallback keeps the half-open `[start, end)`
+  // window: a payment exactly at the cutoff instant belongs to the next day.
+  const rows = await prisma.payment.findMany({
     where: {
       order: { restaurantId },
       status: 'PAID' as const,
-      // Half-open `[start, end)`, the same window the P&L and the loyalty
-      // report use: a payment exactly at the cutoff instant belongs to the
-      // next business date.
-      createdAt: { gte: start, lt: end },
+      ...paymentOnBusinessDateWhere(businessDate, clock),
     },
     select: {
       id: true,
@@ -361,6 +371,7 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
       status: true,
       receiptNumber: true,
       createdAt: true,
+      batch: { select: { businessDate: true } },
       order: {
         select: {
           orderNumber: true,
@@ -372,6 +383,12 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   });
+
+  // The filter above is the SQL mirror; this guard keeps a mocked or
+  // unexpectedly-shaped row from being attributed to the wrong day.
+  return rows.filter(
+    (payment) => paymentBusinessDate(payment, clock) === businessDate
+  );
 }
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
@@ -836,16 +853,12 @@ export async function getCounterDaySummary(
   }
 
   const businessDate = parseBusinessDateFromDb(businessDay.businessDate);
-  // One range source for the three reports (§18.20.8): the Z ranges over the
-  // business-day cutoff, not over the close instant. A day that closes early
-  // still owns every payment up to its 04:00 cutoff, so a late refund lands on
-  // the day the P&L and the loyalty report put it on. `openedAt`/`closedAt`
-  // stay in the payload for display only.
-  const start = getBusinessDayStart(businessDate, clock);
-  const end = businessDay.closedAt
-    ? getBusinessDayEnd(businessDate, clock)
-    : new Date();
-  const payments = await getDayPayments(restaurantId, start, end);
+  // One attribution source for the three reports (§18.20.8, REVIEW-29
+  // B-PAY-2): a payment is on its batch's business date when it has one, else
+  // on its own `createdAt` through the restaurant clock. The Z, the P&L and the
+  // loyalty report therefore agree on an offline replay after the cutoff.
+  // `openedAt`/`closedAt` stay in the payload for display only.
+  const payments = await getDayPayments(restaurantId, businessDate, clock);
   // A refund payment carries the original order id, but that order's money did
   // not come in on this business day. Only positive payments put an order into
   // the day's gross/tax/service/discount/order-count block; the refund itself is
@@ -1395,13 +1408,10 @@ export async function getCounterDailyTotals(
       result.push({ businessDate: date, netSales: '0.00', orderCount: 0 });
       continue;
     }
-    // Same cutoff window and half-open bounds as the Z: a payment or refund
-    // after an early close still belongs to its business date.
-    const payments = await getDayPayments(
-      restaurantId,
-      getBusinessDayStart(date, clock),
-      day.closedAt ? getBusinessDayEnd(date, clock) : new Date()
-    );
+    // Same effective-business-date attribution as the Z: a payment or refund
+    // after an early close, or an offline replay after the cutoff, still
+    // belongs to its business date.
+    const payments = await getDayPayments(restaurantId, date, clock);
     const netSales = payments.reduce(
       (sum, payment) => sum + Number(payment.amount),
       0

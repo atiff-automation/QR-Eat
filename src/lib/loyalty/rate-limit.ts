@@ -251,7 +251,33 @@ function limitFor(bucket: RateLimitBucket, limits: RateLimitLimits): number {
   }
 }
 
-function buildBuckets(input: RateLimitSubjectInput): RateLimitBucket[] {
+function edgeIpBucket(input: RateLimitSubjectInput): RateLimitBucket {
+  return {
+    restaurantId: input.restaurantId,
+    scope: 'EDGE_IP',
+    subject:
+      input.ip.length > 0 && input.ip !== UNKNOWN_TRUSTED_IP
+        ? input.ip
+        : unknownIpSubject(input.restaurantId),
+  };
+}
+
+/**
+ * Build the buckets for one attempt.
+ *
+ * REVIEW-29 S-3: a malformed phone is not an identity. It must not consume the
+ * shared restaurant (or session) bucket, because one IP sending a handful of
+ * malformed phones would deny loyalty pricing for the whole restaurant. A
+ * malformed phone counts only the edge-IP bucket. A valid phone counts all
+ * four; the phone bucket is skipped only when the HMAC key is missing (that
+ * path fails closed later anyway).
+ */
+function buildBuckets(
+  input: RateLimitSubjectInput,
+  normalisedPhone: string | null
+): RateLimitBucket[] {
+  if (normalisedPhone === null) return [edgeIpBucket(input)];
+
   const base = { restaurantId: input.restaurantId };
 
   const buckets: RateLimitBucket[] = [
@@ -262,29 +288,17 @@ function buildBuckets(input: RateLimitSubjectInput): RateLimitBucket[] {
     buckets.push({ ...base, scope: 'QR_SESSION', subject: input.sessionId });
   }
 
-  buckets.push({
-    ...base,
-    scope: 'EDGE_IP',
-    subject:
-      input.ip.length > 0 && input.ip !== UNKNOWN_TRUSTED_IP
-        ? input.ip
-        : unknownIpSubject(input.restaurantId),
-  });
+  buckets.push(edgeIpBucket(input));
 
-  if (input.phone) {
-    const normalised = normalisePhone(input.phone);
-    if (normalised.ok) {
-      try {
-        buckets.push({
-          ...base,
-          scope: 'PHONE_HASH',
-          subject: hashPhone(normalised.phone),
-        });
-      } catch {
-        // A missing HMAC key makes the member path fail closed anyway. The
-        // other three buckets still protect the endpoint.
-      }
-    }
+  try {
+    buckets.push({
+      ...base,
+      scope: 'PHONE_HASH',
+      subject: hashPhone(normalisedPhone),
+    });
+  } catch {
+    // A missing HMAC key makes the member path fail closed anyway. The other
+    // three buckets still protect the endpoint.
   }
 
   return buckets;
@@ -325,7 +339,13 @@ export async function enforceRateLimits(
 
   const seconds = retryAfterSeconds(now);
   const limits = resolveLimits(input.limits);
-  const buckets = buildBuckets(input);
+  // Validate the phone before building buckets: a malformed value counts only
+  // the edge-IP bucket and never the shared restaurant bucket (REVIEW-29 S-3).
+  const normalisedPhone = normalisePhone(input.phone);
+  const buckets = buildBuckets(
+    input,
+    normalisedPhone.ok ? normalisedPhone.phone : null
+  );
 
   try {
     const refusal = await prisma.$transaction(async (tx) => {

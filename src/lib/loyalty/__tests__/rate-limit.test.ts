@@ -183,16 +183,54 @@ describe('enforceRateLimits — guest requests are skipped', () => {
     expect(prisma.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('does not create a phoneHash bucket for an invalid phone, but still limits', async () => {
+  it('counts only the edge-IP bucket for an invalid phone (S-3)', async () => {
     const counter = installCounter();
 
     await enforceRateLimits(subject({ phone: 'not-a-phone' }), now);
 
     const scopes = [...counter.counts.keys()].map((key) => key.split('|')[1]);
     expect(scopes).not.toContain('PHONE_HASH');
-    expect(scopes).toEqual(
-      expect.arrayContaining(['RESTAURANT', 'QR_SESSION', 'EDGE_IP'])
+    expect(scopes).not.toContain('RESTAURANT');
+    expect(scopes).not.toContain('QR_SESSION');
+    expect(scopes).toEqual(['EDGE_IP']);
+  });
+
+  it('does not let a malformed-phone flood exhaust the restaurant bucket (S-3)', async () => {
+    const counter = installCounter();
+    const restaurantKey = [
+      restaurantId,
+      'RESTAURANT',
+      restaurantId,
+      windowStart(now).toISOString(),
+    ].join('|');
+
+    for (let index = 0; index < 40; index += 1) {
+      const decision = await enforceRateLimits(
+        subject({
+          phone: `not-a-phone-${index}`,
+          sessionId: `flood-${index}`,
+          ip: '203.0.113.9',
+        }),
+        now
+      );
+      expect(decision.allowed).toBe(true);
+    }
+
+    // 40 malformed attempts, all from one IP: the shared restaurant bucket was
+    // never touched, so real customers are not denied loyalty pricing.
+    expect(counter.counts.get(restaurantKey)).toBeUndefined();
+
+    await enforceRateLimits(
+      subject({
+        phone: '+60123456789',
+        sessionId: 'valid-phone',
+        ip: '203.0.113.9',
+      }),
+      now
     );
+
+    // A valid phone still consumes the restaurant bucket.
+    expect(counter.counts.get(restaurantKey)).toBe(1);
   });
 });
 

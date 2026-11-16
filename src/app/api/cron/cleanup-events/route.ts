@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cleanupOrderEvents } from '@/lib/order-events';
 import { cleanupRestaurantChanges } from '@/lib/restaurant-changes';
 import { runDailyCleanup } from '@/lib/jobs/cleanup-table-status';
+import { cleanupLoyaltyArtifacts } from '@/lib/jobs/cleanup-loyalty-artifacts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,17 +40,23 @@ export async function GET(request: NextRequest) {
     const deletedOrderEvents = await cleanupOrderEvents(RETENTION_DAYS);
     const deletedRestaurantChanges =
       await cleanupRestaurantChanges(RETENTION_DAYS);
+    const loyaltyArtifacts = await cleanupLoyaltyArtifacts();
     const tableCleanup = await runDailyCleanup();
     console.log(
       `[event-retention] deleted ${deletedOrderEvents} order_events and ` +
         `${deletedRestaurantChanges} restaurant_changes older than ` +
-        `${RETENTION_DAYS} days; fixed ${tableCleanup.tableCleanup.tablesFixed} ` +
-        `tables and ended ${tableCleanup.expiredSessions} sessions`
+        `${RETENTION_DAYS} days; deleted ${loyaltyArtifacts.deletedQuotes} ` +
+        `expired quotes and ${loyaltyArtifacts.deletedIdempotencyRecords} ` +
+        `expired idempotency records; fixed ` +
+        `${tableCleanup.tableCleanup.tablesFixed} tables and ended ` +
+        `${tableCleanup.expiredSessions} sessions`
     );
     return NextResponse.json({
       deleted: deletedOrderEvents,
       deletedOrderEvents,
       deletedRestaurantChanges,
+      deletedQuotes: loyaltyArtifacts.deletedQuotes,
+      deletedIdempotencyRecords: loyaltyArtifacts.deletedIdempotencyRecords,
       tableCleanup: {
         checked: tableCleanup.tableCleanup.totalTablesChecked,
         fixed: tableCleanup.tableCleanup.tablesFixed,

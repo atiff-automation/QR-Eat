@@ -130,18 +130,52 @@ function paymentRow(overrides: Record<string, unknown> = {}) {
  * Apply the `createdAt` bounds the service sent to Postgres. Honours `lt` and
  * `lte` separately so a boundary test fails if the service uses the wrong one.
  */
+type DateRange = { gte: Date; lt?: Date; lte?: Date };
+
+function effectivePaymentRange(where: {
+  createdAt?: DateRange;
+  OR?: Array<{
+    batch?: { businessDate?: DateRange };
+    AND?: Array<{ OR?: unknown[]; createdAt?: DateRange }>;
+  }>;
+}): { batch?: DateRange; createdAt?: DateRange } | null {
+  if (where.createdAt) return { createdAt: where.createdAt };
+  const batch = where.OR?.[0]?.batch?.businessDate;
+  const createdAt = where.OR?.[1]?.AND?.[1]?.createdAt;
+  if (!batch || !createdAt) return null;
+  return { batch, createdAt };
+}
+
 function applyCreatedAtRange(
-  rows: Array<{ createdAt: Date }>,
+  rows: Array<{
+    createdAt: Date;
+    batch?: { businessDate: Date | null } | null;
+  }>,
   where: {
-    createdAt?: { gte: Date; lt?: Date; lte?: Date };
+    createdAt?: DateRange;
+    OR?: Array<{
+      batch?: { businessDate?: DateRange };
+      AND?: Array<{ OR?: unknown[]; createdAt?: DateRange }>;
+    }>;
   }
 ) {
-  const range = where.createdAt;
+  const range = effectivePaymentRange(where);
   if (!range) return [];
   return rows.filter((row) => {
-    if (row.createdAt.getTime() < range.gte.getTime()) return false;
-    if (range.lt && row.createdAt.getTime() >= range.lt.getTime()) return false;
-    if (range.lte && row.createdAt.getTime() > range.lte.getTime())
+    const batchDate = row.batch?.businessDate ?? null;
+    if (batchDate && range.batch) {
+      return (
+        batchDate.getTime() >= range.batch.gte.getTime() &&
+        (!range.batch.lt || batchDate.getTime() < range.batch.lt.getTime()) &&
+        (!range.batch.lte || batchDate.getTime() <= range.batch.lte.getTime())
+      );
+    }
+    const created = range.createdAt;
+    if (!created) return false;
+    if (row.createdAt.getTime() < created.gte.getTime()) return false;
+    if (created.lt && row.createdAt.getTime() >= created.lt.getTime())
+      return false;
+    if (created.lte && row.createdAt.getTime() > created.lte.getTime())
       return false;
     return true;
   });
@@ -980,17 +1014,12 @@ describe('counter reporting', () => {
 
     // The same cutoff range the P&L and loyalty reports use, so the 02:00Z
     // refund is inside this business date.
-    expect(prisma.payment.findMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          createdAt: {
-            gte: new Date('2026-10-27T20:00:00.000Z'),
-            lt: new Date('2026-10-28T20:00:00.000Z'),
-          },
-        }),
-      })
-    );
+    const zWhere = (prisma.payment.findMany as jest.Mock).mock.calls[0][0]
+      .where;
+    expect(zWhere.OR[1].AND[1].createdAt).toEqual({
+      gte: new Date('2026-10-27T20:00:00.000Z'),
+      lt: new Date('2026-10-28T20:00:00.000Z'),
+    });
     expect(summary.refunds).toBe('5.00');
     expect(summary.netSales).toBe('15.00');
     expect(summary.blockers).toEqual(
@@ -1040,16 +1069,15 @@ describe('counter reporting', () => {
         (blocker) => blocker.type === 'AFTER_CLOSE_ACTIVITY'
       )
     ).toBe(false);
-    // An open day still ends at now, not at the cutoff.
+    // An open day still ends at the cutoff window's closing instant.
     const range = (prisma.payment.findMany as jest.Mock).mock.calls[0][0] as {
-      where: { createdAt: { gte: Date; lt: Date } };
+      where: {
+        OR: Array<{ AND: Array<{ createdAt: { gte: Date; lt: Date } }> }>;
+      };
     };
-    expect(range.where.createdAt.gte).toEqual(
-      new Date('2026-10-27T20:00:00.000Z')
-    );
-    expect(range.where.createdAt.lt.getTime()).toBeGreaterThan(
-      Date.now() - 60_000
-    );
+    const fallback = range.where.OR[1].AND[1].createdAt;
+    expect(fallback.gte).toEqual(new Date('2026-10-27T20:00:00.000Z'));
+    expect(fallback.lt).toEqual(new Date('2026-10-28T20:00:00.000Z'));
   });
 
   it('excludes a payment exactly at the cutoff instant from the Z (half-open)', async () => {
@@ -1090,17 +1118,12 @@ describe('counter reporting', () => {
 
     const summary = await getCounterDaySummary(restaurantId, 'day-1');
 
-    expect(prisma.payment.findMany).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        where: expect.objectContaining({
-          createdAt: {
-            gte: new Date('2026-10-27T20:00:00.000Z'),
-            lt: cutoffEnd,
-          },
-        }),
-      })
-    );
+    const zWhere = (prisma.payment.findMany as jest.Mock).mock.calls[0][0]
+      .where;
+    expect(zWhere.OR[1].AND[1].createdAt).toEqual({
+      gte: new Date('2026-10-27T20:00:00.000Z'),
+      lt: cutoffEnd,
+    });
     // Only the in-window 20.00 counts; a 7.00 at the closing instant would make
     // this 27.00.
     expect(summary.netSales).toBe('20.00');

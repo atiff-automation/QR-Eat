@@ -663,9 +663,11 @@ async function raceTwoPayments(
   if (!bill.customerId) {
     throw new Error('Drill 1 requires a member bill');
   }
-  // A member bill's first service lock is `loyalty-day`, not `loyalty-bill`:
-  // both payment children block there before either reaches the bill lock.
-  // Holding the day lock is what makes two waiters observable on one key.
+  // A member bill's first service lock is `loyalty-card`, then `loyalty-day`.
+  // The parent holds the day lock, so child A acquires the card lock and waits
+  // on the day lock; child B then waits on the card lock A holds. The barrier
+  // therefore observes two scoped waiters — one directly on the day lock, one
+  // queued behind the card lock — and neither has reached the bill lock.
   const lockKey = dayLockKey(
     fixture.restaurantId,
     bill.customerId,
@@ -730,8 +732,9 @@ async function raceTwoPayments(
           BARRIER_TIMEOUT_MS,
           'drill 1'
         );
-        // Let both children enter the service together. They then race for the
-        // day lock the parent holds.
+        // Let both children enter the service together. They then queue on the
+        // card lock; the first waits on the day lock the parent holds and the
+        // second waits behind the card lock.
         writeFileSync(goFiles[0], 'go');
         writeFileSync(goFiles[1], 'go');
         const barrier = markersReady.ok

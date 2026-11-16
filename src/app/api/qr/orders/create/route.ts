@@ -330,7 +330,8 @@ export async function POST(request: NextRequest) {
     // without a quote still counts. A guest request (no phone) is skipped inside
     // the limiter. Enforcement happens before `prepareLoyaltyCreate` resolves a
     // member, so an enumeration attempt costs nothing.
-    if (isLoyaltyGloballyEnabled()) {
+    const loyaltyBillGuard = isLoyaltyGloballyEnabled();
+    if (loyaltyBillGuard) {
       const loyaltySettings = await prisma.loyaltySettings.findUnique({
         where: { restaurantId: table.restaurant.id },
       });
@@ -568,7 +569,12 @@ export async function POST(request: NextRequest) {
       // order joins a settled bill, or it waits and sees the new revision.
       // Lock order stays `tables` row → `loyalty-bill`; no bill path takes the
       // `tables` row lock, so the pair cannot deadlock.
-      if (plan) {
+      //
+      // REVIEW-29 B-PAY-6: the guard is the global loyalty flag, not `plan`. A
+      // quote-less create while loyalty is on would otherwise take neither the
+      // bill lock nor a revision bump, so a concurrent payment could settle a
+      // bill that is about to grow.
+      if (loyaltyBillGuard) {
         const billLockKey = `loyalty-bill:${table.restaurant.id}:${diningSession.id}`;
         await tx.$queryRaw<Array<{ lock: string }>>`
           SELECT pg_advisory_xact_lock(hashtext(${billLockKey})::bigint)::text AS lock
@@ -705,14 +711,20 @@ export async function POST(request: NextRequest) {
             },
           });
         }
+      }
 
-        // Order create adds one order to the bill. The quote is the price
-        // lock; the bill revision moves forward for the next quote/bill read.
+      // Order create adds one order to the bill. The quote is the price lock;
+      // the bill revision moves forward for the next quote/bill read. This runs
+      // for every create into an open session while loyalty is enabled,
+      // including the quote-less path (REVIEW-29 B-PAY-6).
+      if (plan || loyaltyBillGuard) {
         await tx.diningSession.update({
           where: { id: diningSession.id },
           data: { billRevision: { increment: 1 } },
         });
+      }
 
+      if (plan) {
         loyaltyResponseBody = {
           success: true,
           order: {

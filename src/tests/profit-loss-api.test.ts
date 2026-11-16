@@ -150,6 +150,12 @@ function setupDefaultMocks(
   });
 }
 
+function paymentDateRange(where: {
+  OR: Array<{ AND: Array<{ createdAt: { gte: Date; lt: Date } }> }>;
+}): { gte: Date; lt: Date } {
+  return where.OR[1].AND[1].createdAt;
+}
+
 // ============================================================================
 // Authentication & Authorization Tests
 // ============================================================================
@@ -388,12 +394,15 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const revenueWhere = (prisma.order.aggregate as jest.Mock).mock
         .calls[0][0].where;
       expect(revenueWhere).not.toHaveProperty('status');
-      expect(revenueWhere.payments).toEqual({
-        some: {
-          status: 'PAID',
-          amount: { gt: 0 },
-          createdAt: { gte: expect.any(Date), lt: expect.any(Date) },
-        },
+      const some = revenueWhere.payments.some;
+      expect(some).toMatchObject({ status: 'PAID', amount: { gt: 0 } });
+      expect(some.OR[0].batch.businessDate).toEqual({
+        gte: expect.any(Date),
+        lte: expect.any(Date),
+      });
+      expect(some.OR[1].AND[1].createdAt).toEqual({
+        gte: expect.any(Date),
+        lt: expect.any(Date),
       });
     });
 
@@ -424,20 +433,15 @@ describe('GET /api/admin/reports/profit-loss', () => {
 
       expect(data.report.revenue.refunds).toBe(125.5);
       expect(data.report.revenue.netSales).toBe(874.5);
-      expect(prisma.payment.aggregate).toHaveBeenCalledWith({
-        where: {
-          order: { restaurantId: RESTAURANT_ID },
-          amount: { lt: 0 },
-          createdAt: {
-            gte: expect.any(Date),
-            lt: expect.any(Date),
-          },
-        },
-        _sum: { amount: true },
+      const refundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(refundWhere.order).toEqual({ restaurantId: RESTAURANT_ID });
+      expect(refundWhere.amount).toEqual({ lt: 0 });
+      expect(refundWhere.OR[1].AND[1].createdAt).toEqual({
+        gte: expect.any(Date),
+        lt: expect.any(Date),
       });
-      expect(
-        (prisma.payment.aggregate as jest.Mock).mock.calls[0][0].where
-      ).not.toHaveProperty('status');
+      expect(refundWhere).not.toHaveProperty('status');
     });
 
     it('excludes a payment exactly at the cutoff instant', async () => {
@@ -456,8 +460,7 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const atCutoff = new Date('2026-10-28T20:00:00.000Z');
       (prisma.payment.aggregate as jest.Mock).mockImplementation(
         ({ where }) => {
-          const gte = where.createdAt.gte as Date;
-          const lt = where.createdAt.lt as Date;
+          const { gte, lt } = paymentDateRange(where);
           return Promise.resolve({
             _sum: { amount: atCutoff >= gte && atCutoff < lt ? -10 : 0 },
           });
@@ -494,8 +497,7 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const refundAt = new Date('2026-10-28T02:00:00.000Z');
       (prisma.payment.aggregate as jest.Mock).mockImplementation(
         ({ where }) => {
-          const gte = where.createdAt.gte as Date;
-          const lt = where.createdAt.lt as Date;
+          const { gte, lt } = paymentDateRange(where);
           return Promise.resolve({
             _sum: {
               amount: refundAt >= gte && refundAt < lt ? -10 : 0,
@@ -514,16 +516,11 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const data = await response.json();
 
       expect(data.report.revenue.refunds).toBe(10);
-      expect(prisma.payment.aggregate).toHaveBeenCalledWith({
-        where: {
-          order: { restaurantId: RESTAURANT_ID },
-          amount: { lt: 0 },
-          createdAt: {
-            gte: new Date('2026-10-27T20:00:00.000Z'),
-            lt: new Date('2026-10-28T20:00:00.000Z'),
-          },
-        },
-        _sum: { amount: true },
+      const refundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(paymentDateRange(refundWhere)).toEqual({
+        gte: new Date('2026-10-27T20:00:00.000Z'),
+        lt: new Date('2026-10-28T20:00:00.000Z'),
       });
     });
 
@@ -541,8 +538,7 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const refundAt = new Date('2026-02-01T17:30:00.000Z'); // 2026-02-02 01:30 KL
       (prisma.payment.aggregate as jest.Mock).mockImplementation(
         ({ where }) => {
-          const gte = where.createdAt.gte as Date;
-          const lt = where.createdAt.lt as Date;
+          const { gte, lt } = paymentDateRange(where);
           return Promise.resolve({
             _sum: {
               amount: refundAt >= gte && refundAt < lt ? -10 : 0,
@@ -561,16 +557,11 @@ describe('GET /api/admin/reports/profit-loss', () => {
       const firstData = await firstResponse.json();
 
       expect(firstData.report.revenue.refunds).toBe(10);
-      expect(prisma.payment.aggregate).toHaveBeenNthCalledWith(1, {
-        where: {
-          order: { restaurantId: RESTAURANT_ID },
-          amount: { lt: 0 },
-          createdAt: {
-            gte: new Date('2026-01-31T20:00:00.000Z'),
-            lt: new Date('2026-02-01T20:00:00.000Z'),
-          },
-        },
-        _sum: { amount: true },
+      const firstRefundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(paymentDateRange(firstRefundWhere)).toEqual({
+        gte: new Date('2026-01-31T20:00:00.000Z'),
+        lt: new Date('2026-02-01T20:00:00.000Z'),
       });
 
       // The same refund is after the next business day's 04:00 cutoff.

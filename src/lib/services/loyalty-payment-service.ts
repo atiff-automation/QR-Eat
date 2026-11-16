@@ -2,8 +2,8 @@
  * Loyalty-aware Counter and takeaway payment.
  *
  * This is the R3 money path. The route stays thin; this module owns the
- * projection validation, the lock order (customer/day → bill/order), and the
- * single transaction that writes the batch, visit, card, discount ledger,
+ * projection validation, the lock order (card → customer/day → bill/order), and
+ * the single transaction that writes the batch, visit, card, discount ledger,
  * payments and the `PAYMENT` idempotency record (§18.20.6, §18.20.10,
  * §18.20.14 E/F/H/I, §18.20.15 C/D).
  *
@@ -204,7 +204,17 @@ function cashFigures(input: {
   }
 
   const expectedCash = money(input.expectedCashPayable);
-  if (expectedCash && !expectedCash.eq(input.cashPayable)) {
+  if (!expectedCash) {
+    // REVIEW-29 B-PAY-3: a cash payment must carry the total the cashier saw.
+    // A missing value cannot prove the stale-total check, so it is refused
+    // before any write, exactly like a mismatched value.
+    throw new LoyaltyPaymentError(
+      'The cash total is required. Reload the bill before taking payment.',
+      'AMOUNT_MISMATCH',
+      409
+    );
+  }
+  if (!expectedCash.eq(input.cashPayable)) {
     throw new LoyaltyPaymentError(
       'The cash total changed. Reload the bill before taking payment.',
       'AMOUNT_MISMATCH',
@@ -251,8 +261,8 @@ export interface BuildLoyaltyPaymentPlanInput {
 }
 
 /**
- * Pure payment decision. No I/O. Callers must already hold the customer/day
- * and bill/order locks and pass the projection computed under them.
+ * Pure payment decision. No I/O. Callers must already hold the card,
+ * customer/day and bill/order locks and pass the projection computed under them.
  */
 export function buildLoyaltyPaymentPlan(
   input: BuildLoyaltyPaymentPlanInput
@@ -1867,10 +1877,21 @@ async function processLoyaltyPayment(
 
         // Resolve the bill identity before taking locks, then re-read under the
         // bill lock. A member change between the two reads is a BILL_CHANGED
-        // retry; it never inverts the customer/day → bill/order lock order.
+        // retry; it never inverts the card → customer/day → bill/order lock
+        // order.
         const pre = await resolvePaymentBill(tx, input);
 
         if (pre.customerId) {
+          // REVIEW-29 B-PAY-7: the day lock is keyed on the payment's business
+          // date, so two bills for one member either side of the cutoff take
+          // different day locks. The customer-level card lock serialises them:
+          // the second reads the card state the first committed (reward spent,
+          // card reset) instead of both applying the reward. Lock order is
+          // card → day → bill everywhere.
+          await acquireLock(
+            tx,
+            `loyalty-card:${input.restaurantId}:${pre.customerId}`
+          );
           await acquireLock(
             tx,
             `loyalty-day:${input.restaurantId}:${pre.customerId}:${businessDate
@@ -1974,6 +1995,17 @@ async function processLoyaltyPayment(
         let plan: LoyaltyPaymentPlan;
 
         if (offline) {
+          // REVIEW-29 B-PAY-4: an offline replay must carry the total the
+          // cashier saw, or a projected reward could be settled at the
+          // pre-reward total. Refuse before any write.
+          if (input.expectedTotal === undefined) {
+            throw new LoyaltyPaymentError(
+              'Reload the bill before replaying an offline payment.',
+              'BILL_CHANGED',
+              409
+            );
+          }
+
           const offlineDate = offlineBusinessDate(bill.orders, clock, now);
 
           plan = buildOfflinePaymentPlan({

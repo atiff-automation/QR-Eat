@@ -27,6 +27,14 @@ jest.mock('@/lib/database', () => ({
     loyaltySettings: { findUnique: jest.fn() },
     quote: { findFirst: jest.fn() },
     idempotencyRecord: { findFirst: jest.fn() },
+    restaurant: { findUnique: jest.fn() },
+    diningSession: { findFirst: jest.fn() },
+    order: { findMany: jest.fn() },
+    promotion: { findMany: jest.fn() },
+    menuItem: { findMany: jest.fn() },
+    paymentBatch: { findMany: jest.fn() },
+    loyaltyCard: { findUnique: jest.fn() },
+    loyaltyVisit: { findFirst: jest.fn() },
   },
 }));
 
@@ -645,6 +653,36 @@ describe('prepareLoyaltyCreate guards', () => {
     };
   }
 
+  function guestQuoteRow() {
+    return quoteRow({
+      billRevision: 0,
+      subtotal: new Decimal('0.00'),
+      discountAmount: new Decimal('0.00'),
+      taxAmount: new Decimal('0.00'),
+      serviceCharge: new Decimal('0.00'),
+      totalAmount: new Decimal('0.00'),
+      projectedTotal: new Decimal('0.00'),
+      cashPayable: new Decimal('0.00'),
+      rewardLabel: settingsRow.rewardLabel,
+      visitState: 'GUEST',
+    });
+  }
+
+  function mockEmptyGuestReprice() {
+    (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue({
+      id: 'restaurant-1',
+      currency: 'MYR',
+      taxRate: '0.06',
+      serviceChargeRate: '0.10',
+      timezone: 'Asia/Kuala_Lumpur',
+      businessDayCloseTime: '04:00',
+      cashRounding: 'NEAREST_5_SEN',
+    });
+    (prisma.diningSession.findFirst as jest.Mock).mockResolvedValue(null);
+    (prisma.promotion.findMany as jest.Mock).mockResolvedValue([]);
+    (prisma.quote.findFirst as jest.Mock).mockResolvedValue(guestQuoteRow());
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.LOYALTY_ENABLED = 'true';
@@ -707,6 +745,62 @@ describe('prepareLoyaltyCreate guards', () => {
       code: 'QUOTE_CHANGED',
     });
     // The guard runs before `resolveMember()`, so no Customer row is written.
+    expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
+  });
+
+  it('returns a 200 guest order with CONSENT_REQUIRED when consent is unticked (B-UX-1)', async () => {
+    mockEmptyGuestReprice();
+
+    const result = await prepareLoyaltyCreate({
+      ...input,
+      expectedTotal: '0.00',
+      customerInfo: { phone: '+60123456789', consent: false },
+    });
+
+    expect(result.kind).toBe('ready');
+    if (result.kind !== 'ready') throw new Error('expected a ready plan');
+    expect(result.plan.guestError).toMatchObject({ code: 'CONSENT_REQUIRED' });
+    expect(result.plan.customerId).toBeNull();
+    expect(result.plan.phoneHash).toBeNull();
+    expect(result.plan.memberIsNew).toBe(false);
+    // No member, consent or visit write can happen on the guest path.
+    expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
+  });
+
+  it('returns a 200 guest order with PHONE_INVALID for a malformed phone (B-UX-1)', async () => {
+    mockEmptyGuestReprice();
+
+    const result = await prepareLoyaltyCreate({
+      ...input,
+      expectedTotal: '0.00',
+      customerInfo: { phone: 'not-a-phone', consent: false },
+    });
+
+    expect(result.kind).toBe('ready');
+    if (result.kind !== 'ready') throw new Error('expected a ready plan');
+    expect(result.plan.guestError).toMatchObject({ code: 'PHONE_INVALID' });
+    expect(result.plan.customerId).toBeNull();
+    expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
+  });
+
+  it('returns a 200 guest order with CONSENT_STALE for an unverifiable proof (B-UX-1)', async () => {
+    mockEmptyGuestReprice();
+
+    const result = await prepareLoyaltyCreate({
+      ...input,
+      expectedTotal: '0.00',
+      customerInfo: {
+        phone: '+60123456789',
+        consent: true,
+        consentVersion: 'v0',
+        consentTextHash: hashNoticeText('old notice'),
+      },
+    });
+
+    expect(result.kind).toBe('ready');
+    if (result.kind !== 'ready') throw new Error('expected a ready plan');
+    expect(result.plan.guestError).toMatchObject({ code: 'CONSENT_STALE' });
+    expect(result.plan.customerId).toBeNull();
     expect(resolveOrCreateCustomer).not.toHaveBeenCalled();
   });
 

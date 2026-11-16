@@ -9,9 +9,31 @@ import {
   getTenantContext,
   requireAuth,
   requirePermission,
+  UserType,
 } from '@/lib/tenant-context';
 import { requireRestaurantAccess } from '@/lib/rbac/resource-auth';
 import { revalidateTag } from 'next/cache';
+
+/**
+ * Fields that only the restaurant owner may change through the parent settings
+ * route. The same control exists on `PUT /api/settings/restaurant/financial`;
+ * without it here, a manager with `settings:write` could change tax through the
+ * owner UI's Financial section (REVIEW-30 H-1).
+ */
+const FINANCIAL_SETTINGS_FIELDS = [
+  'currency',
+  'taxRate',
+  'serviceChargeRate',
+  'taxLabel',
+  'serviceChargeLabel',
+] as const;
+
+function hasFinancialField(body: unknown): boolean {
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) {
+    return false;
+  }
+  return FINANCIAL_SETTINGS_FIELDS.some((field) => field in body);
+}
 
 /**
  * GET /api/settings/restaurant
@@ -112,6 +134,26 @@ export async function PUT(request: NextRequest) {
 
     // 2. Parse body
     const body = await request.json();
+
+    // Financial fields are owner-only. The manager role holds `settings:write`
+    // for non-financial settings, so the permission alone would let it change
+    // tax, service charge, currency or their labels here — the same bypass the
+    // dedicated `/financial` route closes (REVIEW-30 H-1). This check runs
+    // immediately after parsing and before any write; the route has no schema
+    // that could reject the fields first.
+    if (
+      hasFinancialField(body) &&
+      context!.userType !== UserType.RESTAURANT_OWNER
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Only the restaurant owner can change financial settings',
+          code: 'PERMISSION_DENIED',
+        },
+        { status: 403 }
+      );
+    }
 
     // 3. Update restaurant
     const updatedRestaurant = await prisma.restaurant.update({

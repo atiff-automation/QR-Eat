@@ -1492,3 +1492,22 @@ The money path is otherwise sound: lock order, atomicity, no double-charge, the 
 rule, tenant isolation, PII handling and the migrations all passed.
 
 Next: P11-fix, then a narrow re-review, then the freeze stamp.
+
+**P11-fix (2026-11-16):** implementer `ses_e1cb5d4f1ffeq8xMMskha1bT3M`; verifiers
+`ses_e1c8e1e50ffelra7fKZUBWx1ww` (FAIL) and `ses_e1c73ae61ffeY9H02IqRdoqfST` (PASS WITH NOTES).
+See `REVIEW-30.md`.
+
+Closed the eight P11 blockers and the eight pre-pilot items. The first pass was FAIL because the
+S-1 fix was bypassable: the owner UI saves tax through `PUT /api/settings/restaurant`, not
+`/financial`, so a manager could still change it. Fixed with a five-field guard on the parent
+route, before any write, plus a UI hide.
+
+```text
+npx jest ... --runInBand -> 1367 passed
+npm run type-check       -> PASS
+npm test -- --runInBand  -> 1444 passed, 11 skipped, 1455 total
+npm run build            -> PASS
+npx tsx scripts/rehearse-concurrency.ts -> PASS 47/47
+```
+
+Remaining before the freeze: the human pass on the payment and migration paths, then the stamp.

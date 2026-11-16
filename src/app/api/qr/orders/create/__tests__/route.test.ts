@@ -655,6 +655,22 @@ describe('POST /api/qr/orders/create — loyalty', () => {
     }
   });
 
+  it('takes the bill lock and bumps the revision for a quote-less create (B-PAY-6)', async () => {
+    // `prepareLoyaltyCreate` returns `legacy` for a create with no quote. With
+    // loyalty globally on, the bill guard must still run: a concurrent payment
+    // could otherwise settle a bill that is about to grow.
+    const response = await createQrOrder(request({ tableId, sessionId }));
+
+    expect(response.status).toBe(200);
+    const lockKey = `loyalty-bill:${restaurantId}:${diningSessionId}`;
+    const rawCalls = (prisma.$queryRaw as jest.Mock).mock.calls;
+    expect(rawCalls.some((call) => call[1] === lockKey)).toBe(true);
+    expect(tx.diningSession.update).toHaveBeenCalledWith({
+      where: { id: diningSessionId },
+      data: { billRevision: { increment: 1 } },
+    });
+  });
+
   it('stores the customer session phone in E.164', async () => {
     tx.order.create.mockResolvedValue(
       createdOrder({

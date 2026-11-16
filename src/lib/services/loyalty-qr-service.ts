@@ -13,7 +13,7 @@ import type { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma, type TransactionClient } from '@/lib/database';
 import { isLoyaltyActive, isLoyaltyGloballyEnabled } from '@/lib/loyalty/flags';
-import { resolveNotice } from '@/lib/loyalty/consent';
+import { resolveNotice, verifyConsent } from '@/lib/loyalty/consent';
 import { hashPhone, normalisePhone } from '@/lib/loyalty/phone';
 import {
   evaluatePromotion,
@@ -1213,17 +1213,39 @@ export async function prepareLoyaltyCreate(
   }
 
   // A guest quote carries no member binding and consumed no rate-limit bucket.
-  // A create that attaches a phone to it must be rejected **before**
-  // `resolveMember()` can call `resolveOrCreateCustomer()` and write a Customer
-  // row (P7c F-01). The same QUOTE_CHANGED shape is used as any other mismatch.
+  // A create that attaches a phone to it must never reach `resolveMember()`:
+  // that would write a Customer row for a quote that was priced as a guest
+  // (P7c F-01). The contract promises a 200 guest order with a recoverable
+  // `loyaltyError`, not a dead-end 409 (REVIEW-29 B-UX-1):
+  // - a malformed phone is `PHONE_INVALID`;
+  // - no consent, or an unverifiable consent proof, is the matching consent
+  //   code (stale/version-required included);
+  // - a **valid** consent proof on a guest quote is still `QUOTE_CHANGED`,
+  //   because attaching that member would change the quote's totals.
   const suppliedPhone = input.customerInfo?.phone;
+  let forcedGuestReason: GuestReason | null = null;
   if (
     quote.customerId === null &&
     quote.phoneHash === null &&
     typeof suppliedPhone === 'string' &&
     suppliedPhone.trim().length > 0
   ) {
-    return quoteChanged();
+    const normalised = normalisePhone(suppliedPhone);
+    if (!normalised.ok) {
+      forcedGuestReason = 'PHONE_INVALID';
+    } else if (input.customerInfo?.consent !== true) {
+      forcedGuestReason = 'CONSENT_REQUIRED';
+    } else {
+      const consent = verifyConsent(
+        {
+          clientVersion: input.customerInfo.consentVersion ?? null,
+          clientTextHash: input.customerInfo.consentTextHash ?? null,
+        },
+        notice
+      );
+      if (consent.ok) return quoteChanged();
+      forcedGuestReason = consent.code;
+    }
   }
 
   // A phone-bound quote is an identity lock. Verify the supplied phone against
@@ -1255,11 +1277,14 @@ export async function prepareLoyaltyCreate(
     if (suppliedHash !== quote.phoneHash) return quoteChanged();
   }
 
-  const member = await resolveMember(
-    input.restaurantId,
-    notice,
-    input.customerInfo
-  );
+  const member = forcedGuestReason
+    ? {
+        customerId: null,
+        phoneHash: null,
+        isNew: false,
+        guestReason: forcedGuestReason,
+      }
+    : await resolveMember(input.restaurantId, notice, input.customerInfo);
 
   const computation = await repriceQrBill({
     restaurantId: input.restaurantId,
