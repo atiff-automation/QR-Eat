@@ -886,10 +886,19 @@ payment or visit rules; the freeze stamp.
 
 **P11 plan (approved 2026-11-15).**
 
-Read-only four-lens review of the final pre-freeze state, by a **different model**, plus a human
-pass on the payment and migration paths (P11-2).
+Read-only four-lens review of the final pre-freeze state, plus a human pass on the payment and
+migration paths (P11-2).
 
-**Staffing amendment (approved 2026-11-15, "hybrid").** The strong non-DeepSeek reviewers became
+**Staffing amendment 2 (approved 2026-11-16, "A+") — supersedes the 2026-11-15 amendment below.**
+The four lenses are reviewed by the **same model** (DeepSeek V4.1 Flash) in fresh sessions, as at
+every prior gate; one **different-family** pass (`opencode-go/glm-5.3`) reviews the payments and
+migration paths; and the human pass on those paths is **mandatory**. Reason: the three-tier sweep
+was abandoned — the pay-as-you-go provider had no balance and two parallel different-family calls
+aborted — and the independence that matters for the money path is carried by the human pass plus
+one different-family reader. Recorded honestly: the four lenses share my weights and cannot detect
+a blind spot I hold; the glm pass and the human pass compensate.
+
+**Staffing amendment (approved 2026-11-15, "hybrid") — SUPERSEDED by amendment 2 above.** The strong non-DeepSeek reviewers became
 unavailable at execution time: `commandcode` key expired, `opencode-go` monthly limit reached,
 `opencode` paid models have no credits. Independence bought at full capability was therefore not
 available. The review is staffed in three tiers instead, and the independence requirement is not
