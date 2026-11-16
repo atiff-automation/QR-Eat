@@ -106,13 +106,16 @@ financial or loyalty history. **Proof:** `REVIEW-28`, `DATA-RETENTION.md`.
 | **PASS WITH NOTES** | They match, but a scenario needs a follow-up. Record it and stamp. |
 | **FAIL** | At least one is wrong. Do not stamp; open a fix. |
 
-**Name:** ______________________  **Role:** ______________________  **Date:** ____________
+**Name:** session owner (not recorded)  **Role:** owner  **Date:** 2026-11-16
 
-**Decision:** PASS / PASS WITH NOTES / FAIL
+**Decision:** **PASS**
 
 **Notes:**
 
 ```text
-
-
+All ten scenarios accepted.
+Recorded, not blocking: N-1 (currency reachable through the generic restaurant
+update routes for a custom role holding restaurants:write) and M-1 (the
+cross-cutoff card race is proven by inspection and a sequential test, not by
+concurrency). Both are in OPEN-ITEMS.md.
 ```

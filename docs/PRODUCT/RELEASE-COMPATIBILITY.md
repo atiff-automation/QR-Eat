@@ -13,7 +13,7 @@ older docs.
 
 | Surface | Version | Commit/tag | Notes |
 |---|---|---|---|
-| Server (QR-Eat) | branch `feat/loyalty-promo-v1` | candidate `e5f6046` (stamped after P11) | Loyalty surface implemented; both switches default off; not yet deployed |
+| Server (QR-Eat) | branch `feat/loyalty-promo-v1` | **frozen `df40e1d`** | Loyalty surface implemented; both switches default off; not yet deployed |
 | API contract | v1 + §18.20 loyalty addendum | `docs/PRODUCT/API-CONTRACT.md` | Additive; no path-version bump |
 | Counter | not yet built against this addendum | — | Must implement `docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md` |
 | Kitchen/Station | unchanged | — | No loyalty surface; no Station route or contract was touched on this branch (verified: no diff under `src/app/api/stations`) |
@@ -65,7 +65,7 @@ older docs.
 | Fact | Value |
 |---|---|
 | Normative source | Tabtep `§18.20`, v1.4.3, task revision 14 |
-| Server candidate | `e5f6046` (last commit that changed server behaviour) |
+| Server frozen | `df40e1d` (last commit that changed server behaviour, stamped 2026-11-16) |
 | Activation | `LOYALTY_ENABLED` (literal `true`) **and** `LoyaltySettings.enabled`; `LOYALTY_PHONE_HMAC_KEY` required |
 | Default state | Both switches off; behaviour identical to the pre-loyalty server except `PaymentBatch.outcome = 'GUEST'` (P9-09) |
 | Client-visible changes | Z `grossSales` is now pre-tax (P8-1); `outcome` appears on new batches; stored payment replay omits name/phone (P10-3) |

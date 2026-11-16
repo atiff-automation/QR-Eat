@@ -82,7 +82,7 @@ reconciled. Do not treat historical `/api/mobile/v1` notes as current.
 
 # §18.20 Loyalty, rewards and promotions — QR-Eat addendum
 
-**Status:** implemented · **candidate freeze** `e5f6046` (stamped after P11)
+**Status:** implemented · **FROZEN** `df40e1d` (P11 PASS, 2026-11-16)
 **Normative source:** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20
 (v1.4.3, Tabtep task revision 14)
 **Owner:** QR-Eat. **Consumers:** QR-Eat web, Tabtep Counter, Tabtep
@@ -415,7 +415,8 @@ One more Z blocker is **informational and never blocks a close**:
 
 ## 18.20.12 Freeze, compatibility and rollout
 
-- **Candidate freeze:** `e5f6046` (last commit that changed server behaviour).
+- **Frozen:** `df40e1d` (last commit that changed server behaviour), stamped 2026-11-16 after
+  P11 PASS and the human payment/migration pass. Any later server change requires a new freeze.
   The final hash is stamped after the P11 review passes. P10 documents do not
   change the contract.
 - Server changes inside the current API version are additive; the loyalty

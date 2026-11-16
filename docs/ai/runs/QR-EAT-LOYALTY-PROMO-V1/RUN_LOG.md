@@ -1511,3 +1511,18 @@ npx tsx scripts/rehearse-concurrency.ts -> PASS 47/47
 ```
 
 Remaining before the freeze: the human pass on the payment and migration paths, then the stamp.
+
+**P11 human pass and freeze stamp (2026-11-16):**
+
+The owner signed `P11-HUMAN-PASS.md` with **PASS** after reading the ten payment and migration
+scenarios. Carried, not blocking: N-1 (currency reachable through the generic restaurant update
+routes for a custom role holding `restaurants:write`) and M-1 (the cross-cutoff card race is proven
+by inspection and a sequential test, not by concurrency).
+
+**Freeze stamped:** `df40e1d` — the last commit that changed server behaviour. Recorded in
+`docs/PRODUCT/API-CONTRACT.md` and `docs/PRODUCT/RELEASE-COMPATIBILITY.md`. Any later server change
+requires a new freeze.
+
+The branch is ready for the pilot. The pilot is a human action: `LOYALTY_ENABLED=true`, a generated
+`LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled` for one restaurant, `db:seed` present, and
+`/api/health` showing `edgeIp.source = "x-real-ip"` before inviting guests.

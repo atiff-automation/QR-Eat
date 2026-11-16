@@ -77,3 +77,11 @@ contradiction, and one cross-date race.
 - The same-model lenses share blind spots; the different-family pass is what caught the guest dead-end's client loop and the cross-cutoff race.
 - **B-UX-1** is the one a real customer would hit first. It must be fixed or the addendum amended before any pilot.
 - The freeze hash is not stamped; the addendum still names the P10-close candidate, which the stamp corrects.
+
+
+## Human pass (P11-2) — signed 2026-11-16
+
+**Decision: PASS.** Signed by the session owner (personal name not recorded). The ten scenarios in
+`P11-HUMAN-PASS.md` were accepted. Carried, not blocking: N-1 (currency through the generic
+restaurant update routes for a custom role) and M-1 (the cross-cutoff race is proven by inspection,
+not concurrency). The freeze is stamped at `df40e1d`.
