@@ -1,11 +1,12 @@
 # Task — QR-EAT-B1-S-PRINT-SERVER (B1-S)
 
-**Status:** APPROVED — ready for implementation (owner O-1–O-9, 2026-11-17)
+**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; all
+findings closed; **ready for the R3 commit gate**
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (contract freeze approval + B1-S creation, 2026-11-17)
 **Approval date:** 2026-11-17
-**Next actor:** `ame-implementer` (one implementer; fresh `ame-verifier` at the gate)
+**Next actor:** human R3 commit gate, then merge and automatic Railway deploy
 **Risk:** **R3** — auth-adjacent station/device endpoints, order status, audit, tenant isolation
 **Workflow:** FEATURE / ARCHITECTURE (contract implementation)
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`

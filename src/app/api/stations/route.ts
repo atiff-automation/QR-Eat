@@ -11,6 +11,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
+import { DEFAULT_STATION_SETTINGS, PRINT_MODES } from '@/lib/station-settings';
 
 const CreateStationSchema = z.object({
   name: z.string().trim().min(1, 'Station name is required').max(60),
@@ -18,6 +19,8 @@ const CreateStationSchema = z.object({
   isActive: z.boolean().optional(),
   sortOrder: z.number().int().min(0).max(1000).optional(),
   categoryIds: z.array(z.string().uuid()).max(200).optional(),
+  /** New onboarding defaults to COUNTER (§4.2); explicit values win. */
+  printMode: z.enum(PRINT_MODES).optional(),
 });
 
 const stationInclude = {
@@ -89,7 +92,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { name, isDefault, isActive, sortOrder, categoryIds } = parsed.data;
+    const { name, isDefault, isActive, sortOrder, categoryIds, printMode } =
+      parsed.data;
 
     if (categoryIds?.length) {
       const valid = await prisma.menuCategory.count({
@@ -123,6 +127,12 @@ export async function POST(request: NextRequest) {
           isDefault: shouldBeDefault,
           isActive: isActive ?? true,
           sortOrder: sortOrder ?? 0,
+          // New stations opt into Counter printing unless the request says
+          // otherwise; existing rows are never backfilled (§4.2).
+          settings: {
+            ...DEFAULT_STATION_SETTINGS,
+            printMode: printMode ?? 'COUNTER',
+          },
         },
       });
 

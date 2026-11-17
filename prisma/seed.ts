@@ -907,6 +907,12 @@ async function main() {
       description: 'Mark orders as ready/served',
       category: 'orders',
     },
+    {
+      key: 'orders:counter_serve',
+      description:
+        'Move a no-Kitchen Counter order through preparing/ready/served',
+      category: 'orders',
+    },
 
     // Table Management
     { key: 'tables:read', description: 'View tables', category: 'tables' },
@@ -1205,6 +1211,7 @@ async function main() {
       permissions: [
         'orders:read',
         'orders:write',
+        'orders:counter_serve',
         'payments:read',
         'payments:write',
         'tables:read',

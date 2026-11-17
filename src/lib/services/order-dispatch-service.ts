@@ -2,6 +2,9 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
 import {
+  PRINTABLE_EVENT_TYPES,
+  resolveItemRoute,
+  resolveRouting,
   recordOrderCreated,
   recordOrderStatusChanged,
   type OrderCreatedResult,
@@ -10,6 +13,8 @@ import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import { COUNTER_STATION_ONLINE_WINDOW_MS } from '@/lib/counter/constants';
 import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { recordRestaurantChange } from '@/lib/restaurant-changes';
+import { type PrintMode } from '@/lib/station-settings';
+import { resolveEffectivePrintMode } from '@/lib/print/print-ack-service';
 
 export class OrderDispatchError extends Error {
   constructor(
@@ -81,6 +86,146 @@ const ORDER_INCLUDE = {
 
 type ConfirmedOrder = Prisma.OrderGetPayload<{ include: typeof ORDER_INCLUDE }>;
 
+export interface RoutedStation {
+  stationId: string;
+  printMode: PrintMode;
+}
+
+export interface OrderPrintAuthority {
+  /** Unique routed station ids, in first-seen order. */
+  routedStationIds: string[];
+  /** Summary authority; null when the order routes to no station. */
+  printAuthority: PrintMode | null;
+  /** True when any routed station (or stamped ticket) is `STATION`. */
+  hasStationTicket: boolean;
+  /** True when every routed station is `COUNTER`/`NONE` (guard skipped). */
+  noKitchenDevice: boolean;
+  /** Whether the modes came from stamped events or live routing. */
+  resolvedFrom: 'events' | 'routing';
+}
+
+function summarizeAuthority(
+  routedStationIds: string[],
+  modes: PrintMode[],
+  resolvedFrom: 'events' | 'routing'
+): OrderPrintAuthority {
+  const hasStationTicket = modes.includes('STATION');
+  return {
+    routedStationIds,
+    printAuthority:
+      routedStationIds.length === 0
+        ? null
+        : hasStationTicket
+          ? 'STATION'
+          : modes.includes('COUNTER')
+            ? 'COUNTER'
+            : 'NONE',
+    hasStationTicket,
+    noKitchenDevice: routedStationIds.length > 0 && !hasStationTicket,
+    resolvedFrom,
+  };
+}
+
+/**
+ * Resolve the order's routed stations using the same category-mapping/default
+ * rule as `recordOrderCreated()`, with each station's current `printMode`.
+ */
+export async function resolveRoutedStationModes(input: {
+  restaurantId: string;
+  items: Array<{ menuItem: { categoryId: string } }>;
+}): Promise<RoutedStation[]> {
+  if (input.items.length === 0) return [];
+
+  const routing = await resolveRouting(input.restaurantId);
+  const stationIds: string[] = [];
+
+  for (const item of input.items) {
+    const { stationId } = resolveItemRoute(routing, item.menuItem.categoryId);
+    if (stationId && !stationIds.includes(stationId)) {
+      stationIds.push(stationId);
+    }
+  }
+
+  return stationIds.map((stationId) => ({
+    stationId,
+    printMode: routing.printModes.get(stationId) ?? 'STATION',
+  }));
+}
+
+/**
+ * Resolve the print authority for an existing order (§9.1).
+ *
+ * Once printable events exist, each event's stamped mode is authoritative; a
+ * later station setting change must not move a ticket. A PENDING order has no
+ * events yet, so routing plus the current station settings is used, exactly as
+ * the confirmation guard does.
+ */
+export async function resolveOrderPrintAuthority(
+  orderId: string,
+  restaurantId: string
+): Promise<OrderPrintAuthority> {
+  const events = await prisma.orderEvent.findMany({
+    where: { orderId, type: { in: [...PRINTABLE_EVENT_TYPES] } },
+    select: { stationId: true, payload: true },
+    orderBy: { id: 'asc' },
+  });
+
+  if (events.length > 0) {
+    const stationIds: string[] = [];
+    for (const event of events) {
+      if (!stationIds.includes(event.stationId))
+        stationIds.push(event.stationId);
+    }
+
+    const stations = await prisma.station.findMany({
+      where: { id: { in: stationIds } },
+      select: { id: true, settings: true },
+    });
+    const settingsById = new Map(
+      stations.map((station) => [station.id, station.settings])
+    );
+
+    const modesByStation = new Map<string, PrintMode[]>();
+    for (const event of events) {
+      // Legacy events without a stamped mode fall back to the live setting.
+      const mode = resolveEffectivePrintMode(
+        event.payload,
+        settingsById.get(event.stationId)
+      );
+      const list = modesByStation.get(event.stationId) ?? [];
+      list.push(mode);
+      modesByStation.set(event.stationId, list);
+    }
+
+    const modes = stationIds.map((stationId) => {
+      const list = modesByStation.get(stationId) ?? [];
+      if (list.includes('STATION')) return 'STATION' as const;
+      if (list.includes('COUNTER')) return 'COUNTER' as const;
+      return 'NONE' as const;
+    });
+
+    return summarizeAuthority(stationIds, modes, 'events');
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: {
+      items: { select: { menuItem: { select: { categoryId: true } } } },
+    },
+  });
+
+  const routed = await resolveRoutedStationModes({
+    restaurantId,
+    items: order?.items ?? [],
+  });
+
+  return summarizeAuthority(
+    routed.map((station) => station.stationId),
+    routed.map((station) => station.printMode),
+    'routing'
+  );
+}
+
 async function ticketForOrder(orderId: string): Promise<OrderDispatchTicket> {
   const events = await prisma.orderEvent.findMany({
     where: {
@@ -110,7 +255,12 @@ export async function confirmPendingOrder(
 ): Promise<ConfirmOrderResult> {
   const currentOrder = await prisma.order.findUnique({
     where: { id: input.orderId },
-    include: { restaurant: { select: { id: true } } },
+    include: {
+      restaurant: { select: { id: true } },
+      items: {
+        select: { menuItem: { select: { categoryId: true } } },
+      },
+    },
   });
 
   if (!currentOrder) {
@@ -138,15 +288,39 @@ export async function confirmPendingOrder(
 
   const stationOverride = input.overrideStation === true;
   const offlineDelivered = input.offlineDelivered === true;
-  if (!stationOverride && !offlineDelivered) {
+
+  // Resolve routed stations once: the guard and its audit need the same view.
+  const routedStations = await resolveRoutedStationModes({
+    restaurantId: currentOrder.restaurantId,
+    items: currentOrder.items,
+  });
+  const printAuthority = summarizeAuthority(
+    routedStations.map((station) => station.stationId),
+    routedStations.map((station) => station.printMode),
+    'routing'
+  );
+  // An unrouted order keeps the existing any-online-device guard: it is a
+  // configuration warning, not a no-Kitchen success (§9.2 step 4).
+  const requiresKitchenDevice =
+    printAuthority.routedStationIds.length === 0 ||
+    printAuthority.hasStationTicket;
+
+  if (!stationOverride && !offlineDelivered && requiresKitchenDevice) {
     const onlineWindow = new Date(
       Date.now() - COUNTER_STATION_ONLINE_WINDOW_MS
     );
+    const stationIdsWithTickets = routedStations
+      .filter((station) => station.printMode === 'STATION')
+      .map((station) => station.stationId);
+
     const onlineDevice = await prisma.device.findFirst({
       where: {
         restaurantId: currentOrder.restaurantId,
         isActive: true,
         station: { isActive: true },
+        ...(printAuthority.hasStationTicket
+          ? { stationId: { in: stationIdsWithTickets } }
+          : {}),
         lastSeenAt: { gte: onlineWindow },
       },
       select: { id: true },
@@ -237,9 +411,15 @@ export async function confirmPendingOrder(
       tableName: 'orders',
       recordId: input.orderId,
       operation: 'UPDATE',
+      restaurantId: currentOrder.restaurantId,
+      category: 'orders',
+      description: 'order.status',
       oldValues: { status: 'PENDING' },
       newValues: {
         status: 'CONFIRMED',
+        printAuthority: printAuthority.printAuthority,
+        routedStationIds: printAuthority.routedStationIds,
+        noKitchenDevice: printAuthority.noKitchenDevice,
         ...(stationOverride ? { stationOverride: true } : {}),
         ...(offlineDelivered ? { offlineDelivered: true } : {}),
       },

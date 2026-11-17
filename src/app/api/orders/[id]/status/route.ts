@@ -19,6 +19,7 @@ import { aggregateTicketStatus } from '@/lib/counter/ticket-status';
 import {
   confirmPendingOrder,
   OrderDispatchError,
+  resolveOrderPrintAuthority,
 } from '@/lib/services/order-dispatch-service';
 
 export async function PATCH(
@@ -90,6 +91,37 @@ export async function PATCH(
     const isKitchen =
       context.userType === 'staff' && roleTemplate === 'kitchen_staff';
     const isWaiter = context.userType === 'staff' && roleTemplate === 'waiter';
+    const isCashier =
+      context.userType === 'staff' && roleTemplate === 'cashier';
+
+    // §9.1: cashier PREPARING/READY/SERVED is limited to a Counter-created
+    // order whose routed stations are all COUNTER/NONE. The durable permission
+    // is `orders:counter_serve`; the role-template check is the compatibility
+    // fallback until the seed row exists.
+    let counterAuthority: Awaited<
+      ReturnType<typeof resolveOrderPrintAuthority>
+    > | null = null;
+    let counterAuthorityChecked = false;
+    const cashierCounterServeAllowed = async (): Promise<boolean> => {
+      if (context.userType !== 'staff') return false;
+      if (
+        !isCashier &&
+        !contextHasPermission(context, 'orders', 'counter_serve')
+      ) {
+        return false;
+      }
+      if (counterAuthorityChecked) return counterAuthority !== null;
+      counterAuthorityChecked = true;
+
+      const authority = await resolveOrderPrintAuthority(
+        orderId,
+        currentOrder.restaurantId
+      );
+      const allowed =
+        currentOrder.source === 'COUNTER' && authority.noKitchenDevice;
+      if (allowed) counterAuthority = authority;
+      return allowed;
+    };
 
     // D42: kitchen starts/readies; waiter/runner serves; manager/owner can do
     // both. The kitchen must not mark an order SERVED.
@@ -112,10 +144,11 @@ export async function PATCH(
           break;
         case ORDER_STATUS.PREPARING:
         case ORDER_STATUS.READY:
-          canUpdateOrder = canKitchenAct;
+          canUpdateOrder =
+            canKitchenAct || (await cashierCounterServeAllowed());
           break;
         case ORDER_STATUS.SERVED:
-          canUpdateOrder = canServe;
+          canUpdateOrder = canServe || (await cashierCounterServeAllowed());
           break;
         case ORDER_STATUS.CANCELLED:
           canUpdateOrder = isOwnerOrManager;
@@ -359,8 +392,21 @@ export async function PATCH(
         tableName: 'orders',
         recordId: orderId,
         operation: 'UPDATE',
+        restaurantId: currentOrder.restaurantId,
+        category: 'orders',
+        description: 'order.status',
+        changedByType: context.userType,
         oldValues: { status: currentOrder.status },
-        newValues: { status, ...(stationOverride ? { stationOverride } : {}) },
+        newValues: {
+          status,
+          ...(counterAuthority !== null
+            ? { authority: 'COUNTER_NO_KITCHEN' as const }
+            : {}),
+          ...(context.roleTemplate
+            ? { roleTemplate: context.roleTemplate }
+            : {}),
+          ...(stationOverride ? { stationOverride } : {}),
+        },
         changedBy: context.userId,
         ipAddress: trustedIp(request),
       },

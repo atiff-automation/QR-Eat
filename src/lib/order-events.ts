@@ -12,6 +12,10 @@
 import { prisma } from '@/lib/database';
 import type { Prisma } from '@prisma/client';
 import { formatPickupNumber } from '@/lib/order-utils';
+import {
+  normalizeStationSettings,
+  type PrintMode,
+} from '@/lib/station-settings';
 
 export const ORDER_EVENT_TYPES = {
   CREATED: 'order.created',
@@ -22,6 +26,20 @@ export const ORDER_EVENT_TYPES = {
   RECALLED: 'order.recalled',
   RECALL_CLEARED: 'order.recall.cleared',
 } as const;
+
+/** Event types that carry a printable ticket (`phase-b-print-v1` §6.3). */
+export const PRINTABLE_EVENT_TYPES = [
+  ORDER_EVENT_TYPES.CREATED,
+  ORDER_EVENT_TYPES.ITEMS_ADDED,
+  ORDER_EVENT_TYPES.CANCELLED,
+] as const;
+
+/** Server-authored skip reason for a station that is KDS only. */
+export const NONE_PRINT_ERROR = 'KDS only — not printed';
+
+export function isPrintableEventType(type: string): boolean {
+  return (PRINTABLE_EVENT_TYPES as readonly string[]).includes(type);
+}
 
 export interface StationOrderItem {
   itemId: string;
@@ -52,6 +70,11 @@ export interface OrderCreatedPayload {
   stationSubtotal: string;
   /** True when at least one item had no category mapping and fell back. */
   fallback: boolean;
+  /**
+   * Effective print authority stamped at creation time. A later station
+   * `printMode` change does not move this ticket (§4.3).
+   */
+  printMode: PrintMode;
 }
 
 export interface OrderCreatedResult {
@@ -71,6 +94,12 @@ export interface OrderStatusPayload {
   from: string;
   to: string;
   version: number;
+}
+
+/** A cancellation chit is printable, so it carries the stamped mode (§5.1). */
+export interface OrderCancelledPayload extends OrderStatusPayload {
+  reason?: string | null;
+  printMode: PrintMode;
 }
 
 export interface OrderRecallPayload {
@@ -128,6 +157,70 @@ interface Routing {
   byCategory: Map<string, string>;
   defaultStationId: string | null;
   stationIds: Set<string>;
+  /** Effective print mode per active station, normalized on read. */
+  printModes: Map<string, PrintMode>;
+}
+
+/**
+ * Resolve one item's station with the routing rule shared by the event writer
+ * and the confirmation/status authority resolver: category mapping first, then
+ * the default station. `mapped` is false when the category fell back.
+ */
+export function resolveItemRoute(
+  routing: {
+    byCategory: Map<string, string>;
+    defaultStationId: string | null;
+  },
+  categoryId: string
+): { stationId: string | null; mapped: boolean } {
+  const mappedStationId = routing.byCategory.get(categoryId);
+  return {
+    stationId: mappedStationId ?? routing.defaultStationId,
+    mapped: mappedStationId !== undefined,
+  };
+}
+
+/**
+ * Initial `printStatus` for a newly written printable ticket (§5.1).
+ *
+ * `NONE` is `SKIPPED` at creation so it never renders as a phantom queued
+ * ticket. A `COUNTER` cancellation chit starts `SKIPPED` until B3 decides
+ * whether Counter cancellation chits auto-print (O-3).
+ */
+export function initialPrintState(
+  printMode: PrintMode,
+  eventType: (typeof PRINTABLE_EVENT_TYPES)[number]
+): {
+  printStatus: 'PENDING' | 'SKIPPED';
+  printError?: string;
+} {
+  if (printMode === 'NONE') {
+    return { printStatus: 'SKIPPED', printError: NONE_PRINT_ERROR };
+  }
+  if (printMode === 'COUNTER' && eventType === ORDER_EVENT_TYPES.CANCELLED) {
+    return { printStatus: 'SKIPPED' };
+  }
+  return { printStatus: 'PENDING' };
+}
+
+/** Resolve the effective mode for a set of station ids (missing defaults to STATION). */
+async function stationPrintModes(
+  stationIds: string[]
+): Promise<Map<string, PrintMode>> {
+  const unique = [...new Set(stationIds)];
+  if (unique.length === 0) return new Map();
+
+  const stations = await prisma.station.findMany({
+    where: { id: { in: unique } },
+    select: { id: true, settings: true },
+  });
+
+  return new Map(
+    stations.map((station) => [
+      station.id,
+      normalizeStationSettings(station.settings).printMode,
+    ])
+  );
 }
 
 function tableName(table: {
@@ -176,7 +269,7 @@ export function orderFulfillment(order: {
 export async function resolveRouting(restaurantId: string): Promise<Routing> {
   const stations = await prisma.station.findMany({
     where: { restaurantId, isActive: true },
-    select: { id: true, isDefault: true },
+    select: { id: true, isDefault: true, settings: true },
   });
 
   const stationIds = new Set(stations.map((station) => station.id));
@@ -193,6 +286,12 @@ export async function resolveRouting(restaurantId: string): Promise<Routing> {
     ),
     defaultStationId: defaultStation?.id ?? null,
     stationIds,
+    printModes: new Map(
+      stations.map((station) => [
+        station.id,
+        normalizeStationSettings(station.settings).printMode,
+      ])
+    ),
   };
 }
 
@@ -260,8 +359,10 @@ export async function recordOrderCreated(
   const unroutedItemIds: string[] = [];
 
   for (const item of order.items) {
-    const mapped = routing.byCategory.get(item.menuItem.categoryId);
-    const stationId = mapped ?? routing.defaultStationId;
+    const { stationId, mapped } = resolveItemRoute(
+      routing,
+      item.menuItem.categoryId
+    );
 
     if (!stationId) {
       console.error(
@@ -285,7 +386,7 @@ export async function recordOrderCreated(
       notes: item.specialInstructions,
     });
     entry.subtotal += Number(item.totalAmount);
-    entry.fallback = entry.fallback || mapped === undefined;
+    entry.fallback = entry.fallback || !mapped;
 
     grouped.set(stationId, entry);
   }
@@ -300,6 +401,8 @@ export async function recordOrderCreated(
   }
 
   const rows = [...grouped.entries()].map(([stationId, entry]) => {
+    const printMode = routing.printModes.get(stationId) ?? ('STATION' as const);
+    const initial = initialPrintState(printMode, ORDER_EVENT_TYPES.CREATED);
     const payload: OrderCreatedPayload = {
       orderNumber: order.orderNumber,
       counterReference: order.counterReference ?? null,
@@ -312,6 +415,7 @@ export async function recordOrderCreated(
       items: entry.items,
       stationSubtotal: entry.subtotal.toFixed(2),
       fallback: entry.fallback,
+      printMode,
     };
 
     return {
@@ -320,7 +424,7 @@ export async function recordOrderCreated(
       orderId: order.id,
       type: ORDER_EVENT_TYPES.CREATED,
       payload: payload as unknown as Prisma.InputJsonValue,
-      printStatus: 'PENDING' as const,
+      ...initial,
     };
   });
 
@@ -386,25 +490,50 @@ export async function recordOrderStatusChanged(
     ? ORDER_EVENT_TYPES.CANCELLED
     : ORDER_EVENT_TYPES.STATUS_CHANGED;
 
-  const payload: OrderStatusPayload & { reason?: string | null } = {
+  const basePayload: OrderStatusPayload = {
     orderNumber: order.orderNumber,
     tableName: orderLabel(order),
     ...orderFulfillment(order),
     from,
     to,
     version: order.version,
-    ...(isCancellation ? { reason: options.reason ?? null } : {}),
   };
 
+  // A cancellation chit is a new printable ticket, so it uses the station's
+  // current mode and stamps it (§4.3, §5.1). Non-ticket events stay unstamped
+  // and keep `printStatus=null`.
+  const printModes = isCancellation
+    ? await stationPrintModes(stationIds)
+    : new Map<string, PrintMode>();
+
   await prisma.orderEvent.createMany({
-    data: stationIds.map((stationId) => ({
-      restaurantId: order.restaurantId,
-      stationId,
-      orderId: order.id,
-      type,
-      payload: payload as unknown as Prisma.InputJsonValue,
-      printStatus: isCancellation ? ('PENDING' as const) : undefined,
-    })),
+    data: stationIds.map((stationId) => {
+      if (!isCancellation) {
+        return {
+          restaurantId: order.restaurantId,
+          stationId,
+          orderId: order.id,
+          type,
+          payload: basePayload as unknown as Prisma.InputJsonValue,
+        };
+      }
+
+      const printMode = printModes.get(stationId) ?? ('STATION' as const);
+      const payload: OrderCancelledPayload = {
+        ...basePayload,
+        reason: options.reason ?? null,
+        printMode,
+      };
+
+      return {
+        restaurantId: order.restaurantId,
+        stationId,
+        orderId: order.id,
+        type,
+        payload: payload as unknown as Prisma.InputJsonValue,
+        ...initialPrintState(printMode, ORDER_EVENT_TYPES.CANCELLED),
+      };
+    }),
   });
 
   return stationIds.length;
@@ -507,6 +636,10 @@ export async function recordOrderRecallCleared(
  * than reprinting the whole order. The caller must call this once per accepted
  * add-items mutation; the event log is append-only and has no natural
  * idempotency key of its own.
+ *
+ * Producer gap (B1-S): this writer has no caller on `main`. The printable-event
+ * contract is defined now so B2/B3 can consume add-on tickets once the
+ * add-items path is wired; do not invent a caller here.
  */
 export async function recordOrderItemsAdded(
   orderId: string,
@@ -546,8 +679,10 @@ export async function recordOrderItemsAdded(
   >();
 
   for (const item of order.items) {
-    const mapped = routing.byCategory.get(item.menuItem.categoryId);
-    const stationId = mapped ?? routing.defaultStationId;
+    const { stationId, mapped } = resolveItemRoute(
+      routing,
+      item.menuItem.categoryId
+    );
     if (!stationId) continue;
 
     const entry = grouped.get(stationId) ?? {
@@ -563,7 +698,7 @@ export async function recordOrderItemsAdded(
       notes: item.specialInstructions,
     });
     entry.subtotal += Number(item.totalAmount);
-    entry.fallback = entry.fallback || mapped === undefined;
+    entry.fallback = entry.fallback || !mapped;
     grouped.set(stationId, entry);
   }
 
@@ -571,6 +706,8 @@ export async function recordOrderItemsAdded(
 
   await prisma.orderEvent.createMany({
     data: [...grouped.entries()].map(([stationId, entry]) => {
+      const printMode =
+        routing.printModes.get(stationId) ?? ('STATION' as const);
       const payload: OrderItemsAddedPayload = {
         orderNumber: order.orderNumber,
         counterReference: order.counterReference ?? null,
@@ -582,6 +719,7 @@ export async function recordOrderItemsAdded(
         stationSubtotal: entry.subtotal.toFixed(2),
         fallback: entry.fallback,
         addedItemIds: entry.items.map((item) => item.itemId),
+        printMode,
       };
       return {
         restaurantId: order.restaurantId,
@@ -589,7 +727,7 @@ export async function recordOrderItemsAdded(
         orderId: order.id,
         type: ORDER_EVENT_TYPES.ITEMS_ADDED,
         payload: payload as unknown as Prisma.InputJsonValue,
-        printStatus: 'PENDING' as const,
+        ...initialPrintState(printMode, ORDER_EVENT_TYPES.ITEMS_ADDED),
       };
     }),
   });

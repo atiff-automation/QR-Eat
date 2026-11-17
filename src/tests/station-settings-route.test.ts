@@ -29,6 +29,7 @@ describe('GET /api/stations/me/settings', () => {
       lateMinutes: 12,
       density: 'compact',
       textScale: 'normal',
+      printMode: 'STATION',
     });
   });
 

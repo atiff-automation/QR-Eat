@@ -20,7 +20,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | approved | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`; contract frozen at `39031bb` |
+| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | verification | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`; PASS WITH NOTES, correction cycle 1; R3 gate pending |
 
 ## Waiting
 
