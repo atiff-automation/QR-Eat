@@ -20,7 +20,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-011 | stations | Web station `printMode` control (B1-W) | R2 | ready | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; B1-S deployed, B2 waits |
+| AME-011 | stations | Web station `printMode` control (B1-W) | R2 | verification | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; B1-S deployed, B2 waits |
 
 ## Waiting
 

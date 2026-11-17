@@ -17,6 +17,15 @@ import {
 import { Button } from '@/components/ui/Button';
 import { ConfirmationModal } from '@/components/ui/ConfirmationModal';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import {
+  PrintModeField,
+  type PrintModeStatusMessage,
+} from '@/components/stations/PrintModeField';
+import {
+  DEFAULT_NEW_STATION_PRINT_MODE,
+  normalizeStationPrintMode,
+} from '@/components/stations/print-mode';
+import type { PrintMode } from '@/lib/station-settings';
 
 interface StationCategory {
   category: { id: string; name: string; isActive: boolean };
@@ -29,6 +38,8 @@ interface Station {
   isActive: boolean;
   sortOrder: number;
   categories: StationCategory[];
+  /** Stored JSON settings. `printMode` is absent on rows older than B1-S. */
+  settings?: { printMode?: unknown } | null;
   _count: { devices: number };
 }
 
@@ -145,7 +156,20 @@ export default function StationsPage() {
   const [newStationCategories, setNewStationCategories] = useState<Set<string>>(
     new Set()
   );
+  const [newStationPrintMode, setNewStationPrintMode] = useState<PrintMode>(
+    DEFAULT_NEW_STATION_PRINT_MODE
+  );
   const [creatingStation, setCreatingStation] = useState(false);
+
+  const [printModeDrafts, setPrintModeDrafts] = useState<
+    Record<string, PrintMode>
+  >({});
+  const [savingPrintModeId, setSavingPrintModeId] = useState<string | null>(
+    null
+  );
+  const [printModeStatus, setPrintModeStatus] = useState<
+    Record<string, PrintModeStatusMessage>
+  >({});
 
   const [editingStationId, setEditingStationId] = useState<string | null>(null);
   const [editCategories, setEditCategories] = useState<Set<string>>(new Set());
@@ -163,6 +187,10 @@ export default function StationsPage() {
     if (!canManage) return;
     setLoading(true);
     setError('');
+    // A refresh replaces station data, so per-station drafts and their
+    // success/error messages must not outlive the data they describe.
+    setPrintModeDrafts({});
+    setPrintModeStatus({});
     try {
       const [stationData, deviceData, categoryData] = await Promise.all([
         ApiClient.get<{ stations: Station[] }>('/stations'),
@@ -219,10 +247,14 @@ export default function StationsPage() {
         name: stationName.trim(),
         isDefault: makeDefault,
         categoryIds: [...newStationCategories],
+        // The B1-S create schema accepts printMode; send the visible choice
+        // instead of relying on a second, invisible default in the client.
+        printMode: newStationPrintMode,
       });
       setStationName('');
       setMakeDefault(false);
       setNewStationCategories(new Set());
+      setNewStationPrintMode(DEFAULT_NEW_STATION_PRINT_MODE);
       setNotice('Station created.');
       await load();
     } catch (err) {
@@ -233,6 +265,80 @@ export default function StationsPage() {
       );
     } finally {
       setCreatingStation(false);
+    }
+  };
+
+  const clearPrintModeStatus = (stationId: string) => {
+    setPrintModeStatus((current) => {
+      if (!current[stationId]) return current;
+      const next = { ...current };
+      delete next[stationId];
+      return next;
+    });
+  };
+
+  const updatePrintModeDraft = (stationId: string, mode: PrintMode) => {
+    setPrintModeDrafts((current) => ({ ...current, [stationId]: mode }));
+    clearPrintModeStatus(stationId);
+  };
+
+  const savePrintMode = async (station: Station) => {
+    const savedMode = normalizeStationPrintMode(station.settings?.printMode);
+    const nextMode = printModeDrafts[station.id] ?? savedMode;
+    if (nextMode === savedMode) return;
+
+    setSavingPrintModeId(station.id);
+    clearPrintModeStatus(station.id);
+
+    try {
+      const result = await ApiClient.patch<{ station: Station }>(
+        `/stations/${station.id}`,
+        { settings: { printMode: nextMode } }
+      );
+      // Use the server-confirmed station rather than an optimistic value: a
+      // rejected or normalized response is what the owner sees next.
+      if (result.station) {
+        setStations((current) =>
+          current.map((item) =>
+            item.id === station.id ? result.station : item
+          )
+        );
+      } else {
+        await load();
+      }
+      setPrintModeDrafts((current) => {
+        const next = { ...current };
+        delete next[station.id];
+        return next;
+      });
+      setPrintModeStatus((current) => ({
+        ...current,
+        [station.id]: {
+          tone: 'success',
+          message: 'Print mode saved.',
+        },
+      }));
+    } catch (err) {
+      const detail =
+        err instanceof ApiClientError
+          ? ` ${err.message.replace(/\.?$/, '.')}`
+          : '';
+      // Do not keep an unconfirmed value on screen: drop the draft so the
+      // control shows the last value the server confirmed, and ask for a retry.
+      setPrintModeDrafts((current) => {
+        const next = { ...current };
+        delete next[station.id];
+        return next;
+      });
+      setPrintModeStatus((current) => ({
+        ...current,
+        [station.id]: {
+          tone: 'error',
+          message: `Could not save the print mode.${detail} The last saved setting is still shown. Try again.`,
+        },
+      }));
+    } finally {
+      setSavingPrintModeId(null);
     }
   };
 
@@ -384,11 +490,15 @@ export default function StationsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50/50 pb-20">
-      <div className="mx-auto max-w-7xl space-y-5 px-5 pt-4 md:px-6">
+      <div
+        className="mx-auto max-w-7xl space-y-5 px-5 pt-4 md:px-6"
+        aria-busy={loading}
+      >
         <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 bg-white p-4 shadow-sm">
           <p className="max-w-3xl text-sm text-gray-600">
-            Each station is a work area. Each phone is one provisioned device. A
-            kitchen phone prints only its station&apos;s items.
+            Each station is a work area. Its print mode decides whether the
+            Kitchen device, the Counter, or nobody prints that station&apos;s
+            tickets.
           </p>
           <button
             onClick={() => void load()}
@@ -401,7 +511,10 @@ export default function StationsPage() {
         </div>
 
         {error && (
-          <div className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          <div
+            role="alert"
+            className="flex items-center gap-2 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600"
+          >
             <AlertTriangle className="h-4 w-4 flex-shrink-0" />
             {error}
           </div>
@@ -425,7 +538,14 @@ export default function StationsPage() {
               <h2 className="text-lg font-semibold text-gray-900">Stations</h2>
             </div>
 
-            {stations.length === 0 ? (
+            {loading && stations.length === 0 ? (
+              <p
+                role="status"
+                className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600"
+              >
+                Loading stations...
+              </p>
+            ) : stations.length === 0 ? (
               <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
                 No stations yet. Create the first station before provisioning a
                 phone.
@@ -521,6 +641,29 @@ export default function StationsPage() {
                         </div>
                       </div>
                     )}
+
+                    <div className="mt-4 border-t border-gray-100 pt-3">
+                      <PrintModeField
+                        id={`station-print-mode-${station.id}`}
+                        value={
+                          printModeDrafts[station.id] ??
+                          normalizeStationPrintMode(station.settings?.printMode)
+                        }
+                        savedValue={normalizeStationPrintMode(
+                          station.settings?.printMode
+                        )}
+                        onChange={(mode) =>
+                          updatePrintModeDraft(station.id, mode)
+                        }
+                        onSave={() => void savePrintMode(station)}
+                        saving={savingPrintModeId === station.id}
+                        disabled={
+                          savingPrintModeId !== null &&
+                          savingPrintModeId !== station.id
+                        }
+                        status={printModeStatus[station.id] ?? null}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -537,6 +680,11 @@ export default function StationsPage() {
                   onChange={(event) => setStationName(event.target.value)}
                   placeholder="e.g. Grill, Drinks, Pass"
                   className="h-10 w-full rounded-lg border border-gray-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+                <PrintModeField
+                  id="new-station-print-mode"
+                  value={newStationPrintMode}
+                  onChange={setNewStationPrintMode}
                 />
                 <label className="flex items-center gap-2 text-sm text-gray-700">
                   <input
@@ -645,7 +793,14 @@ export default function StationsPage() {
             )}
 
             <div className="space-y-3">
-              {devices.length === 0 ? (
+              {loading && devices.length === 0 ? (
+                <p
+                  role="status"
+                  className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600"
+                >
+                  Loading devices...
+                </p>
+              ) : devices.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-gray-300 bg-white p-6 text-sm text-gray-600">
                   No devices yet.
                 </div>

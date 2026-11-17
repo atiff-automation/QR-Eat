@@ -141,3 +141,17 @@ Compatibility note:
   authority 409 is a behavioural change and needs a Kitchen check before B2.
 - Existing station builds that omit `seq` keep working; their ack remains
   advisory (device `lastPrintAt` only).
+
+## B1-W web print-mode control record (2026-11-17)
+
+| Fact | Value |
+|---|---|
+| Task | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` revision 1 |
+| Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` |
+| Status | **Implementation complete; verifier PASS WITH NOTES; correction cycle 1 done; R2 commit gate pending** |
+| Base | `main` `f63096c`; B1-S code `6d59a56` |
+| Surface | `/dashboard/stations` per-station `printMode` control + `COUNTER` create default + guidance/setup reminder |
+| Scope | No server route, auth/RBAC, schema, seed, dependency or B2 change |
+| Evidence | `REVIEW-01.md`; desktop/mobile card screenshots; forced-400 revert screenshot |
+| Rollback | The control is additive; no data migration. Existing stations read as `STATION`, new as `COUNTER`. |
+| Deployment | Not merged/deployed yet; merge and Railway auto-deploy are the next gate |
