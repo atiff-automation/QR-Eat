@@ -1138,11 +1138,11 @@ implementation still follows its own review and commit gate.
 | Server behaviour changed | **No** — docs-only. `git diff df40e1d..HEAD -- src prisma scripts` is empty. |
 | Schema/migration | None. `Station.settings` JSON only. |
 | Seed | Not run. |
-| Deploy/flag/key | Docs-only push approved under O-9; Railway auto-deploy status recorded in the freeze task/run log. No code/config/flag/key change; loyalty stays off; HMAC key unset. |
+| Deploy/flag/key | Docs-only push under O-9; Railway deployment `735145f3-b3d9-49c2-a811-bb67245dafc1` **SUCCESS**, health **UP**, database **CONNECTED**. No code/config/flag/key change; loyalty stays off; HMAC key unset. |
 | Tests | `npm run type-check`, `npm test -- --runInBand`, `npm run build` — results in `RUN_LOG.md`. |
 | Independent review | `REVIEW-01.md` — **PASS**. |
 | Owner approval | O-1–O-9 approved as recommended, Atiff, 2026-11-17 (§13.3). |
-| Push/deploy | O-9 approved; `origin/main` push and automatic Railway docs-only deployment recorded in the freeze task/run log. |
+| Push/deploy | Pushed `origin/main` 2026-11-17 (`7bca846`). Railway auto-deployment `735145f3-b3d9-49c2-a811-bb67245dafc1` **SUCCESS** (docs-only); `/api/health` **200 UP**, database **CONNECTED**. No manual deploy; no code/config/flag/key change. |
 | Next server task | B1-S — `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`. |
 | Next web task | B1-W — `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` (after B1-S API). |
 | Next client task | B2, Tabtep, after B1-S and B1-W merge. |

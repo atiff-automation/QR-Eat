@@ -118,6 +118,19 @@ The most consequential choices:
 - Roadmap/backlog: `docs/ai/ACTIVE.md`, `docs/ai/BACKLOG.md` (AME-009, AME-010).
 - Independent review: `REVIEW-01.md` (verdict recorded there).
 
+## Push and deployment — 2026-11-17
+
+- O-9 approved the push. `git push origin main` pushed `612cde7..7bca846`.
+- Railway auto-deployed commit `7bca846` (docs-only): deployment
+  `735145f3-b3d9-49c2-a811-bb67245dafc1`, **SUCCESS**.
+- `GET https://tabtep.app/api/health` → **200**:
+  `status=UP`, `database=CONNECTED`, `env=production`,
+  `edgeIp.source=x-real-ip`.
+- `railway status` → service **Online**, deployment id above, region
+  Southeast Asia, cron `cleanup-events` completed.
+- No manual deploy, restart, redeploy, seed, migration, flag or HMAC change.
+- The deployment changed no runtime code: the freeze commits are docs-only.
+
 ## Freeze commit
 
 - Freeze commit: **`39031bb`** (content commit; hash stamped by the follow-up

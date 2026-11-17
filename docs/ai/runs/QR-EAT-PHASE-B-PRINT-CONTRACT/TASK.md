@@ -1,8 +1,8 @@
 # Task — QR-EAT-PHASE-B-PRINT-CONTRACT (B1-C)
 
-**Status:** CONTRACT FROZEN at **`39031bb`**, independent review **PASS**, and
-**owner-approved (O-1–O-9)**. Push/deploy close-out in progress; B1-S and B1-W
-are separate downstream tasks.
+**Status:** CONTRACT FROZEN at **`39031bb`**, independent review **PASS**,
+**owner-approved (O-1–O-9)**, pushed, and **auto-deployed docs-only**. B1-S and
+B1-W are separate downstream tasks; B2 waits for both.
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (Phase B Q1–Q6, 2026-11-17; freeze authorized in the same instruction)
@@ -15,8 +15,9 @@ are separate downstream tasks.
 **Workflow:** ARCHITECTURE / FEATURE (contract-first)
 **Phases:** B1-C contract freeze (this task, complete) → B1-S server implementation → B1-W web `printMode` control → B2 Counter → B3 QR/all orders
 **Freeze commit:** **`39031bb`** (content commit; hash stamped by `0600e48`).
-**Push/deploy:** O-9 approved; automatic Railway docs-only deployment close-out
-recorded in `RUN_LOG.md`.
+**Push/deploy:** pushed `origin/main` at `7bca846`; Railway deployment
+`735145f3-b3d9-49c2-a811-bb67245dafc1` **SUCCESS** (docs-only); `/api/health`
+**200 UP**, database **CONNECTED**. Recorded in `RUN_LOG.md`.
 **Updated:** 2026-11-17
 
 > **Input:** `../Tabtep-App/docs/ai/handoffs/QR-EAT-PHASE-B-PRINT-CONTRACT.md`

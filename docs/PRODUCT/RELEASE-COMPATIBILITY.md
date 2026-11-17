@@ -94,6 +94,7 @@ older docs.
 | Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` |
 | Status | **Frozen and owner-approved (O-1–O-9)**; B1-C changed no server behaviour |
 | Freeze commit | **`39031bb`** (content commit; recorded by the follow-up docs commit) |
+| Push/deploy | Pushed `origin/main` at `7bca846`; Railway auto-deploy `735145f3-b3d9-49c2-a811-bb67245dafc1` **SUCCESS**; health **200 UP**, database **CONNECTED**; docs-only, no manual deploy |
 | Base | `612cde7` (clean `main`; `df40e1d` ancestor) |
 | Server | B1-S is approved (`docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`); not built by B1-C |
 | Web | B1-W is approved (`docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`) and waits for B1-S |
