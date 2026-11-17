@@ -1,22 +1,22 @@
 # Task — QR-EAT-PHASE-B-PRINT-CONTRACT (B1-C)
 
-**Status:** CONTRACT FROZEN at **`39031bb`** — independent review **PASS**;
-hash stamped by the follow-up docs commit. B1-S is next and is a separate R3
-task.
+**Status:** CONTRACT FROZEN at **`39031bb`**, independent review **PASS**, and
+**owner-approved (O-1–O-9)**. Push/deploy close-out in progress; B1-S and B1-W
+are separate downstream tasks.
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (Phase B Q1–Q6, 2026-11-17; freeze authorized in the same instruction)
 **Approval date:** 2026-11-17
-**Next actor:** human (O-1 freeze confirmation, O-9 push decision), then a
-separate B1-S planning/implementation task
+**Next actor:** B1-S implementer (R3), then B1-W implementer; B2 waits for both
 **Implementer:** Lead (docs-only under `docs/**`; no product code)
 **Verifier:** fresh `ame-verifier` (`ses_e17bef5f0ffe7YoVZjaagqTeFe`); `REVIEW-01.md` **PASS**
 **Diff base:** `612cde7` (`main`, clean; `df40e1d` is an ancestor)
 **Risk:** R2 — API/auth/print contract, docs-only change
 **Workflow:** ARCHITECTURE / FEATURE (contract-first)
-**Phases:** B1-C contract freeze (this task, complete) → B1-S server implementation (separate R3 task) → B2 Counter → B3 QR/all orders
-**Freeze commit:** **`39031bb`** (content commit; hash stamped by the follow-up
-docs commit). No push/deploy.
+**Phases:** B1-C contract freeze (this task, complete) → B1-S server implementation → B1-W web `printMode` control → B2 Counter → B3 QR/all orders
+**Freeze commit:** **`39031bb`** (content commit; hash stamped by `0600e48`).
+**Push/deploy:** O-9 approved; automatic Railway docs-only deployment close-out
+recorded in `RUN_LOG.md`.
 **Updated:** 2026-11-17
 
 > **Input:** `../Tabtep-App/docs/ai/handoffs/QR-EAT-PHASE-B-PRINT-CONTRACT.md`
@@ -61,6 +61,23 @@ Additional constraints from the owner instruction (2026-11-17):
 - Railway auto-deploys `main` on merge; loyalty flags must remain off.
 - Freeze the B1 contract at a named commit and report the commit, tests and
   remaining owner decisions.
+
+## Owner decisions — approved 2026-11-17
+
+All nine decisions were approved **as recommended**. They are also recorded in
+the contract §13.3.
+
+| # | Decision | Approved resolution |
+|---|---|---|
+| O-1 | Approve `phase-b-print-v1` | Approved; frozen `39031bb`, pushed under O-9. |
+| O-2 | Cashier authority scope | Keep C-8: Counter-created + all routed stations `COUNTER`/`NONE`. |
+| O-3 | Cancellation chit | B3; B2 shows state without paper. |
+| O-4 | `NONE` auto-`SKIPPED` | Keep C-7. |
+| O-5 | Device-ack audit | Keep C-10; add audit-retention follow-up AME-012. |
+| O-6 | New onboarding `COUNTER` | Keep Q4; B2 adds the no-printer setup prompt. |
+| O-7 | Web `printMode` control | B1-S API + B1-W web control before B2. |
+| O-8 | B3 Counter feed | `/api/counter/changes` + snapshots. |
+| O-9 | Push freeze commits | Approved; push `origin/main` and confirm the automatic docs-only deploy. |
 
 ## Context budget
 
@@ -198,11 +215,18 @@ contradiction. Do not guess.
 13. `git diff df40e1d..HEAD -- src prisma scripts` is empty.
 14. `npm run type-check`, `npm test -- --runInBand` and `npm run build` pass (or
     the exact pre-existing failure is recorded and unchanged).
-15. No loyalty flag, HMAC key, seed, deploy, push or Tabtep edit occurs.
+15. No loyalty flag, HMAC key, seed, manual deploy or Tabtep edit occurs. The
+    push is the O-9-approved push only; it triggers Railway’s automatic
+    docs-only deployment.
 16. Independent verifier returns PASS or PASS WITH NOTES. **PASS** in
     `REVIEW-01.md`.
 17. The freeze commit hash is recorded in this task, the contract and the run
     log; the stamp commit changes only hash fields.
+18. O-1–O-9 are recorded as approved in the contract and this task.
+19. `origin/main` is pushed and the automatic docs-only Railway deployment is
+    confirmed (deployment status and health recorded in `RUN_LOG.md`).
+20. B1-S and B1-W task files exist with their own risk, scope, approval,
+    acceptance criteria and verification gates.
 
 ## Verification
 
@@ -260,17 +284,21 @@ docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/NEXT.md
 docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/REVIEW-01.md
 ```
 
-Commit message:
+Commit messages:
 
 ```text
 docs(contract): freeze Phase B print-ack and station print mode
+docs(contract): stamp the Phase B print freeze at 39031bb
+docs(contract): record owner approvals and open B1-S/B1-W
 ```
 
-No push. No deploy. No tag. No seed. No flag change. The commit is local until
-the owner pushes it; Railway only deploys after a push/merge.
+O-9 approves the push of the freeze commits to `origin/main`. Do **not** run a
+manual deploy, tag, seed or flag change. Railway’s automatic docs-only deploy is
+the only deployment.
 
 ## Stop point
 
-Stop after the docs-only contract, independent review, freeze record and local
-freeze commit. Do **not** implement B1-S, B2 or B3. Do **not** push, deploy,
-enable loyalty or edit Tabtep.
+Stop after the docs-only contract, independent review, freeze record, owner
+approvals, push/deploy confirmation and the B1-S/B1-W task files. Do **not**
+implement B1-S, B1-W, B2 or B3 in this task. Do **not** enable loyalty, set the
+HMAC key, run the seed, manually deploy or edit Tabtep.

@@ -56,6 +56,25 @@ migration, seed, deploy, push, tag, flag or key change.
 | Retention | `src/app/api/cron/cleanup-events/route.ts`, `cleanupOrderEvents()` |
 | Audit IP | `src/lib/client-ip.ts` |
 
+## Owner approvals — 2026-11-17
+
+O-1–O-9 approved as recommended:
+
+- O-1 approve `phase-b-print-v1`;
+- O-2 keep C-8 cashier scope;
+- O-3 cancellation chit in B3;
+- O-4 keep C-7 `NONE` auto-`SKIPPED`;
+- O-5 keep C-10 device-ack audit + audit-retention follow-up (AME-012);
+- O-6 keep Q4 new-onboarding `COUNTER` + B2 setup prompt;
+- O-7 B1-S API + B1-W web `printMode` control before B2;
+- O-8 B3 uses `/api/counter/changes` + snapshots;
+- O-9 push the two freeze commits and confirm the automatic docs-only deploy.
+
+Downstream tasks created:
+
+- `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md` (R3, approved);
+- `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` (R2, blocked by B1-S).
+
 ## Decisions
 
 See `docs/PRODUCT/PRINT-ACK-CONTRACT.md` §13:

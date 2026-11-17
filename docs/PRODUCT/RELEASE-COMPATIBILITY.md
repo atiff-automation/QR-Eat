@@ -92,11 +92,12 @@ older docs.
 | Fact | Value |
 |---|---|
 | Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` |
-| Status | **Frozen docs-only**; no server behaviour changed |
+| Status | **Frozen and owner-approved (O-1–O-9)**; B1-C changed no server behaviour |
 | Freeze commit | **`39031bb`** (content commit; recorded by the follow-up docs commit) |
 | Base | `612cde7` (clean `main`; `df40e1d` ancestor) |
-| Server | B1-S is a separate R3 implementation task; not built by B1-C |
-| Counter (B2) | **Not yet built against this contract**; B2 starts only after B1-S |
+| Server | B1-S is approved (`docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`); not built by B1-C |
+| Web | B1-W is approved (`docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`) and waits for B1-S |
+| Counter (B2) | **Not yet built against this contract**; B2 starts only after B1-S and B1-W |
 | Kitchen/Station | Compatible with the unchanged SSE/ack shape; B1-S print-authority enforcement and device-ack audit are not yet Kitchen-checked |
 | Schema | None; `Station.settings.printMode` is JSON and additive |
 | Activation | `printMode` is the switch; no new environment flag |
@@ -110,3 +111,4 @@ Minimum supported versions:
 | Counter | not yet released against `phase-b-print-v1` | B2 has not started |
 | Kitchen/Station | current release verified only for the unchanged SSE/ack shape; **not yet checked against B1-S authority enforcement** | SSE and frame shape unchanged; old station builds that omit `seq` keep working, but a build that sends `success:true` on a `COUNTER`/`NONE` station receives `409 PRINT_AUTHORITY_INVALID`. B1-S must run a Kitchen check before B2. |
 | Server | B1-S required for the new Counter endpoints and `printMode` | B1-C is docs-only |
+| Web | B1-W required for the owner `printMode` control | Approved, blocked by B1-S API |

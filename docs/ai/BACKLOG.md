@@ -20,7 +20,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | ready | Contract frozen at `39031bb`; ticket payload + Counter ack + printMode + cashier status + audit |
+| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | approved | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`; contract frozen at `39031bb` |
 
 ## Waiting
 
@@ -28,6 +28,8 @@ Product-level work for the web/server repo. Android work lives in
 |---|---|---|---|
 | AME-006 | Cross-repo contract change pilot | AME-003 | Freeze contract, then Tabtep session |
 | AME-007 | Tenant isolation T1–T7 remediation | AME-003, security review | Plan after contract baseline |
+| AME-011 | Web station `printMode` control (B1-W) | AME-010 merge | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; before B2 |
+| AME-012 | Audit-log retention/cleanup for print acks | AME-010 audit volume | Define schedule/retention; O-5 follow-up |
 
 ## Done
 

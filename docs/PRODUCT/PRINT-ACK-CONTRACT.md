@@ -26,17 +26,20 @@ loyalty.
 
 ```text
 B0  Tabtep hygiene (separate)
-B1  QR-Eat contract + server
+B1  QR-Eat contract + server + web control
     B1-C  this document: contract freeze (docs-only)
     B1-S  server implementation of this document (separate R3 task)
+    B1-W  web dashboard printMode control (separate task, after B1-S API)
 B2  Tabtep Counter: auto-print Counter-created orders, ack, visible state,
     READY/SERVED when Kitchen is absent
 B3  QR/all orders + Counter order feed + optional Kitchen KDS-only migration
 ```
 
 **B1-C is docs-only.** No server behaviour, schema, migration, seed, deploy,
-push or flag changes occur in this task. **B2 must not start until B1-S is merged
-and this contract is still the frozen version.** B3 is not designed here.
+push or flag changes occur in the contract task itself. O-9 approved the push of
+the freeze commits, which triggers Railway's automatic docs-only deployment; it
+is not a manual deploy. **B2 must not start until B1-S and B1-W are merged and
+this contract is still the frozen version.** B3 is not designed here.
 
 ### 1.1 In scope
 
@@ -979,14 +982,19 @@ transaction semantics unchanged.
 
 1. B1-C: freeze this contract (docs-only).
 2. B1-S: server implementation, tests, review, merge.
-3. Verify server: station device ack/SSE regression, Counter payload/ack,
-   no-Kitchen confirm, cashier status, audit.
-4. **B0 must be closed** (TAB-009 restaurant scoping + TAB-006 retention/read
+3. B1-W: web dashboard `printMode` control, tests, review, merge. It depends on
+   the B1-S server field and uses the same enum; it does not duplicate server
+   validation.
+4. Verify server and web: station device ack/SSE regression, Counter
+   payload/ack, no-Kitchen confirm, cashier status, audit, and the owner’s
+   `printMode` control.
+5. **B0 must be closed** (TAB-009 restaurant scoping + TAB-006 retention/read
    cleanup) before B2 starts.
-5. B2: Counter auto-print for Counter-created orders, ack, visible state,
-   READY/SERVED when Kitchen is absent.
-6. B3: QR/all orders and the Counter order feed, with a separate contract
-   amendment.
+6. B2: Counter auto-print for Counter-created orders, ack, visible state,
+   READY/SERVED when Kitchen is absent, plus the setup prompt for a new
+   `COUNTER` station with no printer.
+7. B3: QR/all orders and the Counter order feed, using
+   `/api/counter/changes` + snapshots, with a separate contract amendment.
 
 Server first, then Counter. Kitchen is optional and remains on device pairing.
 
@@ -1094,23 +1102,27 @@ implementable. They are part of `phase-b-print-v1`:
 | C-12 | No Counter order SSE in B1 | B2 only reacts to orders it creates; B3 owns the feed. |
 | C-13 | A non-authority device `SKIPPED` is audit-only and never changes ticket state | On `COUNTER`/`NONE`, the Kitchen is not the print authority; a state-changing skip would hide the ticket from B2 or misstate the Counter’s decision. |
 
-### 13.3 Remaining owner decisions
+### 13.3 Owner decisions — approved 2026-11-17
 
-These are **not silently resolved** and are reported to the owner at freeze.
-They do not change the already-approved B1-C surface; they block the named
-downstream step if not decided.
+All nine decisions were approved **as recommended** on 2026-11-17. None remains
+open for B1-S, B1-W or B2. The approvals are recorded here and in the freeze
+task.
 
-| # | Decision | Recommended answer | Blocks | Impact if deferred |
-|---|---|---|---|---|
-| O-1 | Approve `phase-b-print-v1` as frozen | Approve | B1-S | B2 cannot start. |
-| O-2 | Cashier authority scope: only Counter-created + all-routed-`COUNTER`/`NONE` (C-8) or all orders | Keep C-8 | B1-S | Wider scope needs a new contract clause and more tests. |
-| O-3 | Cancellation chit: print in B2 or B3 | B3 | B2 (paper only) | B2 shows cancellation state without a chit; no data loss. |
-| O-4 | `NONE` auto-`SKIPPED` at creation (C-7) vs wait for Kitchen `SKIPPED` | Keep C-7 | B1-S | Without C-7, `NONE` tickets stay `PENDING` when no Kitchen device exists. |
-| O-5 | Device-ack audit for every Kitchen ack (C-10) vs Counter-only | Keep C-10 | B1-S | Audit volume grows; retention must be watched. |
-| O-6 | New onboarding default `COUNTER` without a printer preflight | Keep Q4 | B2 | A new restaurant may onboard with no Counter printer; the Counter shows `PENDING`/`FAILED` with manual retry, not silent success. |
-| O-7 | Web dashboard `printMode` control in B1-S or B2 | B2 (API-only in B1-S) | B2 UI | A `restaurant_owner` can set it via `PATCH /api/stations/{id}` meanwhile; a manager needs a custom `restaurant:settings` grant. |
-| O-8 | B3 Counter feed: `/api/counter/changes` + snapshots vs a staff SSE | Decide at B3 | B3 | No B2 impact. |
-| O-9 | Push the local freeze commit to `origin/main` (Railway will auto-deploy docs-only) | Owner action | Cross-repo B2 visibility | The commit exists locally; B2 in another session may not see it until pushed. |
+| # | Decision | Approved resolution | Downstream effect |
+|---|---|---|---|
+| O-1 | Approve `phase-b-print-v1` as frozen | **Approved.** Frozen at `39031bb`; the two freeze commits are pushed to `origin/main`. | B1-S may start. |
+| O-2 | Cashier authority scope | **Keep C-8.** Cashier PREPARING/READY/SERVED only for Counter-created orders whose routed stations are all `COUNTER`/`NONE`. | B1-S implements and tests exactly this scope; no wider order authority. |
+| O-3 | Cancellation chit | **Print in B3.** B2 shows cancellation state without paper. A `COUNTER` cancellation chit is created `SKIPPED` and may be printed manually. | B2 does not auto-print cancellation; B3 owns auto-print. |
+| O-4 | `NONE` auto-`SKIPPED` | **Keep C-7.** `NONE` tickets are created `SKIPPED`; no Kitchen device is required. | B1-S creates the initial status; a device `SKIPPED` stays audit-only. |
+| O-5 | Device-ack audit | **Keep C-10** for every Kitchen and Counter ack, **plus an audit-retention follow-up** (AME-012). | B1-S adds the audit rows; AME-012 owns scheduling/retention. |
+| O-6 | New onboarding `COUNTER` | **Keep Q4.** New stations default `COUNTER`; **B2 adds a setup prompt** when no Counter printer is configured. | B1-S writes the default; B2 owns the client prompt. |
+| O-7 | Web `printMode` control | **B1-S API + B1-W web control before B2.** | B1-W is a B2 prerequisite, not a B2 afterthought. |
+| O-8 | B3 Counter feed | **B3 uses `/api/counter/changes` + snapshots.** | No staff SSE is added; B3 designs the refresh loop on the existing invalidation feed. |
+| O-9 | Push the freeze commits | **Approved.** Push `origin/main`; confirm the automatic docs-only Railway deployment. | The deployment record is in the freeze task/run log. This was not a manual deploy. |
+
+**Approval record:** Atiff, 2026-11-17, “O-1 through O-9 as recommended”. The
+approval covers the contract and the two downstream task definitions; each
+implementation still follows its own review and commit gate.
 
 ---
 
@@ -1126,11 +1138,14 @@ downstream step if not decided.
 | Server behaviour changed | **No** — docs-only. `git diff df40e1d..HEAD -- src prisma scripts` is empty. |
 | Schema/migration | None. `Station.settings` JSON only. |
 | Seed | Not run. |
-| Deploy/flag/key | Not changed. Loyalty stays off; HMAC key unset. |
+| Deploy/flag/key | Docs-only push approved under O-9; Railway auto-deploy status recorded in the freeze task/run log. No code/config/flag/key change; loyalty stays off; HMAC key unset. |
 | Tests | `npm run type-check`, `npm test -- --runInBand`, `npm run build` — results in `RUN_LOG.md`. |
-| Independent review | `REVIEW-01.md` — verdict recorded there. |
-| Next server task | B1-S, separate R3 TASK implementing this contract. |
-| Next client task | B2, Tabtep, after B1-S merge and freeze confirmation. |
+| Independent review | `REVIEW-01.md` — **PASS**. |
+| Owner approval | O-1–O-9 approved as recommended, Atiff, 2026-11-17 (§13.3). |
+| Push/deploy | O-9 approved; `origin/main` push and automatic Railway docs-only deployment recorded in the freeze task/run log. |
+| Next server task | B1-S — `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`. |
+| Next web task | B1-W — `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` (after B1-S API). |
+| Next client task | B2, Tabtep, after B1-S and B1-W merge. |
 
 ### 14.1 How to cite this contract
 

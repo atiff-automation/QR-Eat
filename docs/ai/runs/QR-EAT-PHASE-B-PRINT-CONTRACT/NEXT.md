@@ -10,8 +10,8 @@ Updated: 2026-11-17
 Task contract: `docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/TASK.md`
 Task revision: 1 (approved 2026-11-17; B1-C docs-only)
 
-Current step: **CONTRACT FROZEN at `39031bb`; review PASS; hash stamp committed.
-Next is the separate B1-S server implementation task.**
+Current step: **CONTRACT FROZEN at `39031bb`; review PASS; O-1–O-9 approved;
+push/deploy close-out. Next is B1-S, then B1-W, then B2.**
 
 Last completed:
 - Read the Tabtep Phase B handoff and approved parent plan (Q1–Q6).
@@ -28,11 +28,11 @@ Last completed:
   PASS.
 
 Next action:
-1. Human: confirm O-1 (freeze approval) and decide O-9 (push the local freeze
-   commit). Railway deploys only after a push/merge.
-2. Start a separate B1-S R3 task from the frozen contract, after its own
-   approval and review.
-3. Do not push/deploy, enable loyalty, set the HMAC key, run seed, or edit
+1. O-1–O-9 are approved (2026-11-17). Push the freeze commits and confirm the
+   automatic docs-only Railway deployment (O-9).
+2. Implement B1-S (`docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`), then B1-W
+   (`docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`), then B2.
+3. Do not enable loyalty, set the HMAC key, run seed, manually deploy or edit
    Tabtep from this session.
 
 Owner decisions reported at freeze:
