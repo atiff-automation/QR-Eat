@@ -25,10 +25,14 @@ jest.mock('@/lib/database', () => ({
   },
 }));
 
-jest.mock('@/lib/order-events', () => ({
-  recordOrderCreated: jest.fn(),
-  recordOrderStatusChanged: jest.fn(),
-}));
+jest.mock('@/lib/order-events', () => {
+  const actual = jest.requireActual('@/lib/order-events');
+  return {
+    ...actual,
+    recordOrderCreated: jest.fn(),
+    recordOrderStatusChanged: jest.fn(),
+  };
+});
 
 jest.mock('@/lib/postgres-pubsub', () => ({
   PostgresEventManager: {

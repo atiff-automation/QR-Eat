@@ -13,7 +13,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/database';
 import { requireAuth } from '@/lib/rbac/middleware';
 import { RESTAURANT_PERMISSIONS } from '@/lib/rbac/permission-constants';
-import { mergeStationSettings } from '@/lib/station-settings';
+import { mergeStationSettings, PRINT_MODES } from '@/lib/station-settings';
 
 const UpdateStationSchema = z
   .object({
@@ -28,6 +28,7 @@ const UpdateStationSchema = z
         lateMinutes: z.number().int().min(2).max(180).optional(),
         density: z.enum(['compact', 'normal']).optional(),
         textScale: z.enum(['small', 'normal', 'large']).optional(),
+        printMode: z.enum(PRINT_MODES).optional(),
       })
       .optional(),
   })

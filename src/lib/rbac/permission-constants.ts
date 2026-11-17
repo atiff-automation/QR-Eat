@@ -44,6 +44,8 @@ export const ORDER_PERMISSIONS = {
   KITCHEN: 'orders:kitchen',
   UPDATE: 'orders:update',
   FULFILL: 'orders:fulfill',
+  /** Cashier PREPARING/READY/SERVED for no-Kitchen Counter orders (§9.1). */
+  COUNTER_SERVE: 'orders:counter_serve',
 } as const;
 
 /**

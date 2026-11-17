@@ -113,3 +113,31 @@ Minimum supported versions:
 | Kitchen/Station | current release verified only for the unchanged SSE/ack shape; **not yet checked against B1-S authority enforcement** | SSE and frame shape unchanged; old station builds that omit `seq` keep working, but a build that sends `success:true` on a `COUNTER`/`NONE` station receives `409 PRINT_AUTHORITY_INVALID`. B1-S must run a Kitchen check before B2. |
 | Server | B1-S required for the new Counter endpoints and `printMode` | B1-C is docs-only |
 | Web | B1-W required for the owner `printMode` control | Approved, blocked by B1-S API |
+
+## B1-S print server record (2026-11-17)
+
+| Fact | Value |
+|---|---|
+| Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` (frozen `39031bb`) |
+| Task | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md` revision 1 |
+| Status | **Implementation complete; verifier PASS WITH NOTES; correction cycle 1 done; final delta review and R3 commit gate pending** |
+| Branch | `feat/b1-s-print-server`, based on `main` `58b64d9` (code base `612cde7`) |
+| Diff hash | tracked product `84ce705de553556e1373e37edfc9d04bae9fc26adabb8325ce8e7a9b4a426e4b`; product+new `0578ac6a9f3c621e09170938db33b9da7523cd4b61e50b1dfcbc1bb37672e683`; full tracked `62fb8da15841a4cfab493ba6e3c0bf212aa1d8664bfe4d60cd2bc52e995c2ec2` |
+| Server surface | `printMode`, stamped event payloads, device-ack authority/audit, Counter `print-tickets`/`print-ack`, no-Kitchen confirm, cashier C-8 status, `orders:counter_serve` |
+| Schema | None; `Station.settings.printMode` is JSON and additive |
+| Seed | `orders:counter_serve` mapping added; **seed not run** |
+| Activation | `printMode` is the switch; no new environment flag |
+| Rollback | Set the station `printMode` to `STATION` and stop Counter auto-print |
+| Loyalty | Unchanged; flags stay off, HMAC key unset |
+| Verification | type-check PASS; targeted 11 suites/114 tests; full 128 suites/1553 passed, 11 skipped; build PASS |
+| Deviation | Contract internal conflict R-04: §7.2 `INVALID_ACK` vs §7.5 `VALIDATION_FAILED` for `success:true`+`skipped:true`; implemented §7.2. Contract text unchanged. |
+| Deployment | Not merged/deployed yet; merge and Railway auto-deploy are the next gate |
+
+Compatibility note:
+
+- Counter is not yet built against these endpoints; B2 starts after B1-S and
+  B1-W merge.
+- Kitchen/Station current SSE/ack shape is unchanged; the new `COUNTER`/`NONE`
+  authority 409 is a behavioural change and needs a Kitchen check before B2.
+- Existing station builds that omit `seq` keep working; their ack remains
+  advisory (device `lastPrintAt` only).
