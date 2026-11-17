@@ -47,7 +47,7 @@ health, schema, seed role templates, permission constants, `counterAccessDenied`
 | R-19 | Note | `kitchen:write` unseeded. | **Closed** — called out as a custom grant. |
 | N-01 | **High** | A Kitchen `SKIPPED` on a `COUNTER` ticket could change it to `SKIPPED` before B2 polled, hiding it from the `PENDING|FAILED` queue — a silent no-print. | **Closed** — C-13: a non-authority device skip is audit-only and must not change `printStatus`/`printedAt`/`printDeviceId`; B2’s filter now cannot lose the ticket. |
 | N-02 | Low | Run log said B1-S “must decide” 403 vs 404 after the contract mandated 404. | **Closed** — contract mandates the mapping. |
-| N-03 | Low | Run-log line count stale. | **Closed** — 1223 lines, matches `wc -l`. |
+| N-03 | Low | Run-log line count stale. | **Closed** — 1222 lines after the stamp, matches `wc -l`. |
 | N-04 | Note | Release summary and minimum-version row read as a tension. | **Closed** — both qualify the unchanged shape vs B1-S enforcement. |
 | N-05 | Note | `TASK.md`/`NEXT.md` still described a single commit / pending review. | **Deferred by design** — updated in the freeze/stamp close-out. |
 | N-06 | Note | The hash-stamp commit would change the file after freeze. | **Closed** — stamp may fill only hash fields; normative text is frozen. |

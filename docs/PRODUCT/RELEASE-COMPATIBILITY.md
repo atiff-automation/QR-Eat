@@ -93,7 +93,7 @@ older docs.
 |---|---|
 | Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` |
 | Status | **Frozen docs-only**; no server behaviour changed |
-| Freeze commit | Stamped in the B1-C run directory by the follow-up docs commit |
+| Freeze commit | **`39031bb`** (content commit; recorded by the follow-up docs commit) |
 | Base | `612cde7` (clean `main`; `df40e1d` ancestor) |
 | Server | B1-S is a separate R3 implementation task; not built by B1-C |
 | Counter (B2) | **Not yet built against this contract**; B2 starts only after B1-S |

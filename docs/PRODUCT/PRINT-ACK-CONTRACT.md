@@ -1,9 +1,8 @@
 # Phase B Print Contract — station print mode, print acknowledgement and Counter printing
 
 **Contract version:** `phase-b-print-v1`
-**Status:** **FROZEN** `phase-b-print-v1` (content freeze 2026-11-17). The
-freeze commit hash is stamped in §14 by the follow-up docs commit (two-step
-stamp: content commit, then hash record).
+**Status:** **FROZEN** `phase-b-print-v1` at **`39031bb`** (content commit,
+2026-11-17; hash recorded by the follow-up docs commit).
 **Owner:** QR-Eat
 **Consumers:** Tabtep Counter (B2/B3), Tabtep Kitchen/Station, QR-Eat web/API
 **Normative for:** the Phase B print surface. Where this document and the merged
@@ -1123,7 +1122,7 @@ downstream step if not decided.
 | Freeze date | 2026-11-17 |
 | Freeze task | `QR-EAT-PHASE-B-PRINT-CONTRACT` (B1-C), `docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/TASK.md` |
 | Base commit | `612cde7` (clean `main`; `df40e1d` ancestor) |
-| Freeze commit | Stamped by the follow-up docs commit; see `RUN_LOG.md` and `TASK.md`. |
+| Freeze commit | **`39031bb`** (content commit; hash recorded by the follow-up docs commit). |
 | Server behaviour changed | **No** — docs-only. `git diff df40e1d..HEAD -- src prisma scripts` is empty. |
 | Schema/migration | None. `Station.settings` JSON only. |
 | Seed | Not run. |

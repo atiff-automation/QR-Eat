@@ -10,8 +10,8 @@ Updated: 2026-11-17
 Task contract: `docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/TASK.md`
 Task revision: 1 (approved 2026-11-17; B1-C docs-only)
 
-Current step: **Independent review PASS. Content freeze commit next, then the
-hash-stamp commit.**
+Current step: **CONTRACT FROZEN at `39031bb`; review PASS; hash stamp committed.
+Next is the separate B1-S server implementation task.**
 
 Last completed:
 - Read the Tabtep Phase B handoff and approved parent plan (Q1–Q6).
@@ -28,11 +28,12 @@ Last completed:
   PASS.
 
 Next action:
-1. Commit the docs-only content freeze with the exact paths in `TASK.md`.
-2. Record the content commit hash in the contract §14, `TASK.md`, `RUN_LOG.md`
-   and `RELEASE-COMPATIBILITY.md`; commit the hash-stamp (hash fields only).
-3. Report the content commit hash, stamp commit hash, tests and owner decisions.
-4. Stop. Do not start B1-S, B2 or B3. Do not push/deploy without the owner.
+1. Human: confirm O-1 (freeze approval) and decide O-9 (push the local freeze
+   commit). Railway deploys only after a push/merge.
+2. Start a separate B1-S R3 task from the frozen contract, after its own
+   approval and review.
+3. Do not push/deploy, enable loyalty, set the HMAC key, run seed, or edit
+   Tabtep from this session.
 
 Owner decisions reported at freeze:
 - O-1 approve `phase-b-print-v1`;

@@ -93,7 +93,7 @@ The most consequential choices:
 
 ## Evidence
 
-- Contract: `docs/PRODUCT/PRINT-ACK-CONTRACT.md` (1223 lines; `phase-b-print-v1`).
+- Contract: `docs/PRODUCT/PRINT-ACK-CONTRACT.md` (1222 lines; `phase-b-print-v1`).
 - Index pointer: `docs/PRODUCT/API-CONTRACT.md` §19.
 - Release record: `docs/PRODUCT/RELEASE-COMPATIBILITY.md` Phase B section.
 - Roadmap/backlog: `docs/ai/ACTIVE.md`, `docs/ai/BACKLOG.md` (AME-009, AME-010).
@@ -101,8 +101,8 @@ The most consequential choices:
 
 ## Freeze commit
 
-- Freeze commit: stamped by the follow-up docs commit (two-step: content
-  commit, then hash record).
+- Freeze commit: **`39031bb`** (content commit; hash stamped by the follow-up
+  docs commit). Two-step: content commit, then hash record.
 - The commit contains docs only; no push, no deploy, no tag.
 - The contract file at `HEAD` names the freeze commit; the pre-stamp commit is
   the content freeze and the stamp commit records its hash.

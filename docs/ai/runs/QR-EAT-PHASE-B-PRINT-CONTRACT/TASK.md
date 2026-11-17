@@ -1,7 +1,8 @@
 # Task — QR-EAT-PHASE-B-PRINT-CONTRACT (B1-C)
 
-**Status:** CONTRACT FROZEN — independent review **PASS**; content commit and
-hash stamp recorded in the close-out. B1-S is next and is a separate R3 task.
+**Status:** CONTRACT FROZEN at **`39031bb`** — independent review **PASS**;
+hash stamped by the follow-up docs commit. B1-S is next and is a separate R3
+task.
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (Phase B Q1–Q6, 2026-11-17; freeze authorized in the same instruction)
@@ -14,8 +15,8 @@ separate B1-S planning/implementation task
 **Risk:** R2 — API/auth/print contract, docs-only change
 **Workflow:** ARCHITECTURE / FEATURE (contract-first)
 **Phases:** B1-C contract freeze (this task, complete) → B1-S server implementation (separate R3 task) → B2 Counter → B3 QR/all orders
-**Freeze commit:** content commit and hash stamp recorded in `RUN_LOG.md` and
-the contract §14 (two-step stamp; no push/deploy).
+**Freeze commit:** **`39031bb`** (content commit; hash stamped by the follow-up
+docs commit). No push/deploy.
 **Updated:** 2026-11-17
 
 > **Input:** `../Tabtep-App/docs/ai/handoffs/QR-EAT-PHASE-B-PRINT-CONTRACT.md`
