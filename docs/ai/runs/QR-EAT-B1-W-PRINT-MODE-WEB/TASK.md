@@ -1,11 +1,12 @@
 # Task — QR-EAT-B1-W-PRINT-MODE-WEB (B1-W)
 
-**Status:** APPROVED — **READY**; B1-S is merged and deployed (`6d59a56`)
+**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; correction
+cycle 1 done; all findings closed; **ready for R2 commit gate**
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (O-7, 2026-11-17)
 **Approval date:** 2026-11-17
-**Next actor:** `ame-implementer` after B1-S is merged
+**Next actor:** human R2 commit gate, then merge and automatic Railway deploy
 **Risk:** **R2** — station configuration UI, operational print policy
 **Workflow:** FEATURE / UI
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`
