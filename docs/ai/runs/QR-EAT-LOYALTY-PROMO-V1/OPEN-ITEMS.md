@@ -19,7 +19,7 @@ renamed `P5C-1`.
 |---|---|---|---|---|
 | ~~D-1~~ | ~~Restaurant delete~~ | **closed** | **CLOSED 2026-11-15** — typed `409 RESTAURANT_HAS_HISTORY` with the deactivate guidance; close with `isActive: false`; erasure procedure in `DATA-RETENTION.md` (`REVIEW-28`) |
 | ~~D-2~~ | ~~Full phone on Counter responses~~ | **closed** | **CLOSED 2026-11-15** — recorded as order-contact data, not member PII; member phones stay masked and gated (`REVIEW-28`) |
-| OI-1 | `PATCH /api/orders/{id}/modify` idempotency: header or body? | **D** | The addendum surface table (§18.20.2) says `Idempotency-Key` **header**; the implementation reads `idempotencyKey` in the **body** and returns 400 for a header-only request; the Counter handoff documents the body form. Do not change code or either document until the owner rules. | The owner rules: either correct the addendum table to the body contract (and add an interpretation-register row), or change the server to accept the header (new freeze). |
+| ~~OI-1~~ | ~~`PATCH /api/orders/{id}/modify` idempotency: header or body?~~ | **closed** | **CLOSED 2026-11-17** — the owner selected the implemented body contract; the addendum surface table and note are corrected; a header-only request still returns 400; no code change; freeze `df40e1d` preserved (`docs: resolve OI-1 modify idempotency`) |
 | P8-6 | Should `net` / gross profit include tax and service? | **D, M** | Current arithmetic follows `net = Σ totalAmount − refunds`; gross profit includes tax. The P&L is captioned non-statutory until signed. | `docs/PRODUCT/P8-6-ACCOUNTING-SIGNOFF.md` signed by the owner/accountant, or Option B chosen. |
 
 ## Open — material

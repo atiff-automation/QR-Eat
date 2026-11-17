@@ -36,6 +36,9 @@ Last completed:
   `docs/PRODUCT/RELEASE-COMPATIBILITY.md` (`955045a`).
 - **Docs reconciled** to the frozen state: `TASK.md`, this file, `OPEN-ITEMS.md`,
   `API-CONTRACT.md`, `RELEASE-COMPATIBILITY.md`, `COUNTER-HANDOFF-LOYALTY.md`.
+- **OI-1 resolved — body contract** (2026-11-17): the owner confirmed
+  `PATCH /api/orders/{id}/modify` reads `idempotencyKey` from the JSON body; the
+  addendum and handoff are corrected; no server change.
 
 Next action:
 1. **Owner decision — merge target.** Local `main` is 17 commits ahead of
@@ -43,10 +46,9 @@ Next action:
    (60 ahead of local `main`). Either merge to local `main` and/or push the
    feature branch and open a PR against `origin/main`. Do not let a tool choose:
    a naive merge-and-push can publish unrelated AME/security history.
-2. **Owner decision — modify idempotency.** `PATCH /api/orders/{id}/modify` takes
-   `idempotencyKey` in the body and returns 400 for a header-only request; the
-   addendum surface table says `Idempotency-Key` header. Recorded as `OI-1` in
-   `OPEN-ITEMS.md`; do not change either document without the owner's ruling.
+2. **OI-1 resolved — body contract** (2026-11-17). `PATCH /api/orders/{id}/modify`
+   takes `idempotencyKey` in the JSON body; the addendum and handoff are
+   corrected; a header-only request returns 400; freeze `df40e1d` preserved.
 3. **Pilot** (human, after the merge decision): `LOYALTY_ENABLED=true`,
    `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled` for one restaurant,
    `db:seed` present, `/api/health` `edgeIp.source = "x-real-ip"`. Follow

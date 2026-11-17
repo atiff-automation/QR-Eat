@@ -1550,3 +1550,15 @@ body-idempotency note). The untracked local `.env.example` key name was correcte
 
 Remaining owner decisions: the merge target (local `main` and/or a PR against `origin/main`) and
 `OI-1` (modify idempotency: addendum table vs implemented body contract).
+
+**OI-1 resolved (2026-11-17):**
+
+The owner selected **A — docs-only correction to the implemented body contract**. No server
+change. `PATCH /api/orders/{id}/modify` reads `idempotencyKey` (UUID) from the JSON body; a
+header-only request returns 400 because the body field is missing. The addendum surface table,
+the §18.20.4 note and the interpretation register are corrected; the Counter handoff records the
+owner confirmation; `OI-1` is closed in `OPEN-ITEMS.md`.
+
+Docs-only commit: subject `docs: resolve OI-1 modify idempotency`, parent `5334e1e` (the commit
+hash is recorded in the session return because a commit cannot name itself). `git diff
+df40e1d..HEAD -- src prisma scripts` remains empty; the freeze `df40e1d` is unchanged.

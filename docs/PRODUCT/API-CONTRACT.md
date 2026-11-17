@@ -131,7 +131,7 @@ remain; no rows are deleted and no migration is reversed.
 | `POST /api/counter/orders/{id}/pay` | `payments:write` | `Idempotency-Key` | `expectedTotal`, `expectedCashPayable`, `expectedBillRevision` |
 | `POST /api/counter/payments` | `payments:write` | `Idempotency-Key` | same |
 | `GET /api/counter/payments/{key}` | `payments:read` | — | replay of a stored payment |
-| `PATCH /api/orders/{id}/modify` | `orders:write` | `Idempotency-Key` (header — contradicted by the body contract; see §18.20.4 and `OI-1`) | re-evaluates promotion, bumps `billRevision` |
+| `PATCH /api/orders/{id}/modify` | `orders:write` | body `idempotencyKey` (UUID; see §18.20.4) | re-evaluates promotion, bumps `billRevision` |
 | `GET/PATCH /api/settings/restaurant/loyalty` | `settings:read` / `loyalty:configure` | `Idempotency-Key` on PATCH | — |
 | `GET/PUT /api/settings/restaurant/payments` | `settings:read` / `settings:write` | `Idempotency-Key` on PUT | `cashRounding`, `businessDayCloseTime` |
 | `GET/POST /api/promotions` | `promotions:manage` | `Idempotency-Key` on POST | soft delete |
@@ -227,12 +227,12 @@ eligible base remains, the promotion stops blocking the visit unless another ord
 in the bill still has one. A paid order is never re-evaluated; correction is
 deferred in v1.
 
-> **Idempotency contradiction — owner decision pending (`OI-1`).** The surface
-> table in §18.20.2 lists `Idempotency-Key` for this route. The implementation
-> reads `idempotencyKey` from the JSON body and returns 400 for a request that
-> supplies only the header; the Counter handoff documents the body form. Neither
-> statement is to be changed until the owner rules; the 400 behaviour is
-> unchanged by this note. Tracked in `OPEN-ITEMS.md` (`OI-1`).
+> **Idempotency (owner-confirmed 2026-11-17, `OI-1`).** This route takes
+> `idempotencyKey` (UUID) in the JSON body together with `version`, `reason`,
+> `customerNotified` and `itemChanges`. A request that supplies only an
+> `Idempotency-Key` header returns 400 because the body field is missing. No
+> server change was made; the frozen commit `df40e1d` remains valid. The Counter
+> handoff matches this contract.
 
 ## 18.20.5 Owner
 
@@ -419,6 +419,7 @@ One more Z blocker is **informational and never blocks a close**:
 | D-1 | Retention (7 years, `docs/DATA-RETENTION.md`) | `DELETE /api/restaurants/{id}` returns `409 RESTAURANT_HAS_HISTORY` when the restaurant has orders, payment batches, business days, members, visits or discounts; a `P2003` from a table the pre-check misses maps to the same code | The loyalty foreign keys are `onDelete: Restrict` and the records must be kept for seven years; the old path surfaced a generic 500 | **Yes** — close a restaurant with `PATCH { "isActive": false }`; delete only an empty tenant |
 | D-2 | §18.20.9 (`members:pii`) | The Counter's order contact phone (`Order.customerPhone`) is **order-contact data**, not member PII: it stays unmasked on the Counter order/takeaway/pending responses and is not gated by `members:pii`. The member record's phone stays masked (`maskedPhone`) and gated | The number was given by the customer for that order; masking it breaks the Counter's call-back and delivery flow. The member record is the PII surface | **Yes** — read `customerPhone` for order contact, `member.maskedPhone` for the member |
 | P8-8 | §18.20.8 (the three reports agree) | The live Z ranges over the business-day cutoff — `getBusinessDayStart(businessDate)` to `getBusinessDayEnd(businessDate)` for a closed day, `now` for an open one — instead of `openedAt` → `closedAt`; `openedAt`/`closedAt` stay in the payload for display. A payment or refund after `closedAt` raises an informational `AFTER_CLOSE_ACTIVITY` blocker with `count` and the absolute `amount` | An early close put a post-close refund in a different period than the P&L and the loyalty report | **Yes** — one additive informational blocker type; the filed snapshot is unchanged |
+| OI-1 | §18.20.2 / §18.20.4 | PATCH /api/orders/{id}/modify reads idempotencyKey from the JSON body; header-only request returns 400 | Implementation is frozen; a docs-only correction preserves df40e1d | Yes — send the body field, not the header |
 
 ## 18.20.12 Freeze, compatibility and rollout
 

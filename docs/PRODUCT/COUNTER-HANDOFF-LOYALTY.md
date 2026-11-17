@@ -45,11 +45,9 @@ with `version` (the order version the cashier saw), `reason`
 `{ itemId, action: 'remove' | 'update_quantity', newQuantity? }`). A request that
 follows an `Idempotency-Key` header instead gets a 400.
 
-> The addendum's surface table (§18.20.2) still lists `Idempotency-Key` for this
-> route. That is a documentation contradiction, recorded as owner decision
-> `OI-1` in the QR-Eat run-dir `OPEN-ITEMS.md`; the server behaviour above is
-> what is implemented and frozen. Build against **this** paragraph until the
-> owner rules.
+> The owner confirmed the body contract on 2026-11-17 (`OI-1`): the form above is
+> the contract, and the addendum's surface table has been corrected to match. No
+> server change was made; the frozen commit `df40e1d` remains valid.
 
 **Notice response shape.** `GET /api/counter/loyalty/notice` returns:
 
