@@ -1399,7 +1399,8 @@ npm test -- --runInBand   -> 1383 passed, 11 skipped
 ```
 
 Candidate freeze: `e5f6046` (last commit that changed server behaviour). The final stamp is a
-two-line amendment after P11 PASS.
+two-line amendment after P11 PASS. *(Superseded: P11-fix changed server behaviour, so the stamped
+freeze is `df40e1d` — see the P11 human pass and freeze stamp entry below.)*
 
 **P10: COMPLETE.**
 
@@ -1526,3 +1527,26 @@ requires a new freeze.
 The branch is ready for the pilot. The pilot is a human action: `LOYALTY_ENABLED=true`, a generated
 `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled` for one restaurant, `db:seed` present, and
 `/api/health` showing `edgeIp.source = "x-real-ip"` before inviting guests.
+
+**Docs-only reconciliation (2026-11-17):**
+
+Read the Tabtep handoff `QR-EAT-LOYALTY-RECONCILIATION.md` and reconciled the stale documents to
+the frozen state. No product code, schema, migration or script changed; no merge, push, tag,
+deploy or flag change.
+
+```text
+git rev-parse HEAD                                    -> 955045a (before docs commit)
+git diff --stat df40e1d..HEAD -- src prisma scripts   -> empty
+git status --porcelain                                -> clean before edits
+```
+
+Changed: `TASK.md` (header status and metadata; historical candidate hash marked superseded; the
+P11 review filename), `NEXT.md` (P11 no longer "next"; the duplicate Pilot step merged),
+`OPEN-ITEMS.md` (P11-1/P11-2 closed; `OI-1` added), `docs/PRODUCT/API-CONTRACT.md` (freeze
+wording; modify-idempotency contradiction recorded), `docs/PRODUCT/RELEASE-COMPATIBILITY.md`
+(review result), `docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md` (freeze `df40e1d`, not `e5f6046`; the
+body-idempotency note). The untracked local `.env.example` key name was corrected to
+`LOYALTY_PHONE_HMAC_KEY` and is not committed.
+
+Remaining owner decisions: the merge target (local `main` and/or a PR against `origin/main`) and
+`OI-1` (modify idempotency: addendum table vs implemented body contract).

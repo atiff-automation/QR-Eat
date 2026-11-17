@@ -82,7 +82,7 @@ reconciled. Do not treat historical `/api/mobile/v1` notes as current.
 
 # §18.20 Loyalty, rewards and promotions — QR-Eat addendum
 
-**Status:** implemented · **FROZEN** `df40e1d` (P11 PASS, 2026-11-16)
+**Status:** implemented · **FROZEN** `df40e1d` (REVIEW-29 **FAIL** → REVIEW-30 **PASS WITH NOTES**; P11 human payment/migration pass **PASS**, 2026-11-16)
 **Normative source:** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20
 (v1.4.3, Tabtep task revision 14)
 **Owner:** QR-Eat. **Consumers:** QR-Eat web, Tabtep Counter, Tabtep
@@ -131,7 +131,7 @@ remain; no rows are deleted and no migration is reversed.
 | `POST /api/counter/orders/{id}/pay` | `payments:write` | `Idempotency-Key` | `expectedTotal`, `expectedCashPayable`, `expectedBillRevision` |
 | `POST /api/counter/payments` | `payments:write` | `Idempotency-Key` | same |
 | `GET /api/counter/payments/{key}` | `payments:read` | — | replay of a stored payment |
-| `PATCH /api/orders/{id}/modify` | `orders:write` | `Idempotency-Key` | re-evaluates promotion, bumps `billRevision` |
+| `PATCH /api/orders/{id}/modify` | `orders:write` | `Idempotency-Key` (header — contradicted by the body contract; see §18.20.4 and `OI-1`) | re-evaluates promotion, bumps `billRevision` |
 | `GET/PATCH /api/settings/restaurant/loyalty` | `settings:read` / `loyalty:configure` | `Idempotency-Key` on PATCH | — |
 | `GET/PUT /api/settings/restaurant/payments` | `settings:read` / `settings:write` | `Idempotency-Key` on PUT | `cashRounding`, `businessDayCloseTime` |
 | `GET/POST /api/promotions` | `promotions:manage` | `Idempotency-Key` on POST | soft delete |
@@ -226,6 +226,13 @@ promotion eligibility under the bill lock, replaces or removes the ACTIVE
 eligible base remains, the promotion stops blocking the visit unless another order
 in the bill still has one. A paid order is never re-evaluated; correction is
 deferred in v1.
+
+> **Idempotency contradiction — owner decision pending (`OI-1`).** The surface
+> table in §18.20.2 lists `Idempotency-Key` for this route. The implementation
+> reads `idempotencyKey` from the JSON body and returns 400 for a request that
+> supplies only the header; the Counter handoff documents the body form. Neither
+> statement is to be changed until the owner rules; the 400 behaviour is
+> unchanged by this note. Tracked in `OPEN-ITEMS.md` (`OI-1`).
 
 ## 18.20.5 Owner
 
@@ -416,9 +423,11 @@ One more Z blocker is **informational and never blocks a close**:
 ## 18.20.12 Freeze, compatibility and rollout
 
 - **Frozen:** `df40e1d` (last commit that changed server behaviour), stamped 2026-11-16 after
-  P11 PASS and the human payment/migration pass. Any later server change requires a new freeze.
-  The final hash is stamped after the P11 review passes. P10 documents do not
-  change the contract.
+  REVIEW-30 **PASS WITH NOTES** and the human payment/migration pass **PASS**. Any later server
+  change requires a new freeze. P10 documents do not change the contract.
+- **State at freeze:** the branch is unmerged (local `main` and `origin/main` are unchanged by
+  this work), unpushed, untagged and undeployed; `LOYALTY_ENABLED` has not been set for any
+  deployment and the pilot has not run.
 - Server changes inside the current API version are additive; the loyalty
   surface is new, so no path version bump.
 - Release order: server first with both switches off, then enable one

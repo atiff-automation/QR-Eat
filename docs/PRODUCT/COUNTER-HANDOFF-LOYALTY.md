@@ -2,7 +2,7 @@
 
 **From:** QR-Eat (contract owner)
 **To:** Tabtep Counter (Android) — separate session and repository
-**Status:** server implemented · **candidate freeze** `e5f6046` (stamped after P11)
+**Status:** server implemented · **frozen `df40e1d`** (REVIEW-29 FAIL → REVIEW-30 PASS WITH NOTES; P11 human pass PASS, 2026-11-16) · not merged, not pushed, not deployed · loyalty off by default
 **Normative source:** `docs/PRODUCT/API-CONTRACT.md` §18.20 addendum, which
 records the server implementation of Tabtep `§18.20` (v1.4.3, revision 14).
 
@@ -44,6 +44,12 @@ with `version` (the order version the cashier saw), `reason`
 `customerNotified` (boolean) and `itemChanges` (at least one
 `{ itemId, action: 'remove' | 'update_quantity', newQuantity? }`). A request that
 follows an `Idempotency-Key` header instead gets a 400.
+
+> The addendum's surface table (§18.20.2) still lists `Idempotency-Key` for this
+> route. That is a documentation contradiction, recorded as owner decision
+> `OI-1` in the QR-Eat run-dir `OPEN-ITEMS.md`; the server behaviour above is
+> what is implemented and frozen. Build against **this** paragraph until the
+> owner rules.
 
 **Notice response shape.** `GET /api/counter/loyalty/notice` returns:
 

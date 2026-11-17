@@ -3,7 +3,7 @@
 **Purpose:** one register for every carried finding, so nothing depends on chat memory.
 Check this at every phase gate.
 
-**Status:** open · **Updated:** 2026-11-15 · **Base:** `d2ad02b` (P10-close start)
+**Status:** open · **Updated:** 2026-11-17 · **Base:** `955045a` (freeze stamp; docs reconciled 2026-11-17)
 
 Severity: **H** high · **M** medium · **L** low · **D** decision needed.
 
@@ -19,6 +19,7 @@ renamed `P5C-1`.
 |---|---|---|---|---|
 | ~~D-1~~ | ~~Restaurant delete~~ | **closed** | **CLOSED 2026-11-15** — typed `409 RESTAURANT_HAS_HISTORY` with the deactivate guidance; close with `isActive: false`; erasure procedure in `DATA-RETENTION.md` (`REVIEW-28`) |
 | ~~D-2~~ | ~~Full phone on Counter responses~~ | **closed** | **CLOSED 2026-11-15** — recorded as order-contact data, not member PII; member phones stay masked and gated (`REVIEW-28`) |
+| OI-1 | `PATCH /api/orders/{id}/modify` idempotency: header or body? | **D** | The addendum surface table (§18.20.2) says `Idempotency-Key` **header**; the implementation reads `idempotencyKey` in the **body** and returns 400 for a header-only request; the Counter handoff documents the body form. Do not change code or either document until the owner rules. | The owner rules: either correct the addendum table to the body contract (and add an interpretation-register row), or change the server to accept the header (new freeze). |
 | P8-6 | Should `net` / gross profit include tax and service? | **D, M** | Current arithmetic follows `net = Σ totalAmount − refunds`; gross profit includes tax. The P&L is captioned non-statutory until signed. | `docs/PRODUCT/P8-6-ACCOUNTING-SIGNOFF.md` signed by the owner/accountant, or Option B chosen. |
 
 ## Open — material
@@ -80,10 +81,10 @@ renamed `P5C-1`.
 
 ## P11 — final R3 review
 
-| # | Item | Done when |
+| # | Item | Status |
 |---|---|---|
-| P11-1 | Four-lens review (Security, Payments & Reliability, Data & Migration, Product/UX) | `REVIEW-*.md` written, PASS/PASS WITH NOTES |
-| P11-2 | Different-model or human pass on the payment and migration paths | Recorded |
+| P11-1 | Four-lens review (Security, Payments & Reliability, Data & Migration, Product/UX) | **CLOSED 2026-11-16** — `REVIEW-29` FAIL → `REVIEW-30` PASS WITH NOTES |
+| P11-2 | Different-model or human pass on the payment and migration paths | **CLOSED 2026-11-16** — human pass **PASS** (`P11-HUMAN-PASS.md`) |
 
 ---
 
@@ -144,6 +145,9 @@ Every row below was open at some point and is now fixed, verified, or explicitly
 | P11p-6 | `AFTER_CLOSE_ACTIVITY` is strict at exactly `closedAt` | L | accepted | Documented |
 
 ## P11 closure (2026-11-16)
+
+P11-1 and P11-2 are **closed**: `REVIEW-29` FAIL → `REVIEW-30` PASS WITH NOTES, then the human
+payment/migration pass **PASS**. The freeze is stamped at `df40e1d`.
 
 Closed by P11-fix (`REVIEW-30`): **B-UX-1** (the consent dead-end), **S-1** (financial settings are
 owner-only on both routes), **S-3** (malformed phones count only the IP bucket), **B-PAY-1** (legacy

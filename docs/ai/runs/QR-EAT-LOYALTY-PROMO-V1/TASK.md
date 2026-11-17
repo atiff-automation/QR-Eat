@@ -1,6 +1,6 @@
 # Task — QR-EAT-LOYALTY-PROMO-V1
 
-**Status:** FROZEN `df40e1d` (P11 PASS, human signed) · pilot next
+**Status:** FROZEN `df40e1d` (REVIEW-29 **FAIL** → REVIEW-30 **PASS WITH NOTES**; P11 human pass **PASS** 2026-11-16) · pilot next
 **Revision:** 2
 **Approved revision:** 2
 **Approved by:** user
@@ -19,7 +19,7 @@
 **Workflow:** FEATURE / ARCHITECTURE
 **Phases done:** P0, P1, P1b, P2, P3, P4, P5A, P5B, P5C, P5 close-out, P6A, P6B, P6 close-out 1 (notice endpoint), P6C1 (QR UI), P6C2a (settings + promotions UI), P6C2b (members + report UI), P7a (rate limits, trusted IP, keyed hashes), P7b (enumeration, PII residuals), P7c (limiter rebalance), P7c-7 (name write-once), P7d (owner rename), P8 (reporting fixes), P9 (rehearsal and rollout), P9-10a (edge client-IP), P9-10b (audit IP), P10 (contract freeze), P10-close (six items), P11-prep (D-1, D-2, P8-8, P9-2, P9-3), P11 (four lenses), P11-fix
 **Phases open:** none — the pilot is a human action
-**Updated:** 2026-11-14 · **P6, P7, P8 and P9 complete** · P9-10a/P9-10b approved ("fix both")
+**Updated:** 2026-11-17 · **P6–P11 complete; frozen `df40e1d`** · P11 human pass PASS (2026-11-16)
 
 > **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
 > §18.20.14, §18.20.15 (v1.4.3), Tabtep task revision 14, approved 2026-11-13.
@@ -705,7 +705,8 @@ Documentation only. No product code, no schema, no deployment.
 **Decisions**
 - **Q1 = A.** Record a **candidate** freeze hash now; stamp the final hash in a two-line amendment
   after P11 PASS. The candidate is the last commit that changed server behaviour (`e5f6046`), not
-  the docs tip.
+  the docs tip. *(Superseded: P11-fix later changed server behaviour, so the frozen commit is
+  `df40e1d`, stamped 2026-11-16.)*
 - **Q2 = A.** P8-6 is recorded as an **explicit open sign-off** with an owner and the note
   "management reporting, not statutory". P10 proceeds; the pilot is unaffected.
 - **Q3 = A.** Extend the contract index with a §18.20 addendum (routes, shapes, states, errors,
@@ -1014,7 +1015,7 @@ Read only if unclear: the RBAC helpers, the cleanup cron, the business-day helpe
 Do not read: earlier reviews, unrelated UI, migrations.
 
 **P11 — R3 verification.** Fresh `ame-verifier`, four lenses (Security,
-Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-01.md`;
+Payments & Reliability, Data & Migration, Product/UX); write `REVIEW-29.md`;
 then the commit gate.
 
 ## Scope amendment (approved 2026-06-13 → 2026-11-13)
