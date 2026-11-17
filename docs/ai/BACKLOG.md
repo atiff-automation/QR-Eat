@@ -20,6 +20,8 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
+| AME-009 | contract | Freeze the Phase B print-ack/SSE and station print-mode contract (B1-C) | R2 | in progress | Docs-only; `docs/PRODUCT/PRINT-ACK-CONTRACT.md`; Tabtep TAB-010 |
+| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | waiting | Blocked by AME-009 freeze; ticket payload + Counter ack + printMode + cashier status + audit |
 
 ## Waiting
 

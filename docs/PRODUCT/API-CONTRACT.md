@@ -438,3 +438,21 @@ One more Z blocker is **informational and never blocks a close**:
   restaurant, watch refusals and the edge diagnostic for two weeks, then expand.
 - The Counter must be built against this addendum, not against the raw §18.20
   text, because the interpretation register is normative for this server.
+
+---
+
+# §19 Phase B print contract — pointer
+
+**Status:** frozen docs-only contract `phase-b-print-v1` (2026-11-17).
+**Normative file:** [`docs/PRODUCT/PRINT-ACK-CONTRACT.md`](./PRINT-ACK-CONTRACT.md).
+
+This addendum records the Phase B print surface: station
+`printMode: STATION | COUNTER | NONE`, the existing station device print-ack
+and SSE envelope, the Counter staff ticket-payload and print-ack endpoints,
+print-status/no-downgrade/audit rules, the no-Kitchen-device confirmation rule,
+and cashier PREPARING/READY/SERVED authority.
+
+B1-C is docs-only and changes no server behaviour. The separate B1-S task must
+implement the frozen contract before the Tabtep Counter B2 work starts. B3 owns
+QR/all-order auto-print and the Counter order feed. This pointer does not amend
+§18.20 or the normative Tabtep `§18.20` loyalty contract.
