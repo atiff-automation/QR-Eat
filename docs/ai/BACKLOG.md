@@ -20,7 +20,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-011 | stations | Web station `printMode` control (B1-W) | R2 | verification | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; B1-S deployed, B2 waits |
+
 
 ## Waiting
 
@@ -34,6 +34,7 @@ Product-level work for the web/server repo. Android work lives in
 
 | ID | Title | Outcome | Run log |
 |---|---|---|---|
+| AME-011 | Web station `printMode` control (B1-W) | REVIEW-01 PASS WITH NOTES; `c78f773`, merge `d63bdbc`; deployed `c4d79c4b…`; health UP; loyalty/HMAC unset | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/` |
 | AME-010 | Implement the frozen Phase B print contract (B1-S) | REVIEW-01 PASS WITH NOTES; `fd014d4`, merge `6d59a56`; deployed `cb4f7519…`; health UP; loyalty/HMAC unset | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/` |
 | AME-009 | Freeze the Phase B print-ack/SSE and station print-mode contract (B1-C) | REVIEW-01 PASS; frozen `39031bb`; docs-only | `docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/` |
 | AME-008 | Remediate 0.2.1 bootstrap review findings | REVIEW-03 PASS WITH NOTES; accepted commit `21f5139`; task marked done | `docs/ai/runs/GL-AME-BOOTSTRAP-001/` |

@@ -1,12 +1,14 @@
 # Task — QR-EAT-B1-W-PRINT-MODE-WEB (B1-W)
 
-**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; correction
-cycle 1 done; all findings closed; **ready for R2 commit gate**
+**Status:** **MERGED & DEPLOYED** — verifier **PASS WITH NOTES**; commit
+`c78f773`; merge `d63bdbc`; Railway deployment
+`c4d79c4b-5414-4413-b904-af1219a42f58` **SUCCESS**; health **UP**; loyalty/HMAC
+unset
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (O-7, 2026-11-17)
 **Approval date:** 2026-11-17
-**Next actor:** human R2 commit gate, then merge and automatic Railway deploy
+**Next actor:** B2 (Tabtep) after its own task/approval; QR-Eat B1 is complete
 **Risk:** **R2** — station configuration UI, operational print policy
 **Workflow:** FEATURE / UI
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`

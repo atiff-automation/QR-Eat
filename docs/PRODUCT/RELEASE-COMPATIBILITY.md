@@ -148,10 +148,10 @@ Compatibility note:
 |---|---|
 | Task | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` revision 1 |
 | Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` |
-| Status | **Implementation complete; verifier PASS WITH NOTES; correction cycle 1 done; R2 commit gate pending** |
+| Status | **MERGED & DEPLOYED** — verifier PASS WITH NOTES; commit `c78f773`; merge `d63bdbc` |
 | Base | `main` `f63096c`; B1-S code `6d59a56` |
 | Surface | `/dashboard/stations` per-station `printMode` control + `COUNTER` create default + guidance/setup reminder |
 | Scope | No server route, auth/RBAC, schema, seed, dependency or B2 change |
 | Evidence | `REVIEW-01.md`; desktop/mobile card screenshots; forced-400 revert screenshot |
 | Rollback | The control is additive; no data migration. Existing stations read as `STATION`, new as `COUNTER`. |
-| Deployment | Not merged/deployed yet; merge and Railway auto-deploy are the next gate |
+| Deployment | Railway auto-deploy `c4d79c4b-5414-4413-b904-af1219a42f58` from `d63bdbc` **SUCCESS**; health **200 UP**, database **CONNECTED**; `LOYALTY_ENABLED` and `LOYALTY_PHONE_HMAC_KEY` **UNSET**; no manual deploy |

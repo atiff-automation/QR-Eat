@@ -2,8 +2,10 @@
 
 **Task:** `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md` revision 1
 **Risk:** R2 · **Workflow:** FEATURE / UI
-**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; correction
-cycle 1 done; all findings closed; **ready for R2 commit gate**
+**Status:** **MERGED & DEPLOYED** — verifier **PASS WITH NOTES**; commit
+`c78f773`; merge `d63bdbc`; Railway deployment
+`c4d79c4b-5414-4413-b904-af1219a42f58` **SUCCESS**; health **UP**; loyalty/HMAC
+unset
 **Date:** 2026-11-17
 **Branch:** `feat/b1-w-print-mode-web` (base `main` `f63096c`; B1-S code `6d59a56`)
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`
@@ -158,6 +160,22 @@ all COUNTER controls), R-09 (no jsdom/RTL) and R-10 (pre-existing mobile
   `restaurant:settings` grant.
 - Browser screenshots were captured at 1024px/390px; no tablet-width capture.
 - No B2/Counter client or hardware verification.
+
+## Merge, deployment and health — 2026-11-17
+
+- Implementation commit: **`c78f773`** (`feat(stations): add owner print-mode
+  control B1-W`), branch `feat/b1-w-print-mode-web`.
+- Merge: **`d63bdbc`** (`merge: B1-W station print-mode control`, `--no-ff`) on
+  `main`; pushed `f63096c..d63bdbc`.
+- Railway auto-deployment:
+  **`c4d79c4b-5414-4413-b904-af1219a42f58`**, commit `d63bdbc`, **SUCCESS**.
+- `GET https://tabtep.app/api/health` → **200**:
+  `status=UP`, `database=CONNECTED`, `env=production`,
+  `edgeIp.source=x-real-ip`.
+- `railway status` → service **Online**, deployment id above.
+- `LOYALTY_ENABLED` **UNSET**; `LOYALTY_PHONE_HMAC_KEY` **UNSET**. No loyalty or
+  HMAC change.
+- No manual deploy, restart, seed, migration or B2 action.
 
 ## No-claims
 
