@@ -10,10 +10,12 @@ Updated: 2026-11-17
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
 
-Current step: **MERGED and tagged; not deployed.** `main` carries the merge commit
+Current step: **DEPLOYED with loyalty off; pilot pending.** `main` carries the merge commit
 `69bb505` and the pushed tag `phase-loyalty-promo-v1`; the frozen server commit
-`df40e1d` remains an ancestor. Deployment and pilot are separate owner gates, and
-both loyalty switches are off by default.
+`df40e1d` remains an ancestor. Railway auto-deploys `main`: deployment `cb031eb` succeeded,
+health UP, and the start command applied the migrations. `LOYALTY_ENABLED` and
+`LOYALTY_PHONE_HMAC_KEY` are unset, so the loyalty surface is inert. The pilot and credential
+rotation remain owner gates.
 
 Last completed:
 - P0–P10 complete and committed.
@@ -44,20 +46,20 @@ Last completed:
   and credential remediation) were reviewed and pushed; `feat/loyalty-promo-v1`
   was merged with `--no-ff` (`69bb505`); tag `phase-loyalty-promo-v1` was pushed.
   No rebase, squash, deploy, migration, seed or flag change.
+- **Deployed** (2026-11-17): Railway auto-deployed `main`; the deployments for the merge and the
+  docs path commit both reported `SUCCESS`, health UP, database connected. The start command ran
+  `prisma migrate deploy`, so the loyalty migrations are applied in production. `LOYALTY_ENABLED`
+  and `LOYALTY_PHONE_HMAC_KEY` remain unset; no seed, flag or HMAC change was made. Not piloted.
 
 Next action:
-1. **Deployment** (owner-gated; not performed here). Deploy `main` /
-   `phase-loyalty-promo-v1` when the owner approves. The deploy start command
-   runs `prisma migrate deploy`; complete the `PILOT-RUNBOOK.md` pre-flight and
-   confirm both loyalty switches are still off.
-2. **Pilot** (human, after deployment): `LOYALTY_ENABLED=true`,
+1. **Pilot** (human, owner-gated): rotate the exposed credential, then `LOYALTY_ENABLED=true`,
    `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled` for one restaurant,
    `db:seed` present, `/api/health` `edgeIp.source = "x-real-ip"`. Follow
    `PILOT-RUNBOOK.md`.
-3. **P8-6** remains unsigned; the P&L stays non-statutory until the
+2. **P8-6** remains unsigned; the P&L stays non-statutory until the
    owner/accountant signs. Carried, not blocking.
 
 Blockers:
-- No code blocker. Deployment and pilot are owner-gated. P9-10 is closed: the edge
+- No code blocker. Pilot and credential rotation are owner-gated. P9-10 is closed: the edge
   behaviour is measured and recorded in `evidence/P9-10-edge-headers.txt`, and the
   resolver is fixed.

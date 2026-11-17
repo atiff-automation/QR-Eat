@@ -426,9 +426,12 @@ One more Z blocker is **informational and never blocks a close**:
 - **Frozen:** `df40e1d` (last commit that changed server behaviour), stamped 2026-11-16 after
   REVIEW-30 **PASS WITH NOTES** and the human payment/migration pass **PASS**. Any later server
   change requires a new freeze. P10 documents do not change the contract.
-- **State at freeze:** the branch is unmerged (local `main` and `origin/main` are unchanged by
-  this work), unpushed, untagged and undeployed; `LOYALTY_ENABLED` has not been set for any
-  deployment and the pilot has not run.
+- **State at freeze:** `df40e1d` was unmerged, unpushed, untagged and undeployed when stamped,
+  and `LOYALTY_ENABLED` had not been set for any deployment. That described 2026-11-16 only.
+- **Deployed:** merged and tagged 2026-11-17, then deployed from `main` to Railway production
+  (`SUCCESS`, health UP). `LOYALTY_ENABLED` and `LOYALTY_PHONE_HMAC_KEY` are unset, so the loyalty
+  surface is inert. The pilot has not run, and the exposed credential still needs rotation before
+  real users.
 - Server changes inside the current API version are additive; the loyalty
   surface is new, so no path version bump.
 - Release order: server first with both switches off, then enable one

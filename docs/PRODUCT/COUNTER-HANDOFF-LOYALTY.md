@@ -2,7 +2,7 @@
 
 **From:** QR-Eat (contract owner)
 **To:** Tabtep Counter (Android) — separate session and repository
-**Status:** server implemented · **frozen `df40e1d`** (REVIEW-29 FAIL → REVIEW-30 PASS WITH NOTES; P11 human pass PASS, 2026-11-16) · not merged, not pushed, not deployed · loyalty off by default
+**Status:** server implemented · **frozen `df40e1d`** (REVIEW-29 FAIL → REVIEW-30 PASS WITH NOTES; P11 human pass PASS, 2026-11-16) · merged, tagged and deployed 2026-11-17 · loyalty flags off, HMAC key unset, pilot pending · credentials not rotated
 **Normative source:** `docs/PRODUCT/API-CONTRACT.md` §18.20 addendum, which
 records the server implementation of Tabtep `§18.20` (v1.4.3, revision 14).
 

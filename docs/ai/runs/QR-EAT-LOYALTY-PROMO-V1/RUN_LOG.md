@@ -1599,3 +1599,36 @@ git push origin phase-loyalty-promo-v1  -> new tag
 Tag `phase-loyalty-promo-v1` is annotated and points at `69bb505`; the tag object is `ad3f464`.
 `git branch --contains df40e1d` includes `main`. Not deployed; no migration, seed or loyalty flag
 change in this session.
+
+**Deployment record (2026-11-17):**
+
+Railway auto-deploys `main`, so the loyalty merge and the docs path commit were deployed without
+a manual deploy command. Observed live on the Railway project:
+
+```text
+Service:          QR-Eat
+Environment:      production
+Deployment:       03cfc904-1129-4439-afba-9f6661cd60a5
+Commit:           cb031eb2c00a34fec9f28fa5153cb660d6579e8a
+Branch:           main
+Status:           SUCCESS
+Created:          2026-11-17T05:00:13.887Z
+Health:           UP
+Database:         CONNECTED
+Edge IP:          x-real-ip
+LOYALTY_ENABLED:          unset
+LOYALTY_PHONE_HMAC_KEY:   unset
+```
+
+The start command is `prisma migrate deploy && next start`; health UP and database CONNECTED mean
+the 35 migrations applied and the app started. The loyalty surface is deployed but inert: the
+global flag and the HMAC key are unset, so every loyalty route fails closed.
+
+Not done here, deliberately: no `db:seed`, no `LOYALTY_ENABLED` change, no
+`LOYALTY_PHONE_HMAC_KEY` change, no Railway configuration change, no pilot. Permission rows for
+the owner endpoints still require a seed or a permission-only run; that is part of the pilot gate.
+The credential exposed in Git history is still unrotated and must be rotated before real users.
+
+Docs-only follow-up: the "not deployed" status text was corrected in `TASK.md`, `NEXT.md`,
+`API-CONTRACT.md`, `RELEASE-COMPATIBILITY.md` and `COUNTER-HANDOFF-LOYALTY.md`. No product code,
+schema, migration or script changed; `git diff df40e1d..HEAD -- src prisma scripts` remains empty.
