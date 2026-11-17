@@ -1562,3 +1562,40 @@ owner confirmation; `OI-1` is closed in `OPEN-ITEMS.md`.
 Docs-only commit: subject `docs: resolve OI-1 modify idempotency`, parent `5334e1e` (the commit
 hash is recorded in the session return because a commit cannot name itself). `git diff
 df40e1d..HEAD -- src prisma scripts` remains empty; the freeze `df40e1d` is unchanged.
+
+**OI-1 resolution committed (2026-11-17):** `ff75a7c` (`docs: resolve OI-1 modify idempotency`).
+Six docs files; `git diff df40e1d..HEAD -- src prisma scripts` empty.
+
+**Merge and tag (2026-11-17):**
+
+Owner decision **A** for the merge: review and push local `main` first, then merge the feature
+branch with a merge commit. No rebase or squash; `df40e1d` stays an ancestor.
+
+The 17 local `main` commits are the AME bootstrap/upgrade series plus the credential remediation
+(`5dd1b76`, `ddfc870`, `21f5139`): tracked `.railway-env-*.txt` files removed, hardcoded VAPID
+private key replaced with `${{ secrets.VAPID_PRIVATE_KEY }}`, and the hardcoded database URL in
+root/script helpers replaced with `process.env.DATABASE_URL`. Review found no secret values added.
+The pre-existing removed credential remains in history; purging history is still recorded as a
+pre-production task, not part of this merge.
+
+```text
+local main, pre-push:  npm test -> 524 passed, 11 skipped
+                       type-check -> PASS after build regenerated .next/types
+                       (the first type-check run failed on stale .next/types that still
+                       referenced loyalty routes; no source change involved)
+                       build -> PASS
+git push origin main            -> 2918f46..3c7faa8
+feature gate:          npm test -> 1444 passed, 11 skipped
+                       type-check -> PASS
+                       build -> PASS
+merge:                 git merge --no-ff -> 69bb505 (merge: loyalty promo v1), 260 files
+post-merge gate:       npm test -> 1444 passed, 11 skipped
+                       type-check -> PASS
+                       build -> PASS
+git push origin main                    -> 3c7faa8..69bb505
+git push origin phase-loyalty-promo-v1  -> new tag
+```
+
+Tag `phase-loyalty-promo-v1` is annotated and points at `69bb505`; the tag object is `ad3f464`.
+`git branch --contains df40e1d` includes `main`. Not deployed; no migration, seed or loyalty flag
+change in this session.

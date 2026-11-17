@@ -119,3 +119,9 @@ the working tree only.
 No merge, push, tag, deploy, flag change, migration, seed, database command, or
 edit to `src/**`, `prisma/**`, `scripts/**`, or any Tabtep worktree. The stop
 point in the handoff is respected.
+
+## Post-merge note (2026-11-17)
+
+The owner later resolved the two remaining decisions recorded above: **OI-1 A** (docs-only
+correction to the implemented body contract) and **merge A** (review/push local `main`, then merge
+with a merge commit). The resolution and the merge evidence are in `RUN_LOG.md`.

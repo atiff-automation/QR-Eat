@@ -1,6 +1,6 @@
 # Release Compatibility — Tabtep
 
-**Status:** loyalty addendum recorded · frozen 2026-11-16  
+**Status:** loyalty addendum recorded · frozen 2026-11-16 · merged and tagged 2026-11-17 · not deployed  
 **Owner:** QR-Eat
 
 Use this file to record which server version is compatible with which Counter and
@@ -13,7 +13,7 @@ older docs.
 
 | Surface | Version | Commit/tag | Notes |
 |---|---|---|---|
-| Server (QR-Eat) | branch `feat/loyalty-promo-v1` | **frozen `df40e1d`** | Loyalty surface implemented; both switches default off; branch not merged, not pushed, not tagged, not deployed |
+| Server (QR-Eat) | `main` | **`phase-loyalty-promo-v1`** (frozen `df40e1d`) | Loyalty surface implemented and merged into `main` with a merge commit on 2026-11-17; tagged and pushed; **not deployed**; both switches default off |
 | API contract | v1 + §18.20 loyalty addendum | `docs/PRODUCT/API-CONTRACT.md` | Additive; no path-version bump |
 | Counter | not yet built against this addendum | — | Must implement `docs/PRODUCT/COUNTER-HANDOFF-LOYALTY.md` |
 | Kitchen/Station | unchanged | — | No loyalty surface; no Station route or contract was touched on this branch (verified: no diff under `src/app/api/stations`) |
@@ -72,7 +72,9 @@ older docs.
 | Client-visible changes | Z `grossSales` is now pre-tax (P8-1); `outcome` appears on new batches; stored payment replay omits name/phone (P10-3) |
 | Platform fact | Railway sets `X-Real-IP` to the client and prepends the client to `X-Forwarded-For`; the last XFF entry is an internal hop (P9-10) |
 | Unsigned | P8-6: `net` includes tax and service; the P&L is not statutory until an accountant signs |
-| Verification | P9 drills 45/45 upgrade, 47/47 concurrency, 31/31 permissions; P11 four-lens review PASS WITH NOTES; human payment/migration pass PASS |
+| Merge and tag | Merged into `main` on 2026-11-17 with a merge commit (`merge: loyalty promo v1`); no squash or rebase; `df40e1d` remains an ancestor |
+| Deployment | **Not deployed.** Tag `phase-loyalty-promo-v1` is pushed; deployment and pilot remain separate owner gates |
+| Verification | P9 drills 45/45 upgrade, 47/47 concurrency, 31/31 permissions; P11 four-lens review PASS WITH NOTES; human payment/migration pass PASS; post-merge tests 1444 passed / 11 skipped, type-check and build green |
 
 ### Compatibility rules for this addendum
 

@@ -10,8 +10,9 @@ Updated: 2026-11-17
 Task contract: `docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md`
 Task revision: 2 (approved 2026-11-13)
 
-Current step: **FROZEN and complete.** `df40e1d` is the frozen server commit and
-the docs are reconciled to it. Nothing is merged, pushed, tagged or deployed, and
+Current step: **MERGED and tagged; not deployed.** `main` carries the merge commit
+`69bb505` and the pushed tag `phase-loyalty-promo-v1`; the frozen server commit
+`df40e1d` remains an ancestor. Deployment and pilot are separate owner gates, and
 both loyalty switches are off by default.
 
 Last completed:
@@ -39,22 +40,24 @@ Last completed:
 - **OI-1 resolved — body contract** (2026-11-17): the owner confirmed
   `PATCH /api/orders/{id}/modify` reads `idempotencyKey` from the JSON body; the
   addendum and handoff are corrected; no server change.
+- **Merged and tagged** (2026-11-17): the 17 local `main` commits (AME bootstrap
+  and credential remediation) were reviewed and pushed; `feat/loyalty-promo-v1`
+  was merged with `--no-ff` (`69bb505`); tag `phase-loyalty-promo-v1` was pushed.
+  No rebase, squash, deploy, migration, seed or flag change.
 
 Next action:
-1. **Owner decision — merge target.** Local `main` is 17 commits ahead of
-   `origin/main`; `feat/loyalty-promo-v1` is 77 commits ahead of `origin/main`
-   (60 ahead of local `main`). Either merge to local `main` and/or push the
-   feature branch and open a PR against `origin/main`. Do not let a tool choose:
-   a naive merge-and-push can publish unrelated AME/security history.
-2. **OI-1 resolved — body contract** (2026-11-17). `PATCH /api/orders/{id}/modify`
-   takes `idempotencyKey` in the JSON body; the addendum and handoff are
-   corrected; a header-only request returns 400; freeze `df40e1d` preserved.
-3. **Pilot** (human, after the merge decision): `LOYALTY_ENABLED=true`,
+1. **Deployment** (owner-gated; not performed here). Deploy `main` /
+   `phase-loyalty-promo-v1` when the owner approves. The deploy start command
+   runs `prisma migrate deploy`; complete the `PILOT-RUNBOOK.md` pre-flight and
+   confirm both loyalty switches are still off.
+2. **Pilot** (human, after deployment): `LOYALTY_ENABLED=true`,
    `LOYALTY_PHONE_HMAC_KEY`, `LoyaltySettings.enabled` for one restaurant,
    `db:seed` present, `/api/health` `edgeIp.source = "x-real-ip"`. Follow
    `PILOT-RUNBOOK.md`.
+3. **P8-6** remains unsigned; the P&L stays non-statutory until the
+   owner/accountant signs. Carried, not blocking.
 
 Blockers:
-- No code blocker. The merge target and the modify-idempotency wording are owner
-  decisions. P9-10 is closed: the edge behaviour is measured and recorded in
-  `evidence/P9-10-edge-headers.txt`, and the resolver is fixed.
+- No code blocker. Deployment and pilot are owner-gated. P9-10 is closed: the edge
+  behaviour is measured and recorded in `evidence/P9-10-edge-headers.txt`, and the
+  resolver is fixed.
