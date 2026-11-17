@@ -2,9 +2,9 @@
 
 **Task:** `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`
 **Risk:** R2 · **Workflow:** FEATURE / UI
-**Status:** APPROVED — blocked by B1-S merge
+**Status:** APPROVED — ready; B1-S merged/deployed
 **Date:** 2026-11-17
-**Base:** B1-S merge commit (fill at start)
+**Base:** `6d59a56` (B1-S merge commit)
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`
 
 ## Approval

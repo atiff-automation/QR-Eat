@@ -1,6 +1,6 @@
 # Task — QR-EAT-B1-W-PRINT-MODE-WEB (B1-W)
 
-**Status:** APPROVED — **BLOCKED by B1-S merge** (owner O-7, 2026-11-17)
+**Status:** APPROVED — **READY**; B1-S is merged and deployed (`6d59a56`)
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (O-7, 2026-11-17)
@@ -10,7 +10,7 @@
 **Workflow:** FEATURE / UI
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`
 **Server dependency:** `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`
-**Base:** the B1-S merge commit (fill at start; do not start on the old base)
+**Base:** `6d59a56` (B1-S merge commit; `printMode` API deployed)
 **Updated:** 2026-11-17
 
 > B1-W exists because the owner approved O-7: **B1-S API + B1-W web control

@@ -9,8 +9,9 @@ Updated: 2026-11-17
 Task contract: `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`
 Task revision: 1 (approved 2026-11-17)
 
-Current step: **IMPLEMENTATION COMPLETE; verifier PASS WITH NOTES; all findings
-closed. R3 commit gate, then merge/deploy.**
+Current step: **MERGED & DEPLOYED** — `fd014d4`, merge `6d59a56`, Railway
+deployment `cb4f7519…` **SUCCESS**, health **UP**, loyalty/HMAC unset.
+Next is B1-W, then B2.
 
 Completed:
 - S1–S5 implemented by one `ame-implementer` (`ses_e178dc606ffehGkUPDq7QaeoyQ`).
@@ -22,11 +23,10 @@ Completed:
 - Tracked product diff hash `84ce705…`; product+new `0578ac6…`; full tracked `62fb8da…`.
 
 Next action:
-1. R3 commit gate: exact paths, diff hash, evidence, owner authorization
-   (2026-11-17 instruction).
-2. Merge to `main`; confirm Railway auto-deploy, health, loyalty/HMAC unset.
-3. Record the merge/deploy evidence in this run directory.
-4. Do not start B1-W or B2.
+1. Implement B1-W (`docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`) against
+   the deployed B1-S API.
+2. B2 waits for B1-W merge.
+3. Do not enable loyalty, set the HMAC key, run seed or edit Tabtep.
 
 Blockers:
 - None. The only recorded deviation is the internal contract conflict R-04

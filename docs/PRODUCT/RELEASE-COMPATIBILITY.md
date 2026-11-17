@@ -120,7 +120,7 @@ Minimum supported versions:
 |---|---|
 | Contract | `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1` (frozen `39031bb`) |
 | Task | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md` revision 1 |
-| Status | **Implementation complete; verifier PASS WITH NOTES; correction cycle 1 done; final delta review and R3 commit gate pending** |
+| Status | **MERGED & DEPLOYED** — verifier PASS WITH NOTES; all findings closed; commit `fd014d4`; merge `6d59a56` |
 | Branch | `feat/b1-s-print-server`, based on `main` `58b64d9` (code base `612cde7`) |
 | Diff hash | tracked product `84ce705de553556e1373e37edfc9d04bae9fc26adabb8325ce8e7a9b4a426e4b`; product+new `0578ac6a9f3c621e09170938db33b9da7523cd4b61e50b1dfcbc1bb37672e683`; full tracked `62fb8da15841a4cfab493ba6e3c0bf212aa1d8664bfe4d60cd2bc52e995c2ec2` |
 | Server surface | `printMode`, stamped event payloads, device-ack authority/audit, Counter `print-tickets`/`print-ack`, no-Kitchen confirm, cashier C-8 status, `orders:counter_serve` |
@@ -131,7 +131,7 @@ Minimum supported versions:
 | Loyalty | Unchanged; flags stay off, HMAC key unset |
 | Verification | type-check PASS; targeted 11 suites/114 tests; full 128 suites/1553 passed, 11 skipped; build PASS |
 | Deviation | Contract internal conflict R-04: §7.2 `INVALID_ACK` vs §7.5 `VALIDATION_FAILED` for `success:true`+`skipped:true`; implemented §7.2. Contract text unchanged. |
-| Deployment | Not merged/deployed yet; merge and Railway auto-deploy are the next gate |
+| Deployment | Railway auto-deploy `cb4f7519-2f2a-4b9a-b09c-c4af6553d36f` from `6d59a56` **SUCCESS**; health **200 UP**, database **CONNECTED**; `LOYALTY_ENABLED` and `LOYALTY_PHONE_HMAC_KEY` **UNSET**; no manual deploy |
 
 Compatibility note:
 

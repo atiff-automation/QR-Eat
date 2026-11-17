@@ -1,12 +1,14 @@
 # Task — QR-EAT-B1-S-PRINT-SERVER (B1-S)
 
-**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; all
-findings closed; **ready for the R3 commit gate**
+**Status:** **MERGED & DEPLOYED** — verifier **PASS WITH NOTES**; all findings
+closed; commit `fd014d4`; merge `6d59a56`; Railway deployment
+`cb4f7519-2f2a-4b9a-b09c-c4af6553d36f` **SUCCESS**; health **UP**; loyalty/HMAC
+unset
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff (contract freeze approval + B1-S creation, 2026-11-17)
 **Approval date:** 2026-11-17
-**Next actor:** human R3 commit gate, then merge and automatic Railway deploy
+**Next actor:** B1-W implementer (web `printMode` control), then B2
 **Risk:** **R3** — auth-adjacent station/device endpoints, order status, audit, tenant isolation
 **Workflow:** FEATURE / ARCHITECTURE (contract implementation)
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`

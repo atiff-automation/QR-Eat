@@ -2,8 +2,10 @@
 
 **Task:** `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md` revision 1
 **Risk:** R3 · **Workflow:** FEATURE / ARCHITECTURE
-**Status:** IMPLEMENTATION COMPLETE — verifier **PASS WITH NOTES**; correction
-cycle 1 complete; final delta review and R3 commit gate pending
+**Status:** **MERGED & DEPLOYED** — verifier **PASS WITH NOTES**; all findings
+closed; R3 commit `fd014d4`; merge `6d59a56`; Railway deployment
+`cb4f7519-2f2a-4b9a-b09c-c4af6553d36f` **SUCCESS**; health **UP**; loyalty/HMAC
+unset
 **Date:** 2026-11-17
 **Branch:** `feat/b1-s-print-server` (base `main` `58b64d9`; code base `612cde7`)
 **Contract:** `docs/PRODUCT/PRINT-ACK-CONTRACT.md`, `phase-b-print-v1`, frozen `39031bb`
@@ -180,6 +182,26 @@ pre-existing untracked Tabtep docs.
   409 by design; the Kitchen compatibility run is still required before B2.
 - `order.items.added` still has no producer; add-on tickets remain unreachable
   until B3/follow-up.
+
+## Merge, deployment and health — 2026-11-17
+
+- Implementation commit: **`fd014d4`** (`feat(print): implement Phase B print
+  server B1-S`), branch `feat/b1-s-print-server`.
+- Merge: **`6d59a56`** (`merge: Phase B print server B1-S`, `--no-ff`) on
+  `main`; pushed `58b64d9..6d59a56`.
+- Railway auto-deployment:
+  **`cb4f7519-2f2a-4b9a-b09c-c4af6553d36f`**, commit `6d59a56`,
+  **SUCCESS**.
+- `GET https://tabtep.app/api/health` → **200**:
+  `status=UP`, `database=CONNECTED`, `env=production`,
+  `edgeIp.source=x-real-ip`.
+- `railway status` → service **Online**, deployment id above.
+- Environment check: `LOYALTY_ENABLED` **UNSET**,
+  `LOYALTY_PHONE_HMAC_KEY` **UNSET**. No loyalty enablement, no HMAC change.
+- No manual deploy, restart, redeploy, seed or migration was run. The start
+  command ran `prisma migrate deploy` as part of the normal deploy; no new
+  migration exists in this task.
+- B1-W and B2 were not started.
 
 ## Guardrails
 

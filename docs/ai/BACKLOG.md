@@ -20,7 +20,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
-| AME-010 | stations | Implement the frozen Phase B print contract (B1-S) | R3 | verification | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/TASK.md`; PASS WITH NOTES, correction cycle 1; R3 gate pending |
+| AME-011 | stations | Web station `printMode` control (B1-W) | R2 | ready | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; B1-S deployed, B2 waits |
 
 ## Waiting
 
@@ -28,13 +28,13 @@ Product-level work for the web/server repo. Android work lives in
 |---|---|---|---|
 | AME-006 | Cross-repo contract change pilot | AME-003 | Freeze contract, then Tabtep session |
 | AME-007 | Tenant isolation T1–T7 remediation | AME-003, security review | Plan after contract baseline |
-| AME-011 | Web station `printMode` control (B1-W) | AME-010 merge | `docs/ai/runs/QR-EAT-B1-W-PRINT-MODE-WEB/TASK.md`; before B2 |
 | AME-012 | Audit-log retention/cleanup for print acks | AME-010 audit volume | Define schedule/retention; O-5 follow-up |
 
 ## Done
 
 | ID | Title | Outcome | Run log |
 |---|---|---|---|
+| AME-010 | Implement the frozen Phase B print contract (B1-S) | REVIEW-01 PASS WITH NOTES; `fd014d4`, merge `6d59a56`; deployed `cb4f7519…`; health UP; loyalty/HMAC unset | `docs/ai/runs/QR-EAT-B1-S-PRINT-SERVER/` |
 | AME-009 | Freeze the Phase B print-ack/SSE and station print-mode contract (B1-C) | REVIEW-01 PASS; frozen `39031bb`; docs-only | `docs/ai/runs/QR-EAT-PHASE-B-PRINT-CONTRACT/` |
 | AME-008 | Remediate 0.2.1 bootstrap review findings | REVIEW-03 PASS WITH NOTES; accepted commit `21f5139`; task marked done | `docs/ai/runs/GL-AME-BOOTSTRAP-001/` |
 | — | AME bootstrap 0.2.9 | Kit upgraded; permission ergonomics; Android verifier allowlist; task state migrated | `docs/ai/AME_BOOTSTRAP.md` |
