@@ -83,7 +83,7 @@ reconciled. Do not treat historical `/api/mobile/v1` notes as current.
 # §18.20 Loyalty, rewards and promotions — QR-Eat addendum
 
 **Status:** implemented · **FROZEN** `df40e1d` (REVIEW-29 **FAIL** → REVIEW-30 **PASS WITH NOTES**; P11 human payment/migration pass **PASS**, 2026-11-16)
-**Normative source:** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20
+**Normative source:** `../Tabtep-App/docs/API-CONTRACT.md` §18.20
 (v1.4.3, Tabtep task revision 14)
 **Owner:** QR-Eat. **Consumers:** QR-Eat web, Tabtep Counter, Tabtep
 Kitchen/Station.

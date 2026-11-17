@@ -21,7 +21,7 @@
 **Phases open:** none — the merge and the pilot are human actions
 **Updated:** 2026-11-17 · **P6–P11 complete; frozen `df40e1d`** · P11 human pass PASS (2026-11-16)
 
-> **Contract (frozen):** `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20,
+> **Contract (frozen):** `../Tabtep-App/docs/API-CONTRACT.md` §18.20,
 > §18.20.14, §18.20.15 (v1.4.3), Tabtep task revision 14, approved 2026-11-13.
 > §18.1–§18.19 are historical and must not be implemented.
 > **Product source of truth:** `DIRECTION.md` (2026-11-12).
@@ -29,8 +29,8 @@
 >
 > The contract is frozen. If a clause cannot be implemented, stop and report the
 > exact clause and the conflict. Do not change the contract. Do not edit any
-> Tabtep worktree, and do not read
-> `../Tabtep-App/docs/API-CONTRACT.md` (print worktree; has no §18.20).
+> Tabtep worktree. The normative contract is
+> `../Tabtep-App/docs/API-CONTRACT.md` §18.20.
 
 ## Objective
 
@@ -116,10 +116,10 @@ Additional settled decisions:
 
 - `AGENTS.md`
 - this `TASK.md`
-- `../Tabtep-App-loyalty/docs/API-CONTRACT.md` §18.20, §18.20.14, §18.20.15
+- `../Tabtep-App/docs/API-CONTRACT.md` §18.20, §18.20.14, §18.20.15
   (only these; stop reading at §18.20.15 F)
-- `../Tabtep-App-loyalty/docs/ai/runs/2026-11-12-loyalty-promo-discount/DIRECTION.md`
-- `../Tabtep-App-loyalty/docs/ai/runs/2026-11-12-loyalty-promo-discount/HANDOFF-QR-EAT.md`
+- `../Tabtep-App/docs/ai/runs/2026-11-12-loyalty-promo-discount/DIRECTION.md`
+- `../Tabtep-App/docs/ai/runs/2026-11-12-loyalty-promo-discount/HANDOFF-QR-EAT.md`
 - `prisma/schema.prisma`
 - `src/lib/order-utils.ts` (existing money semantics)
 - `src/lib/time/business-day.ts`

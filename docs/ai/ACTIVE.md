@@ -6,6 +6,6 @@ Those belong in the task's TASK.md.
 -->
 
 Task: QR-EAT-LOYALTY-PROMO-V1
-Branch: feat/loyalty-promo-v1
-Updated: 2026-11-14
+Branch: main
+Updated: 2026-11-17
 Task contract: docs/ai/runs/QR-EAT-LOYALTY-PROMO-V1/TASK.md
