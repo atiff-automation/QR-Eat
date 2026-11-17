@@ -95,12 +95,18 @@ commands are optional shortcuts.
 
 - `/ame` — universal front door; classify and route.
 - `/ame-plan` — grill, plan, and produce an approvable `TASK.md`; no code.
-- `/ame-feature` — feature workflow with grilling, spec, UX gate, contract, build, verify.
+- `/ame-implement` — hand an approved task to one `ame-implementer` child.
+- `/ame-verify` — request a fresh diff-bound `ame-verifier` review.
+- `/ame-commit` — run the human commit gate.
+- `/ame-feature` — feature workflow with grilling, spec, UX gate, contract, handoff.
 - `/ame-bug` — investigation-first bug workflow.
 - `/ame-review` — read-only two-axis review.
 - `/ame-fix` — remediate findings from a review report.
 - `/ame-resume` — recover the active task and next action after a break.
 - `/ame-audit` — read-only architecture/security/consistency audit.
+
+The Lead does not edit product code. Product changes go to one
+`ame-implementer` child; verification goes to a fresh `ame-verifier` child.
 
 L2/L3 tasks include a context budget: must read / read only if unclear / do not
 read. Do not scan the whole repository by default.

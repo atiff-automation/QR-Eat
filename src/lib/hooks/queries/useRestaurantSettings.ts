@@ -80,7 +80,11 @@ export interface RestaurantSettings {
  * return <div>Currency: {settings.currency}</div>;
  * ```
  */
-export function useRestaurantSettings() {
+export interface SettingsQueryOptions {
+  enabled?: boolean;
+}
+
+export function useRestaurantSettings(options: SettingsQueryOptions = {}) {
   return useQuery({
     queryKey: queryKeys.restaurants.settings,
     queryFn: async () => {
@@ -89,6 +93,7 @@ export function useRestaurantSettings() {
       );
       return data.settings;
     },
+    enabled: options.enabled ?? true,
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
     refetchOnWindowFocus: true,

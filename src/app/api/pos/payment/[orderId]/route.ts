@@ -12,6 +12,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   requireAuth,
@@ -410,7 +411,7 @@ export async function POST(
           },
           changedBy: userId,
           changedByType: userType,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          ipAddress: trustedIp(request),
           userAgent: request.headers.get('user-agent') || 'unknown',
         };
 

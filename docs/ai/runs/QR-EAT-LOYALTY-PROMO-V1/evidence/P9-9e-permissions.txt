@@ -1,0 +1,36 @@
+# P9e — seeded loyalty permission matrix
+
+P9e — seeded loyalty permission matrix
+PASS  permission exists: loyalty:attach
+PASS  permission exists: loyalty:configure
+PASS  permission exists: loyalty:report
+PASS  permission exists: promotions:manage
+PASS  permission exists: members:read
+PASS  permission exists: members:pii
+PASS  permission exists: members:export
+PASS  permission exists: members:delete
+PASS  permission exists: members:consent_withdraw
+PASS  permission exists: settings:write
+PASS  all ten loyalty permissions are active
+PASS  owner mapping: loyalty:attach — granted
+PASS  owner mapping: loyalty:configure — granted
+PASS  owner mapping: loyalty:report — granted
+PASS  owner mapping: promotions:manage — granted
+PASS  owner mapping: members:read — granted
+PASS  owner mapping: members:pii — granted
+PASS  owner mapping: members:export — granted
+PASS  owner mapping: members:delete — granted
+PASS  owner mapping: members:consent_withdraw — granted
+PASS  owner mapping: settings:write — granted
+PASS  manager mapping: loyalty:attach — granted
+PASS  manager mapping: loyalty:configure — granted
+PASS  manager mapping: loyalty:report — granted
+PASS  manager mapping: promotions:manage — granted
+PASS  manager mapping: members:read — granted
+PASS  manager mapping: members:pii — granted
+PASS  manager mapping: members:consent_withdraw — granted
+PASS  manager mapping: settings:write — granted
+PASS  manager is denied: members:export — denied
+PASS  manager is denied: members:delete — denied
+
+PASS — 31/31 checks passed

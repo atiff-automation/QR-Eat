@@ -14,6 +14,7 @@ import {
   DollarSign,
   Bell,
   CreditCard,
+  Gift,
   Receipt,
   Settings2,
   QrCode,
@@ -29,7 +30,17 @@ import { ReceiptSection } from '@/components/settings/ReceiptSection';
 import { BusinessDaySection } from '@/components/settings/BusinessDaySection';
 import { SystemPreferencesSection } from '@/components/settings/SystemPreferencesSection';
 import { QrOrderingSection } from '@/components/settings/QrOrderingSection';
+import {
+  LoyaltyPermissionDenied,
+  LoyaltySection,
+} from '@/components/settings/LoyaltySection';
 import { SettingsLoadingSkeleton } from '@/components/settings/SettingsLoadingSkeleton';
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
+import { useRole } from '@/components/rbac/RoleProvider';
+import {
+  buildLoyaltySettingsForm,
+  useLoyaltySettings,
+} from '@/lib/hooks/queries/useLoyaltySettings';
 
 type SectionKey =
   | 'general'
@@ -38,6 +49,7 @@ type SectionKey =
   | 'ordering'
   | 'notifications'
   | 'payments'
+  | 'loyalty'
   | 'receipt'
   | 'business'
   | 'system';
@@ -123,6 +135,11 @@ const SECTIONS = [
     icon: CreditCard,
   },
   {
+    key: 'loyalty' as SectionKey,
+    label: 'Rewards',
+    icon: Gift,
+  },
+  {
     key: 'receipt' as SectionKey,
     label: 'Receipt',
     icon: Receipt,
@@ -141,6 +158,15 @@ const SECTIONS = [
 
 function SettingsContent() {
   const [activeSection, setActiveSection] = useState<SectionKey>('general');
+  const { hasPermission, isLoading: roleLoading, currentRole } = useRole();
+  const canConfigureLoyalty = hasPermission('loyalty:configure');
+  // Financial settings (tax, service charge, currency, labels) are owner-only
+  // on the server. Hide the section for managers so the UI does not offer a
+  // write that will be refused (REVIEW-30 H-1).
+  const canEditFinancial = currentRole?.userType === 'restaurant_owner';
+  const visibleSections = canEditFinancial
+    ? SECTIONS
+    : SECTIONS.filter((section) => section.key !== 'financial');
   const {
     data: settings,
     isLoading,
@@ -148,6 +174,9 @@ function SettingsContent() {
     error,
     refetch,
   } = useRestaurantSettings();
+  const loyaltyQuery = useLoyaltySettings({
+    enabled: !roleLoading && canConfigureLoyalty,
+  });
 
   if (isLoading) {
     return <SettingsLoadingSkeleton />;
@@ -157,7 +186,7 @@ function SettingsContent() {
     return (
       <div className="min-h-screen bg-gray-50/50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 max-w-md w-full text-center">
-          <p className="text-red-600 mb-4">
+          <p className="text-red-700 mb-4">
             {error instanceof Error ? error.message : 'Failed to load settings'}
           </p>
           <button
@@ -276,6 +305,15 @@ function SettingsContent() {
           />
         );
       case 'financial':
+        if (!canEditFinancial) {
+          return (
+            <div className="p-6">
+              <p className="text-sm text-gray-700">
+                Only the restaurant owner can change financial settings.
+              </p>
+            </div>
+          );
+        }
         return (
           <FinancialSection
             initialData={{
@@ -315,6 +353,50 @@ function SettingsContent() {
               paymentMethods: uiSettings.paymentMethods,
             }}
             onUpdate={() => {}}
+          />
+        );
+      case 'loyalty':
+        if (roleLoading) {
+          return <LoadingSpinner size="sm" message="Checking permissions..." />;
+        }
+        if (!canConfigureLoyalty) {
+          return <LoyaltyPermissionDenied />;
+        }
+        if (loyaltyQuery.isLoading) {
+          return (
+            <LoadingSpinner size="sm" message="Loading rewards settings..." />
+          );
+        }
+        if (loyaltyQuery.isError || !loyaltyQuery.data) {
+          return (
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm">
+              <div
+                role="alert"
+                className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+              >
+                {loyaltyQuery.error instanceof Error
+                  ? loyaltyQuery.error.message
+                  : 'Could not load rewards settings.'}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  void loyaltyQuery.refetch();
+                }}
+                className="mt-3 min-h-11 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                Retry
+              </button>
+            </div>
+          );
+        }
+        return (
+          <LoyaltySection
+            initialData={buildLoyaltySettingsForm(loyaltyQuery.data)}
+            currency={uiSettings.currency}
+            onUpdate={() => {
+              void loyaltyQuery.refetch();
+            }}
           />
         );
       case 'receipt':
@@ -369,7 +451,7 @@ function SettingsContent() {
               paddingRight: '2.5rem',
             }}
           >
-            {SECTIONS.map((section) => (
+            {visibleSections.map((section) => (
               <option key={section.key} value={section.key}>
                 {section.label}
               </option>
@@ -384,7 +466,7 @@ function SettingsContent() {
         <div className="w-64 bg-white border-r border-gray-200 p-5 overflow-y-auto">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Settings</h2>
           <nav className="space-y-1">
-            {SECTIONS.map((section) => {
+            {visibleSections.map((section) => {
               const Icon = section.icon;
               return (
                 <button

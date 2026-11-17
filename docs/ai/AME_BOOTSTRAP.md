@@ -1,8 +1,8 @@
 # AME Bootstrap Status — QR-Eat
 
-**Date:** 2026-11-10
-**Branch:** `main`  
-**Status:** 0.2.9 installed; remediation task closed; Android verifier support added
+**Date:** 2026-11-13
+**Branch:** `feat/loyalty-promo-v1`  
+**Status:** AME 0.3.0 installed; workflow enforcement active
 
 ## Clean restart
 
@@ -13,6 +13,7 @@
 - Applied AME kit **0.2.7** permission ergonomics; merged into `main` at `ebc6948`
 - Applied AME kit **0.2.8** verifier allowlist; merged into `main` at `e1cec8b`
 - Updated to AME kit **0.2.9** for Android verifier support on `chore/ame-029`
+- Updated to AME kit **0.3.0** on `feat/loyalty-promo-v1`; no product code changed
 - Redid the security cleanup on the bootstrap branch
 
 ## Completed
@@ -26,10 +27,14 @@
 - [x] `docs/ai/BACKLOG.md`
 - [x] `docs/ai/runs/`
 - [x] `docs/PRODUCT/`
-- [x] AME 0.2.9 core/templates/checklists
-- [x] Eight commands: ame, plan, bug, feature, review, fix, resume, audit
+- [x] AME 0.3.0 core/templates/checklists
+- [x] Eleven commands: ame, plan, implement, verify, commit, feature, bug, review, fix, resume, audit
+- [x] Three agents: ame-lead, ame-implementer, ame-verifier
 - [x] Five skills: grilling, debugging, verification, engineering-discipline, handoff
-- [x] Eight-command / five-skill adapter validation
+- [x] Lead is read-only for product code
+- [x] Implementer child required for product changes
+- [x] Fresh verifier and diff-bound review gate required
+- [x] Eleven-command / three-agent / five-skill adapter validation
 - [x] `ACTIVE.md` pointer installed
 - [x] Context budget added to the task template
 - [x] Lead `.env`/destructive-shell guards preserved
@@ -103,6 +108,7 @@ Android verifier support is merged at `722c408`.
 ## Next
 
 1. Restart OpenCode/Desktop so the running background server reloads the agents.
-2. Run one small `/ame` pilot task.
-3. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
-4. Do not merge product work before explicit approval.
+2. Use `/ame-plan`, approve the exact task revision, then `/ame-implement`.
+3. Verify with `/ame-verify`; commit only through `/ame-commit`.
+4. Keep the deferred follow-ups visible: R-04, R-08, R-10, R-11.
+5. Do not merge product work before explicit approval.

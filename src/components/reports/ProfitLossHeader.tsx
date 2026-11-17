@@ -86,6 +86,12 @@ export function ProfitLossHeader({
       {/* Date Range */}
       <p className="text-xs text-gray-400 mt-1">{formatDateRange()}</p>
 
+      {/* Management-reporting caption (P8-6) */}
+      <p className="text-[11px] text-gray-600 mt-0.5">
+        Figures include tax and service charge. Management reporting only — not
+        statutory until signed off by an accountant.
+      </p>
+
       {/* Custom Date Picker */}
       {showCustomPicker && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40">

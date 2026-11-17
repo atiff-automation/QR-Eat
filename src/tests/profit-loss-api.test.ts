@@ -23,7 +23,7 @@ import * as ProfitLossRoute from '@/app/api/admin/reports/profit-loss/route';
 
 jest.mock('@/lib/database', () => ({
   prisma: {
-    restaurant: { findFirst: jest.fn() },
+    restaurant: { findFirst: jest.fn(), findUnique: jest.fn() },
     order: { aggregate: jest.fn() },
     payment: { aggregate: jest.fn() },
     $queryRaw: jest.fn(),
@@ -71,6 +71,13 @@ function createRequest(params: Record<string, string> = {}): NextRequest {
   return request;
 }
 
+function setupClock() {
+  (prisma.restaurant.findUnique as jest.Mock).mockResolvedValue({
+    timezone: 'Asia/Kuala_Lumpur',
+    businessDayCloseTime: '04:00',
+  });
+}
+
 function setupOwnerAuth() {
   (AuthServiceV2.validateToken as jest.Mock).mockResolvedValue(mockAuthOwner);
   (prisma.restaurant.findFirst as jest.Mock).mockResolvedValue({
@@ -92,6 +99,9 @@ function setupDefaultMocks(
   overrides: {
     grossSales?: number;
     discounts?: number;
+    tax?: number;
+    service?: number;
+    totalAmount?: number;
     refunds?: number;
     cogsData?: Array<{ category_name: string; total_amount: number }>;
     opexData?: Array<{ category_name: string; total_amount: number }>;
@@ -100,6 +110,9 @@ function setupDefaultMocks(
   const {
     grossSales = 10000,
     discounts = 500,
+    tax = 0,
+    service = 0,
+    totalAmount = grossSales - discounts + tax + service,
     refunds = 200,
     cogsData = [
       { category_name: 'Food & Ingredients', total_amount: 3000 },
@@ -115,14 +128,17 @@ function setupDefaultMocks(
   // Revenue
   (prisma.order.aggregate as jest.Mock).mockResolvedValue({
     _sum: {
-      totalAmount: grossSales,
+      subtotalAmount: grossSales,
       discountAmount: discounts,
+      taxAmount: tax,
+      serviceCharge: service,
+      totalAmount,
     },
   });
 
-  // Refunds
+  // Refunds are negative payments; the route reports the magnitude.
   (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
-    _sum: { amount: refunds },
+    _sum: { amount: -refunds },
   });
 
   // $queryRaw is called twice: once for COGS, once for OPERATING
@@ -134,6 +150,12 @@ function setupDefaultMocks(
   });
 }
 
+function paymentDateRange(where: {
+  OR: Array<{ AND: Array<{ createdAt: { gte: Date; lt: Date } }> }>;
+}): { gte: Date; lt: Date } {
+  return where.OR[1].AND[1].createdAt;
+}
+
 // ============================================================================
 // Authentication & Authorization Tests
 // ============================================================================
@@ -141,6 +163,7 @@ function setupDefaultMocks(
 describe('GET /api/admin/reports/profit-loss', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    setupClock();
   });
 
   describe('authentication', () => {
@@ -232,11 +255,13 @@ describe('GET /api/admin/reports/profit-loss', () => {
   // ============================================================================
 
   describe('report calculations', () => {
-    it('calculates revenue correctly (gross - discounts - refunds)', async () => {
+    it('calculates net sales from the order total less refunds', async () => {
       setupOwnerAuth();
       setupDefaultMocks({
         grossSales: 10000,
         discounts: 500,
+        tax: 0,
+        service: 0,
         refunds: 200,
       });
 
@@ -253,8 +278,302 @@ describe('GET /api/admin/reports/profit-loss', () => {
       expect(data.success).toBe(true);
       expect(data.report.revenue.grossSales).toBe(10000);
       expect(data.report.revenue.discounts).toBe(500);
+      expect(data.report.revenue.tax).toBe(0);
+      expect(data.report.revenue.service).toBe(0);
       expect(data.report.revenue.refunds).toBe(200);
-      expect(data.report.revenue.netSales).toBe(9300); // 10000 - 500 - 200
+      // (10000 - 500 + 0 + 0) - 200
+      expect(data.report.revenue.netSales).toBe(9300);
+    });
+
+    it('pins the old vs new arithmetic: total is post-discount, so it must not be gross', async () => {
+      setupOwnerAuth();
+      // Subtotal 1000, discount 100, total 900, refunds 50.
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 1000,
+          discountAmount: 100,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 900,
+        },
+      });
+      (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { amount: -50 },
+      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+      });
+
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+
+      const oldGrossSales = 900; // Σ totalAmount (already post-discount)
+      const oldNetSales = oldGrossSales - 100 - 50; // 750: double subtraction
+      expect(data.report.revenue.grossSales).toBe(1000);
+      expect(data.report.revenue.netSales).toBe(850); // 900 - 50
+      expect(data.report.revenue.netSales).not.toBe(oldNetSales);
+    });
+
+    it('fully refunds a taxed order to zero and exposes tax and service', async () => {
+      setupOwnerAuth();
+      // Subtotal 100 + tax 10 + service 5 = total 115. The order is fully
+      // refunded, so net must be 0, not -(tax + service).
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 100,
+          discountAmount: 0,
+          taxAmount: 10,
+          serviceCharge: 5,
+          totalAmount: 115,
+        },
+      });
+      (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { amount: -115 },
+      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+      });
+
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+      const revenue = data.report.revenue;
+
+      expect(revenue).toEqual({
+        grossSales: 100,
+        discounts: 0,
+        tax: 10,
+        service: 5,
+        refunds: 115,
+        netSales: 0,
+      });
+      expect(
+        revenue.grossSales -
+          revenue.discounts +
+          revenue.tax +
+          revenue.service -
+          revenue.refunds
+      ).toBe(revenue.netSales);
+    });
+
+    it('includes a paid-then-cancelled order in revenue and offsets it to zero', async () => {
+      setupOwnerAuth();
+      // The order is CANCELLED after payment. Its positive payment keeps it in
+      // the revenue set; the refund then offsets its total.
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 100,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 100,
+        },
+      });
+      (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { amount: -100 },
+      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+      });
+
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+
+      expect(data.report.revenue.netSales).toBe(0);
+      const revenueWhere = (prisma.order.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(revenueWhere).not.toHaveProperty('status');
+      const some = revenueWhere.payments.some;
+      expect(some).toMatchObject({ status: 'PAID', amount: { gt: 0 } });
+      expect(some.OR[0].batch.businessDate).toEqual({
+        gte: expect.any(Date),
+        lte: expect.any(Date),
+      });
+      expect(some.OR[1].AND[1].createdAt).toEqual({
+        gte: expect.any(Date),
+        lt: expect.any(Date),
+      });
+    });
+
+    it('reports refunds from negative payments in the refund date range', async () => {
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 1000,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 1000,
+        },
+      });
+      (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
+        _sum: { amount: -125.5 },
+      });
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-01',
+        endDate: '2026-02-28',
+      });
+
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+
+      expect(data.report.revenue.refunds).toBe(125.5);
+      expect(data.report.revenue.netSales).toBe(874.5);
+      const refundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(refundWhere.order).toEqual({ restaurantId: RESTAURANT_ID });
+      expect(refundWhere.amount).toEqual({ lt: 0 });
+      expect(refundWhere.OR[1].AND[1].createdAt).toEqual({
+        gte: expect.any(Date),
+        lt: expect.any(Date),
+      });
+      expect(refundWhere).not.toHaveProperty('status');
+    });
+
+    it('excludes a payment exactly at the cutoff instant', async () => {
+      // Same half-open window as the Z: a payment at 2026-10-28T20:00:00Z is
+      // the first instant of 2026-10-29, so it is not on 2026-10-28.
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 0,
+        },
+      });
+      const atCutoff = new Date('2026-10-28T20:00:00.000Z');
+      (prisma.payment.aggregate as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const { gte, lt } = paymentDateRange(where);
+          return Promise.resolve({
+            _sum: { amount: atCutoff >= gte && atCutoff < lt ? -10 : 0 },
+          });
+        }
+      );
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const response = await ProfitLossRoute.GET(
+        createRequest({
+          restaurantId: RESTAURANT_ID,
+          startDate: '2026-10-28',
+          endDate: '2026-10-28',
+        })
+      );
+      const data = await response.json();
+
+      expect(data.report.revenue.refunds).toBe(0);
+    });
+
+    it('keeps a refund taken after an early close inside the same business date', async () => {
+      // The Z's post-close test (counter-reporting.test.ts) uses this same
+      // instant: 10:00 KL on 2026-10-28, after a 09:00 KL close and before the
+      // 04:00 KL cutoff. Both reports must attribute it to 2026-10-28.
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 0,
+        },
+      });
+      const refundAt = new Date('2026-10-28T02:00:00.000Z');
+      (prisma.payment.aggregate as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const { gte, lt } = paymentDateRange(where);
+          return Promise.resolve({
+            _sum: {
+              amount: refundAt >= gte && refundAt < lt ? -10 : 0,
+            },
+          });
+        }
+      );
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const request = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-10-28',
+        endDate: '2026-10-28',
+      });
+      const response = await ProfitLossRoute.GET(request);
+      const data = await response.json();
+
+      expect(data.report.revenue.refunds).toBe(10);
+      const refundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(paymentDateRange(refundWhere)).toEqual({
+        gte: new Date('2026-10-27T20:00:00.000Z'),
+        lt: new Date('2026-10-28T20:00:00.000Z'),
+      });
+    });
+
+    it('attributes a 01:30 refund to the previous business date', async () => {
+      setupOwnerAuth();
+      (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+        _sum: {
+          subtotalAmount: 0,
+          discountAmount: 0,
+          taxAmount: 0,
+          serviceCharge: 0,
+          totalAmount: 0,
+        },
+      });
+      const refundAt = new Date('2026-02-01T17:30:00.000Z'); // 2026-02-02 01:30 KL
+      (prisma.payment.aggregate as jest.Mock).mockImplementation(
+        ({ where }) => {
+          const { gte, lt } = paymentDateRange(where);
+          return Promise.resolve({
+            _sum: {
+              amount: refundAt >= gte && refundAt < lt ? -10 : 0,
+            },
+          });
+        }
+      );
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+
+      const firstRequest = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-01',
+        endDate: '2026-02-01',
+      });
+      const firstResponse = await ProfitLossRoute.GET(firstRequest);
+      const firstData = await firstResponse.json();
+
+      expect(firstData.report.revenue.refunds).toBe(10);
+      const firstRefundWhere = (prisma.payment.aggregate as jest.Mock).mock
+        .calls[0][0].where;
+      expect(paymentDateRange(firstRefundWhere)).toEqual({
+        gte: new Date('2026-01-31T20:00:00.000Z'),
+        lt: new Date('2026-02-01T20:00:00.000Z'),
+      });
+
+      // The same refund is after the next business day's 04:00 cutoff.
+      const secondRequest = createRequest({
+        restaurantId: RESTAURANT_ID,
+        startDate: '2026-02-02',
+        endDate: '2026-02-02',
+      });
+      const secondResponse = await ProfitLossRoute.GET(secondRequest);
+      const secondData = await secondResponse.json();
+
+      expect(secondData.report.revenue.refunds).toBe(0);
     });
 
     it('calculates COGS breakdown from direct table query', async () => {
@@ -531,7 +850,13 @@ describe('GET /api/admin/reports/profit-loss', () => {
       setupOwnerAuth();
       // Simulate null _sum values (no orders/payments in range)
       (prisma.order.aggregate as jest.Mock).mockResolvedValue({
-        _sum: { totalAmount: null, discountAmount: null },
+        _sum: {
+          subtotalAmount: null,
+          discountAmount: null,
+          taxAmount: null,
+          serviceCharge: null,
+          totalAmount: null,
+        },
       });
       (prisma.payment.aggregate as jest.Mock).mockResolvedValue({
         _sum: { amount: null },
@@ -555,7 +880,10 @@ describe('GET /api/admin/reports/profit-loss', () => {
       expect(response.status).toBe(200);
       expect(data.report.revenue.grossSales).toBe(0);
       expect(data.report.revenue.discounts).toBe(0);
+      expect(data.report.revenue.tax).toBe(0);
+      expect(data.report.revenue.service).toBe(0);
       expect(data.report.revenue.refunds).toBe(0);
+      expect(data.report.revenue.netSales).toBe(0);
     });
 
     it('uses direct table queries, not materialized views', async () => {

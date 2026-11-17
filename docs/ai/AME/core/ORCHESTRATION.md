@@ -93,6 +93,10 @@ User
 
 The user selects the Lead once. The Lead decides which specialists to call.
 
+The Lead is read-only for product code. Product-code changes go to exactly one
+`ame-implementer` child. Verification goes to a fresh `ame-verifier` child. The
+Lead records state and evidence; it does not implement the approved task itself.
+
 ## Front door
 
 The user should not need to remember the workflow commands.
@@ -141,11 +145,13 @@ The Lead should delegate when:
 
 The Lead should not delegate when:
 
-- the task is trivial;
 - the work is already conclusive;
-- coordination cost exceeds value;
 - the specialist would duplicate the Lead;
 - the task is urgent and sequential is safer.
+
+The Lead may not delegate product-code changes to itself. Use
+`ame-implementer` for every code change, including small changes. Use `explore`
+for read-only research and `ame-verifier` for verification.
 
 ## Handoff
 
@@ -161,6 +167,9 @@ Minimum:
 - test commands;
 - evidence required;
 - return format.
+
+Record the child `sessionID`. If the child returns incomplete work, continue the
+same child with that ID; do not start a second implementer.
 
 ## Results
 
@@ -243,7 +252,8 @@ record the result in the run log.
 
 ## One writer
 
-Only one actor may modify the working tree at a time. Do not start a second
+Only one actor may modify the working tree at a time. For a code-changing task,
+that actor is the implementer child, not the Lead. Do not start a second
 implementation session to help a running one. Parallel implementation requires
 separate worktrees and explicit ownership.
 

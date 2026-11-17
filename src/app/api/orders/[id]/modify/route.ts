@@ -12,6 +12,10 @@ import {
 } from '@/lib/validation/order-modification-schemas';
 import { calculateOrderTotals, PAYMENT_STATUS } from '@/lib/order-utils';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
+import {
+  acquireOrderModificationLocks,
+  reapplyPromotionForModifiedOrder,
+} from '@/lib/services/loyalty-order-modify-service';
 
 /**
  * PATCH /api/orders/[id]/modify
@@ -99,19 +103,20 @@ export async function PATCH(
           );
         }
 
-        // 4. Check version (optimistic locking)
-        if (order.version !== data.version) {
-          throw new Error(
-            'Order was modified by another user. Please refresh and try again.'
-          );
-        }
+        // 4. Check version (optimistic locking) is repeated on the row re-read
+        // under the bill lock below, so a concurrent modification cannot be
+        // overwritten between this read and the lock.
 
-        // 5. Check idempotency
-        const existingModification = await tx.orderModification.findUnique({
-          where: { idempotencyKey: data.idempotencyKey },
-        });
+        // 5. Check idempotency (fast path, before taking the bill lock). A
+        // concurrent duplicate that loses the lock race is re-checked under the
+        // lock below, so it replays instead of failing the version guard.
+        const findReplayedModification = async () => {
+          const existingModification = await tx.orderModification.findUnique({
+            where: { idempotencyKey: data.idempotencyKey },
+          });
 
-        if (existingModification) {
+          if (!existingModification) return null;
+
           // Already processed, return cached result
           const cachedOrder = await tx.order.findUnique({
             where: { id: orderId },
@@ -126,12 +131,75 @@ export async function PATCH(
             isDuplicate: true,
             refundNeeded: null,
           };
+        };
+
+        const replayedModification = await findReplayedModification();
+        if (replayedModification) return replayedModification;
+
+        // 6. Take the same locks as the bill read and payment before changing
+        // the bill: customer/day first, then bill/order (§18.20.14 F/I).
+        const now = new Date();
+        const session = order.diningSessionId
+          ? await tx.diningSession.findFirst({
+              where: {
+                id: order.diningSessionId,
+                restaurantId: order.restaurantId,
+              },
+              select: { id: true, customerId: true },
+            })
+          : null;
+
+        await acquireOrderModificationLocks(tx, {
+          restaurantId: order.restaurantId,
+          orderId,
+          diningSessionId: session?.id ?? null,
+          customerId: session ? session.customerId : (order.customerId ?? null),
+          now,
+        });
+
+        // 6b. Re-check the idempotency record under the lock (F-5). A
+        // concurrent duplicate that committed while this request waited must
+        // replay the stored result, not fail the stale-version guard with 409.
+        const lockedReplay = await findReplayedModification();
+        if (lockedReplay) return lockedReplay;
+
+        // Re-read under the lock. The optimistic version and the paid/status
+        // guards are enforced against this row, not the pre-lock read.
+        const lockedOrder = await tx.order.findUnique({
+          where: { id: orderId },
+          include: {
+            items: {
+              include: { menuItem: true, selectedOptions: true },
+            },
+          },
+        });
+
+        if (!lockedOrder) {
+          throw new Error('Order not found');
         }
 
-        // 6. Apply item changes
+        if (lockedOrder.paymentStatus === PAYMENT_STATUS.PAID) {
+          throw new Error(
+            'Cannot modify paid orders. Please contact staff to process a refund first.'
+          );
+        }
+
+        if (lockedOrder.status !== 'PENDING') {
+          throw new Error(
+            'Cannot modify order after it has been confirmed. Cancel and re-order instead.'
+          );
+        }
+
+        if (lockedOrder.version !== data.version) {
+          throw new Error(
+            'Order was modified by another user. Please refresh and try again.'
+          );
+        }
+
+        // 7. Apply item changes
         const modificationItems = [];
         for (const change of data.itemChanges) {
-          const item = order.items.find((i) => i.id === change.itemId);
+          const item = lockedOrder.items.find((i) => i.id === change.itemId);
           if (!item) {
             throw new Error(`Order item ${change.itemId} not found`);
           }
@@ -180,7 +248,7 @@ export async function PATCH(
           }
         }
 
-        // 7. Recalculate order totals
+        // 8. Recalculate order totals
         const updatedItems = await tx.orderItem.findMany({
           where: { orderId },
           include: { menuItem: true, selectedOptions: true },
@@ -198,41 +266,71 @@ export async function PATCH(
         let serviceChargeRate = 0;
 
         if (
-          order.taxRateSnapshot !== null &&
-          order.serviceChargeRateSnapshot !== null
+          lockedOrder.taxRateSnapshot !== null &&
+          lockedOrder.serviceChargeRateSnapshot !== null
         ) {
-          taxRate = Number(order.taxRateSnapshot);
-          serviceChargeRate = Number(order.serviceChargeRateSnapshot);
+          taxRate = Number(lockedOrder.taxRateSnapshot);
+          serviceChargeRate = Number(lockedOrder.serviceChargeRateSnapshot);
         } else {
           // STRICT LEGACY POLICY: If snapshots are missing on a fresh system, something is wrong.
           // We intentionally fail here to prevent "Guess Mode" financial errors.
           throw new Error(
-            `Modification Failed: Order ${order.orderNumber} is missing tax/service rate snapshots. Cannot safely recalculate totals.`
+            `Modification Failed: Order ${lockedOrder.orderNumber} is missing tax/service rate snapshots. Cannot safely recalculate totals.`
           );
         }
 
-        const totals = calculateOrderTotals(
-          updatedItems.map((item) => ({
-            ...item,
+        // A loyalty-active restaurant re-evaluates the promotion against the
+        // new contents and refreshes the ACTIVE `OrderDiscount` ledger under the
+        // lock (§18.20.14 I). The flag-off path keeps the legacy calculation
+        // exactly and never touches the ledger.
+        const loyaltyPricing = await reapplyPromotionForModifiedOrder(tx, {
+          restaurantId: lockedOrder.restaurantId,
+          orderId,
+          diningSessionId: lockedOrder.diningSessionId,
+          items: updatedItems.map((item) => ({
+            menuItemId: item.menuItemId,
+            totalAmount: item.totalAmount,
             menuItem: {
-              ...item.menuItem,
-              price: Number(item.menuItem.price),
+              name: item.menuItem.name,
+              categoryId: item.menuItem.categoryId,
             },
-            totalPrice: Number(item.totalAmount), // Map totalAmount to totalPrice for calculateOrderTotals
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          })) as any,
-          taxRate,
-          serviceChargeRate
-        );
+          })),
+          taxRate: lockedOrder.taxRateSnapshot,
+          serviceRate: lockedOrder.serviceChargeRateSnapshot,
+          actorId: context!.userId,
+          actorType: context!.userType,
+          now,
+        });
 
-        // 8. Create modification record
+        const totals = loyaltyPricing
+          ? {
+              subtotal: loyaltyPricing.subtotal,
+              taxAmount: loyaltyPricing.taxAmount,
+              serviceCharge: loyaltyPricing.serviceCharge,
+              totalAmount: loyaltyPricing.totalAmount,
+            }
+          : calculateOrderTotals(
+              updatedItems.map((item) => ({
+                ...item,
+                menuItem: {
+                  ...item.menuItem,
+                  price: Number(item.menuItem.price),
+                },
+                totalPrice: Number(item.totalAmount), // Map totalAmount to totalPrice for calculateOrderTotals
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              })) as any,
+              taxRate,
+              serviceChargeRate
+            );
+
+        // 9. Create modification record
         const modification = await tx.orderModification.create({
           data: {
             order: { connect: { id: orderId } }, // Explicit connection
             modifiedBy: context!.userId,
             reason: data.reason,
             reasonNotes: data.reasonNotes,
-            oldTotal: order.totalAmount,
+            oldTotal: lockedOrder.totalAmount,
             newTotal: totals.totalAmount,
             customerNotified: data.customerNotified,
             notifiedAt: data.customerNotified ? new Date() : null,
@@ -248,7 +346,9 @@ export async function PATCH(
           },
         });
 
-        // 9. Update order with new totals and increment version
+        // 10. Update order with new totals and increment version. On the
+        // loyalty path the ACTIVE ledger and the bill revision moved in the
+        // same transaction; `discountVersion` is the order-level price lock.
         const updatedOrder = await tx.order.update({
           where: { id: orderId },
           data: {
@@ -256,6 +356,14 @@ export async function PATCH(
             taxAmount: totals.taxAmount,
             serviceCharge: totals.serviceCharge,
             totalAmount: totals.totalAmount,
+            ...(loyaltyPricing
+              ? {
+                  discountAmount: loyaltyPricing.discountAmount,
+                  discountSource: loyaltyPricing.discountSource,
+                  discountLabel: loyaltyPricing.discountLabel,
+                  discountVersion: { increment: 1 },
+                }
+              : {}),
             version: { increment: 1 },
             lastModifiedAt: new Date(),
             hasModifications: true,
@@ -268,7 +376,7 @@ export async function PATCH(
           },
         });
 
-        // 10. Paid orders are blocked above; a modification never needs a
+        // 11. Paid orders are blocked above; a modification never needs a
         // refund here. Keep the response shape stable for existing clients.
         const refundNeeded = null;
 

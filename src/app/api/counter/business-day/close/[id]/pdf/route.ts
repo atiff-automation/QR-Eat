@@ -4,10 +4,32 @@ import {
   counterReportErrorResponse,
   getCounterReportingContext,
 } from '@/lib/counter/reporting-access';
-import { getClosedBusinessDay } from '@/lib/services/reporting/counter-report-service';
+import {
+  getClosedBusinessDay,
+  type CounterDaySummary,
+} from '@/lib/services/reporting/counter-report-service';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+/**
+ * Three outcomes, never a failed reconciliation that was not performed:
+ * - checked and reconciled → "Yes";
+ * - checked and not reconciled → "No";
+ * - not checked → "Not checked (legacy)" when cash batches predate
+ *   `cashPayable` (or the snapshot predates reconciliation entirely), otherwise
+ *   "No rounded cash batches" when there was nothing to compare.
+ */
+function reconciliationStatus(summary: CounterDaySummary): string {
+  const reconciliation = summary.cashReconciliation;
+  if (!reconciliation) return 'Not checked (legacy)';
+  if (!reconciliation.checked) {
+    return reconciliation.legacy
+      ? 'Not checked (legacy)'
+      : 'No rounded cash batches';
+  }
+  return reconciliation.reconciled ? 'Yes' : 'No';
+}
 
 export async function GET(
   request: NextRequest,
@@ -22,6 +44,10 @@ export async function GET(
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const money = (value: string | null | undefined) =>
       `${result.summary.currency} ${Number(value ?? 0).toFixed(2)}`;
+    // A snapshot written before P10-close has no discount split, reward or
+    // prior-period field. Print an em dash rather than a misleading 0.00.
+    const optionalMoney = (value: string | null | undefined) =>
+      value === undefined || value === null ? '—' : money(value);
 
     doc.setFontSize(16);
     doc.text('Z REPORT', 14, 18);
@@ -35,12 +61,32 @@ export async function GET(
     doc.text(`Tax: ${money(result.summary.tax)}`, 14, 64);
     doc.text(`Service charge: ${money(result.summary.serviceCharge)}`, 14, 70);
     doc.text(`Discounts: ${money(result.summary.discounts)}`, 14, 76);
-    doc.text(`Orders: ${result.summary.orderCount}`, 14, 82);
-    doc.line(14, 86, 196, 86);
-    let y = 94;
+    doc.text(
+      `Promotion discounts: ${optionalMoney(result.summary.discountBySource?.promotion)}`,
+      14,
+      82
+    );
+    doc.text(
+      `Reward total: ${optionalMoney(result.summary.rewardTotal)}`,
+      14,
+      88
+    );
+    doc.text(`Refunds: ${money(result.summary.refunds)}`, 14, 94);
+    doc.text(
+      `Prior-period refunds: ${optionalMoney(result.summary.refundsPriorPeriod)}`,
+      14,
+      100
+    );
+    doc.text(`Rounding: ${money(result.summary.roundingTotal)}`, 14, 106);
+    doc.text(`Orders: ${result.summary.orderCount}`, 14, 112);
+    doc.line(14, 116, 196, 116);
+    let y = 124;
     result.summary.paymentMethods.forEach((method) => {
+      const rounding = Number(method.rounding ?? 0);
       doc.text(
-        `${method.method}: ${money(method.amount)} (${method.count})`,
+        `${method.method}: ${money(method.amount)} (${method.count})${
+          rounding !== 0 ? ` · rounding ${money(method.rounding)}` : ''
+        }`,
         14,
         y
       );
@@ -48,9 +94,18 @@ export async function GET(
     });
     doc.line(14, y, 196, y);
     y += 8;
+    const reconciliation = result.summary.cashReconciliation;
     doc.text(`Opening float: ${money(result.summary.openingFloat)}`, 14, y);
     y += 6;
     doc.text(`Cash expected: ${money(result.summary.cashExpected)}`, 14, y);
+    y += 6;
+    doc.text(`Cash payable: ${money(reconciliation?.cashPayable)}`, 14, y);
+    y += 6;
+    doc.text(`Cash received: ${money(reconciliation?.cashReceived)}`, 14, y);
+    y += 6;
+    doc.text(`Change given: ${money(reconciliation?.changeGiven)}`, 14, y);
+    y += 6;
+    doc.text(`Reconciled: ${reconciliationStatus(result.summary)}`, 14, y);
     y += 6;
     doc.text(`Cash counted: ${money(result.summary.cashCounted)}`, 14, y);
     y += 6;
@@ -63,6 +118,19 @@ export async function GET(
     y += 2;
     doc.text('Open orders at close: 0', 14, y);
     y += 6;
+    const blockers = result.summary.blockers ?? [];
+    doc.text('Blockers', 14, y);
+    y += 6;
+    if (blockers.length === 0) {
+      doc.text('None', 14, y);
+      y += 6;
+    } else {
+      blockers.forEach((blocker) => {
+        const amount = blocker.amount ? ` — ${money(blocker.amount)}` : '';
+        doc.text(`${blocker.label} (${blocker.count})${amount}`, 14, y);
+        y += 6;
+      });
+    }
     doc.text('Top sellers', 14, y);
     y += 6;
     result.summary.topItems.forEach((item, index) => {

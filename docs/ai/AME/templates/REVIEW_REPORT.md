@@ -1,11 +1,13 @@
 # Review — {{TASK_ID}} revision {{REVISION}}
 
-**Reviewer:**  
-**Date:**  
-**Verdict:** PASS / PASS WITH NOTES / FAIL  
-**Diff base:**  
-**Spec source:** `TASK.md` revision {{REVISION}}  
-**Risk:**  
+**Reviewer:** `ame-verifier`
+**Verifier session:**
+**Date:**
+**Verdict:** PASS / PASS WITH NOTES / FAIL
+**Diff base:**
+**Diff hash:**
+**Spec source:** `TASK.md` revision {{REVISION}}
+**Risk:**
 
 ## Findings
 
@@ -15,18 +17,18 @@
 
 ## Passed checks
 
-- 
-- 
+-
+-
 
 ## Not verified
 
-- 
-- 
+-
+-
 
 ## Residual risk
 
-- 
-- 
+-
+-
 
 ## Routing
 

@@ -7,6 +7,8 @@ interface RevenueSectionProps {
   revenue: {
     grossSales: number;
     discounts: number;
+    tax: number;
+    service: number;
     refunds: number;
     netSales: number;
   };
@@ -54,6 +56,18 @@ export function RevenueSection({ revenue }: RevenueSectionProps) {
             <span className="text-sm text-gray-500">Less: Discounts</span>
             <span className="text-sm text-red-600">
               −{formatCurrency(revenue.discounts)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-500">Add: Tax</span>
+            <span className="text-sm font-medium text-gray-900">
+              {formatCurrency(revenue.tax)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-sm text-gray-500">Add: Service charge</span>
+            <span className="text-sm font-medium text-gray-900">
+              {formatCurrency(revenue.service)}
             </span>
           </div>
           <div className="flex justify-between items-center">

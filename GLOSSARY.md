@@ -21,6 +21,19 @@ Canonical product vocabulary. The full user-facing rules are in
 | **Counter** | The Android POS/cashier app | Web POS |
 | **Kitchen / Station app** | The Android kitchen display app | Counter |
 
+## Rewards
+
+| Term | Meaning | Do not use |
+|---|---|---|
+| **Visit** | One counted customer visit on a visit card, at most one per business day | Points, stamp, punch |
+| **Visit card** | The customer's progress toward the next reward | Loyalty programme, membership card |
+| **Reward** | The discount earned when a visit card completes | Cashback, points redemption |
+| **Promotion** | A time-limited discount on a whole order, a category or an item; it replaces the visit for that bill | Coupon, voucher, offer code |
+
+Customer-facing copy never says **points**, **stamps**, **cashback** or
+**loyalty programme**. Use **Rewards**, **visit**, **visit card** and
+**promotion**.
+
 ## Status vocabulary
 
 ### Order status

@@ -50,8 +50,10 @@ Mismatches:
    `NEXT.md` and chat memory.
 9. If `next actor` is `human`, stop and ask for the decision.
 10. If `next actor` is `verifier`, request a fresh verifier. Do not edit.
-11. If `next actor` is `implementer`, state the exact next action and wait for
-    confirmation before editing.
-12. Do not re-plan, re-classify, or start a new task unless the human asks.
+11. If `next actor` is `implementer`, hand off to exactly one `ame-implementer`
+    child. Do not edit product code in the Lead session.
+12. If `next actor` is `lead`, perform only Lead work: plan, state, review
+    recording, or commit gate. Do not implement.
+13. Do not re-plan, re-classify, or start a new task unless the human asks.
 
 See `core/RESUMPTION.md`.

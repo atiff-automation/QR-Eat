@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/database';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   hasPermission as contextHasPermission,
@@ -208,10 +209,7 @@ export async function PATCH(
           },
           overrideStation: stationOverride,
           estimatedReadyTime,
-          ipAddress:
-            request.headers.get('x-forwarded-for') ||
-            request.headers.get('x-real-ip') ||
-            'unknown',
+          ipAddress: trustedIp(request),
         });
         return NextResponse.json({
           success: true,
@@ -364,10 +362,7 @@ export async function PATCH(
         oldValues: { status: currentOrder.status },
         newValues: { status, ...(stationOverride ? { stationOverride } : {}) },
         changedBy: context.userId,
-        ipAddress:
-          request.headers.get('x-forwarded-for') ||
-          request.headers.get('x-real-ip') ||
-          'unknown',
+        ipAddress: trustedIp(request),
       },
     });
 

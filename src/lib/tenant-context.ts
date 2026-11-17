@@ -13,6 +13,7 @@ import { prisma } from './database';
 import { AuthServiceV2 } from './rbac/auth-service';
 import type { EnhancedAuthenticatedUser } from './rbac/types';
 import { AuditLogger } from './rbac/audit-logger';
+import { trustedIp } from './client-ip';
 
 // UserType enum for runtime type safety and proper comparisons
 export enum UserType {
@@ -94,7 +95,7 @@ async function extractContextFromToken(
         'low',
         'getTenantContext called with invalid RBAC token',
         {
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          ipAddress: trustedIp(request),
           userAgent: request.headers.get('user-agent') || 'unknown',
           metadata: {
             path: request.nextUrl.pathname,
@@ -130,7 +131,7 @@ async function extractContextFromToken(
       'high',
       `getTenantContext error: ${error instanceof Error ? error.message : 'Unknown'}`,
       {
-        ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+        ipAddress: trustedIp(request),
         userAgent: request.headers.get('user-agent') || 'unknown',
         metadata: {
           path: request.nextUrl.pathname,

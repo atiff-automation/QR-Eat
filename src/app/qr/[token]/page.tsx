@@ -20,6 +20,18 @@ import {
   canTableAcceptOrders,
   getTableUnavailableMessage,
 } from '@/lib/table-utils';
+import { LoyaltyRuleCard } from '@/components/qr/LoyaltyRuleCard';
+import { LoyaltyReview } from '@/components/qr/LoyaltyReview';
+import {
+  buildLegacyCreateRequest,
+  checkoutMode,
+  confirmationFromCreate,
+  shouldShowLoginRows,
+  viewAfterNoticeRefresh,
+  type LoyaltyNotice,
+  type LoyaltyOrderResult,
+  type LoyaltyQuote,
+} from '@/components/qr/loyalty-checkout';
 
 export default function QRMenuPage() {
   const params = useParams();
@@ -41,6 +53,13 @@ export default function QRMenuPage() {
   } | null>(null);
   const [orderingPaused, setOrderingPaused] = useState(false);
   const [orderingMessage, setOrderingMessage] = useState<string | null>(null);
+  const [loyaltyNotice, setLoyaltyNotice] = useState<LoyaltyNotice | null>(
+    null
+  );
+  const [showReview, setShowReview] = useState(false);
+  const [loyaltyOrderResult, setLoyaltyOrderResult] =
+    useState<LoyaltyOrderResult | null>(null);
+  const [loyaltyQuote, setLoyaltyQuote] = useState<LoyaltyQuote | null>(null);
 
   const {
     cart,
@@ -78,6 +97,7 @@ export default function QRMenuPage() {
           reason: string;
           message: string | null;
         };
+        loyaltyNotice?: LoyaltyNotice | null;
       }>(`/api/qr/${token}`);
 
       // ✅ PRODUCTION: Validate subdomain matches (security check)
@@ -108,6 +128,7 @@ export default function QRMenuPage() {
       setTable(tableResponse.table);
       setOrderingPaused(tableResponse.ordering?.available === false);
       setOrderingMessage(tableResponse.ordering?.message ?? null);
+      setLoyaltyNotice(tableResponse.loyaltyNotice ?? null);
 
       // Set restaurant settings
       setRestaurantSettings({
@@ -149,11 +170,11 @@ export default function QRMenuPage() {
     setError('');
 
     try {
-      const orderRequest = {
-        tableId: table.id,
+      const orderRequest = buildLegacyCreateRequest(
+        table.id,
         sessionId,
-        customerInfo: customerPhone ? { phone: customerPhone } : undefined,
-      };
+        customerPhone
+      );
 
       const data = await ApiClient.post<{ order: OrderResponse }>(
         '/qr/orders/create',
@@ -175,21 +196,63 @@ export default function QRMenuPage() {
     }
   };
 
+  const openLoyaltyReview = () => {
+    setShowCart(false);
+    setShowCheckout(false);
+    setShowReview(true);
+  };
+
   // Called by "Proceed to Checkout" in CartSummary
   const handleCheckout = () => {
+    if (checkoutMode(loyaltyNotice) === 'loyalty') {
+      openLoyaltyReview();
+      return;
+    }
     createOrder();
   };
 
-  // Called by Cashback/Voucher buttons to show Login/Phone screen
+  // Called by Cashback/Voucher rows, which are only rendered in flag-off mode.
   const handleShowLogin = () => {
     setShowCheckout(true);
     setShowCart(false);
   };
 
+  const handleLoyaltyOrderCreated = (
+    result: LoyaltyOrderResult,
+    quote: LoyaltyQuote | null
+  ) => {
+    setLoyaltyOrderResult(result);
+    setLoyaltyQuote(quote);
+    setCurrentOrder(result.order);
+    setShowReview(false);
+    setShowCart(false);
+  };
+
+  const refreshLoyaltyNotice = async (): Promise<LoyaltyNotice | null> => {
+    try {
+      const data = await ApiClient.get<{
+        loyaltyNotice?: LoyaltyNotice | null;
+      }>(`/api/qr/${token}`);
+      const next = data.loyaltyNotice ?? null;
+      setLoyaltyNotice(next);
+      if (!next) {
+        const view = viewAfterNoticeRefresh(null, cart.items.length > 0);
+        setShowReview(view.showReview);
+        setShowCart(view.showCart);
+      }
+      return next;
+    } catch {
+      return loyaltyNotice;
+    }
+  };
+
   const handleNewOrder = () => {
     resetSession(); // Clear session state and localStorage
     setCurrentOrder(null);
+    setLoyaltyOrderResult(null);
+    setLoyaltyQuote(null);
     setShowCheckout(false);
+    setShowReview(false);
     setShowCart(false);
   };
 
@@ -204,12 +267,15 @@ export default function QRMenuPage() {
       console.log('[QRMenuPage] Cart is empty, navigating to menu');
       setShowCart(false);
     }
-  }, [cart.items.length, showCart]);
+    if (showReview && cart.items.length === 0) {
+      setShowReview(false);
+    }
+  }, [cart.items.length, showCart, showReview]);
 
   // Auto-update active category based on scroll position
   useEffect(() => {
-    // Only run on menu view (not cart/checkout/order confirmation)
-    if (showCart || showCheckout || currentOrder) return;
+    // Only run on menu view (not cart/checkout/review/order confirmation)
+    if (showCart || showCheckout || showReview || currentOrder) return;
 
     // Create Intersection Observer to track visible category sections
     const observer = new IntersectionObserver(
@@ -249,7 +315,7 @@ export default function QRMenuPage() {
 
     // Cleanup: disconnect observer when component unmounts or dependencies change
     return () => observer.disconnect();
-  }, [menu, showCart, showCheckout, currentOrder]);
+  }, [menu, showCart, showCheckout, showReview, currentOrder]);
 
   if (loading) {
     return (
@@ -351,7 +417,7 @@ export default function QRMenuPage() {
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       {/* Conditional Menu Header (Restaurant Info & Search) */}
-      {!showCart && !showCheckout && !currentOrder && (
+      {!showCart && !showCheckout && !showReview && !currentOrder && (
         <>
           {/* Restaurant Identity - Scrolls Away */}
           <div className="bg-white pb-2 relative z-30">
@@ -378,6 +444,16 @@ export default function QRMenuPage() {
               )}
             </div>
           </div>
+
+          {/* Rewards rule in plain words (loyalty active only) */}
+          {loyaltyNotice && (
+            <div className="px-4 pt-4">
+              <LoyaltyRuleCard
+                notice={loyaltyNotice}
+                currency={restaurantSettings?.currency || 'MYR'}
+              />
+            </div>
+          )}
 
           {/* Category & Search Bar - Sticky */}
           <div className="sticky top-0 z-40 bg-white px-4 py-2.5">
@@ -448,6 +524,33 @@ export default function QRMenuPage() {
             order={currentOrder}
             onNewOrder={handleNewOrder}
             currency={restaurantSettings?.currency || 'MYR'}
+            loyalty={
+              loyaltyOrderResult
+                ? (confirmationFromCreate(
+                    loyaltyOrderResult,
+                    loyaltyQuote,
+                    loyaltyNotice?.text
+                  ) ?? undefined)
+                : undefined
+            }
+          />
+        ) : showReview && loyaltyNotice ? (
+          <LoyaltyReview
+            tableId={table.id}
+            sessionId={sessionId}
+            notice={loyaltyNotice}
+            cart={cart}
+            currency={restaurantSettings?.currency || 'MYR'}
+            taxLabel={restaurantSettings?.taxLabel || 'Tax'}
+            serviceChargeLabel={
+              restaurantSettings?.serviceChargeLabel || 'Service Charge'
+            }
+            onBack={() => {
+              setShowReview(false);
+              setShowCart(true);
+            }}
+            onOrderCreated={handleLoyaltyOrderCreated}
+            onRefreshNotice={refreshLoyaltyNotice}
           />
         ) : showCheckout ? (
           <CheckoutForm
@@ -469,6 +572,15 @@ export default function QRMenuPage() {
             onClearAll={handleClearAll}
             onLogin={handleShowLogin}
             isCheckoutLoading={isOrderSubmitting}
+            showLoginRows={shouldShowLoginRows(loyaltyNotice)}
+            loyaltyRule={
+              loyaltyNotice ? (
+                <LoyaltyRuleCard
+                  notice={loyaltyNotice}
+                  currency={restaurantSettings?.currency || 'MYR'}
+                />
+              ) : undefined
+            }
           />
         ) : (
           <div className="space-y-8">
@@ -525,13 +637,17 @@ export default function QRMenuPage() {
       </div>
 
       {/* Floating Cart Bar - Hidden when modal is open */}
-      {!showCart && !showCheckout && !currentOrder && !isAnyModalOpen && (
-        <FloatingCartBar
-          cart={cart}
-          onReviewCart={() => setShowCart(true)}
-          currency={restaurantSettings?.currency || 'MYR'}
-        />
-      )}
+      {!showCart &&
+        !showCheckout &&
+        !showReview &&
+        !currentOrder &&
+        !isAnyModalOpen && (
+          <FloatingCartBar
+            cart={cart}
+            onReviewCart={() => setShowCart(true)}
+            currency={restaurantSettings?.currency || 'MYR'}
+          />
+        )}
     </div>
   );
 }

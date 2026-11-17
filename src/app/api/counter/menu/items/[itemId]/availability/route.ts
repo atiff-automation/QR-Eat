@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   requireAuth,
@@ -54,9 +55,7 @@ export async function PATCH(
         userType: context!.userType,
       },
       requestContext: {
-        ipAddress:
-          request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-          request.headers.get('x-real-ip'),
+        ipAddress: trustedIp(request),
         userAgent: request.headers.get('user-agent'),
       },
     });

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { trustedIp } from '@/lib/client-ip';
 import { AuthServiceV2 } from '@/lib/rbac/auth-service';
 import {
   MenuAvailabilityError,
@@ -71,9 +72,7 @@ export async function PATCH(
         userType: authResult.user.userType,
       },
       requestContext: {
-        ipAddress:
-          request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-          request.headers.get('x-real-ip'),
+        ipAddress: trustedIp(request),
         userAgent: request.headers.get('user-agent'),
       },
     });

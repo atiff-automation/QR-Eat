@@ -63,8 +63,14 @@ A task is done only when the applicable items are true.
 ## Review and commit
 
 - [ ] If L2/L3, `TASK.md` revision matches approved revision
+- [ ] Implementer is `ame-implementer`, not the Lead
+- [ ] Implementer session ID is recorded
+- [ ] Verifier is a fresh `ame-verifier`
+- [ ] Verifier session ID is recorded
 - [ ] Review verdict is PASS or PASS WITH NOTES
+- [ ] Review diff hash matches the current diff
 - [ ] Full `REVIEW-*.md` exists when required
+- [ ] Changed files are within the owned files
 - [ ] `TASK.md` status is `ready_to_commit` for R2/R3
 - [ ] `NEXT.md` records the commit gate
 - [ ] Commit authorization recorded for R2/R3

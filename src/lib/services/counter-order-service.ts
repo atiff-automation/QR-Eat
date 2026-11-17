@@ -2,6 +2,7 @@ import { createHash, randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '@/lib/database';
+import { hashPhone } from '@/lib/loyalty/phone';
 import { SequenceManager } from '@/lib/sequence-manager';
 import { ensureOpenDiningSession } from '@/lib/dining-session';
 import { isBusinessDayClosing } from '@/lib/time/business-day-guard';
@@ -207,7 +208,27 @@ export function buildCounterOrderRequestHash(input: CounterOrderInput): string {
         return left.localeCompare(right);
       }),
   };
-  return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+  // P7b-1 / H-1: key the digest with `LOYALTY_PHONE_HMAC_KEY` (`hashPhone`)
+  // when the key is configured. The payload contains a low-entropy phone
+  // number and the digest is persisted as `Order.idempotencyHash` with no
+  // expiry, so an unkeyed digest of the full payload is brute-forceable.
+  //
+  // The key is deliberately not mandatory: loyalty is default-off and a
+  // Counter-only deployment must keep creating orders. With no key, hash a
+  // payload that omits the customer name and phone entirely, so no PII digest
+  // is stored. Idempotency still detects every non-phone change; a retry that
+  // changes only the phone (or name) is treated as the same request, which is
+  // acceptable because the phone is stored on the order row anyway.
+  const payload = JSON.stringify(normalized);
+  const key = process.env.LOYALTY_PHONE_HMAC_KEY;
+  if (typeof key === 'string' && key.trim().length > 0) {
+    return hashPhone(payload);
+  }
+
+  const withoutPii = { ...normalized } as Record<string, unknown>;
+  delete withoutPii.customerName;
+  delete withoutPii.customerPhone;
+  return createHash('sha256').update(JSON.stringify(withoutPii)).digest('hex');
 }
 
 function estimateReadyTime(lines: CounterOrderLine[]): Date {

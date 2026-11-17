@@ -6,11 +6,16 @@ import {
   BusinessDayClock,
   formatBusinessDate,
   getBusinessDate,
+  getBusinessDayEnd,
   getBusinessDayStart,
   getNextBusinessDateAfterClose,
   parseBusinessDateFromDb,
   toDbBusinessDate,
 } from '@/lib/time/business-day';
+import {
+  paymentBusinessDate,
+  paymentOnBusinessDateWhere,
+} from '@/lib/services/reporting/payment-business-date';
 
 export class CounterReportError extends Error {
   constructor(
@@ -27,6 +32,27 @@ export interface CounterPaymentMethodTotal {
   method: string;
   amount: string;
   count: number;
+  /** Cash-rounding adjustment collected on this tender for the day. */
+  rounding: string;
+}
+
+export interface CounterCashReconciliation {
+  cashPayable: string;
+  cashReceived: string;
+  changeGiven: string;
+  /**
+   * True when at least one cash batch carried a `cashPayable`. Legacy batches
+   * and card/e-wallet batches cannot participate in the drawer identity.
+   */
+  checked: boolean;
+  /** `Σ cashPayable == Σ cashReceived − Σ changeGiven` for cash batches. */
+  reconciled: boolean;
+  /**
+   * True when a cash batch existed but carried no `cashPayable`, i.e. it
+   * predates the reconciliation field. Lets a report say "not checked
+   * (legacy)" instead of "no rounded cash batches" when cash was taken.
+   */
+  legacy: boolean;
 }
 
 export interface CounterSaleRow {
@@ -65,9 +91,28 @@ export interface CounterDaySummary {
   tax: string;
   serviceCharge: string;
   discounts: string;
+  /**
+   * ACTIVE discount rows for the day's positive-payment orders, split by
+   * source. The two shares sum to `discounts`.
+   */
+  discountBySource: {
+    promotion: string;
+    reward: string;
+  };
+  /** The `LOYALTY_REWARD` share of `discounts`. */
+  rewardTotal: string;
+  /** Refunds paid out on this business date, as a positive magnitude. */
+  refunds: string;
+  /**
+   * The part of `refunds` whose original sale happened on an earlier business
+   * date. A subset of `refunds`; the identity is unchanged.
+   */
+  refundsPriorPeriod: string;
   orderCount: number;
   averageCheck: string;
   paymentMethods: CounterPaymentMethodTotal[];
+  roundingTotal: string;
+  cashReconciliation: CounterCashReconciliation;
   cashExpected: string;
   cashCounted: string | null;
   cashVariance: string | null;
@@ -204,6 +249,12 @@ function money(
   return Number(value ?? 0).toFixed(2);
 }
 
+function decimal(
+  value: number | string | { toString(): string } | null | undefined
+): Prisma.Decimal {
+  return new Prisma.Decimal(value?.toString() ?? '0');
+}
+
 export function assertVarianceReason(
   variance: number,
   note?: string | null
@@ -296,12 +347,21 @@ export async function getOpenBusinessDay(restaurantId: string) {
   }
 }
 
-async function getDayPayments(restaurantId: string, start: Date, end: Date) {
-  return prisma.payment.findMany({
+async function getDayPayments(
+  restaurantId: string,
+  businessDate: BusinessDate,
+  clock: BusinessDayClock
+) {
+  // Attribute by the payment's effective business date (REVIEW-29 B-PAY-2):
+  // the batch `businessDate` when one exists, else `createdAt` through the
+  // restaurant clock. An offline replay after the cutoff therefore lands on the
+  // same day as its batch. The fallback keeps the half-open `[start, end)`
+  // window: a payment exactly at the cutoff instant belongs to the next day.
+  const rows = await prisma.payment.findMany({
     where: {
       order: { restaurantId },
       status: 'PAID' as const,
-      createdAt: { gte: start, lte: end },
+      ...paymentOnBusinessDateWhere(businessDate, clock),
     },
     select: {
       id: true,
@@ -311,6 +371,7 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
       status: true,
       receiptNumber: true,
       createdAt: true,
+      batch: { select: { businessDate: true } },
       order: {
         select: {
           orderNumber: true,
@@ -322,6 +383,12 @@ async function getDayPayments(restaurantId: string, start: Date, end: Date) {
     },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
   });
+
+  // The filter above is the SQL mirror; this guard keeps a mocked or
+  // unexpectedly-shaped row from being attributed to the wrong day.
+  return rows.filter(
+    (payment) => paymentBusinessDate(payment, clock) === businessDate
+  );
 }
 
 const ACTIVE_ORDER_STATUSES: OrderStatus[] = [
@@ -756,11 +823,14 @@ export async function getCounterBlockerOrders(
   };
 }
 
-function emptyMethodTotals(): Map<string, { amount: number; count: number }> {
+function emptyMethodTotals(): Map<
+  string,
+  { amount: number; count: number; rounding: Prisma.Decimal }
+> {
   return new Map([
-    ['cash', { amount: 0, count: 0 }],
-    ['card', { amount: 0, count: 0 }],
-    ['ewallet', { amount: 0, count: 0 }],
+    ['cash', { amount: 0, count: 0, rounding: decimal(0) }],
+    ['card', { amount: 0, count: 0, rounding: decimal(0) }],
+    ['ewallet', { amount: 0, count: 0, rounding: decimal(0) }],
   ]);
 }
 
@@ -783,11 +853,22 @@ export async function getCounterDaySummary(
   }
 
   const businessDate = parseBusinessDateFromDb(businessDay.businessDate);
-  const start = businessDay.openedAt;
-  const end = businessDay.closedAt ?? new Date();
-  const payments = await getDayPayments(restaurantId, start, end);
+  // One attribution source for the three reports (§18.20.8, REVIEW-29
+  // B-PAY-2): a payment is on its batch's business date when it has one, else
+  // on its own `createdAt` through the restaurant clock. The Z, the P&L and the
+  // loyalty report therefore agree on an offline replay after the cutoff.
+  // `openedAt`/`closedAt` stay in the payload for display only.
+  const payments = await getDayPayments(restaurantId, businessDate, clock);
+  // A refund payment carries the original order id, but that order's money did
+  // not come in on this business day. Only positive payments put an order into
+  // the day's gross/tax/service/discount/order-count block; the refund itself is
+  // reported on the `refunds` line instead.
   const orderIds = Array.from(
-    new Set(payments.map((payment) => payment.orderId))
+    new Set(
+      payments
+        .filter((payment) => decimal(payment.amount).gt(0))
+        .map((payment) => payment.orderId)
+    )
   );
   const orders = orderIds.length
     ? await prisma.order.findMany({
@@ -795,6 +876,7 @@ export async function getCounterDaySummary(
         select: {
           id: true,
           totalAmount: true,
+          subtotalAmount: true,
           taxAmount: true,
           serviceCharge: true,
           discountAmount: true,
@@ -802,6 +884,43 @@ export async function getCounterDaySummary(
         },
       })
     : [];
+
+  // The split is read from the durable discount rows, not from the order
+  // columns: the two sources are the only values the enum allows, so the
+  // split must reconcile to the day's discount total.
+  const discountRows = orderIds.length
+    ? await prisma.orderDiscount.findMany({
+        where: {
+          restaurantId,
+          orderId: { in: orderIds },
+          status: 'ACTIVE',
+        },
+        select: { source: true, amount: true },
+      })
+    : [];
+  let promotionDiscount = decimal(0);
+  let rewardDiscount = decimal(0);
+  for (const row of discountRows) {
+    if (row.source === 'PROMOTION') {
+      promotionDiscount = promotionDiscount.plus(decimal(row.amount));
+    } else if (row.source === 'LOYALTY_REWARD') {
+      rewardDiscount = rewardDiscount.plus(decimal(row.amount));
+    }
+  }
+
+  const batches = await prisma.paymentBatch.findMany({
+    where: {
+      restaurantId,
+      businessDate: toDbBusinessDate(businessDate),
+    },
+    select: {
+      paymentMethod: true,
+      cashPayable: true,
+      cashReceived: true,
+      changeGiven: true,
+      roundingAdjustment: true,
+    },
+  });
 
   const methods = emptyMethodTotals();
   let netSales = 0;
@@ -811,14 +930,53 @@ export async function getCounterDaySummary(
     const current = methods.get(payment.paymentMethod) ?? {
       amount: 0,
       count: 0,
+      rounding: decimal(0),
     };
     current.amount += amount;
     current.count += 1;
     methods.set(payment.paymentMethod, current);
   }
 
+  // Rounding is recorded on the payment batch. Show it per tender and sum only
+  // cash rounding for the Z rounding line. Reconcile the drawer from the cash
+  // batches that recorded a cash payable: legacy batches have none, and
+  // card/e-wallet batches never carry cash figures, so neither participates in
+  // the identity.
+  let roundingTotal = decimal(0);
+  let cashPayable = decimal(0);
+  let cashReceived = decimal(0);
+  let changeGiven = decimal(0);
+  let cashBatchCount = 0;
+  let legacyCashBatchCount = 0;
+  for (const batch of batches) {
+    const rounding = decimal(batch.roundingAdjustment);
+    if (!rounding.isZero()) {
+      const current = methods.get(batch.paymentMethod) ?? {
+        amount: 0,
+        count: 0,
+        rounding: decimal(0),
+      };
+      current.rounding = current.rounding.plus(rounding);
+      methods.set(batch.paymentMethod, current);
+    }
+    if (batch.paymentMethod !== 'cash') continue;
+    roundingTotal = roundingTotal.plus(rounding);
+    if (batch.cashPayable !== null && batch.cashPayable !== undefined) {
+      cashBatchCount += 1;
+      cashPayable = cashPayable.plus(decimal(batch.cashPayable));
+      cashReceived = cashReceived.plus(decimal(batch.cashReceived));
+      changeGiven = changeGiven.plus(decimal(batch.changeGiven));
+    } else {
+      legacyCashBatchCount += 1;
+    }
+  }
+  const cashChecked = cashBatchCount > 0;
+  const reconciled =
+    cashChecked &&
+    cashPayable.minus(cashReceived.minus(changeGiven)).abs().lt(0.005);
+
   const grossSales = orders.reduce(
-    (sum, order) => sum + Number(order.totalAmount),
+    (sum, order) => sum + Number(order.subtotalAmount),
     0
   );
   const tax = orders.reduce((sum, order) => sum + Number(order.taxAmount), 0);
@@ -830,6 +988,120 @@ export async function getCounterDaySummary(
     (sum, order) => sum + Number(order.discountAmount),
     0
   );
+  const refunds = payments.reduce((sum, payment) => {
+    const amount = Number(payment.amount);
+    return amount < 0 ? sum - amount : sum;
+  }, 0);
+
+  // Discrepancies are surfaced as blockers, not exceptions: the Z must still
+  // return its figures so an operator can see and investigate the difference.
+  // A legacy order can carry a `discountAmount` with no ACTIVE
+  // `OrderDiscount` rows, and a legacy total can predate the tax/service
+  // formula; neither may turn the report or the close path into a 500.
+  const blockers: CounterBlocker[] = [];
+
+  // A day closed early can still collect a payment or a refund before its
+  // cutoff. The money is in the figures above (the range is the cutoff), and
+  // the note says why the live Z no longer matches the filed snapshot.
+  if (businessDay.closedAt) {
+    const closedAt = businessDay.closedAt;
+    const afterClose = payments.filter(
+      (payment) => payment.createdAt.getTime() > closedAt.getTime()
+    );
+    if (afterClose.length > 0) {
+      const afterCloseAmount = afterClose.reduce(
+        (sum, payment) => sum.plus(decimal(payment.amount).abs()),
+        decimal(0)
+      );
+      blockers.push({
+        type: 'AFTER_CLOSE_ACTIVITY',
+        count: afterClose.length,
+        label: 'Payments or refunds recorded after the day closed',
+        amount: money(afterCloseAmount),
+      });
+    }
+  }
+
+  const discountSplitTotal = promotionDiscount.plus(rewardDiscount);
+  const discountSplitDelta = discountSplitTotal.minus(decimal(discounts));
+  if (discountSplitDelta.abs().gte(0.005)) {
+    blockers.push({
+      type: 'Z_DISCOUNT_SPLIT_MISMATCH',
+      count: 1,
+      label: 'Discount split does not match the discount total',
+      amount: money(discountSplitDelta.abs()),
+    });
+  }
+
+  // A refund carries the original order id. Its original business date is the
+  // `businessDate` of that order's positive payment batch. A refund whose
+  // original sale was on an earlier business date is prior-period; it is a
+  // subset of `refunds`, so the identity below is unchanged.
+  const negativePayments = payments.filter((payment) =>
+    decimal(payment.amount).lt(0)
+  );
+  let refundsPriorPeriod = decimal(0);
+  if (negativePayments.length > 0) {
+    const originalOrderIds = Array.from(
+      new Set(negativePayments.map((payment) => payment.orderId))
+    );
+    const originalPayments = await prisma.payment.findMany({
+      where: {
+        orderId: { in: originalOrderIds },
+        order: { restaurantId },
+        status: 'PAID',
+        amount: { gt: 0 },
+      },
+      select: {
+        orderId: true,
+        batch: { select: { businessDate: true } },
+      },
+      // A split payment could span batches; the earliest positive payment is
+      // the original sale date.
+      orderBy: { createdAt: 'asc' },
+    });
+    const originalDateByOrder = new Map<string, BusinessDate>();
+    for (const original of originalPayments) {
+      if (!original.batch?.businessDate) {
+        // A legacy batchless (or undated) original has no business date to
+        // compare against. Count its refund in the current period; this is a
+        // known limitation of batchless history.
+        continue;
+      }
+      if (!originalDateByOrder.has(original.orderId)) {
+        originalDateByOrder.set(
+          original.orderId,
+          parseBusinessDateFromDb(original.batch.businessDate)
+        );
+      }
+    }
+    for (const refund of negativePayments) {
+      const originalDate = originalDateByOrder.get(refund.orderId);
+      if (originalDate && originalDate !== businessDate) {
+        refundsPriorPeriod = refundsPriorPeriod.plus(
+          decimal(refund.amount).abs()
+        );
+      }
+    }
+  }
+
+  // The Z identity is load-bearing for the close path and the PDF:
+  // gross − discounts + tax + service − refunds = net.
+  const identity = decimal(grossSales)
+    .minus(decimal(discounts))
+    .plus(decimal(tax))
+    .plus(decimal(serviceCharge))
+    .minus(decimal(refunds));
+  const identityDelta = identity.minus(decimal(netSales));
+  if (identityDelta.abs().gte(0.005)) {
+    blockers.push({
+      type: 'Z_IDENTITY_MISMATCH',
+      count: 1,
+      label: 'Z report does not reconcile',
+      amount: money(identityDelta.abs()),
+    });
+  }
+
   const orderCount = orderIds.length;
   const averageCheck = orderCount ? netSales / orderCount : 0;
 
@@ -848,7 +1120,6 @@ export async function getCounterDaySummary(
     where: { order: { restaurantId }, status: 'PENDING' },
   });
 
-  const blockers: CounterBlocker[] = [];
   if (openOrders > 0) {
     blockers.push({
       type: 'OPEN_ORDERS',
@@ -874,7 +1145,13 @@ export async function getCounterDaySummary(
 
   const topItems = await getCounterTopItems(restaurantId, orderIds, 3);
   const cash = methods.get('cash')?.amount ?? 0;
-  const cashExpected = Number(businessDay.openingFloat) + cash;
+  // The drawer holds the rounded cash payable, so the rounding adjustment is
+  // part of expected cash. Without it, a correctly rounded drawer shows a
+  // variance equal to the rounding total and demands a note. Card/e-wallet are
+  // exact, so their rounding adjustment is always zero by contract.
+  const cashExpected = decimal(businessDay.openingFloat)
+    .plus(decimal(cash))
+    .plus(roundingTotal);
 
   return {
     businessDate,
@@ -889,13 +1166,30 @@ export async function getCounterDaySummary(
     tax: money(tax),
     serviceCharge: money(serviceCharge),
     discounts: money(discounts),
+    discountBySource: {
+      promotion: money(promotionDiscount),
+      reward: money(rewardDiscount),
+    },
+    rewardTotal: money(rewardDiscount),
+    refunds: money(refunds),
+    refundsPriorPeriod: money(refundsPriorPeriod),
     orderCount,
     averageCheck: money(averageCheck),
     paymentMethods: Array.from(methods.entries()).map(([method, value]) => ({
       method,
       amount: money(value.amount),
       count: value.count,
+      rounding: money(value.rounding),
     })),
+    roundingTotal: money(roundingTotal),
+    cashReconciliation: {
+      cashPayable: money(cashPayable),
+      cashReceived: money(cashReceived),
+      changeGiven: money(changeGiven),
+      checked: cashChecked,
+      reconciled,
+      legacy: legacyCashBatchCount > 0,
+    },
     cashExpected: money(cashExpected),
     cashCounted:
       businessDay.countedCash === null ? null : money(businessDay.countedCash),
@@ -1006,14 +1300,19 @@ export async function getCounterSalesPage(
       404
     );
   }
-  const start = businessDay.openedAt;
-  const end = businessDay.closedAt ?? new Date();
+  const businessDate = parseBusinessDateFromDb(businessDay.businessDate);
+  const start = getBusinessDayStart(businessDate, clock);
+  const end = businessDay.closedAt
+    ? getBusinessDayEnd(businessDate, clock)
+    : new Date();
   const limit = Math.min(Math.max(options.limit ?? 30, 1), 100);
   const offset = Math.max(options.offset ?? 0, 0);
   const where = {
     order: { restaurantId },
     status: 'PAID' as const,
-    createdAt: { gte: start, lte: end },
+    // The same cutoff window and half-open bounds as the Z, so a payment after
+    // an early close is on the day's sales list too.
+    createdAt: { gte: start, lt: end },
   };
   const [rows, total] = await Promise.all([
     prisma.payment.findMany({
@@ -1044,7 +1343,7 @@ export async function getCounterSalesPage(
   ]);
 
   return {
-    businessDate: parseBusinessDateFromDb(businessDay.businessDate),
+    businessDate,
     timezone: clock.timezone,
     asOf: new Date().toISOString(),
     rows: rows.map(
@@ -1080,6 +1379,7 @@ export async function getCounterDailyTotals(
 ): Promise<
   Array<{ businessDate: BusinessDate; netSales: string; orderCount: number }>
 > {
+  const { clock } = await getRestaurantClock(restaurantId);
   const current = await getOpenBusinessDay(restaurantId);
   const currentDate = parseBusinessDateFromDb(current.businessDate);
   const startDate = addBusinessDays(currentDate, -(Math.max(days, 1) - 1));
@@ -1108,11 +1408,10 @@ export async function getCounterDailyTotals(
       result.push({ businessDate: date, netSales: '0.00', orderCount: 0 });
       continue;
     }
-    const payments = await getDayPayments(
-      restaurantId,
-      day.openedAt,
-      day.closedAt ?? new Date()
-    );
+    // Same effective-business-date attribution as the Z: a payment or refund
+    // after an early close, or an offline replay after the cutoff, still
+    // belongs to its business date.
+    const payments = await getDayPayments(restaurantId, date, clock);
     const netSales = payments.reduce(
       (sum, payment) => sum + Number(payment.amount),
       0
@@ -1227,22 +1526,22 @@ export async function closeCounterBusinessDay(input: {
     businessDay.id
   );
   if (summary.blockers.length > 0) {
+    const blockerClasses = Array.from(
+      new Set(summary.blockers.map((blocker) => blocker.type))
+    ).join(', ');
     throw new CounterReportError(
-      'Resolve all orders and payments before closing the day',
+      `Resolve the business-day blockers before closing: ${blockerClasses}`,
       'BUSINESS_DAY_BLOCKED',
       409,
       { blockers: summary.blockers }
     );
   }
 
-  const expectedCash =
-    Number(summary.openingFloat) +
-    Number(
-      summary.paymentMethods.find((row) => row.method === 'cash')?.amount ?? 0
-    );
-  const variance = input.countedCash - expectedCash;
+  const expectedCash = decimal(summary.cashExpected);
+  const countedCash = decimal(input.countedCash);
+  const variance = countedCash.minus(expectedCash);
   const closeNote = input.notes?.trim() || null;
-  assertVarianceReason(variance, closeNote);
+  assertVarianceReason(variance.toNumber(), closeNote);
   const businessDate = summary.businessDate;
   const closedCount = await prisma.businessDay.count({
     where: { restaurantId: input.restaurantId, status: 'CLOSED' },
@@ -1267,7 +1566,7 @@ export async function closeCounterBusinessDay(input: {
       ...summary,
       status: 'CLOSED' as const,
       cashExpected: money(expectedCash),
-      cashCounted: money(input.countedCash),
+      cashCounted: money(countedCash),
       cashVariance: money(variance),
       openingFloat: money(summary.openingFloat),
     },
@@ -1283,8 +1582,8 @@ export async function closeCounterBusinessDay(input: {
         closedByName: input.closedByName,
         closeNote,
         countedCash: input.countedCash,
-        expectedCash,
-        variance,
+        expectedCash: expectedCash.toNumber(),
+        variance: variance.toNumber(),
         zNumber,
         closeIdempotencyKey: input.idempotencyKey,
         snapshot:

@@ -96,7 +96,11 @@ export interface MenuCategory {
  * return <CategoryList categories={categories} />;
  * ```
  */
-export function useMenuCategories() {
+export interface MenuQueryOptions {
+  enabled?: boolean;
+}
+
+export function useMenuCategories(options: MenuQueryOptions = {}) {
   return useQuery({
     queryKey: queryKeys.menu.categories,
     queryFn: async () => {
@@ -105,6 +109,7 @@ export function useMenuCategories() {
       );
       return data.categories;
     },
+    enabled: options.enabled ?? true,
     staleTime: 60 * 1000, // availability can change during service
     gcTime: 15 * 60 * 1000, // 15 minutes
     refetchInterval: 30 * 1000,

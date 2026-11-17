@@ -1,0 +1,64 @@
+# P9c/P9d — concurrency and rollback drills
+
+Drill 1 — two concurrent payments on one bill
+PASS  exactly one payment succeeded — successes=1
+PASS  the loser got BILL_CHANGED or BILL_PAID — BILL_PAID
+PASS  the loser never reported an unexpected error
+PASS  exactly one PaymentBatch — count=1
+PASS  exactly one LoyaltyVisit — count=1
+PASS  exactly one card increment — visitsInCycle=1
+PASS  exactly one Payment row — count=1
+PASS  the bill is PAID — PAID
+PASS  no double benefit (no discount rows) — count=0
+
+Drill 2 — member change vs payment
+PASS  the member change succeeded
+PASS  the payment got BILL_CHANGED — BILL_CHANGED
+PASS  no payment batch was written
+PASS  the bill revision advanced exactly once — billRevision=1
+PASS  the member was attached once — b5bbd8c5-2fcc-49a8-8bd7-9dccc3d22ee6
+PASS  no visit was created by the losing payment
+
+Drill 3 — rename vs anonymise
+PASS  the anonymise succeeded
+PASS  the rename either succeeded or was refused as anonymised — MEMBER_ANONYMIZED
+PASS  the member is ANONYMIZED — ANONYMIZED
+PASS  no name remains on the ANONYMIZED row — null
+PASS  the anonymised timestamp is set — Sat Nov 14 2026 17:47:22 GMT+0800 (Malaysia Time)
+
+Drill 3b — rename after anonymise (deterministic)
+PASS  the deterministic anonymise succeeded
+PASS  the rename is refused with MEMBER_ANONYMIZED — MEMBER_ANONYMIZED
+PASS  the member stays ANONYMIZED — ANONYMIZED
+PASS  the ANONYMIZED row still has no name — null
+
+Drill 4 — concurrent rate-limit increments
+PASS  both increment workers succeeded
+PASS  concurrent increments are exact (50) — count=50
+PASS  all five refusal attempts reported
+PASS  exactly two requests were allowed — allowed=2
+PASS  three requests were refused with RATE_LIMITED
+PASS  no request failed open
+PASS  a refusal left every counter at the limit (2) — RESTAURANT=2, QR_SESSION=2, EDGE_IP=2, PHONE_HASH=2
+
+Drill 5 (P9d) — rollback with LOYALTY_ENABLED unset
+PASS  rollback restaurant starts with LoyaltySettings.enabled = true — true
+PASS  LoyaltySettings.enabled is still true while LOYALTY_ENABLED is unset — true
+PASS  QR quote returns LOYALTY_DISABLED with flag off — 200 LOYALTY_DISABLED
+PASS  QR quote wrote no loyalty rows — {"customers":1,"visits":0,"cards":0,"discounts":0,"quotes":0,"rateLimits":0}
+PASS  guest bill response is the legacy shape
+PASS  the guest legacy path wrote exactly one PaymentBatch — count=1
+PASS  member-attached bill response is the legacy shape
+PASS  the member legacy path wrote exactly one PaymentBatch — count=1
+PASS  neither bill wrote a loyalty row — {"customers":1,"visits":0,"cards":0,"discounts":0,"quotes":0,"rateLimits":0}
+PASS  existing member row is untouched
+PASS  the member attached to the bill has no LoyaltyCard
+PASS  both bill totals are untouched — 30/30
+PASS  both bills were paid by the legacy path — PAID/PAID
+PASS  LoyaltySettings.enabled is still true after the legacy payments — true
+PASS  the legacy path wrote exactly one PaymentBatch per bill — count=2
+
+Cleaning up rehearsal rows…
+PASS  every rehearsal restaurant was removed — remaining=0
+
+PASS — 47/47 checks passed

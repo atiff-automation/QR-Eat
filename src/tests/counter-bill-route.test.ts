@@ -145,6 +145,48 @@ describe('Counter table bill endpoint', () => {
     expect(prisma.diningSession.findFirst).not.toHaveBeenCalled();
   });
 
+  it('accumulates v1 multi-order money with Decimal and returns numbers', async () => {
+    (prisma.order.findMany as jest.Mock).mockResolvedValue([
+      order({
+        id: 'v1-a',
+        status: 'CONFIRMED',
+        paymentStatus: 'PENDING',
+        totalAmount: new Prisma.Decimal('10.10'),
+        subtotalAmount: new Prisma.Decimal('10.10'),
+        taxAmount: new Prisma.Decimal('0.10'),
+        serviceCharge: new Prisma.Decimal('0.20'),
+        payments: [],
+      }),
+      order({
+        id: 'v1-b',
+        status: 'CONFIRMED',
+        paymentStatus: 'PENDING',
+        totalAmount: new Prisma.Decimal('20.20'),
+        subtotalAmount: new Prisma.Decimal('20.20'),
+        taxAmount: new Prisma.Decimal('0.20'),
+        serviceCharge: new Prisma.Decimal('0.30'),
+        payments: [],
+      }),
+    ]);
+    (prisma.order.aggregate as jest.Mock).mockResolvedValue({
+      _sum: { totalAmount: null },
+    });
+    (prisma.order.count as jest.Mock).mockResolvedValue(2);
+
+    const response = await getBill(request(), {
+      params: Promise.resolve({ tableId }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.version).toBeUndefined();
+    // Float accumulation would give 30.299999999999997 for 10.10 + 20.20.
+    expect(json.unpaidTotal).toBe(30.3);
+    expect(json.subtotalAmount).toBe(30.3);
+    expect(json.taxAmount).toBe(0.3);
+    expect(json.serviceCharge).toBe(0.5);
+  });
+
   it('returns all current-session orders for v2', async () => {
     (prisma.diningSession.findFirst as jest.Mock).mockResolvedValue({
       id: sessionId,

@@ -103,6 +103,37 @@ export const BILLING_PERMISSIONS = {
 } as const;
 
 /**
+ * Loyalty permissions
+ *
+ * `loyalty:attach` is the Counter member attach/change permission (P5). The
+ * owner/manager permissions land with P6 (§18.20.14 A).
+ */
+export const LOYALTY_PERMISSIONS = {
+  ATTACH: 'loyalty:attach',
+  CONFIGURE: 'loyalty:configure',
+  REPORT: 'loyalty:report',
+} as const;
+
+/**
+ * Member permissions (§18.20.14 A). Later passes consume these; the owner API
+ * and reports are the first consumers.
+ */
+export const MEMBER_PERMISSIONS = {
+  READ: 'members:read',
+  PII: 'members:pii',
+  EXPORT: 'members:export',
+  DELETE: 'members:delete',
+  CONSENT_WITHDRAW: 'members:consent_withdraw',
+} as const;
+
+/**
+ * Promotion permissions (§18.20.14 A).
+ */
+export const PROMOTION_PERMISSIONS = {
+  MANAGE: 'promotions:manage',
+} as const;
+
+/**
  * Subscription permissions
  */
 export const SUBSCRIPTION_PERMISSIONS = {
@@ -135,6 +166,9 @@ export const PERMISSIONS_BY_CATEGORY = {
   billing: BILLING_PERMISSIONS,
   subscriptions: SUBSCRIPTION_PERMISSIONS,
   users: USER_PERMISSIONS,
+  loyalty: LOYALTY_PERMISSIONS,
+  members: MEMBER_PERMISSIONS,
+  promotions: PROMOTION_PERMISSIONS,
 } as const;
 
 /**
@@ -152,7 +186,10 @@ export type Permission =
   | (typeof SETTINGS_PERMISSIONS)[keyof typeof SETTINGS_PERMISSIONS]
   | (typeof BILLING_PERMISSIONS)[keyof typeof BILLING_PERMISSIONS]
   | (typeof SUBSCRIPTION_PERMISSIONS)[keyof typeof SUBSCRIPTION_PERMISSIONS]
-  | (typeof USER_PERMISSIONS)[keyof typeof USER_PERMISSIONS];
+  | (typeof USER_PERMISSIONS)[keyof typeof USER_PERMISSIONS]
+  | (typeof LOYALTY_PERMISSIONS)[keyof typeof LOYALTY_PERMISSIONS]
+  | (typeof MEMBER_PERMISSIONS)[keyof typeof MEMBER_PERMISSIONS]
+  | (typeof PROMOTION_PERMISSIONS)[keyof typeof PROMOTION_PERMISSIONS];
 
 /**
  * Helper to check if a string is a valid permission

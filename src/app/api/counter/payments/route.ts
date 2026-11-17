@@ -18,15 +18,51 @@ import { autoUpdateTableStatus } from '@/lib/table-status-manager';
 import { AuditLogger } from '@/lib/rbac/audit-logger';
 import { SecurityUtils } from '@/lib/security';
 
-const CounterPaymentSchema = z.object({
-  tableId: z.string().uuid(),
-  orderIds: z.array(z.string().uuid()).optional(),
-  paymentMethod: z.enum(['cash', 'card', 'ewallet']),
-  cashReceived: z.number().positive().optional(),
-  externalTransactionId: z.string().optional(),
-  notes: z.string().optional(),
-  recordedOffline: z.boolean().optional(),
-});
+const MoneyInput = z.union([
+  z.number().finite(),
+  z.string().regex(/^\d+(\.\d{1,2})?$/, 'Expected a money value'),
+]);
+
+const NonNegativeMoneyInput = z.union([
+  z.number().nonnegative(),
+  z.string().regex(/^\d+(\.\d{1,2})?$/, 'Expected a money value'),
+]);
+
+const CounterPaymentSchema = z
+  .object({
+    tableId: z.string().uuid(),
+    orderIds: z.array(z.string().uuid()).optional(),
+    /** Existing field name; `method` is the §18.20.15 C alias. */
+    paymentMethod: z.enum(['cash', 'card', 'ewallet']).optional(),
+    method: z.enum(['cash', 'card', 'ewallet']).optional(),
+    cashReceived: NonNegativeMoneyInput.optional(),
+    expectedTotal: MoneyInput.optional(),
+    expectedCashPayable: MoneyInput.optional(),
+    expectedBillRevision: z.number().int().nonnegative().optional(),
+    externalTransactionId: z.string().optional(),
+    notes: z.string().optional(),
+    recordedOffline: z.boolean().optional(),
+  })
+  .superRefine((value, context) => {
+    if (!value.paymentMethod && !value.method) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['paymentMethod'],
+        message: 'A payment method is required',
+      });
+    }
+    if (
+      value.paymentMethod &&
+      value.method &&
+      value.paymentMethod !== value.method
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['method'],
+        message: 'method and paymentMethod disagree',
+      });
+    }
+  });
 
 /**
  * POST /api/counter/payments
@@ -75,14 +111,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const paymentMethod = data.method ?? data.paymentMethod!;
+
     const result = await processTablePaymentBatch({
       tableId: data.tableId,
       restaurantId,
       userId: context!.userId,
       userType: context!.userType,
       idempotencyKey,
-      paymentMethod: data.paymentMethod,
+      paymentMethod,
       cashReceived: data.cashReceived,
+      expectedTotal: data.expectedTotal,
+      expectedCashPayable: data.expectedCashPayable,
+      expectedBillRevision: data.expectedBillRevision,
       externalTransactionId: data.externalTransactionId,
       notes: data.notes,
       recordedOffline: data.recordedOffline,
@@ -101,7 +142,7 @@ export async function POST(request: NextRequest) {
             orderId: payment.orderId,
             paymentId: payment.id,
             restaurantId,
-            paymentMethod: data.paymentMethod,
+            paymentMethod: paymentMethod,
             amount: Number(payment.amount),
             receiptNumber: response.receiptNumber!,
             processedBy: context!.userId,
@@ -135,7 +176,7 @@ export async function POST(request: NextRequest) {
         metadata: {
           receiptNumber: response.receiptNumber,
           tableId: data.tableId,
-          paymentMethod: data.paymentMethod,
+          paymentMethod: paymentMethod,
           idempotencyKey,
           replayed: result.replayed,
           paymentCount: response.payments?.length || 0,

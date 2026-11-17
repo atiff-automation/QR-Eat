@@ -22,6 +22,8 @@ const takeawayOrder = {
   dailySeq: 42,
   orderType: 'TAKEAWAY',
   customerName: 'Alex',
+  customerPhone: '+60123456789',
+  customerEmail: 'alex@example.test',
   status: 'PENDING',
   version: 1,
   specialInstructions: 'Call on arrival',
@@ -98,6 +100,8 @@ describe('takeaway kitchen payloads', () => {
       stationSubtotal: '20.00',
       fallback: true,
     });
+    expect(payload).not.toHaveProperty('customerPhone');
+    expect(payload).not.toHaveProperty('customerEmail');
   });
 
   it('adds takeaway fields to a status payload', async () => {
@@ -120,5 +124,7 @@ describe('takeaway kitchen payloads', () => {
       from: 'PREPARING',
       to: 'READY',
     });
+    expect(payload).not.toHaveProperty('customerPhone');
+    expect(payload).not.toHaveProperty('customerEmail');
   });
 });

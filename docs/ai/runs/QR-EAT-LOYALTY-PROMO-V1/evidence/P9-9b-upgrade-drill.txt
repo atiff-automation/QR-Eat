@@ -1,0 +1,102 @@
+# P9b — upgrade drill
+
+P9b — upgrade drill
+Migrations found: 35
+Pre-loyalty: 30
+Loyalty core: 3
+Rebalance: 2
+PASS  pre-loyalty cutoff is the expected migration — 20261108120000_add_counter_reference
+
+Dropping and recreating the public schema…
+Replaying pre-loyalty migrations…
+  20260117074309_init_required_snapshots
+  20260117093837_init_variation_tables
+  20260120164745_add_expenses_tracking
+  20260121021700_add_materialized_view_and_index
+  20260121021726_add_materialized_view_and_index
+  20260212090106_change_expense_date_to_date_type
+  20261023172243_add_stations_and_devices
+  20261024093035_add_payment_batches
+  20261024120000_device_pin_lockout
+  20261024140000_add_order_events
+  20261024160000_add_staff_pin_lookup
+  20261025120000_add_order_event_print_ack
+  20261026130000_counter_order_entry
+  20261026160000_menu_availability
+  20261027090000_takeaway_orders
+  20261027101500_remove_web_notification_sound_settings
+  20261027120000_add_session_device_identity
+  20261029120000_add_business_days
+  20261031100000_add_station_order_recalls
+  20261031160000_station_settings_and_order_receipts
+  20261101100000_station_actor_audit
+  20261101110000_remove_station_staff_pin
+  20261101120000_device_pairing_code
+  20261102100000_add_dining_sessions
+  20261102150000_add_qr_ordering_pause
+  20261102160000_add_restaurant_changes
+  20261102170000_add_offline_orders
+  20261107120000_add_skipped_print_status
+  20261107120500_backfill_skipped_print_status
+  20261108120000_add_counter_reference
+Inserting representative pre-loyalty rows…
+Replaying the first loyalty migration…
+  20261113120000_loyalty_promo_v1
+Inserting a legacy idempotency record…
+Replaying the remaining loyalty migrations…
+  20261113120100_loyalty_promo_v1_indexes
+  20261113130000_loyalty_promo_v1_scope_tables
+Inserting a pre-rebalance loyalty settings row…
+Replaying the rebalance migrations…
+  20261114120000_loyalty_rate_limit_rebalance
+  20261114120100_loyalty_rate_limit_rebalance_checks
+
+Assertions
+PASS  legacy order survived — rows=1
+PASS  legacy order total unchanged — 25.00
+PASS  Order.discountVersion took DEFAULT 0 — 0
+PASS  legacy order has no member copy
+PASS  legacy dining session survived — rows=1
+PASS  DiningSession.billRevision took DEFAULT 0 — 0
+PASS  legacy dining session has no member
+PASS  DiningSession.discountAmount took DEFAULT 0.00 — 0.00
+PASS  legacy payment batch survived — rows=1
+PASS  payment_batches.roundingAdjustment is still null — null
+PASS  payment_batches.cashPayable is still null
+PASS  payment_batches.businessDate is still null
+PASS  payment_batches.outcome is still null
+PASS  legacy payment batch total unchanged — 25.00
+PASS  legacy security event survived — rows=1
+PASS  security_events.restaurantId is null for the old row — null
+PASS  pre-rebalance loyalty settings row survived — rows=1
+PASS  LoyaltySettings.lookupLimitPerHour took DEFAULT 30 — 30
+PASS  legacy order event survived — 1
+PASS  legacy idempotency record survived — ORDER_CREATE/COMPLETED
+PASS  idempotency_records_restaurantId_fkey validates and references a live restaurant — fk=true restaurant=true
+PASS  CHECK validates: rate_limit_counters_scope_check
+PASS  CHECK validates: loyalty_settings_visitsRequired_check
+PASS  CHECK validates: loyalty_settings_minDailySpend_check
+PASS  CHECK validates: loyalty_settings_maxDiscount_check
+PASS  CHECK validates: loyalty_settings_rewardValue_check
+PASS  CHECK validates: loyalty_settings_lookupLimitPerHour_check
+PASS  CHECK validates: loyalty_cards_visitsInCycle_check
+PASS  CHECK validates: loyalty_cards_visitsRequired_check
+PASS  CHECK validates: loyalty_cards_minDailySpend_check
+PASS  CHECK validates: loyalty_cards_maxDiscount_check
+PASS  CHECK validates: loyalty_cards_rewardValue_check
+PASS  CHECK validates: promotions_endsAt_check
+PASS  CHECK validates: promotions_maxDiscount_check
+PASS  CHECK validates: promotions_value_check
+PASS  CHECK validates: order_discounts_amount_check
+PASS  CHECK validates: order_discounts_snapshot_check
+PASS  CHECK validates: payment_batches_roundingAdjustment_check
+PASS  loyalty_settings_visitsRequired_check rejects 11 — loyalty_settings_visitsRequired_check
+PASS  loyalty_settings_lookupLimitPerHour_check rejects 0 — loyalty_settings_lookupLimitPerHour_check
+PASS  payment_batches_roundingAdjustment_check rejects a bad adjustment — payment_batches_roundingAdjustment_check
+PASS  rejected writes left loyalty settings unchanged
+PASS  partial unique index customers_restaurantId_phoneHash_active_key exists
+PASS  partial unique index order_discounts_orderId_active_key exists
+
+Restoring recorded migration state with prisma migrate deploy…
+
+PASS — 45/45 checks passed

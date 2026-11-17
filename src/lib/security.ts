@@ -1,25 +1,30 @@
 // Security utilities and validation
 import { NextRequest } from 'next/server';
+import { trustedIp } from '@/lib/client-ip';
 
 // Rate limiting store
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 
 export class SecurityUtils {
   // Rate limiting
-  static isRateLimited(ip: string, maxRequests: number = 100, windowMs: number = 60000): boolean {
+  static isRateLimited(
+    ip: string,
+    maxRequests: number = 100,
+    windowMs: number = 60000
+  ): boolean {
     const now = Date.now();
-    
+
     const record = rateLimitMap.get(ip);
-    
+
     if (!record || record.resetTime < now) {
       rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
       return false;
     }
-    
+
     if (record.count >= maxRequests) {
       return true;
     }
-    
+
     record.count++;
     return false;
   }
@@ -44,10 +49,10 @@ export class SecurityUtils {
       /(\bexec\b.*\()/i,
       /(\bscript\b.*\>)/i,
       /(\b(or|and)\b.*\b(=|like)\b)/i,
-      /(--|\/\*|\*\/)/
+      /(--|\/\*|\*\/)/,
     ];
-    
-    return sqlPatterns.some(pattern => pattern.test(input));
+
+    return sqlPatterns.some((pattern) => pattern.test(input));
   }
 
   // XSS prevention
@@ -63,17 +68,20 @@ export class SecurityUtils {
       /onload=/gi,
       /onerror=/gi,
       /onclick=/gi,
-      /onmouseover=/gi
+      /onmouseover=/gi,
     ];
-    
-    return xssPatterns.some(pattern => pattern.test(input));
+
+    return xssPatterns.some((pattern) => pattern.test(input));
   }
 
   // Validate request origin
-  static validateOrigin(request: NextRequest, allowedOrigins: string[]): boolean {
+  static validateOrigin(
+    request: NextRequest,
+    allowedOrigins: string[]
+  ): boolean {
     const origin = request.headers.get('origin');
     if (!origin) return false;
-    
+
     return allowedOrigins.includes(origin);
   }
 
@@ -81,18 +89,21 @@ export class SecurityUtils {
   static validateCSRFToken(request: NextRequest): boolean {
     const csrfToken = request.headers.get('x-csrf-token');
     const cookieToken = request.cookies.get('csrf-token')?.value;
-    
+
     return csrfToken === cookieToken && csrfToken !== undefined;
   }
 
   // Password strength validation
-  static validatePasswordStrength(password: string): { isValid: boolean; errors: string[] } {
+  static validatePasswordStrength(password: string): {
+    isValid: boolean;
+    errors: string[];
+  } {
     const errors: string[] = [];
-    
+
     if (password.length < 8) {
       errors.push('Password must be at least 8 characters long');
     }
-    
+
     return { isValid: errors.length === 0, errors };
   }
 
@@ -110,37 +121,33 @@ export class SecurityUtils {
 
   // Get client IP address
   static getClientIP(request: NextRequest): string {
-    const forwardedFor = request.headers.get('x-forwarded-for');
-    if (forwardedFor) {
-      return forwardedFor.split(',')[0].trim();
-    }
-    
-    const realIP = request.headers.get('x-real-ip');
-    if (realIP) {
-      return realIP;
-    }
-    
-    return request.headers.get('x-forwarded-for') || 'unknown';
+    return trustedIp(request);
   }
 
   // Log security events
-  static logSecurityEvent(event: string, details: Record<string, unknown>): void {
+  static logSecurityEvent(
+    event: string,
+    details: Record<string, unknown>
+  ): void {
     console.warn(`[SECURITY] ${event}:`, {
       timestamp: new Date().toISOString(),
-      ...details
+      ...details,
     });
   }
 }
 
 // Security middleware wrapper
-export function withSecurity(handler: (...args: unknown[]) => Promise<Response>, options?: {
-  rateLimit?: { maxRequests: number; windowMs: number };
-  validateOrigin?: string[];
-  requireCSRF?: boolean;
-}) {
+export function withSecurity(
+  handler: (...args: unknown[]) => Promise<Response>,
+  options?: {
+    rateLimit?: { maxRequests: number; windowMs: number };
+    validateOrigin?: string[];
+    requireCSRF?: boolean;
+  }
+) {
   return async (request: NextRequest, ...args: unknown[]) => {
     const ip = SecurityUtils.getClientIP(request);
-    
+
     // Rate limiting
     if (options?.rateLimit) {
       const { maxRequests, windowMs } = options.rateLimit;
@@ -149,15 +156,18 @@ export function withSecurity(handler: (...args: unknown[]) => Promise<Response>,
         return new Response('Too Many Requests', { status: 429 });
       }
     }
-    
+
     // Origin validation
     if (options?.validateOrigin) {
       if (!SecurityUtils.validateOrigin(request, options.validateOrigin)) {
-        SecurityUtils.logSecurityEvent('Invalid origin', { ip, origin: request.headers.get('origin') });
+        SecurityUtils.logSecurityEvent('Invalid origin', {
+          ip,
+          origin: request.headers.get('origin'),
+        });
         return new Response('Forbidden', { status: 403 });
       }
     }
-    
+
     // CSRF validation
     if (options?.requireCSRF) {
       if (!SecurityUtils.validateCSRFToken(request)) {
@@ -165,26 +175,29 @@ export function withSecurity(handler: (...args: unknown[]) => Promise<Response>,
         return new Response('CSRF token invalid', { status: 403 });
       }
     }
-    
+
     return handler(request, ...args);
   };
 }
 
 // Input validation middleware
-export function validateInput(data: Record<string, unknown>): { isValid: boolean; errors: string[] } {
+export function validateInput(data: Record<string, unknown>): {
+  isValid: boolean;
+  errors: string[];
+} {
   const errors: string[] = [];
-  
+
   for (const [key, value] of Object.entries(data)) {
     if (typeof value === 'string') {
       if (SecurityUtils.containsSQLInjection(value)) {
         errors.push(`${key} contains potential SQL injection`);
       }
-      
+
       if (SecurityUtils.containsXSS(value)) {
         errors.push(`${key} contains potential XSS payload`);
       }
     }
   }
-  
+
   return { isValid: errors.length === 0, errors };
 }

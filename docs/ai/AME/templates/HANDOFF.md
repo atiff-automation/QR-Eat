@@ -12,6 +12,10 @@ Use this for every delegated task. A child subagent does not see the parent tran
 **Task file:** `docs/ai/runs/<task-id>/TASK.md`
 **Task revision:**
 **Approved revision:**
+**Implementer agent:** `ame-implementer`
+**Implementer session:**
+**Verifier agent:** `ame-verifier`
+**Verifier session:**
 
 ## Scope
 
@@ -89,6 +93,10 @@ Use this for every delegated task. A child subagent does not see the parent tran
 
 ```text
 ```
+
+**Diff base:**
+**Diff hash:**
+**Changes allowed only in owned files:** yes/no
 
 **Evidence required:**
 

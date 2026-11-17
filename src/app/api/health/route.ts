@@ -1,3 +1,5 @@
+import type { NextRequest } from 'next/server';
+import { resolveClientIp } from '@/lib/client-ip';
 import { sendSuccess, sendError } from '@/lib/utils/api-response';
 
 /**
@@ -7,8 +9,16 @@ import { sendSuccess, sendError } from '@/lib/utils/api-response';
  * CRITICAL: This endpoint must respond quickly to pass Railway's health check.
  * We check environment variables first, then attempt database connection.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   const startTime = Date.now();
+  const clientIp = resolveClientIp(request);
+  // Source and entry count only: an address is personal data and must never be
+  // returned. The pilot runbook reads this instead of a log line. Every payload
+  // below carries it, including the degraded and unexpected-error responses.
+  const edgeIp = {
+    source: clientIp.source,
+    xffEntries: clientIp.xffEntries,
+  };
 
   try {
     // 1. Check critical environment variables FIRST
@@ -33,6 +43,7 @@ export async function GET() {
           status: 'DEGRADED',
           database: 'NOT_CONFIGURED',
           envCheck,
+          edgeIp,
           timestamp: new Date().toISOString(),
           latencyMs: Date.now() - startTime,
         }
@@ -49,12 +60,22 @@ export async function GET() {
 
       // Set a timeout for database query
       const dbCheckPromise = prisma.$queryRaw`SELECT 1`;
-      const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Database query timeout')), 5000)
-      );
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise((_, reject) => {
+        timeoutId = setTimeout(
+          () => reject(new Error('Database query timeout')),
+          5000
+        );
+      });
 
-      await Promise.race([dbCheckPromise, timeoutPromise]);
-      databaseStatus = 'CONNECTED';
+      try {
+        await Promise.race([dbCheckPromise, timeoutPromise]);
+        databaseStatus = 'CONNECTED';
+      } finally {
+        // Clear the timer on every path so a fast query does not leave a
+        // pending 5 s timer behind.
+        clearTimeout(timeoutId);
+      }
     } catch (error) {
       dbError =
         error instanceof Error ? error.message : 'Unknown database error';
@@ -72,6 +93,7 @@ export async function GET() {
       version: process.env.npm_package_version || '1.0.0',
       env: process.env.NODE_ENV,
       envCheck,
+      edgeIp,
     };
 
     // If database is down, return 503 but with detailed info
@@ -101,6 +123,7 @@ export async function GET() {
       {
         status: 'DOWN',
         database: 'UNKNOWN',
+        edgeIp,
         timestamp: new Date().toISOString(),
         latencyMs: Date.now() - startTime,
         error: errorMessage,

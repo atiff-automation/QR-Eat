@@ -16,6 +16,7 @@ jest.mock('@/lib/database', () => ({
     table: { findUnique: jest.fn() },
     menuItem: { findMany: jest.fn() },
     customerSession: { update: jest.fn() },
+    loyaltySettings: { findUnique: jest.fn() },
     $transaction: jest.fn(),
   },
 }));
@@ -124,6 +125,9 @@ const tx = {
 describe('QR order create dining session', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    // This suite covers the legacy (loyalty-off) create path.
+    delete process.env.LOYALTY_ENABLED;
+    (prisma.loyaltySettings.findUnique as jest.Mock).mockResolvedValue(null);
     (prisma.table.findUnique as jest.Mock).mockResolvedValue(table);
     (prisma.menuItem.findMany as jest.Mock).mockResolvedValue([
       {

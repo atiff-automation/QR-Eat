@@ -294,6 +294,27 @@ Avoid `Already paid` and `Total unpaid` in new UI. If a clearer money label is
 wanted later, use **Balance due** for the amount and keep **Unpaid** for the
 status.
 
+### 2.10 Rewards
+
+Use:
+
+| Term | Use | Do not use |
+|---|---|---|
+| One counted customer visit | **Visit** | Point, stamp, punch |
+| The customer's progress toward the next reward | **Visit card** | Loyalty programme, membership card |
+| The discount earned when a visit card completes | **Reward** | Cashback, points redemption |
+| A time-limited discount on a whole order, a category or an item | **Promotion** | Coupon, voucher, offer code |
+
+Rules:
+
+- Customer-facing copy never says **points**, **stamps**, **cashback** or
+  **loyalty programme**.
+- A promotion replaces the visit for that bill; the visit card stays as it is.
+- Say **Rewards** for the product area, **visit** for one counted visit,
+  **visit card** for progress and **promotion** for a scheduled discount.
+- Do not render the raw enum values `PERCENT`, `FIXED`, `ORDER`, `CATEGORY`,
+  `ITEM` or `NEAREST_5_SEN` in owner-facing copy.
+
 ## 3. Current inconsistencies
 
 | # | Area | Current | Problem | Recommended | Priority |

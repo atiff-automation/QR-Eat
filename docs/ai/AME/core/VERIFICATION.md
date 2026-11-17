@@ -10,13 +10,17 @@ It is not a summary review. It is evidence-based.
 
 The Verifier must:
 
-- be separate from the Implementer;
+- be a fresh `ame-verifier` child, separate from the Implementer and the Lead;
 - receive the original task and acceptance criteria;
+- receive the base commit, tracked diff, untracked files, and diff hash;
 - inspect the actual integrated diff;
 - run permitted tests;
 - check regressions and neighbouring behaviour;
 - report evidence and severity;
 - avoid relying on the Implementer’s summary.
+
+A review that is not bound to the current diff hash is not verification. If the
+diff changes after review, review again.
 
 The Verifier is read-only during initial verification. It does not fix the code it reviews.
 

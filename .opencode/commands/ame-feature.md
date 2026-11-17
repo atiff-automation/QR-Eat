@@ -37,14 +37,17 @@ Requirements:
     - `Next actor: implementer`
     - update `Updated:`
     Then update `NEXT.md`.
-13. Execute in bounded work.
-14. Set `Status: awaiting_review`, `Next actor: verifier`, and update `NEXT.md`.
-15. Request independent verification with `ame-verifier`.
+13. Stop after approval. Do not implement in the Lead session. Hand the task to
+    `/ame-implement` or spawn exactly one `ame-implementer` child.
+14. After the implementer returns, set `Status: awaiting_review`,
+    `Next actor: verifier`, and update `NEXT.md`.
+15. Request independent verification with `/ame-verify` or a fresh
+    `ame-verifier` child.
 16. L1/L2 PASS: record verdict and evidence in `RUN_LOG.md`.
     L2 FAIL/notes or L3: write `REVIEW-01.md` from the verifier's report.
 17. If FAIL, use `/ame-fix` with the review path; do not merge.
 18. For R2/R3, set `Status: ready_to_commit`, `Next actor: human`, and stop at
-    the commit gate.
+    the commit gate. Use `/ame-commit`.
 
 Load `ame-handoff` when delegating and `ame-engineering-discipline` when planning
 or implementing.

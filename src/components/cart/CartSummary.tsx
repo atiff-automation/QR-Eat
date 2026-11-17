@@ -23,9 +23,13 @@ interface CartSummaryProps {
   onClearAll?: () => void;
   onLogin?: () => void;
   isCheckoutLoading?: boolean;
+  /** Loyalty-only slot. Absent (flag off) leaves the cart unchanged. */
+  loyaltyRule?: ReactNode;
+  /** Cashback/voucher/login rows are pre-feature only; hidden in loyalty mode. */
+  showLoginRows?: boolean;
 }
 
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
 export function CartSummary({
   cart,
@@ -37,6 +41,8 @@ export function CartSummary({
   onClearAll,
   onLogin,
   isCheckoutLoading = false,
+  loyaltyRule,
+  showLoginRows = true,
 }: CartSummaryProps) {
   // Scroll to top on mount to ensure header is visible
   useEffect(() => {
@@ -101,6 +107,7 @@ export function CartSummary({
         className="flex-1 overflow-y-auto pb-64 bg-white"
         style={{ WebkitOverflowScrolling: 'touch' }}
       >
+        {loyaltyRule && <div className="p-4 pb-0">{loyaltyRule}</div>}
         {cart.items.map((item, index) => (
           <div
             key={`${item.menuItemId}-${index}`}
@@ -190,37 +197,41 @@ export function CartSummary({
         className="qr-cart-footer bg-white shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] border-t border-gray-100 w-full"
         style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px))' }}
       >
-        {/* Compact Cashback Row */}
-        <div
-          onClick={onLogin}
-          className="flex items-center justify-between px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100 transition-colors"
-        >
-          <div className="flex items-center space-x-2">
-            <div className="w-4 h-4 rounded-full bg-yellow-100 flex items-center justify-center">
-              <Coins className="w-3 h-3 text-yellow-600" />
+        {showLoginRows && (
+          <>
+            {/* Compact Cashback Row */}
+            <div
+              onClick={onLogin}
+              className="flex items-center justify-between px-4 py-2 bg-gray-50/50 cursor-pointer hover:bg-gray-100 transition-colors"
+            >
+              <div className="flex items-center space-x-2">
+                <div className="w-4 h-4 rounded-full bg-yellow-100 flex items-center justify-center">
+                  <Coins className="w-3 h-3 text-yellow-600" />
+                </div>
+                <span className="font-bold text-gray-900 text-xs text-nowrap">
+                  Use Cashback
+                </span>
+                <Info className="w-3 h-3 text-gray-400" />
+              </div>
+              <button className="px-3 py-1 bg-orange-500 text-white text-[10px] font-bold rounded uppercase hover:bg-orange-600 transition-colors pointer-events-none">
+                Login
+              </button>
             </div>
-            <span className="font-bold text-gray-900 text-xs text-nowrap">
-              Use Cashback
-            </span>
-            <Info className="w-3 h-3 text-gray-400" />
-          </div>
-          <button className="px-3 py-1 bg-orange-500 text-white text-[10px] font-bold rounded uppercase hover:bg-orange-600 transition-colors pointer-events-none">
-            Login
-          </button>
-        </div>
 
-        {/* Compact Voucher Row */}
-        <div
-          onClick={onLogin}
-          className="flex items-center px-4 py-2 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
-        >
-          <div className="w-4 h-4 mr-2 flex items-center justify-center">
-            <Ticket className="w-4 h-4 text-orange-500" />
-          </div>
-          <span className="font-bold text-gray-500 text-xs">
-            Add a voucher code
-          </span>
-        </div>
+            {/* Compact Voucher Row */}
+            <div
+              onClick={onLogin}
+              className="flex items-center px-4 py-2 bg-white cursor-pointer hover:bg-gray-50 transition-colors"
+            >
+              <div className="w-4 h-4 mr-2 flex items-center justify-center">
+                <Ticket className="w-4 h-4 text-orange-500" />
+              </div>
+              <span className="font-bold text-gray-500 text-xs">
+                Add a voucher code
+              </span>
+            </div>
+          </>
+        )}
 
         <div className="p-4 pt-2">
           {/* Consolidated Info Row - Now includes service charge */}

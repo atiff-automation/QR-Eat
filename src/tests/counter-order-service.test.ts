@@ -40,6 +40,10 @@ jest.mock('@/lib/postgres-pubsub', () => ({
   },
 }));
 
+// P7b-1: `buildCounterOrderRequestHash` is keyed now. The suite computes the
+// expected digest at module scope, so the key must exist before that runs.
+process.env.LOYALTY_PHONE_HMAC_KEY = 'test-key';
+
 const restaurantId = '550e8400-e29b-41d4-a716-446655440001';
 const tableId = '550e8400-e29b-41d4-a716-446655440002';
 const itemId = '550e8400-e29b-41d4-a716-446655440003';
@@ -376,6 +380,32 @@ describe('Counter order idempotency', () => {
     expect(result.warning).toMatch(/pending kitchen dispatch/i);
   });
 
+  it('replays an anonymised order because idempotencyHash is retained', async () => {
+    const phoneInput = {
+      ...input,
+      customerName: 'Alex',
+      customerPhone: '0123456789',
+    };
+    const phoneHash = buildCounterOrderRequestHash(phoneInput);
+
+    (prisma.order.findUnique as jest.Mock).mockResolvedValue({
+      ...existing,
+      customerName: null,
+      customerPhone: null,
+      idempotencyHash: phoneHash,
+    });
+
+    const result = await createCounterOrder(
+      phoneInput,
+      actor,
+      'test-idempotency-key'
+    );
+
+    expect(result.replayed).toBe(true);
+    expect(result.order.customerName).toBeNull();
+    expect(result.order.customerPhone).toBeNull();
+  });
+
   it('rejects the same key with a different request', async () => {
     await expect(
       createCounterOrder(
@@ -482,6 +512,43 @@ describe('Counter takeaway creation', () => {
     expect(PostgresEventManager.publishOrderCreated).toHaveBeenCalledWith(
       expect.objectContaining({ tableId: null })
     );
+  });
+
+  it('creates an order with loyalty off and no HMAC key, storing a phone-independent hash', async () => {
+    const originalKey = process.env.LOYALTY_PHONE_HMAC_KEY;
+    const originalFlag = process.env.LOYALTY_ENABLED;
+    delete process.env.LOYALTY_PHONE_HMAC_KEY;
+    process.env.LOYALTY_ENABLED = 'false';
+
+    try {
+      await createCounterOrder(takeawayInput, actor, 'no-key-a');
+      const firstHash = tx.order.create.mock.calls[0][0].data.idempotencyHash;
+      expect(firstHash).toMatch(/^[a-f0-9]{64}$/);
+
+      tx.order.create.mockClear();
+      await createCounterOrder(
+        { ...takeawayInput, customerPhone: '+60123456780' },
+        actor,
+        'no-key-b'
+      );
+      const secondHash = tx.order.create.mock.calls[0][0].data.idempotencyHash;
+
+      // H-1: the fallback digest deliberately ignores the phone and name, so a
+      // Counter deployment without the key still creates orders and idempotency
+      // keeps working for every non-phone change.
+      expect(secondHash).toBe(firstHash);
+    } finally {
+      if (originalKey === undefined) {
+        delete process.env.LOYALTY_PHONE_HMAC_KEY;
+      } else {
+        process.env.LOYALTY_PHONE_HMAC_KEY = originalKey;
+      }
+      if (originalFlag === undefined) {
+        delete process.env.LOYALTY_ENABLED;
+      } else {
+        process.env.LOYALTY_ENABLED = originalFlag;
+      }
+    }
   });
 
   it('stores the stable Counter reference supplied by offline sync', async () => {

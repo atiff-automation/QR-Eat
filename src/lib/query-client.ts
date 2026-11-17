@@ -149,6 +149,29 @@ export const queryKeys = {
     byId: (id: string) => ['restaurants', id] as const,
     bySlug: (slug: string) => ['restaurants', 'slug', slug] as const,
     settings: ['restaurants', 'settings'] as const,
+    paymentSettings: ['restaurants', 'settings', 'payments'] as const,
+  },
+
+  // Rewards (loyalty settings + promotions)
+  loyalty: {
+    settings: ['loyalty', 'settings'] as const,
+  },
+  promotions: {
+    all: ['promotions'] as const,
+    list: (filters: Record<string, unknown>) =>
+      ['promotions', 'list', filters] as const,
+  },
+
+  // Members (owner member lookup). Keys never contain a phone number.
+  members: {
+    all: ['members'] as const,
+    profile: (id: string) => ['members', 'profile', id] as const,
+  },
+
+  // Reports
+  reports: {
+    loyalty: (range: { from: string; to: string }) =>
+      ['reports', 'loyalty', range] as const,
   },
 } as const;
 
