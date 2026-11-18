@@ -1,9 +1,9 @@
 # B3-C Handoff — Counter feed contract
 
 **Status:** server implementation **verifier PASS**; contract **FROZEN** at
-`4bf9d38`; two-tenant staging gate **PASSED** 2026-11-18. B3-C may start against
-the frozen contract; deployment of the server still requires explicit human
-approval.
+`4bf9d38`; staging gate **PASSED** 2026-11-18; server **DEPLOYED** 2026-11-19
+(merge `ab63894`, Railway `27852ccb…` SUCCESS, health UP, migrations applied,
+no seed). B3-C may start against the frozen contract.
 
 - **Contract:** `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`
 - **Contract ID:** `phase-b-counter-feed-v1` (additive to frozen
@@ -176,8 +176,8 @@ rely on this feed for recovery.
 - No real Postgres two-tenant harness; mocked tests plus the manual staging gate
   are the evidence. No isolation claim has been made beyond the mocked 404
   tests.
-- The two-tenant manual staging check passed on 2026-11-18; deployment still
-  requires explicit human approval.
+- The server is deployed and healthy as of 2026-11-19; B3-C is the remaining
+  cross-repo work.
 - `OrderModification.idempotencyKey` remains globally unique; B3 uses derived
   keys. `PATCH /modify` was not reworked.
 - VOID/REFUND keep the legacy idempotency lookup.

@@ -358,3 +358,50 @@ stamp) and was not pushed.
   `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/evidence/` (`SHA256SUMS` verifies).
 - Deployment remains on hold until B3-C is code-complete and a deployment
   window is explicitly authorized.
+
+## Deployment — 2026-11-19
+
+**Authorization:** explicit human instruction on 2026-11-19 to merge, push
+`main`, deploy and verify; `db:seed` explicitly forbidden.
+
+### Merge and push
+
+- Merge commit: `ab6389439be20e25b29c188968c2f62cd23944e3`
+  (`merge: B3-S counter feed (phase-b-counter-feed-v1)`), `--no-ff` from
+  `feat/b3-s-counter-feed` (`acc2c7a`) into `main` (`a0e3753`).
+- Push: `a0e3753..ab63894  main -> main`; remote `refs/heads/main` =
+  `ab6389439be20e25b29c188968c2f62cd23944e3`.
+- Feature branch `feat/b3-s-counter-feed` remains at `acc2c7a` for B3-C.
+- No `db:seed` was run. The production start command is
+  `prisma migrate deploy && next start`.
+
+### Railway deployment
+
+- Deployment ID: `27852ccb-f16c-468a-9885-bf99f6771918`
+- Trigger: push to `main` (auto-deploy); created 2026-11-19 07:33:27 +08:00,
+  `BUILDING` → `DEPLOYING` → **`SUCCESS`** at 07:36 +08:00.
+- Deploy logs (`railway logs <id> -d`):
+  - `> prisma migrate deploy && next start`
+  - `37 migrations found in prisma/migrations`
+  - `Applying migration 20261118120000_add_order_mutation_idempotency`
+  - `Applying migration 20261118120100_seed_orders_counter_serve`
+  - `All migrations have been successfully applied.`
+  - `✓ Ready in 541ms`
+
+### Verification
+
+| Check | Result |
+|---|---|
+| Health endpoint `GET https://tabtep.app/api/health` | **200**; `status: UP`, `database: CONNECTED`, latency 4 ms, `env: production`, version 0.1.0 |
+| Root `GET https://tabtep.app/` | **200** |
+| Migration result | 37 applied; both B3-S migrations applied by the start command |
+| Production read-only DB check | `permissions` row `orders:counter_serve` = **1**; `role_permissions` cashier mapping = **1**; `_prisma_migrations` finished = **37** |
+| Seed | **Not run** |
+| B3-C end-to-end | **Not claimed** — B3-C begins in its own `../Tabtep-App` session against the frozen contract |
+
+### Rollback
+
+- Code: redeploy previous successful deployment `8a9abe48-a55f-48e1-b930-8ae54dd779eb`
+  (`SUCCESS`, 2026-11-17) or revert `ab63894`.
+- Database: both B3-S migrations are additive; no destructive down migration.
+  Dropping them would lose retry receipts and the new permission mapping.

@@ -1,8 +1,9 @@
 # Task — QR-EAT-B3-S-COUNTER-FEED (B3-S)
 
-**Status:** frozen — verifier PASS; contract `phase-b-counter-feed-v1` **FROZEN
-at `4bf9d38`**; two-tenant staging gate **PASSED** (2026-11-18, 46/46 + 3/3
-checks); deployment approval pending
+**Status:** **DEPLOYED** — verifier PASS; contract `phase-b-counter-feed-v1`
+frozen at `4bf9d38`; staging gate PASSED (46/46 + 3/3); merged to `main` at
+`ab63894` and deployed as Railway `27852ccb-f16c-468a-9885-bf99f6771918`
+(`SUCCESS`, health UP, migrations applied, no seed)
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff
@@ -11,7 +12,7 @@ checks); deployment approval pending
 **Verifier session:** `ses_e1251ca3effegPPbNW6vIlHS45` — final **PASS**,
 `REVIEW-02.md` (prior `REVIEW-01.md` PASS WITH NOTES, all findings closed)
 **Freeze content commit:** `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
-**Next actor:** human (explicit deployment approval only)
+**Next actor:** none on the server task; B3-C runs in `../Tabtep-App`
 **Risk:** **R3** — order mutation, cancellation, tenant isolation, print facts,
 staff SSE, audit, migration
 **Complexity:** L3
