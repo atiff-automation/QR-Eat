@@ -1,7 +1,7 @@
 # Task — QR-EAT-B3-S-COUNTER-FEED (B3-S)
 
-**Status:** ready_to_commit — verifier PASS (`REVIEW-02.md`); contract freeze
-and commit await explicit human authorization
+**Status:** frozen — verifier PASS; contract `phase-b-counter-feed-v1` **FROZEN
+at `4bf9d38`**; deployment gate pending
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff
@@ -9,7 +9,8 @@ and commit await explicit human authorization
 **Approval basis:** “Approve B3-S revision 1” (grilling Q1–Q9 with binding clarifications)
 **Verifier session:** `ses_e1251ca3effegPPbNW6vIlHS45` — final **PASS**,
 `REVIEW-02.md` (prior `REVIEW-01.md` PASS WITH NOTES, all findings closed)
-**Next actor:** human (commit authorization for R3)
+**Freeze content commit:** `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
+**Next actor:** human (manual two-tenant staging, then deployment approval)
 **Risk:** **R3** — order mutation, cancellation, tenant isolation, print facts,
 staff SSE, audit, migration
 **Complexity:** L3
@@ -628,6 +629,8 @@ a separate explicit approval after the manual two-tenant staging gate.
   closed; N-01/N-02 handled by the Lead. All three corrected hashes reproduced.
 - Contract is ready to freeze. Commit/deploy still requires explicit human
   authorization.
+- Freeze content commit `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`; contract
+  `phase-b-counter-feed-v1` frozen at `4bf9d38`. No push/deploy/seed.
 - Baseline: type-check PASS; full tests 130 suites passed + 1 skipped,
   **1568 passed, 11 skipped**; build PASS only with generated non-secret
   build-time env (documented by the implementer, no `.env` written).

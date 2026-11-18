@@ -1,16 +1,18 @@
 # B3-C Handoff — Counter feed contract
 
-**Status:** server implementation **verifier PASS**; contract freeze pending the
-Lead's content commit/stamp. B3-C must not start until the freeze stamp/hash is
-recorded in `docs/PRODUCT/COUNTER-FEED-CONTRACT.md` and
-`docs/PRODUCT/RELEASE-COMPATIBILITY.md`.
+**Status:** server implementation **verifier PASS**; contract **FROZEN** at
+`4bf9d38`. B3-C may start against the frozen contract; deployment of the server
+still requires the manual two-tenant staging gate and explicit deployment
+approval.
 
 - **Contract:** `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`
 - **Contract ID:** `phase-b-counter-feed-v1` (additive to frozen
   `phase-b-print-v1`)
+- **Status:** **FROZEN at `4bf9d38`** (content commit
+  `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`, 2026-11-18)
 - **Implementation branch:** `feat/b3-s-counter-feed`, base `a0e3753`
-- **Freeze content commit:** **pending Lead record**
-- **Freeze stamp/hash:** **pending Lead record**
+- **Freeze content commit:** `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
+- **Freeze stamp/hash:** `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
 - **Verification:** `REVIEW-01.md` PASS WITH NOTES → `REVIEW-02.md` PASS
 - **Diff binding:** reviewed full tracked `3b25135d…` / product `94a6c404…` /
   product+new `e419e8f0…`; post-review docs-only delta N-01/N-02/N-03 confirmed

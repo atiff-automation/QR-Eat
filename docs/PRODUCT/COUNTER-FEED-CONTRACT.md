@@ -1,8 +1,8 @@
 # Phase B Counter Feed Contract — add-items, cancellation and staff signals
 
 **Contract ID:** `phase-b-counter-feed-v1`  
-**Status:** **FROZEN `phase-b-counter-feed-v1`** — content commit hash recorded
-by the follow-up docs commit (see §15)  
+**Status:** **FROZEN `phase-b-counter-feed-v1` at `4bf9d38`** (content commit,
+2026-11-18; full hash recorded in this follow-up docs commit)  
 **Owner:** QR-Eat (server)  
 **Consumers:** Tabtep Counter (B3-C), QR-Eat web/POS, staff real-time clients  
 **Base:** `main` `a0e3753` (2026-11-18), branch `feat/b3-s-counter-feed`  
@@ -561,21 +561,19 @@ Residual risks:
 
 ## 15. Freeze stamp
 
-**Current status:** implemented and test-covered; **not frozen**.
+**Current status:** **FROZEN**.
 
-The freeze is a Lead-owned operation:
-
-1. verifier PASS on the exact diff;
+1. verifier PASS on the exact diff (`REVIEW-02.md`);
 2. content commit containing this file;
-3. header becomes
-   `FROZEN phase-b-counter-feed-v1 at <content-commit>`;
-4. follow-up docs commit records the stamp/hash in
+3. header records the content commit;
+4. this follow-up docs commit records the stamp/hash in
    `RELEASE-COMPATIBILITY.md` and `B3-C-HANDOFF.md`.
 
 ```text
 Contract:        phase-b-counter-feed-v1
-Content commit:  <pending Lead record>
-Frozen at:       <pending Lead record>
+Content commit:  4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141
+Frozen at:       2026-11-18
 Server base:     a0e3753
-Implementation:  feat/b3-s-counter-feed (uncommitted at handoff)
+Implementation:  feat/b3-s-counter-feed
+Freeze record:   docs(contract): freeze phase-b-counter-feed-v1
 ```

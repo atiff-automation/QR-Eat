@@ -9,20 +9,17 @@ Updated: 2026-11-18
 Task contract: `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/TASK.md`
 Task revision: 1 (approved 2026-11-18)
 
-Current step: **READY_TO_COMMIT** — verifier final PASS; commit and contract
-freeze await explicit human authorization.
+Current step: **FROZEN** — verifier PASS; `phase-b-counter-feed-v1` frozen at
+`4bf9d38`; local commits only.
 
 Next action:
-1. Human authorizes the R3 commit (exact paths/message published by the Lead).
-   This is not deployment approval.
-2. Commit 1: content commit (implementation + migrations + contract +
-   `API-CONTRACT.md` + release record + review/task evidence).
-3. Commit 2: freeze record — contract header `FROZEN
-   phase-b-counter-feed-v1 at <commit-1>`, release record stamp/hash, B3-C
-   handoff stamp.
-4. Report the frozen path/stamp/commit. Do not push or deploy without separate
-   explicit deployment approval.
-5. The manual two-tenant staging gate remains hard before deployment.
+1. Manual two-tenant staging check (hard pre-deployment gate).
+2. Explicit deployment approval, then push/deploy. Do not deploy before both.
+3. B3-C may start against the frozen contract in a separate `../Tabtep-App`
+   session; it must consume `docs/PRODUCT/COUNTER-FEED-CONTRACT.md` and the
+   B3-C handoff.
+4. Record the deployment evidence and close `AME-014`; keep `AME-013` (real
+   Postgres harness) before pilot/production.
 
 Blockers:
 - TASK revision 1 is not approved.

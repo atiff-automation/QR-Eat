@@ -5,8 +5,8 @@ coverage, Counter changes support, two-tenant tests, frozen counter-feed contrac
 **Risk:** R3
 **Complexity:** L3
 **Workflow:** FEATURE / ARCHITECTURE + contract freeze
-**Status:** ready_to_commit — verifier PASS (`REVIEW-02.md`); commit/freeze await
-human authorization
+**Status:** frozen — verifier PASS; contract FROZEN at `4bf9d38`; deployment
+gate pending
 **Date:** 2026-11-18
 
 ## Scope recorded
@@ -183,6 +183,18 @@ per-file inventory.
   design; D31's manager/server cancellation rule is preserved.
 - Contract will be a new `phase-b-counter-feed-v1` file, not an edit to the
   frozen `phase-b-print-v1`.
+
+## Freeze — 2026-11-18
+
+- Human authorized both local commits at the R3 gate (not deployment approval).
+- Content commit: `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
+  (`feat(counter): add add-items, cancellation chits and staff signals`).
+- Contract: `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`,
+  `phase-b-counter-feed-v1`, FROZEN at `4bf9d38`.
+- Freeze-stamp docs commit records the content commit/hash in the contract,
+  `RELEASE-COMPATIBILITY.md` and `B3-C-HANDOFF.md`.
+- Not pushed, deployed, merged or seeded. The manual two-tenant staging gate and
+  explicit deployment approval remain.
 
 ## Residual risk
 

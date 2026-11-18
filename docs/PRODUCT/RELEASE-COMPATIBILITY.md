@@ -162,8 +162,9 @@ Compatibility note:
 |---|---|
 | Contract | `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`, `phase-b-counter-feed-v1` (additive to frozen `phase-b-print-v1`) |
 | Task | `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/TASK.md` revision 1 |
-| Status | **IMPLEMENTED — verifier PASS; awaiting Lead contract freeze and commit authorization**; not committed, pushed, merged or deployed |
+| Status | **FROZEN** `phase-b-counter-feed-v1` at `4bf9d38` (content commit); verifier PASS; not pushed/deployed/merged |
 | Branch | `feat/b3-s-counter-feed`, base `a0e3753` |
+| Freeze | Contract `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`; content commit `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141` (2026-11-18); stamp recorded in this docs commit |
 | Server surface | `POST /api/orders/{orderId}/items`; durable `DELETE /api/orders/{id}` cancellation; `PATCH /status` CANCELLED → 409 `USE_CANCEL_ENDPOINT`; additive staff SSE `order_items_added`/`order_cancelled`; in-transaction order change rows; `counterAutoPrint` |
 | Schema | Additive `order_mutation_idempotency`; two additive migrations |
 | Permissions | Migration idempotently seeds `orders:counter_serve` and the cashier mapping; seed unchanged; cashier route fallback retained for one release |
