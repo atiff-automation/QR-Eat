@@ -173,7 +173,7 @@ Compatibility note:
 | Verification | Verifier **PASS** (`REVIEW-02.md`; `REVIEW-01.md` was PASS WITH NOTES, all findings closed); type-check PASS; full tests **136 suites / 1644 passed, 11 skipped**; build PASS; lint 61/11 (baseline 62/11); `prisma migrate deploy` PASS on disposable Postgres 16, second deploy no-op, permission SQL applied twice left one permission and one cashier mapping; `migrate diff` no difference |
 | Diff binding | Reviewed diff: full tracked `3b25135d…`, product `94a6c404…`, product+new `e419e8f0…`. Post-review docs-only delta N-01/N-02/N-03 confirmed by the verifier; code, schema, migrations and tests unchanged. Final commit hash is recorded in the freeze stamp. |
 | Migration rollback | Both migrations are additive. Dropping the table loses retry receipts; deleting the two seeded rows loses the new permission mapping. No destructive down migration is required. |
-| Deployment | **Not deployed.** Requires explicit human authorization after freeze, commit and the two-tenant staging gate. |
+| Deployment | **Not deployed.** Two-tenant staging gate PASSED 2026-11-18 (46/46 product checks + 3/3 migration/fallback; `REVIEW-03.md`). Requires explicit human deployment approval. |
 | Loyalty | Unchanged; flags stay off, HMAC key unset |
 | B3-C gate | Counter work does not start until the freeze stamp/hash is recorded in this file and `B3-C-HANDOFF.md` |
 
@@ -183,4 +183,5 @@ Compatibility note:
 - A Counter/web client that still calls `PATCH /status` with `CANCELLED` now gets
   409 and must switch to `DELETE`; the active QR-Eat and Tabtep clients were
   re-checked and already use `DELETE`.
-- The two-tenant manual staging gate is still required before deployment.
+- The two-tenant manual staging gate passed on 2026-11-18; deployment still
+  requires explicit human approval.

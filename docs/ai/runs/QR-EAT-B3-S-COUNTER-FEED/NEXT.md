@@ -9,27 +9,29 @@ Updated: 2026-11-18
 Task contract: `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/TASK.md`
 Task revision: 1 (approved 2026-11-18)
 
-Current step: **FROZEN** — verifier PASS; `phase-b-counter-feed-v1` frozen at
-`4bf9d38`; local commits only.
+Current step: **DEPLOYMENT GATE PASSED** — two-tenant staging check on a
+disposable Postgres 16 + production-mode local server: 46/46 product checks
+PASS plus 3/3 permission-migration/fallback checks, 0 FAIL (`REVIEW-03.md`). `phase-b-counter-feed-v1` frozen at `4bf9d38`; freeze stamp `fc14d01`;
+branch `feat/b3-s-counter-feed` is local only.
 
 Next action:
-1. Manual two-tenant staging check (hard pre-deployment gate).
-2. Explicit deployment approval, then push/deploy. Do not deploy before both.
-3. B3-C may start against the frozen contract in a separate `../Tabtep-App`
+1. Explicit deployment approval (push feature branch only if B3-C access needs
+   it; never push `main`, never merge, never deploy or run the production seed
+   without a separate instruction).
+2. Record the deployment evidence and close `AME-014`; keep `AME-013` (real
+   Postgres harness) before pilot/production.
+3. Backlog: single-flight `pgPubSub.initialize()/subscribe()` — duplicate SSE
+   refresh frames observed on a cold server with concurrent staff streams.
+4. B3-C may start against the frozen contract in a separate `../Tabtep-App`
    session; it must consume `docs/PRODUCT/COUNTER-FEED-CONTRACT.md` and the
    B3-C handoff.
-4. Record the deployment evidence and close `AME-014`; keep `AME-013` (real
-   Postgres harness) before pilot/production.
 
 Blockers:
-- TASK revision 1 is not approved.
-- The manual two-tenant staging tenant is not confirmed; this is a production
-  gate, not an implementation blocker.
-- The real Postgres integration harness does not exist; see the backlog item.
+- Deployment approval has not been given (TASK revision 1 was approved for
+  implementation; that is not deployment approval).
+- The real Postgres isolation harness remains a separate backlog item.
 
 Guardrails:
-- No product code before approval.
-- No `../Tabtep-App` edits.
-- No push to `main`, no Railway deploy, no production seed/migration.
+- No push to `main`, no merge, no Railway deploy, no production seed/migration.
+- No `../Tabtep-App` edits from this repository.
 - No loyalty flag or HMAC key changes.
-- B3-C does not start before the contract freeze.

@@ -201,3 +201,147 @@ per-file inventory.
 - Manual two-tenant staging check is required before deployment.
 - Real Postgres isolation harness is a separate backlog item.
 - `PATCH /modify` idempotency lookup remains legacy/global; not reworked here.
+
+## Deployment gate — two-tenant staging check — 2026-11-18
+
+**Gate:** manual two-tenant staging check (TASK revision 1 acceptance criterion
+16; `NEXT.md` next action 1).
+**Result: PASS** — 46/46 product checks and 3/3 permission-migration/fallback
+checks passed on a production-mode build. Deployment remains a separate human
+gate.
+
+### Environment
+
+- Disposable PostgreSQL 16.15 cluster created with `initdb` in
+  `/tmp/opencode/b3s-gate/pgdata`, trust auth, port 55432, `fsync=off`, database
+  `qreat_gate`. No production database, no production owner login, no `.env`
+  file read or written.
+- `prisma migrate deploy` applied 37 migrations; the repeat deploy was a no-op.
+  Case 7a used a second, separate database (`qreat_migrate`) created with
+  migrations only and no fixtures, so the permission rows could not be
+  confounded by fixture upserts.
+- `npm run build` PASS; `npm run start` on `127.0.0.1:3010` with
+  `NODE_ENV=production`. Environment values were supplied only in the process
+  environment and are not recorded: `DATABASE_URL` (loopback), `JWT_SECRET`,
+  `NEXT_PUBLIC_BASE_DOMAIN`, `NEXT_PUBLIC_MAIN_DOMAIN`,
+  `NEXT_PUBLIC_APP_URL`, `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`,
+  `VAPID_SUBJECT`.
+- Fixtures were created by a gate script against the disposable database
+  (Prisma client): two restaurants, one owner each, two staff users per tenant
+  (`cashier`, `manager`) with `UserRole` and `UserSession`, two stations
+  (`COUNTER` print mode), category→station mappings and three menu items.
+  **`npm run db:seed` was not run.**
+- Tokens were minted through the real `UserRole` + `UserSession` + signed-JWT
+  path (the same payload contract as `EnhancedJWTService`), so every request
+  passed through `AuthServiceV2.validateToken` and
+  `reconstructUserFromPayload`.
+- Gate executor: Lead session (the runtime does not expose the Lead session id
+  to itself), so the evidence is bound by per-file SHA-256 instead. No product
+  code was edited during the gate; `git status` showed only `docs/ai` files.
+- Evidence is committed under
+  `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/evidence/` (`SHA256SUMS`,
+  `gate-run-production.log`, `evidence.json`, `case7a-*`, `case7b-*`,
+  `build.log`, migration logs, server log, harness scripts with the disposable
+  local signing value redacted).
+
+### Commands (evidence)
+
+```text
+initdb -D /tmp/opencode/b3s-gate/pgdata -U gate --auth=trust
+pg_ctl -D ... -o "-p 55432 -k ... -c listen_addresses=127.0.0.1 -c fsync=off" start
+createdb -h 127.0.0.1 -p 55432 -U gate qreat_gate
+npx prisma migrate deploy          # 37 migrations applied
+npx prisma migrate deploy          # "No pending migrations to apply."
+node fixtures.cjs                  # two tenants; no production seed
+npm run build                      # PASS (requires the env list above)
+npm run start (PORT=3010)          # migrate deploy + next start
+node gate.cjs                      # 46 checks, 0 failed
+createdb ... qreat_migrate && prisma migrate deploy  # case 7a, twice
+node case7b.cjs                    # cashier fallback, PASS
+```
+
+### Results
+
+| Case | Checks | Result |
+|---|---|---|
+| 1. Two tenants, separate staff/roles | 3 | PASS — 2 staff per tenant, no shared email; tenant-scoped role templates |
+| 2. Add-items | 14 | PASS — PENDING no event then `order.created` once; live add-on per routed station only; server-owned totals/tax/routing; 409 version; exact replay; key reuse 409; cross-tenant order 404; list isolation with rows present; same key string in another tenant does not replay (2h) |
+| 3. Cancellation | 10 | PASS — PATCH CANCELLED 409 `USE_CANCEL_ENDPOINT`; DELETE one chit per ticketed station with reason/post-increment version/cancelled totals; replay writes nothing; PENDING no chit; VOID/REFUND no chit; cross-tenant ticket fetch/ack 404 |
+| 4. Durability | 3 | PASS — simulated `restaurant_changes` insert failure rolled back the add-items and the cancellation (no item/event/chit/idempotency row, version unchanged); trigger removed |
+| 5. SSE | 5 | PASS with note — signals only to the owning tenant; payload keys `orderId, restaurantId, orderNumber, orderVersion, ticketCount, timestamp`; cursor readable/consistent for reconnect (recovery row proven in case 6) |
+| 6. Changes/tickets | 8 | PASS — cursor advance; synthetic 410 `CURSOR_EXPIRED` + snapshot; `counterAutoPrint` true for COUNTER PENDING/SKIPPED and false for STATION/after PRINTED; SKIPPED cancellation acked PRINTED once and replay idempotent; PRINTED terminal (`NO_DOWNGRADE`, status unchanged) |
+| 8. Concurrency | 3 | PASS — parallel add-items: one 200 / one 409, one line set, one event, version +1 only; parallel same-key cancel: both 200, one chit, version +1; parallel different-key cancel: one 200 / one 409, one chit |
+| 7a. Migration (separate DB) | 2 | PASS — fresh `migrate deploy` leaves exactly one `orders:counter_serve` permission and one `cashier` mapping; second deploy applies nothing |
+| 7b. Cashier fallback | 1 | PASS — with the mapping row deleted and a session minted without `orders:counter_serve`, the cashier moved a no-Kitchen COUNTER order from CONFIRMED to PREPARING (role-template fallback); row restored |
+
+Totals: **46/46 product checks PASS** on the production-mode run
+(`evidence/gate-run-production.log`, `evidence/evidence.json`) plus **3/3**
+case-7 checks.
+
+### Harness revision and assertion semantics
+
+- The first development-mode run (`evidence/gate-run-development.log`) used
+  exact-one-signal assertions and failed `5.sse.delivered` / `5.sse.no-pii` when
+  the server delivered duplicate SSE frames. The final harness asserts at least
+  one signal of each type, requires tenant isolation and payload safety, and
+  records the duplicate count in the check detail. This is a deliberate
+  duplicate-tolerant assertion, not a silent relaxation: duplicates are
+  disclosed below and in `5.sse.delivered` (`duplicateFrames`).
+- After the first verifier read of this record, `1.tenants.list` was replaced
+  with per-tenant assertions on rows that belong to the caller only, and case
+  2g (with orders present on both tenants) and 2h (cross-tenant key replay)
+  were added. The final run is the authority.
+
+### Observations and notes
+
+- **Duplicate SSE frames (pre-existing, non-blocking).** On a cold server the
+  harness opened two concurrent `/api/events/orders` streams (tenant A and B).
+  Every notification reached the tenant-A stream twice (`order_items_added`
+  ×2, `order_cancelled` ×2). `setupPostgresSubscription()` has a check-then-await
+  race on `pgPubSub.isConnected()`, so two concurrent first connections both
+  initialise and subscribe, producing two LISTEN clients. Effects observed:
+  duplicate refresh signals only — no duplicate order rows, tickets, chits,
+  audit rows or version increments, and tenant filtering still failed closed
+  for tenant B. The frozen contract treats these signals as “refresh” with
+  recovery through `/api/counter/changes`, so this is compatible with the
+  contract. The B3-S producers themselves wrote one event/one chit per station.
+  Follow-up: single-flight pub/sub initialisation plus a duplicate-init
+  regression test. `AME-015` added to the backlog.
+- Takeaway orders snapshot `serviceChargeRateSnapshot=0` by design; the totals
+  case therefore used subtotal 33.00, tax 1.98, service 0.00, total 34.98.
+  Dine-in orders were used for SERVED → VOID/REFUND.
+- Cancelling a CONFIRMED order requires manager/owner per the adjustment policy
+  (D31); the gate used the tenant manager for post-confirmation cancellation and
+  the cashier for PENDING cancellation and add-items.
+- Station print mode was `COUNTER` for both gate stations; the `STATION`
+  matrix case temporarily switched tenant B's grill station and restored it.
+- The 410 case is synthetic: tenant A's change rows were removed and one
+  high-id row inserted to represent a cursor older than the retained window.
+  It exercises the 410 branch, not real retention.
+- `npm run build` fails without `NEXT_PUBLIC_BASE_DOMAIN`,
+  `NEXT_PUBLIC_MAIN_DOMAIN` and VAPID keys (module-load guards in
+  `src/lib/config/domains.ts` and `src/lib/push-notification-service.ts`).
+  The deployment environment must provide them; this is an environment
+  requirement, not a code change.
+
+### Independent verification of this record
+
+- Fresh verifier `ses_e11776ab4ffedPxvLZyzwujORG` reviewed the record and
+  returned **PASS WITH NOTES** — no product defect, no state duplication, but
+  record defects (list assertion, case-7 evidence separation, harness
+  revision) that were corrected in this revision. Findings and disposition:
+  `REVIEW-03.md`.
+- Evidence hashes: `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/evidence/SHA256SUMS`.
+
+### Contract deviations
+
+None. No frozen `phase-b-counter-feed-v1` clause failed. The duplicate SSE
+refresh frames do not change state and are documented above as a pre-existing
+pub/sub lifecycle issue (`AME-015`).
+
+### Gate verdict
+
+Two-tenant staging check: **PASS**. Do not merge, push `main`, deploy or run a
+production seed/migration without explicit human approval.
+`feat/b3-s-counter-feed` remains local (`4bf9d38` content, `fc14d01` freeze
+stamp) and was not pushed.

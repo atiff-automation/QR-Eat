@@ -1,7 +1,8 @@
 # Task — QR-EAT-B3-S-COUNTER-FEED (B3-S)
 
 **Status:** frozen — verifier PASS; contract `phase-b-counter-feed-v1` **FROZEN
-at `4bf9d38`**; deployment gate pending
+at `4bf9d38`**; two-tenant staging gate **PASSED** (2026-11-18, 46/46 + 3/3
+checks); deployment approval pending
 **Revision:** 1
 **Approved revision:** 1
 **Approved by:** Atiff
@@ -10,7 +11,7 @@ at `4bf9d38`**; deployment gate pending
 **Verifier session:** `ses_e1251ca3effegPPbNW6vIlHS45` — final **PASS**,
 `REVIEW-02.md` (prior `REVIEW-01.md` PASS WITH NOTES, all findings closed)
 **Freeze content commit:** `4bf9d385959b7f83a2dea6fd9cb3fd0abd11f141`
-**Next actor:** human (manual two-tenant staging, then deployment approval)
+**Next actor:** human (explicit deployment approval only)
 **Risk:** **R3** — order mutation, cancellation, tenant isolation, print facts,
 staff SSE, audit, migration
 **Complexity:** L3
