@@ -345,3 +345,16 @@ Two-tenant staging check: **PASS**. Do not merge, push `main`, deploy or run a
 production seed/migration without explicit human approval.
 `feat/b3-s-counter-feed` remains local (`4bf9d38` content, `fc14d01` freeze
 stamp) and was not pushed.
+
+### Gate record publication — 2026-11-18
+
+- Gate record commit: `60920deecce58dccb2c71ca89d5e67d657d1af50`, parent
+  `fc14d01ba3dfa3eed2a3e866456d1609c1d425c1`; docs-only (no `src`, `prisma` or
+  contract change).
+- Branch: `feat/b3-s-counter-feed`. Pushed to `origin` for B3-C access:
+  `* [new branch] feat/b3-s-counter-feed -> feat/b3-s-counter-feed`.
+  `main` was not pushed, merged or touched.
+- Staging evidence path:
+  `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/evidence/` (`SHA256SUMS` verifies).
+- Deployment remains on hold until B3-C is code-complete and a deployment
+  window is explicitly authorized.
