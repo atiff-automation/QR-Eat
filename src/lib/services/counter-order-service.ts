@@ -238,114 +238,27 @@ function estimateReadyTime(lines: CounterOrderLine[]): Date {
   return new Date(Date.now() + estimatedMinutes * 60_000);
 }
 
-async function priceOrder(
-  input: CounterOrderInput,
-  actor: CounterOrderActor
-): Promise<PricedOrder> {
-  if (!actor.restaurantId) {
-    throw new CounterOrderError(
-      'Restaurant context is required',
-      'RESTAURANT_CONTEXT_REQUIRED',
-      400
-    );
-  }
+export interface CounterOrderLinePricing {
+  lines: CounterOrderLine[];
+  issues: CounterOrderIssue[];
+}
 
-  const orderType = input.orderType ?? 'DINE_IN';
-  let restaurant: PricedRestaurant;
-  let table: PricedTable | null = null;
-
-  if (orderType === 'DINE_IN') {
-    if (!input.tableId) {
-      throw new CounterOrderError(
-        'A table is required for a dine-in order.',
-        'TABLE_REQUIRED',
-        400
-      );
-    }
-
-    const foundTable = await prisma.table.findUnique({
-      where: { id: input.tableId },
-      include: {
-        restaurant: {
-          select: {
-            id: true,
-            name: true,
-            currency: true,
-            taxRate: true,
-            serviceChargeRate: true,
-            taxLabel: true,
-            serviceChargeLabel: true,
-            isActive: true,
-          },
-        },
-      },
-    });
-
-    if (!foundTable || foundTable.restaurantId !== actor.restaurantId) {
-      throw new CounterOrderError('Table not found', 'TABLE_NOT_FOUND', 404);
-    }
-
-    restaurant = foundTable.restaurant;
-    table = {
-      id: foundTable.id,
-      tableNumber: foundTable.tableNumber,
-      tableName: foundTable.tableName,
-      status: foundTable.status,
-      restaurantId: foundTable.restaurantId,
-    };
-  } else {
-    if (input.tableId) {
-      throw new CounterOrderError(
-        'A takeaway order cannot have a table.',
-        'TABLE_NOT_ALLOWED',
-        400
-      );
-    }
-
-    const foundRestaurant = await prisma.restaurant.findUnique({
-      where: { id: actor.restaurantId },
-      select: {
-        id: true,
-        name: true,
-        currency: true,
-        taxRate: true,
-        serviceChargeRate: true,
-        taxLabel: true,
-        serviceChargeLabel: true,
-        isActive: true,
-      },
-    });
-
-    if (!foundRestaurant) {
-      throw new CounterOrderError(
-        'Restaurant not found',
-        'RESTAURANT_NOT_FOUND',
-        404
-      );
-    }
-    restaurant = foundRestaurant;
-  }
-
-  if (!restaurant.isActive) {
-    throw new CounterOrderError(
-      'Restaurant is currently closed',
-      'RESTAURANT_CLOSED',
-      409
-    );
-  }
-  if (table && !canTableAcceptOrders(table.status)) {
-    throw new CounterOrderError(
-      'This table cannot accept orders right now.',
-      'TABLE_NOT_ACCEPTING_ORDERS',
-      409
-    );
-  }
-
-  const menuItemIds = [...new Set(input.items.map((item) => item.menuItemId))];
+/**
+ * Price and validate order lines against the live menu.
+ *
+ * This is the single pricing/availability rule for Counter order creation and
+ * B3 add-items. The caller supplies the restaurant because the order snapshot
+ * (tax/service) belongs to the order, not the current restaurant row.
+ */
+export async function priceCounterOrderLines(
+  restaurantId: string,
+  items: CounterOrderInput['items']
+): Promise<CounterOrderLinePricing> {
+  const menuItemIds = [...new Set(items.map((item) => item.menuItemId))];
   const menuItems = await prisma.menuItem.findMany({
     where: {
       id: { in: menuItemIds },
-      restaurantId: restaurant.id,
+      restaurantId,
     },
     include: {
       category: {
@@ -364,7 +277,7 @@ async function priceOrder(
   const issues: CounterOrderIssue[] = [];
   const lines: CounterOrderLine[] = [];
 
-  for (const requested of input.items) {
+  for (const requested of items) {
     const menuItem = menuById.get(requested.menuItemId);
     if (!menuItem) {
       issues.push({
@@ -486,6 +399,117 @@ async function priceOrder(
       options: selectedOptions,
     });
   }
+
+  return { lines, issues };
+}
+
+async function priceOrder(
+  input: CounterOrderInput,
+  actor: CounterOrderActor
+): Promise<PricedOrder> {
+  if (!actor.restaurantId) {
+    throw new CounterOrderError(
+      'Restaurant context is required',
+      'RESTAURANT_CONTEXT_REQUIRED',
+      400
+    );
+  }
+
+  const orderType = input.orderType ?? 'DINE_IN';
+  let restaurant: PricedRestaurant;
+  let table: PricedTable | null = null;
+
+  if (orderType === 'DINE_IN') {
+    if (!input.tableId) {
+      throw new CounterOrderError(
+        'A table is required for a dine-in order.',
+        'TABLE_REQUIRED',
+        400
+      );
+    }
+
+    const foundTable = await prisma.table.findUnique({
+      where: { id: input.tableId },
+      include: {
+        restaurant: {
+          select: {
+            id: true,
+            name: true,
+            currency: true,
+            taxRate: true,
+            serviceChargeRate: true,
+            taxLabel: true,
+            serviceChargeLabel: true,
+            isActive: true,
+          },
+        },
+      },
+    });
+
+    if (!foundTable || foundTable.restaurantId !== actor.restaurantId) {
+      throw new CounterOrderError('Table not found', 'TABLE_NOT_FOUND', 404);
+    }
+
+    restaurant = foundTable.restaurant;
+    table = {
+      id: foundTable.id,
+      tableNumber: foundTable.tableNumber,
+      tableName: foundTable.tableName,
+      status: foundTable.status,
+      restaurantId: foundTable.restaurantId,
+    };
+  } else {
+    if (input.tableId) {
+      throw new CounterOrderError(
+        'A takeaway order cannot have a table.',
+        'TABLE_NOT_ALLOWED',
+        400
+      );
+    }
+
+    const foundRestaurant = await prisma.restaurant.findUnique({
+      where: { id: actor.restaurantId },
+      select: {
+        id: true,
+        name: true,
+        currency: true,
+        taxRate: true,
+        serviceChargeRate: true,
+        taxLabel: true,
+        serviceChargeLabel: true,
+        isActive: true,
+      },
+    });
+
+    if (!foundRestaurant) {
+      throw new CounterOrderError(
+        'Restaurant not found',
+        'RESTAURANT_NOT_FOUND',
+        404
+      );
+    }
+    restaurant = foundRestaurant;
+  }
+
+  if (!restaurant.isActive) {
+    throw new CounterOrderError(
+      'Restaurant is currently closed',
+      'RESTAURANT_CLOSED',
+      409
+    );
+  }
+  if (table && !canTableAcceptOrders(table.status)) {
+    throw new CounterOrderError(
+      'This table cannot accept orders right now.',
+      'TABLE_NOT_ACCEPTING_ORDERS',
+      409
+    );
+  }
+
+  const { lines, issues } = await priceCounterOrderLines(
+    restaurant.id,
+    input.items
+  );
 
   const subtotal = lines.reduce(
     (sum, line) => sum.plus(line.totalAmount),

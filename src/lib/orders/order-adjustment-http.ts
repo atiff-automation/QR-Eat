@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { trustedIp } from '@/lib/client-ip';
 import {
   getTenantContext,
   requireAuth,
@@ -44,7 +45,24 @@ export async function handleOrderAdjustmentRequest(
     requirePermission(context!, permission.resource, permission.action);
 
     const { id: orderId } = await paramsPromise;
-    await requireOrderAccess(orderId, context!);
+    try {
+      await requireOrderAccess(orderId, context!);
+    } catch (error) {
+      // A cross-tenant staff user gets 403 from the shared helper; a genuinely
+      // missing order gets 404 `NOT_FOUND`. Both are exposed as the same
+      // `ORDER_NOT_FOUND` 404 so a tenant cannot probe another's ids and the
+      // contract has one error code (fail closed, same as the Counter routes).
+      if (
+        error instanceof RBACError &&
+        (error.statusCode === 403 || error.statusCode === 404)
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found', code: 'ORDER_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
 
     const body = await request.json();
     const data = CancelOrderSchema.parse(body);
@@ -65,6 +83,8 @@ export async function handleOrderAdjustmentRequest(
         roleTemplate: context!.roleTemplate,
         permissions: context!.permissions,
         isAdmin: context!.isAdmin,
+        ipAddress: trustedIp(request),
+        userAgent: request.headers.get('user-agent'),
       },
       data
     );

@@ -96,6 +96,11 @@ describe('Counter changes route', () => {
     });
     expect(json.nextSeq).toBe(11);
     expect(json.hasMore).toBe(true);
+
+    const findArgs = (prisma.restaurantChange.findMany as jest.Mock).mock
+      .calls[0][0];
+    expect(findArgs.where.restaurantId).toBe(restaurantId);
+    expect(findArgs.where.id).toEqual({ gt: BigInt(10) });
   });
 
   it('rejects an invalid cursor', async () => {

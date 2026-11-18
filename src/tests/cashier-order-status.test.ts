@@ -194,19 +194,26 @@ describe('cashier order status authority (§9.1, C-8)', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
-  it('does not grant CONFIRMED or CANCELLED to a cashier', async () => {
+  it('does not grant CONFIRMED to a cashier', async () => {
     const confirmed = await updateOrderStatus(
       patchRequest('CONFIRMED'),
       params
     );
     expect(confirmed.status).toBe(403);
+  });
 
+  it('rejects the legacy CANCELLED status path with USE_CANCEL_ENDPOINT', async () => {
     const cancelled = await updateOrderStatus(
       patchRequest('CANCELLED'),
       params
     );
-    expect(cancelled.status).toBe(403);
+    const json = await cancelled.json();
+
+    expect(cancelled.status).toBe(409);
+    expect(json.code).toBe('USE_CANCEL_ENDPOINT');
+    expect(prisma.order.findUnique).not.toHaveBeenCalled();
     expect(prisma.orderEvent.findMany).not.toHaveBeenCalled();
+    expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
   it('still rejects PENDING → PREPARING for an otherwise authorised cashier', async () => {

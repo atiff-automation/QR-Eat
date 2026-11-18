@@ -62,6 +62,8 @@ export const SSE_EVENT_TYPES = {
   CONNECTION: 'connection',
   ORDER_CREATED: 'order_created',
   ORDER_STATUS_CHANGED: 'order_status_changed',
+  ORDER_ITEMS_ADDED: 'order_items_added',
+  ORDER_CANCELLED: 'order_cancelled',
   ORDER_ITEM_STATUS_CHANGED: 'order_item_status_changed',
   ORDER_RECALLED: 'order_recalled',
   ORDER_RECALL_CLEARED: 'order_recall_cleared',

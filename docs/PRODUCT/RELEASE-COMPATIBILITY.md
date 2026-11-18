@@ -155,3 +155,31 @@ Compatibility note:
 | Evidence | `REVIEW-01.md`; desktop/mobile card screenshots; forced-400 revert screenshot |
 | Rollback | The control is additive; no data migration. Existing stations read as `STATION`, new as `COUNTER`. |
 | Deployment | Railway auto-deploy `c4d79c4b-5414-4413-b904-af1219a42f58` from `d63bdbc` **SUCCESS**; health **200 UP**, database **CONNECTED**; `LOYALTY_ENABLED` and `LOYALTY_PHONE_HMAC_KEY` **UNSET**; no manual deploy |
+
+## B3-S Counter feed server record (2026-11-18)
+
+| Fact | Value |
+|---|---|
+| Contract | `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`, `phase-b-counter-feed-v1` (additive to frozen `phase-b-print-v1`) |
+| Task | `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/TASK.md` revision 1 |
+| Status | **IMPLEMENTED — verifier PASS; awaiting Lead contract freeze and commit authorization**; not committed, pushed, merged or deployed |
+| Branch | `feat/b3-s-counter-feed`, base `a0e3753` |
+| Server surface | `POST /api/orders/{orderId}/items`; durable `DELETE /api/orders/{id}` cancellation; `PATCH /status` CANCELLED → 409 `USE_CANCEL_ENDPOINT`; additive staff SSE `order_items_added`/`order_cancelled`; in-transaction order change rows; `counterAutoPrint` |
+| Schema | Additive `order_mutation_idempotency`; two additive migrations |
+| Permissions | Migration idempotently seeds `orders:counter_serve` and the cashier mapping; seed unchanged; cashier route fallback retained for one release |
+| Compatibility | B2 `phase-b-print-v1` text, ticket fields, ack matrix and `COUNTER` cancellation `SKIPPED` unchanged. `counterAutoPrint` is additive. The only behavioural break is the deliberate legacy status-cancel 409. |
+| Audit | Durable in-transaction `audit_logs` row; the RBAC `SECURITY_EVENT` remains a best-effort post-commit signal, restored after review. |
+| Verification | Verifier **PASS** (`REVIEW-02.md`; `REVIEW-01.md` was PASS WITH NOTES, all findings closed); type-check PASS; full tests **136 suites / 1644 passed, 11 skipped**; build PASS; lint 61/11 (baseline 62/11); `prisma migrate deploy` PASS on disposable Postgres 16, second deploy no-op, permission SQL applied twice left one permission and one cashier mapping; `migrate diff` no difference |
+| Diff binding | Reviewed diff: full tracked `3b25135d…`, product `94a6c404…`, product+new `e419e8f0…`. Post-review docs-only delta N-01/N-02/N-03 confirmed by the verifier; code, schema, migrations and tests unchanged. Final commit hash is recorded in the freeze stamp. |
+| Migration rollback | Both migrations are additive. Dropping the table loses retry receipts; deleting the two seeded rows loses the new permission mapping. No destructive down migration is required. |
+| Deployment | **Not deployed.** Requires explicit human authorization after freeze, commit and the two-tenant staging gate. |
+| Loyalty | Unchanged; flags stay off, HMAC key unset |
+| B3-C gate | Counter work does not start until the freeze stamp/hash is recorded in this file and `B3-C-HANDOFF.md` |
+
+Compatibility note:
+
+- Counter builds that do not call add-items are unaffected.
+- A Counter/web client that still calls `PATCH /status` with `CANCELLED` now gets
+  409 and must switch to `DELETE`; the active QR-Eat and Tabtep clients were
+  re-checked and already use `DELETE`.
+- The two-tenant manual staging gate is still required before deployment.

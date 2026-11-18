@@ -6,6 +6,31 @@
  */
 
 import { z } from 'zod';
+import { CounterOrderItemSchema } from '@/lib/services/counter-order-service';
+
+/**
+ * Schema for adding items to a live order (B3-S).
+ *
+ * Lines reuse the Counter order-entry schema so menu/option validation and
+ * pricing cannot drift between order creation and add-on.
+ */
+export const AddOrderItemsSchema = z.object({
+  expectedVersion: z.number().int().positive(),
+  idempotencyKey: z.string().uuid(),
+  reason: z.enum([
+    'out_of_stock',
+    'customer_request',
+    'kitchen_error',
+    'other',
+  ]),
+  reasonNotes: z
+    .string()
+    .max(500, 'Reason notes cannot exceed 500 characters')
+    .trim()
+    .optional(),
+  customerNotified: z.boolean(),
+  items: z.array(CounterOrderItemSchema).min(1).max(100),
+});
 
 /**
  * Schema for modifying an order
@@ -64,5 +89,6 @@ export const CancelOrderSchema = z.object({
 /**
  * Type exports for TypeScript
  */
+export type AddOrderItemsInput = z.infer<typeof AddOrderItemsSchema>;
 export type ModifyOrderInput = z.infer<typeof ModifyOrderSchema>;
 export type CancelOrderInput = z.infer<typeof CancelOrderSchema>;

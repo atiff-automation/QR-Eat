@@ -15,6 +15,7 @@ import {
 } from '@/lib/order-events';
 import {
   canAck,
+  counterAutoPrint,
   derivePrintedBy,
   projectPrintStatus,
   resolveEffectivePrintMode,
@@ -93,6 +94,7 @@ export async function GET(
           event.payload,
           event.station.settings
         );
+        const printStatus = projectPrintStatus(event.printStatus);
         return {
           eventId: event.id.toString(),
           orderId: event.orderId,
@@ -102,12 +104,17 @@ export async function GET(
           type: event.type,
           // Verbatim server-authored document; the Counter must not rebuild it.
           payload: event.payload,
-          printStatus: projectPrintStatus(event.printStatus),
+          printStatus,
           printAttemptedAt: event.printAttemptedAt?.toISOString() ?? null,
           printedAt: event.printedAt?.toISOString() ?? null,
           printError: event.printError,
           printedBy: derivePrintedBy(event),
           canAck: canAck(printMode),
+          counterAutoPrint: counterAutoPrint(
+            event.type,
+            printMode,
+            printStatus
+          ),
         };
       });
 

@@ -42,7 +42,7 @@ reconciled. Do not treat historical `/api/mobile/v1` notes as current.
 | `/api/counter` | 32 | Counter bootstrap, orders, payments, reports, business day |
 | `/api/admin` | 29 | platform/admin, roles, menu, staff, reports |
 | `/api/auth` | 16 | login, sessions, RBAC, password/reset |
-| `/api/orders` | 11 | order lifecycle, status, ready, recall, refund, void |
+| `/api/orders` | 12 | order lifecycle, status, ready, recall, refund, void, add-items |
 | `/api/settings` | 10 | restaurant settings |
 | `/api/tables` | 8 | table state and bill |
 | `/api/devices` | 7 | provisioning, pairing, tokens, revoke |
@@ -456,3 +456,23 @@ B1-C is docs-only and changes no server behaviour. The separate B1-S task must
 implement the frozen contract before the Tabtep Counter B2 work starts. B3 owns
 QR/all-order auto-print and the Counter order feed. This pointer does not amend
 §18.20 or the normative Tabtep `§18.20` loyalty contract.
+
+---
+
+# §20 Phase B Counter feed contract — pointer
+
+**Status:** implemented; freeze pending verifier PASS (`phase-b-counter-feed-v1`).
+**Normative file:** [`docs/PRODUCT/COUNTER-FEED-CONTRACT.md`](./COUNTER-FEED-CONTRACT.md).
+
+Additive to frozen `phase-b-print-v1`; it does not amend §19 or §18.20.
+
+New surface:
+
+| Route / signal | Fact |
+|---|---|
+| `POST /api/orders/{orderId}/items` | Canonical staff add-items. `orders:write`, tenant-scoped 404, server pricing/tax, `expectedVersion` + UUID `idempotencyKey`. |
+| `DELETE /api/orders/{id}` | The only cancellation path. Whole-order reason/refund/version/idempotency, one chit per station with a printable ticket, durable change/audit. |
+| `PATCH /api/orders/{id}/status` | `CANCELLED` returns `409 USE_CANCEL_ENDPOINT`; no mutation or event. |
+| Staff SSE `GET /api/events/orders` | Additive `order_items_added` and `order_cancelled` signals; tenant-filtered, no `id:` cursor, no second stream. |
+| Counter changes `GET /api/counter/changes` | Add-items/cancel/void/refund write an `order`/`upsert` row in the mutation transaction; route shape and 410 unchanged. |
+| Counter tickets `GET /api/counter/orders/{orderId}/print-tickets` | Additive `counterAutoPrint`; a SKIPPED COUNTER cancellation is printable until `PRINTED`. B2 fields unchanged. |

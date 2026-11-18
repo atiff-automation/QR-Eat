@@ -481,4 +481,46 @@ describe('POST /api/counter/orders/{orderId}/print-ack', () => {
     expect(json.code).toBe('ORDER_NOT_FOUND');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
+
+  it('prints a SKIPPED COUNTER cancellation chit and keeps PRINTED terminal', async () => {
+    txEvent = printEvent({
+      type: 'order.cancelled',
+      payload: {
+        printMode: 'COUNTER',
+        cancelledTotals: {
+          subtotal: '20.00',
+          taxAmount: '1.20',
+          serviceCharge: '2.00',
+          discountAmount: '0.00',
+          totalAmount: '23.20',
+        },
+      },
+      printStatus: 'SKIPPED',
+    });
+
+    const response = await counterPrintAck(
+      ackRequest({ eventId: '40218', success: true }),
+      params()
+    );
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.ticket).toMatchObject({
+      type: 'order.cancelled',
+      printMode: 'COUNTER',
+      printStatus: 'PRINTED',
+      printedBy: 'COUNTER',
+      canAck: true,
+    });
+    expect(updateMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ printStatus: 'PRINTED' }),
+      })
+    );
+    expect(auditCreate.mock.calls[0][0].data.metadata.result).toBe('PRINTED');
+    // The audit row never carries the cancellation payload.
+    expect(JSON.stringify(auditCreate.mock.calls[0][0].data)).not.toContain(
+      '23.20'
+    );
+  });
 });

@@ -8,6 +8,7 @@ import { counterAccessDenied } from '@/lib/counter/access';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
 import { RBACError } from '@/lib/rbac/types';
 import { prisma } from '@/lib/database';
+import { counterAutoPrint } from '@/lib/print/print-ack-service';
 import { GET as getPrintTickets } from '@/app/api/counter/orders/[orderId]/print-tickets/route';
 
 jest.mock('@/lib/tenant-context', () => ({
@@ -137,6 +138,7 @@ describe('GET /api/counter/orders/{orderId}/print-tickets', () => {
       printStatus: 'PENDING',
       printedBy: null,
       canAck: true,
+      counterAutoPrint: true,
     });
     // The server document is returned verbatim, not rebuilt.
     expect(json.tickets[0].payload).toEqual(payload);
@@ -146,6 +148,7 @@ describe('GET /api/counter/orders/{orderId}/print-tickets', () => {
     expect(json.tickets[1].printMode).toBe('STATION');
     expect(json.tickets[1].printedBy).toBe('DEVICE');
     expect(json.tickets[1].canAck).toBe(false);
+    expect(json.tickets[1].counterAutoPrint).toBe(false);
     const findArgs = (prisma.orderEvent.findMany as jest.Mock).mock.calls[0][0];
     expect(findArgs.where).toMatchObject({
       orderId: '550e8400-e29b-41d4-a716-446655440010',
@@ -314,5 +317,84 @@ describe('GET /api/counter/orders/{orderId}/print-tickets', () => {
     expect(response.status).toBe(403);
     expect(json.code).toBe('PERMISSION_DENIED');
     expect(prisma.orderEvent.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('counterAutoPrint projection (§6, B3-S)', () => {
+  beforeEach(() => {
+    (getTenantContext as jest.Mock).mockResolvedValue(context);
+    (requireAuth as jest.Mock).mockReturnValue(context);
+    (requirePermission as jest.Mock).mockReset();
+    (requireOrderAccess as jest.Mock).mockResolvedValue(undefined);
+    (counterAccessDenied as jest.Mock).mockReturnValue(null);
+  });
+
+  it.each([
+    ['order.created', 'COUNTER', 'PENDING', true],
+    ['order.created', 'COUNTER', 'FAILED', true],
+    ['order.created', 'COUNTER', 'PRINTED', false],
+    ['order.created', 'COUNTER', 'SKIPPED', false],
+    ['order.items.added', 'COUNTER', 'PENDING', true],
+    ['order.items.added', 'COUNTER', 'FAILED', true],
+    ['order.items.added', 'COUNTER', 'PRINTED', false],
+    ['order.cancelled', 'COUNTER', 'SKIPPED', true],
+    ['order.cancelled', 'COUNTER', 'PENDING', true],
+    ['order.cancelled', 'COUNTER', 'FAILED', true],
+    ['order.cancelled', 'COUNTER', 'PRINTED', false],
+    ['order.cancelled', 'STATION', 'PENDING', false],
+    ['order.cancelled', 'NONE', 'SKIPPED', false],
+    ['order.created', 'STATION', 'PENDING', false],
+    ['order.created', 'NONE', 'SKIPPED', false],
+    ['order.status.changed', 'COUNTER', 'PENDING', false],
+  ] as const)('%s in %s with %s is %s', (type, mode, status, expected) => {
+    expect(counterAutoPrint(type, mode, status)).toBe(expected);
+  });
+
+  it('returns a SKIPPED COUNTER cancellation chit for Counter printing', async () => {
+    (prisma.orderEvent.findMany as jest.Mock).mockResolvedValue([
+      {
+        id: BigInt(40300),
+        orderId: '550e8400-e29b-41d4-a716-446655440010',
+        stationId: 'st-1',
+        type: 'order.cancelled',
+        payload: {
+          orderNumber: 'ORD-1',
+          printMode: 'COUNTER',
+          reason: 'customer_request',
+          version: 6,
+          cancelledTotals: {
+            subtotal: '20.00',
+            taxAmount: '1.20',
+            serviceCharge: '2.00',
+            discountAmount: '0.00',
+            totalAmount: '23.20',
+          },
+        },
+        printStatus: 'SKIPPED',
+        printAttemptedAt: null,
+        printedAt: null,
+        printError: null,
+        printDeviceId: null,
+        station: { name: 'Counter', settings: { printMode: 'COUNTER' } },
+      },
+    ]);
+
+    const response = await getPrintTickets(request(), {
+      params: Promise.resolve({
+        orderId: '550e8400-e29b-41d4-a716-446655440010',
+      }),
+    });
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.tickets).toHaveLength(1);
+    expect(json.tickets[0]).toMatchObject({
+      type: 'order.cancelled',
+      printMode: 'COUNTER',
+      printStatus: 'SKIPPED',
+      canAck: true,
+      counterAutoPrint: true,
+    });
+    expect(json.tickets[0].payload.cancelledTotals.totalAmount).toBe('23.20');
   });
 });

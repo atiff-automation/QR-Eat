@@ -9,7 +9,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantContext, requireAuth } from '@/lib/tenant-context';
-import { pgPubSub, PG_EVENTS } from '@/lib/postgres-pubsub';
+import {
+  pgPubSub,
+  PG_EVENTS,
+  staffSseEventTypeForChannel,
+} from '@/lib/postgres-pubsub';
 import { EventPersistenceService } from '@/lib/event-persistence';
 import {
   SSE_KEEP_ALIVE_INTERVAL_MS,
@@ -224,6 +228,8 @@ async function setupPostgresSubscription(connectionId: string) {
       await pgPubSub.subscribe(
         PG_EVENTS.ORDER_STATUS_CHANGED,
         PG_EVENTS.ORDER_CREATED,
+        PG_EVENTS.ORDER_ITEMS_ADDED,
+        PG_EVENTS.ORDER_CANCELLED,
         PG_EVENTS.ORDER_ITEM_STATUS_CHANGED,
         PG_EVENTS.ORDER_RECALLED,
         PG_EVENTS.ORDER_RECALL_CLEARED,
@@ -336,26 +342,7 @@ function checkEventPermission(
 }
 
 function getEventType(channel: string): string {
-  switch (channel) {
-    case PG_EVENTS.ORDER_STATUS_CHANGED:
-      return SSE_EVENT_TYPES.ORDER_STATUS_CHANGED;
-    case PG_EVENTS.ORDER_CREATED:
-      return SSE_EVENT_TYPES.ORDER_CREATED;
-    case PG_EVENTS.ORDER_ITEM_STATUS_CHANGED:
-      return SSE_EVENT_TYPES.ORDER_ITEM_STATUS_CHANGED;
-    case PG_EVENTS.ORDER_RECALLED:
-      return SSE_EVENT_TYPES.ORDER_RECALLED;
-    case PG_EVENTS.ORDER_RECALL_CLEARED:
-      return SSE_EVENT_TYPES.ORDER_RECALL_CLEARED;
-    case PG_EVENTS.KITCHEN_NOTIFICATION:
-      return SSE_EVENT_TYPES.KITCHEN_NOTIFICATION;
-    case PG_EVENTS.RESTAURANT_NOTIFICATION:
-      return SSE_EVENT_TYPES.RESTAURANT_NOTIFICATION;
-    case PG_EVENTS.TABLE_STATUS_CHANGED:
-      return SSE_EVENT_TYPES.TABLE_STATUS_CHANGED;
-    default:
-      return 'unknown';
-  }
+  return staffSseEventTypeForChannel(channel) ?? 'unknown';
 }
 
 function cleanup(connectionId: string) {

@@ -158,6 +158,7 @@ describe('printable event payload stamping and initial status (§4.3, §5.1)', (
     expect(row.payload).toMatchObject({
       printMode: 'COUNTER',
       addedItemIds: ['item-1'],
+      orderVersion: 2,
     });
     expect(row.printStatus).toBe('PENDING');
   });
@@ -221,6 +222,47 @@ describe('cancellation chits (§5.1)', () => {
     expect(row.payload).toMatchObject({ printMode: 'NONE' });
     expect(row.printStatus).toBe('SKIPPED');
     expect(row.printError).toBe(NONE_PRINT_ERROR);
+  });
+
+  it('adds cancelledTotals to the chit payload', async () => {
+    (prisma.station.findMany as jest.Mock).mockResolvedValue([
+      { id: 'station-1', settings: stationSettings('COUNTER') },
+    ]);
+
+    await recordOrderStatusChanged('order-1', 'CONFIRMED', 'CANCELLED', {
+      cancelledTotals: {
+        subtotal: '20.00',
+        taxAmount: '1.20',
+        serviceCharge: '2.00',
+        discountAmount: '0.00',
+        totalAmount: '23.20',
+      },
+    });
+
+    const row = lastCreateManyData()[0];
+    expect(row.payload).toMatchObject({
+      cancelledTotals: {
+        subtotal: '20.00',
+        taxAmount: '1.20',
+        serviceCharge: '2.00',
+        discountAmount: '0.00',
+        totalAmount: '23.20',
+      },
+    });
+  });
+
+  it('does not invent a fallback station for a cancellation with no ticket', async () => {
+    (prisma.orderEvent.findMany as jest.Mock).mockResolvedValue([]);
+
+    const count = await recordOrderStatusChanged(
+      'order-1',
+      'CONFIRMED',
+      'CANCELLED'
+    );
+
+    expect(count).toBe(0);
+    expect(prisma.orderEvent.createMany).not.toHaveBeenCalled();
+    expect(prisma.station.findMany).not.toHaveBeenCalled();
   });
 
   it('leaves non-ticket events unstamped and printStatus null', async () => {

@@ -66,6 +66,20 @@ export async function PATCH(
       );
     }
 
+    // `DELETE /api/orders/{id}` is the only cancellation path (B3-S). The
+    // legacy status transition has no reason, refund or idempotency receipt,
+    // so reject it before any read or mutation.
+    if (status === ORDER_STATUS.CANCELLED) {
+      return NextResponse.json(
+        {
+          error:
+            'Use DELETE /api/orders/{id} to cancel an order with a reason and idempotency key.',
+          code: 'USE_CANCEL_ENDPOINT',
+        },
+        { status: 409 }
+      );
+    }
+
     // Get the current order
     const currentOrder = await prisma.order.findUnique({
       where: { id: orderId },
@@ -149,9 +163,6 @@ export async function PATCH(
           break;
         case ORDER_STATUS.SERVED:
           canUpdateOrder = canServe || (await cashierCounterServeAllowed());
-          break;
-        case ORDER_STATUS.CANCELLED:
-          canUpdateOrder = isOwnerOrManager;
           break;
         default:
           canUpdateOrder = false;
