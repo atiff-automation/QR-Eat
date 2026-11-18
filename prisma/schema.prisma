@@ -1393,6 +1393,27 @@ model OrderModification {
   @@map("order_modifications")
 }
 
+/// Scoped idempotency receipt for order mutations (B3).
+///
+/// Soft references only: `restaurantId` and `orderId` are not foreign keys, so
+/// cleanup of an order cannot fail because of a receipt. The unique scope is
+/// restaurant + order + operation + client key; a retry with the same body
+/// replays `responseJson`, a different body is rejected.
+model OrderMutationIdempotency {
+  id             String   @id @default(uuid())
+  restaurantId   String
+  orderId        String
+  operation      String // ADD_ITEMS | CANCEL
+  idempotencyKey String
+  requestHash    String
+  responseJson   Json?
+  createdAt      DateTime @default(now())
+
+  @@unique([restaurantId, orderId, operation, idempotencyKey], map: "order_mutation_idempotency_scope_key")
+  @@index([orderId])
+  @@map("order_mutation_idempotency")
+}
+
 // Tracks specific item changes in modifications
 model OrderModificationItem {
   id             String  @id @default(uuid())

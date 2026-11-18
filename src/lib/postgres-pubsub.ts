@@ -12,6 +12,7 @@ import { Client } from 'pg';
 import { EventEmitter } from 'events';
 import { EVENT_CONFIG } from './event-config';
 import { EventPersistenceService } from './event-persistence';
+import { SSE_EVENT_TYPES } from './constants/sse';
 
 // ============================================================================
 // Event Channel Names (Single Source of Truth)
@@ -20,6 +21,8 @@ import { EventPersistenceService } from './event-persistence';
 export const PG_EVENTS = {
   ORDER_STATUS_CHANGED: 'order_status_changed',
   ORDER_CREATED: 'order_created',
+  ORDER_ITEMS_ADDED: 'order_items_added',
+  ORDER_CANCELLED: 'order_cancelled',
   ORDER_ITEM_STATUS_CHANGED: 'order_item_status_changed',
   ORDER_RECALLED: 'order_recalled',
   ORDER_RECALL_CLEARED: 'order_recall_cleared',
@@ -28,6 +31,39 @@ export const PG_EVENTS = {
   PAYMENT_COMPLETED: 'payment_completed',
   TABLE_STATUS_CHANGED: 'table_status_changed',
 } as const;
+
+/**
+ * Map a PostgreSQL channel to the staff SSE `type`.
+ *
+ * Kept here (next to the channel names) so the events route and tests share one
+ * mapping. Unknown channels return null; the route keeps its `unknown` label.
+ */
+export function staffSseEventTypeForChannel(channel: string): string | null {
+  switch (channel) {
+    case PG_EVENTS.ORDER_STATUS_CHANGED:
+      return SSE_EVENT_TYPES.ORDER_STATUS_CHANGED;
+    case PG_EVENTS.ORDER_CREATED:
+      return SSE_EVENT_TYPES.ORDER_CREATED;
+    case PG_EVENTS.ORDER_ITEMS_ADDED:
+      return SSE_EVENT_TYPES.ORDER_ITEMS_ADDED;
+    case PG_EVENTS.ORDER_CANCELLED:
+      return SSE_EVENT_TYPES.ORDER_CANCELLED;
+    case PG_EVENTS.ORDER_ITEM_STATUS_CHANGED:
+      return SSE_EVENT_TYPES.ORDER_ITEM_STATUS_CHANGED;
+    case PG_EVENTS.ORDER_RECALLED:
+      return SSE_EVENT_TYPES.ORDER_RECALLED;
+    case PG_EVENTS.ORDER_RECALL_CLEARED:
+      return SSE_EVENT_TYPES.ORDER_RECALL_CLEARED;
+    case PG_EVENTS.KITCHEN_NOTIFICATION:
+      return SSE_EVENT_TYPES.KITCHEN_NOTIFICATION;
+    case PG_EVENTS.RESTAURANT_NOTIFICATION:
+      return SSE_EVENT_TYPES.RESTAURANT_NOTIFICATION;
+    case PG_EVENTS.TABLE_STATUS_CHANGED:
+      return SSE_EVENT_TYPES.TABLE_STATUS_CHANGED;
+    default:
+      return null;
+  }
+}
 
 // ============================================================================
 // Event Type Definitions
@@ -50,6 +86,22 @@ export interface OrderCreatedEvent {
   tableId: string | null;
   orderNumber: string;
   totalAmount: number;
+  timestamp: number;
+}
+
+/**
+ * Staff add-on/cancellation signal (`phase-b-counter-feed-v1` §SSE).
+ *
+ * Signal only: no reason, item text, customer data or order snapshot. The
+ * Counter refreshes from `/api/counter/changes` and then fetches the order or
+ * its tickets.
+ */
+export interface OrderFeedSignalEvent {
+  orderId: string;
+  restaurantId: string;
+  orderNumber: string;
+  orderVersion: number;
+  ticketCount: number;
   timestamp: number;
 }
 
@@ -563,6 +615,38 @@ export class PostgresEventManager {
       await pgPubSub.notify(PG_EVENTS.ORDER_CREATED, event);
     } catch (error) {
       console.error('Failed to publish order created:', error);
+    }
+  }
+
+  /** Publish an add-on signal after the add-items mutation commits. */
+  static async publishOrderItemsAdded(
+    event: OrderFeedSignalEvent
+  ): Promise<void> {
+    try {
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_ITEMS_ADDED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+      await pgPubSub.notify(PG_EVENTS.ORDER_ITEMS_ADDED, event);
+    } catch (error) {
+      console.error('Failed to publish order items added:', error);
+    }
+  }
+
+  /** Publish a whole-order cancellation signal after the mutation commits. */
+  static async publishOrderCancelled(
+    event: OrderFeedSignalEvent
+  ): Promise<void> {
+    try {
+      await EventPersistenceService.storeEvent({
+        eventType: PG_EVENTS.ORDER_CANCELLED,
+        eventData: event,
+        restaurantId: event.restaurantId,
+      });
+      await pgPubSub.notify(PG_EVENTS.ORDER_CANCELLED, event);
+    } catch (error) {
+      console.error('Failed to publish order cancelled:', error);
     }
   }
 

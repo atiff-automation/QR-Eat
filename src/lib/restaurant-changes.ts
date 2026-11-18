@@ -7,6 +7,7 @@
  * repairs a missed signal.
  */
 
+import type { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/database';
 
 export type RestaurantChangeEntityType =
@@ -42,6 +43,27 @@ export async function recordRestaurantChange(
       error
     );
   }
+}
+
+/**
+ * Transactional change row for B3 add-items/cancel/void/refund.
+ *
+ * Deliberately throws: the B3 contract makes the changes feed part of the
+ * mutation, so a failed row rolls the mutation back. Every other caller keeps
+ * using the best-effort `recordRestaurantChange()` above.
+ */
+export async function recordRestaurantChangeTx(
+  tx: Prisma.TransactionClient,
+  input: RestaurantChangeInput
+): Promise<void> {
+  await tx.restaurantChange.create({
+    data: {
+      restaurantId: input.restaurantId,
+      entityType: input.entityType,
+      entityId: input.entityId,
+      operation: input.operation ?? 'upsert',
+    },
+  });
 }
 
 export async function recordRestaurantChanges(

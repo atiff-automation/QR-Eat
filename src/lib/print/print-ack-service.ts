@@ -243,6 +243,32 @@ export function projectPrintStatus(
 }
 
 /**
+ * B3 Counter auto-print projection (`phase-b-counter-feed-v1` §6).
+ *
+ * Additive: B2 ignores this field and keeps its own `order.created` /
+ * `order.items.added` rule. A cancellation chit starts `SKIPPED` under
+ * `COUNTER` (B2 compatibility) but is still auto-printable until it is
+ * `PRINTED`; every other mode is never Counter authority.
+ */
+export function counterAutoPrint(
+  type: string,
+  printMode: PrintMode,
+  printStatus: OrderEventPrintStatus | 'UNKNOWN' | null
+): boolean {
+  if (printMode !== 'COUNTER') return false;
+
+  if (type === 'order.created' || type === 'order.items.added') {
+    return printStatus === 'PENDING' || printStatus === 'FAILED';
+  }
+
+  if (type === 'order.cancelled') {
+    return printStatus !== 'PRINTED';
+  }
+
+  return false;
+}
+
+/**
  * Audit description for a print ack (§7.4, §8.6). A reprint is only
  * `print.reprint` when a first print already existed; otherwise the attempt is
  * an ordinary ack.

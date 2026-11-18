@@ -1,0 +1,540 @@
+{
+  "results": [
+    {
+      "id": "1.tenants.staff",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.070Z",
+      "detail": {
+        "staffA": 2,
+        "staffB": 2,
+        "overlap": 0
+      }
+    },
+    {
+      "id": "1.tenants.roles",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.070Z",
+      "detail": [
+        {
+          "roleTemplate": "cashier"
+        },
+        {
+          "roleTemplate": "manager"
+        }
+      ]
+    },
+    {
+      "id": "1.tenants.list",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.310Z",
+      "detail": {
+        "a": 200,
+        "b": 200,
+        "crossA1": 0,
+        "crossB1": 0
+      }
+    },
+    {
+      "id": "2a.pending.add.ok",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.584Z",
+      "detail": {
+        "status": 200,
+        "version": 2,
+        "routed": false
+      }
+    },
+    {
+      "id": "2a.pending.no-event",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.584Z",
+      "detail": {
+        "addOnEvents": 0,
+        "v0": 1,
+        "v1": 2
+      }
+    },
+    {
+      "id": "2a.created-once",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.670Z",
+      "detail": {
+        "send": 200,
+        "tickets": 1,
+        "items": 2,
+        "names": ["Gate Burger", "Gate Fries"]
+      }
+    },
+    {
+      "id": "2b.live.add.ok",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.872Z",
+      "detail": {
+        "status": 200,
+        "version": 3,
+        "expected": 3,
+        "ticket": {
+          "routed": true,
+          "stationIds": [
+            "1ed16be7-0cd6-46be-b611-82c9a8de9533",
+            "aafe4a20-3079-42db-bfd4-bcdc37b55b44"
+          ],
+          "unroutedItemIds": [],
+          "replayed": false
+        }
+      }
+    },
+    {
+      "id": "2b.live.one-per-station",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.872Z",
+      "detail": {
+        "events": 2,
+        "stations": 2,
+        "onlyAdded": true,
+        "evNames": [["Gate Colax1"], ["Gate Friesx1"]]
+      }
+    },
+    {
+      "id": "2b.live.event-version",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.872Z",
+      "detail": {
+        "versions": [3, 3]
+      }
+    },
+    {
+      "id": "2b.live.event-print",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.872Z",
+      "detail": [
+        {
+          "printMode": "COUNTER",
+          "printStatus": "PENDING"
+        },
+        {
+          "printMode": "COUNTER",
+          "printStatus": "PENDING"
+        }
+      ]
+    },
+    {
+      "id": "2b.live.totals",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.874Z",
+      "detail": {
+        "db": {
+          "subtotalAmount": "33.00",
+          "taxAmount": "1.98",
+          "serviceCharge": "0.00",
+          "totalAmount": "34.98",
+          "version": 3
+        },
+        "api": {
+          "subtotal": "33.00",
+          "tax": "1.98",
+          "service": "0.00",
+          "total": "34.98"
+        }
+      }
+    },
+    {
+      "id": "2c.version-conflict",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.896Z",
+      "detail": {
+        "status": 409,
+        "code": "ORDER_VERSION_CONFLICT"
+      }
+    },
+    {
+      "id": "2d.idempotent-replay",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.922Z",
+      "detail": {
+        "status": 200,
+        "isDuplicate": true,
+        "before": {
+          "items": 3,
+          "events": 2,
+          "receipts": 1
+        },
+        "after": {
+          "items": 3,
+          "events": 2,
+          "receipts": 1,
+          "version": 3
+        }
+      }
+    },
+    {
+      "id": "2e.key-reuse-409",
+      "ok": true,
+      "at": "2026-11-18T12:14:42.947Z",
+      "detail": {
+        "status": 409,
+        "code": "IDEMPOTENCY_KEY_REUSED"
+      }
+    },
+    {
+      "id": "2f.cross-tenant-404",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.100Z",
+      "detail": {
+        "status": 404,
+        "code": "ORDER_NOT_FOUND",
+        "version": 2,
+        "expected": 2
+      }
+    },
+    {
+      "id": "2g.list-isolation",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.166Z",
+      "detail": {
+        "aRows": 2,
+        "bRows": 1,
+        "crossA": 0,
+        "crossB": 0
+      }
+    },
+    {
+      "id": "2h.cross-tenant-key-no-replay",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.249Z",
+      "detail": {
+        "status": 200,
+        "isDuplicate": false,
+        "bReceipt": 1,
+        "aAddEvents": 2
+      }
+    },
+    {
+      "id": "3.patch-cancelled-409",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.320Z",
+      "detail": {
+        "status": 409,
+        "code": "USE_CANCEL_ENDPOINT"
+      }
+    },
+    {
+      "id": "3.delete-cancel",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.444Z",
+      "detail": {
+        "status": 200,
+        "orderStatus": "CANCELLED",
+        "version": 4,
+        "expected": 4
+      }
+    },
+    {
+      "id": "3.one-chit-per-station",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.444Z",
+      "detail": {
+        "chits": 2
+      }
+    },
+    {
+      "id": "3.chit-payload",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.444Z",
+      "detail": {
+        "versions": [4, 4],
+        "totalsOk": true,
+        "print": ["SKIPPED", "SKIPPED"]
+      }
+    },
+    {
+      "id": "3.replay-writes-nothing",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.482Z",
+      "detail": {
+        "status": 200,
+        "duplicate": true,
+        "before": {
+          "chits": 2,
+          "audits": 4,
+          "changes": 4
+        },
+        "after": {
+          "chits": 2,
+          "audits": 4,
+          "changes": 4,
+          "v": 4
+        }
+      }
+    },
+    {
+      "id": "3.pending-no-chit",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.649Z",
+      "detail": {
+        "status": 200,
+        "chits": 0
+      }
+    },
+    {
+      "id": "3.durable-rows",
+      "ok": true,
+      "at": "2026-11-18T12:14:43.650Z",
+      "detail": {
+        "audits": 1,
+        "changes": 4,
+        "receipts": 1
+      }
+    },
+    {
+      "id": "3.void-no-chit",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.013Z",
+      "detail": {
+        "status": 200,
+        "orderStatus": "CANCELLED",
+        "chits": 0
+      }
+    },
+    {
+      "id": "3.refund-no-chit",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.403Z",
+      "detail": {
+        "status": 200,
+        "paymentStatus": "REFUNDED",
+        "chits": 0
+      }
+    },
+    {
+      "id": "3.cross-tenant-ticket",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.449Z",
+      "detail": {
+        "fetch": 404,
+        "ack": 404
+      }
+    },
+    {
+      "id": "4.add.failed-write-rolls-back",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.636Z",
+      "detail": {
+        "status": 500,
+        "after": {
+          "version": 2,
+          "items": 1,
+          "events": 0,
+          "receipts": 0
+        }
+      }
+    },
+    {
+      "id": "4.cancel.failed-write-rolls-back",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.810Z",
+      "detail": {
+        "status": 500,
+        "after": {
+          "status": "CONFIRMED",
+          "version": 2,
+          "chits": 0,
+          "receipts": 0
+        }
+      }
+    },
+    {
+      "id": "4.trigger-cleanup",
+      "ok": true,
+      "at": "2026-11-18T12:14:44.812Z",
+      "detail": {
+        "c": 2
+      }
+    },
+    {
+      "id": "5.sse.delivered",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.883Z",
+      "detail": {
+        "add": 200,
+        "cancel": 200,
+        "addSignals": 2,
+        "cancelSignals": 2,
+        "duplicateFrames": 2,
+        "typesA": [
+          "connection",
+          "order_created",
+          "order_created",
+          "order_status_changed",
+          "order_status_changed",
+          "kitchen_notification",
+          "kitchen_notification",
+          "order_items_added",
+          "order_items_added",
+          "order_cancelled",
+          "order_cancelled"
+        ],
+        "typesB": ["connection"]
+      }
+    },
+    {
+      "id": "5.sse.tenant-isolated",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.884Z",
+      "detail": {
+        "leaked": []
+      }
+    },
+    {
+      "id": "5.sse.no-pii",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.884Z",
+      "detail": {
+        "keys": [
+          "orderId,restaurantId,orderNumber,orderVersion,ticketCount,timestamp"
+        ],
+        "leaky": 0
+      }
+    },
+    {
+      "id": "5.sse.version",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.884Z",
+      "detail": [3, 3, 4, 4]
+    },
+    {
+      "id": "5.sse.reconnect-cursor",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.942Z",
+      "detail": {
+        "cursor": 34,
+        "next": 34,
+        "dbMax": "34"
+      }
+    },
+    {
+      "id": "6.tickets.projection",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.970Z",
+      "detail": {
+        "tickets": 3,
+        "chits": 1,
+        "addOns": 1
+      }
+    },
+    {
+      "id": "6.tickets.counterAutoPrint",
+      "ok": true,
+      "at": "2026-11-18T12:14:51.971Z",
+      "detail": {
+        "chits": [["SKIPPED", true, true]],
+        "addOns": [["PENDING", true]]
+      }
+    },
+    {
+      "id": "6.ack.skipped-printable-once",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.039Z",
+      "detail": {
+        "first": "PRINTED",
+        "replayed": true
+      }
+    },
+    {
+      "id": "6.ack.printed-terminal-projection",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.063Z",
+      "detail": {
+        "printStatus": "PRINTED",
+        "auto": false
+      }
+    },
+    {
+      "id": "6.printed-terminal",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.126Z",
+      "detail": {
+        "ackStatus": 200,
+        "downgrade": false,
+        "db": {
+          "printStatus": "PRINTED",
+          "printError": "gate reprint failure"
+        }
+      }
+    },
+    {
+      "id": "6.counterAutoPrint.station-mode",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.208Z",
+      "detail": {
+        "create": 201,
+        "ticket": {
+          "printMode": "STATION",
+          "auto": false,
+          "canAck": false
+        }
+      }
+    },
+    {
+      "id": "6.changes.cursor-advance",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.232Z",
+      "detail": {
+        "status": 200,
+        "rows": 4,
+        "nextSeq": 34
+      }
+    },
+    {
+      "id": "6.changes.410-resync",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.257Z",
+      "detail": {
+        "status": 410,
+        "code": "CURSOR_EXPIRED",
+        "snapshot": "/api/counter/pending"
+      }
+    },
+    {
+      "id": "8.add.single-winner",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.449Z",
+      "detail": {
+        "statuses": [200, 409],
+        "after": {
+          "version": 3,
+          "items": 2,
+          "events": 1,
+          "receipts": 1
+        }
+      }
+    },
+    {
+      "id": "8.cancel.same-key-once",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.648Z",
+      "detail": {
+        "statuses": [200, 200],
+        "after": {
+          "version": 3,
+          "chits": 1,
+          "receipts": 1
+        }
+      }
+    },
+    {
+      "id": "8.cancel.different-keys-one-winner",
+      "ok": true,
+      "at": "2026-11-18T12:14:52.838Z",
+      "detail": {
+        "statuses": [200, 409],
+        "after": {
+          "version": 3,
+          "chits": 1
+        }
+      }
+    }
+  ],
+  "failed": 0,
+  "at": "2026-11-18T12:14:52.838Z"
+}

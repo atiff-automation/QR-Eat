@@ -20,6 +20,8 @@ Product-level work for the web/server repo. Android work lives in
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
+| AME-014 | contract | B3-S server add-on, cancellation, SSE/changes and `phase-b-counter-feed-v1` freeze | R3 | frozen; deployment approval pending | Verifier PASS (`REVIEW-02.md`); contract FROZEN at `4bf9d38`; two-tenant staging gate PASSED 2026-11-18 (46/46 + 3/3, `REVIEW-03.md`); not pushed/deployed |
+| AME-015 | reliability | Single-flight `pgPubSub.initialize()/subscribe()` for staff SSE | B3-S staging gate observation | Duplicate refresh frames under concurrent first connections; add duplicate-init regression test; run before pilot |
 
 
 ## Waiting
@@ -29,6 +31,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-006 | Cross-repo contract change pilot | AME-003 | Freeze contract, then Tabtep session |
 | AME-007 | Tenant isolation T1–T7 remediation | AME-003, security review | Plan after contract baseline |
 | AME-012 | Audit-log retention/cleanup for print acks | AME-010 audit volume | Define schedule/retention; O-5 follow-up |
+| AME-013 | Real Postgres two-tenant integration harness | B3-S mocked-test scope | Add after B3-S; run before pilot/production; do not expand B3-S |
 
 ## Done
 
