@@ -508,8 +508,11 @@ separate, unapproved gates.
 above. No push, deploy, production migration or seed. The commit SHA is recorded
 in the session report; a separate docs commit can record it in this file.
 
-**Post-commit state:** local commit created from `fix/ame-015-single-flight-pubsub`
-(base `024f22d`). Push, deploy and production migration remain unauthorized.
+**Post-commit state:** local commit `6a51d04`; merge `19cb485` on `main`;
+Railway deployment `4657048f-e94d-48b7-aa0a-1359b729e452` `SUCCESS`, health UP,
+no migration applied. Production duplicate-frame count not measured (no staff
+accounts); local harness is the evidence. CI `Build` red from the missing VAPID
+secret (`AME-019`), pre-existing.
 
 ## Residual risks and follow-ups
 

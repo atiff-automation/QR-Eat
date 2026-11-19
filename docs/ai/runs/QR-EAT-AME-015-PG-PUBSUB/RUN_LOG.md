@@ -187,10 +187,38 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a (single-process listener lifecycle change; revert commit)
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `4657048f-e94d-48b7-aa0a-1359b729e452`, commit
+  `19cb485` (merge of `6a51d04`), status `SUCCESS`, 2026-11-19.
+- Smoke test:
+  - `GET https://tabtep.app/api/health` → 200, `status: UP`,
+    `database: CONNECTED`, `env: production`, latency 21 ms, uptime 23 s.
+  - `GET https://tabtep.app/` → 200.
+  - `GET https://tabtep.app/api/events/orders` unauthenticated → 401 (route
+    alive and auth-gated, not 5xx).
+  - Startup log: `[Server Startup] Initializing PostgreSQL pub/sub...`,
+    `PostgreSQL LISTEN client connected`,
+    `[Server Startup] PostgreSQL pub/sub initialized successfully`.
+  - Error sweep of production logs (`❌`, `Failed to publish`, `Unhandled`,
+    `FATAL`) → 0 matches.
+  - **Not claimed:** a production duplicate-frame count. It needs two
+    authenticated staff sessions in different tenants; production has none and
+    creating them was not authorized. The duplicate-frame evidence remains the
+    local two-tenant harness (`duplicateFrames` 2 → 0) and `REVIEW-03`.
+- Rollback: redeploy the previous deployment (`024f22d`); no migration, no
+  schema or config change in this release.
+- Monitoring: health endpoint plus Railway logs; watch for duplicate refresh
+  frames when the first staff clients connect. Migrations: none applied
+  (`npm start` ran `prisma migrate deploy` with no pending migrations).
+
+### CI note (pre-existing, `AME-019`)
+
+The pushed branch and `main` both fail the CI `Build` step with “Missing VAPID
+configuration” because the repository has no `VAPID_PRIVATE_KEY` secret
+(`gh secret list` is empty). This predates AME-015 and is not caused by the
+change. On Node 20, CI `Type-check` and the full test suite **passed**
+(1661 passed / 11 skipped); only Build failed. Railway builds with the real
+VAPID environment and succeeded. `AME-019` tracks the fix.
 
 ## Lessons
 
