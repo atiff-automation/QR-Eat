@@ -170,6 +170,13 @@ class PostgresPubSubManager extends EventEmitter {
   private listenClient: Client | null = null;
   private notifyClient: Client | null = null;
   private notifyConnect: Promise<Client> | null = null;
+  /**
+   * Incremented by session teardown. An in-flight NOTIFY connect captures it
+   * before its await and refuses to publish if it changed, so a connect that
+   * was abandoned (teardown or replacement) can never overwrite the live
+   * `notifyClient`.
+   */
+  private notifyGeneration = 0;
   /** Shared in-flight `initialize()` pass so concurrent callers create one client. */
   private initializePromise: Promise<void> | null = null;
   /**
@@ -405,12 +412,40 @@ class PostgresPubSubManager extends EventEmitter {
       throw new Error('DATABASE_URL environment variable is required');
     }
 
+    // Ownership token for this connect attempt. A teardown (or a replacement
+    // connect) bumps the generation while we are awaiting `connect()`.
+    const generation = this.notifyGeneration;
+
     const client = new Client({
       connectionString: process.env.DATABASE_URL,
     });
 
     await client.connect();
     console.log('✅ PostgreSQL NOTIFY client connected');
+
+    // Publish only if this attempt still owns the connection. A superseded
+    // client must be closed, never adopted: adopting it would overwrite a live
+    // replacement and leak the replacement as an unreferenced connection.
+    if (
+      generation !== this.notifyGeneration ||
+      (this.notifyClient !== null && this.notifyClient !== client)
+    ) {
+      try {
+        await client.end();
+      } catch (closeError) {
+        console.error('Error closing abandoned NOTIFY client:', closeError);
+      }
+
+      // If a replacement is already live, hand it to the caller so a publish
+      // waiting on this abandoned attempt still proceeds instead of hanging.
+      if (this.notifyClient) {
+        return this.notifyClient;
+      }
+
+      throw new Error(
+        'PostgreSQL NOTIFY session was abandoned before it was established'
+      );
+    }
 
     client.on('error', (err: Error) => {
       console.error('❌ PostgreSQL NOTIFY client error:', err);
@@ -707,7 +742,9 @@ class PostgresPubSubManager extends EventEmitter {
     this.reconnectTimeout = setTimeout(async () => {
       this.reconnectTimeout = null;
       try {
-        await this.cleanup();
+        // Session teardown, not full disposal: the per-connection `message`
+        // handlers registered by the SSE route must survive the reconnect.
+        await this.teardownSession();
         await this.initialize();
         // Re-subscribe to all channels that were previously subscribed
         const channels = Object.values(PG_EVENTS);
@@ -720,40 +757,63 @@ class PostgresPubSubManager extends EventEmitter {
   }
 
   /**
-   * Clean up connections
+   * Tear down the current session without touching subscriber listeners.
+   *
+   * Subscribers own their `message` listeners: the SSE route registers one per
+   * connection and removes it on connection close (`route.ts:364`). A reconnect
+   * must not delete registrations it does not own, so this path ends the
+   * connections and resets session/gate state only. Use `cleanup()` for full
+   * disposal (tests, SIGINT/SIGTERM, a caller that expects a clean slate).
    */
-  async cleanup(): Promise<void> {
+  private async teardownSession(): Promise<void> {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
 
-    if (this.listenClient) {
-      try {
-        await this.listenClient.end();
-      } catch (error) {
-        console.error('Error closing LISTEN client:', error);
-      }
-      this.listenClient = null;
-    }
+    // Detach and reset state before awaiting `end()`. A deliberate close must
+    // not let the client's own `end` handler see itself as current and schedule
+    // a second reconnect (D3), and a concurrent replacement must start from a
+    // clean session rather than be clobbered by this teardown.
+    const listenClient = this.listenClient;
+    const notifyClient = this.notifyClient;
 
-    if (this.notifyClient) {
-      try {
-        await this.notifyClient.end();
-      } catch (error) {
-        console.error('Error closing NOTIFY client:', error);
-      }
-      this.notifyClient = null;
-    }
-
-    // Reset every session/gate so the next connection starts from scratch.
-    this.initializeGeneration += 1;
-    this.initializePromise = null;
-    this.subscriptionPromise = null;
-    this.notifyConnect = null;
+    this.listenClient = null;
+    this.notifyClient = null;
     this.listenSessionToken = null;
     this.subscribedChannels.clear();
     this.isListening = false;
+
+    this.initializeGeneration += 1;
+    this.notifyGeneration += 1;
+    this.initializePromise = null;
+    this.subscriptionPromise = null;
+    this.notifyConnect = null;
+
+    if (listenClient) {
+      try {
+        await listenClient.end();
+      } catch (error) {
+        console.error('Error closing LISTEN client:', error);
+      }
+    }
+
+    if (notifyClient) {
+      try {
+        await notifyClient.end();
+      } catch (error) {
+        console.error('Error closing NOTIFY client:', error);
+      }
+    }
+  }
+
+  /**
+   * Full disposal: session teardown plus removal of every subscriber listener.
+   *
+   * Kept for tests, SIGINT/SIGTERM and callers that want a clean slate.
+   */
+  async cleanup(): Promise<void> {
+    await this.teardownSession();
     this.removeAllListeners();
   }
 

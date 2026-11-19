@@ -1,0 +1,11 @@
+$ npx jest src/tests/postgres-pubsub.test.ts src/tests/postgres-pubsub-single-flight.test.ts src/tests/postgres-pubsub-reconnect.test.ts --runInBand
+PASS src/tests/postgres-pubsub-reconnect.test.ts
+PASS src/tests/postgres-pubsub-single-flight.test.ts
+PASS src/tests/postgres-pubsub.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       25 passed, 25 total
+Snapshots:   0 total
+Time:        0.535 s, estimated 1 s
+Ran all test suites matching /src\/tests\/postgres-pubsub.test.ts|src\/tests\/postgres-pubsub-single-flight.test.ts|src\/tests\/postgres-pubsub-reconnect.test.ts/i.
+JEST_EXIT=0

@@ -1,0 +1,99 @@
+$ npx jest src/tests/postgres-pubsub-reconnect.test.ts --runInBand
+# Pre-fix run on main e4ee151 + new test file only
+FAIL src/tests/postgres-pubsub-reconnect.test.ts
+  PostgreSQL pub/sub reconnect lifecycle
+    ✕ keeps a subscriber registered before a forced reconnect and delivers after it (20 ms)
+    ✕ emits exactly one message per notification after a reconnect (3 ms)
+    ✕ runs exactly one reconnect cycle for one forced disconnect (2 ms)
+    ✕ preserves listeners on session teardown and removes them on full disposal
+    ✓ releases the client when the reconnect budget is exhausted (1 ms)
+    ✕ does not adopt a NOTIFY client superseded by teardown (1 ms)
+
+  ● PostgreSQL pub/sub reconnect lifecycle › keeps a subscriber registered before a forced reconnect and delivers after it
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 1
+    Received length: 0
+    Received array:  []
+
+      181 |
+      182 |     // The pre-fix code removes this listener during reconnect and delivers zero.
+    > 183 |     expect(received).toHaveLength(1);
+          |                      ^
+      184 |     expect(received[0][0]).toBe(PG_EVENTS.ORDER_CREATED);
+      185 |     expect(JSON.parse(received[0][1])).toEqual({
+      186 |       orderId: 'order-1',
+
+      at Object.toHaveLength (src/tests/postgres-pubsub-reconnect.test.ts:183:22)
+
+  ● PostgreSQL pub/sub reconnect lifecycle › emits exactly one message per notification after a reconnect
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: 1
+    Received: 0
+
+      202 |
+      203 |     const newListenClient = createdClients()[2];
+    > 204 |     expect(pgPubSub.listenerCount('message')).toBe(1);
+          |                                               ^
+      205 |     expect(newListenClient.handlers.get('notification')).toHaveLength(1);
+      206 |
+      207 |     emitNotification(newListenClient, 'channel_a', { orderId: 'order-1' });
+
+      at Object.toBe (src/tests/postgres-pubsub-reconnect.test.ts:204:47)
+
+  ● PostgreSQL pub/sub reconnect lifecycle › runs exactly one reconnect cycle for one forced disconnect
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 2
+
+      231 |     await new Promise((resolve) => setImmediate(resolve));
+      232 |
+    > 233 |     expect(initialize).toHaveBeenCalledTimes(1);
+          |                        ^
+      234 |     expect(createdClients()).toHaveLength(4);
+      235 |     expect(pgPubSub.isConnected()).toBe(true);
+      236 |
+
+      at Object.toHaveBeenCalledTimes (src/tests/postgres-pubsub-reconnect.test.ts:233:24)
+
+  ● PostgreSQL pub/sub reconnect lifecycle › preserves listeners on session teardown and removes them on full disposal
+
+    TypeError: _postgrespubsub.pgPubSub.teardownSession is not a function
+
+      122 |   (
+      123 |     pgPubSub as unknown as { teardownSession(): Promise<void> }
+    > 124 |   ).teardownSession();
+          |     ^
+      125 |
+      126 | const notifyClientRef = (): MockClient | null =>
+      127 |   (pgPubSub as unknown as { notifyClient: MockClient | null }).notifyClient;
+
+      at teardownSession (src/tests/postgres-pubsub-reconnect.test.ts:124:5)
+      at Object.softTeardown (src/tests/postgres-pubsub-reconnect.test.ts:246:11)
+
+  ● PostgreSQL pub/sub reconnect lifecycle › does not adopt a NOTIFY client superseded by teardown
+
+    TypeError: _postgrespubsub.pgPubSub.teardownSession is not a function
+
+      122 |   (
+      123 |     pgPubSub as unknown as { teardownSession(): Promise<void> }
+    > 124 |   ).teardownSession();
+          |     ^
+      125 |
+      126 | const notifyClientRef = (): MockClient | null =>
+      127 |   (pgPubSub as unknown as { notifyClient: MockClient | null }).notifyClient;
+
+      at teardownSession (src/tests/postgres-pubsub-reconnect.test.ts:124:5)
+      at Object.softTeardown (src/tests/postgres-pubsub-reconnect.test.ts:293:11)
+
+Test Suites: 1 failed, 1 total
+Tests:       5 failed, 1 passed, 6 total
+Snapshots:   0 total
+Time:        0.345 s
+Ran all test suites matching /src\/tests\/postgres-pubsub-reconnect.test.ts/i.
+JEST_EXIT=1
