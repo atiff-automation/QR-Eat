@@ -154,10 +154,39 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `8d457eb7-8ea6-4550-9536-c39f94a44094`, commit
+  `d6fc6ba` (merge of `312b09c`), status `SUCCESS`, 2026-11-19.
+- Smoke test:
+  - `GET https://tabtep.app/api/health` → 200, `status: UP`,
+    `database: CONNECTED`, `env: production`, latency 12 ms, uptime 28 s.
+  - `GET https://tabtep.app/` → 200.
+  - `GET https://tabtep.app/api/events/orders` unauthenticated → 401 (route
+    alive and auth-gated).
+  - Startup log: pub/sub initialising, `PostgreSQL LISTEN client connected`,
+    `PostgreSQL pub/sub initialized successfully`.
+  - Production error sweep (`❌`, `Failed to publish`, `Unhandled`, `FATAL`) →
+    0 matches.
+  - **Not claimed:** HTTP-level reconnect continuity in production. It needs an
+    authenticated staff session and a live order flow; production has no staff
+    accounts and creating them was not authorized. The reconnect evidence is the
+    module-level probe on a disposable PostgreSQL (post-fix 1 frame, pre-fix 0
+    frames, verifier-reproduced) and the mocked regression suite.
+- Rollback: redeploy the previous deployment (`e4ee151`); no migration, schema or
+  config change in this release.
+- Monitoring: watch for silent streams after any database blip — the failure mode
+  this fixes leaves the connection open with keep-alives and no error. A future
+  visible connection-state signal remains a separate product decision.
+
+### Release note for operators
+
+- The listener registry now survives session teardown by design. `cleanup()`
+  retains full-disposal semantics and is still used by signal handlers and tests;
+  only the reconnect path uses the soft teardown.
+- `AME-018` (NOTIFY publication ownership) shipped in this release; the backlog
+  item is closed.
+- `AME-019` (CI `Build` red: missing `VAPID_PRIVATE_KEY` repository secret)
+  remains open and is unrelated to this change.
 
 ## Lessons
 

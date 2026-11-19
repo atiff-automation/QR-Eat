@@ -376,7 +376,10 @@ list. The route and the two existing pub/sub test files are unchanged.
 above, then push, merge to `main` and deploy with a health/SSE smoke. No
 production migration or seed.
 
-**Post-commit state:** pending — recorded after the deploy.
+**Post-commit state:** commit `312b09c`; merge `d6fc6ba` on `main`; Railway
+deployment `8d457eb7-8ea6-4550-9536-c39f94a44094` `SUCCESS`, health UP, no
+migration. Production HTTP-level reconnect continuity not measured (no staff
+accounts); module-level probe and mocked suite are the evidence.
 
 ## Residual risks and follow-ups
 
