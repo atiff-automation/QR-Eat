@@ -1,0 +1,139 @@
+FAIL src/tests/postgres-pubsub-single-flight.test.ts
+  PostgreSQL pub/sub listener single-flight
+    ✕ shares one LISTEN client between concurrent cold subscribers (8 ms)
+    ✕ shares one in-flight initialize() pass (2 ms)
+    ✕ keeps channel coverage additive across differing channel sets (1 ms)
+    ✕ covers the 5-channel instrumentation set plus the 10-channel route set (1 ms)
+    ✕ releases a client whose first LISTEN fails so a retry rebuilds (7 ms)
+    ✓ emits one message per notification with one notification handler (1 ms)
+    ✓ resets the session on cleanup so the next subscribe re-LISTENs (2 ms)
+    ✓ clears the channel set on disconnect and re-issues LISTEN (1 ms)
+    ✕ releases the dead client when the reconnect budget is exhausted (1 ms)
+
+  ● PostgreSQL pub/sub listener single-flight › shares one LISTEN client between concurrent cold subscribers
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 2
+
+      Array [
+        "LISTEN channel_a",
+        "LISTEN channel_b",
+    +   "LISTEN channel_a",
+    +   "LISTEN channel_b",
+      ]
+
+      118 |     const [listenClient] = createdClients();
+      119 |
+    > 120 |     expect(listenQueries(listenClient)).toEqual([
+          |                                         ^
+      121 |       'LISTEN channel_a',
+      122 |       'LISTEN channel_b',
+      123 |     ]);
+
+      at Object.toEqual (src/tests/postgres-pubsub-single-flight.test.ts:120:41)
+
+  ● PostgreSQL pub/sub listener single-flight › shares one in-flight initialize() pass
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 2
+    Received length: 3
+    Received array:  [{"connect": [Function mockConstructor], "end": [Function mockConstructor], "handlers": Map {}, "on": [Function mockConstructor], "query": [Function mockConstructor]}, {"connect": [Function mockConstructor], "end": [Function mockConstructor], "handlers": Map {"notification" => [[Function anonymous], [Function anonymous]], "error" => [[Function anonymous], [Function anonymous]], "end" => [[Function anonymous], [Function anonymous]]}, "on": [Function mockConstructor], "query": [Function mockConstructor]}, {"connect": [Function mockConstructor], "end": [Function mockConstructor], "handlers": Map {"error" => [[Function anonymous]]}, "on": [Function mockConstructor], "query": [Function mockConstructor]}]
+
+      131 |     await Promise.all([pgPubSub.initialize(), pgPubSub.initialize()]);
+      132 |
+    > 133 |     expect(createdClients()).toHaveLength(2);
+          |                              ^
+      134 |
+      135 |     // An initialize() after success is a no-op for the LISTEN client.
+      136 |     await pgPubSub.initialize();
+
+      at Object.toHaveLength (src/tests/postgres-pubsub-single-flight.test.ts:133:30)
+
+  ● PostgreSQL pub/sub listener single-flight › keeps channel coverage additive across differing channel sets
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 0
+    + Received  + 5
+
+      Array [
+        "LISTEN channel_a",
+        "LISTEN channel_b",
+    +   "LISTEN channel_a",
+    +   "LISTEN channel_a",
+    +   "LISTEN channel_b",
+    +   "LISTEN channel_b",
+    +   "LISTEN channel_c",
+        "LISTEN channel_c",
+      ]
+
+      146 |
+      147 |     expect(createdClients()).toHaveLength(2);
+    > 148 |     expect(listenQueries(createdClients()[0])).toEqual([
+          |                                                ^
+      149 |       'LISTEN channel_a',
+      150 |       'LISTEN channel_b',
+      151 |       'LISTEN channel_c',
+
+      at Object.toEqual (src/tests/postgres-pubsub-single-flight.test.ts:148:48)
+
+  ● PostgreSQL pub/sub listener single-flight › covers the 5-channel instrumentation set plus the 10-channel route set
+
+    expect(received).toHaveLength(expected)
+
+    Expected length: 10
+    Received length: 15
+    Received array:  ["LISTEN order_status_changed", "LISTEN order_created", "LISTEN order_item_status_changed", "LISTEN kitchen_notification", "LISTEN restaurant_notification", "LISTEN order_status_changed", "LISTEN order_created", "LISTEN order_items_added", "LISTEN order_cancelled", "LISTEN order_item_status_changed", …]
+
+      178 |
+      179 |     const issued = allListenQueries();
+    > 180 |     expect(issued).toHaveLength(10);
+          |                    ^
+      181 |     expect(new Set(issued).size).toBe(10);
+      182 |     // The B3 channels must not be dropped when instrumentation wins the race.
+      183 |     expect(issued).toContain(`LISTEN ${PG_EVENTS.ORDER_ITEMS_ADDED}`);
+
+      at Object.toHaveLength (src/tests/postgres-pubsub-single-flight.test.ts:180:20)
+
+  ● PostgreSQL pub/sub listener single-flight › releases a client whose first LISTEN fails so a retry rebuilds
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      197 |
+      198 |     const failedClient = createdClients()[0];
+    > 199 |     expect(failedClient.end).toHaveBeenCalledTimes(1);
+          |                              ^
+      200 |     expect(pgPubSub.isConnected()).toBe(false);
+      201 |
+      202 |     await pgPubSub.subscribe('channel_a');
+
+      at Object.toHaveBeenCalledTimes (src/tests/postgres-pubsub-single-flight.test.ts:199:30)
+
+  ● PostgreSQL pub/sub listener single-flight › releases the dead client when the reconnect budget is exhausted
+
+    expect(jest.fn()).toHaveBeenCalledTimes(expected)
+
+    Expected number of calls: 1
+    Received number of calls: 0
+
+      280 |     runEndHandlers(deadClient);
+      281 |
+    > 282 |     expect(deadClient.end).toHaveBeenCalledTimes(1);
+          |                            ^
+      283 |     expect(pgPubSub.isConnected()).toBe(false);
+      284 |
+      285 |     await pgPubSub.subscribe('channel_a');
+
+      at Object.toHaveBeenCalledTimes (src/tests/postgres-pubsub-single-flight.test.ts:282:28)
+
+Test Suites: 1 failed, 1 total
+Tests:       6 failed, 3 passed, 9 total
+Snapshots:   0 total
+Time:        0.397 s, estimated 1 s
+Ran all test suites matching /src\/tests\/postgres-pubsub-single-flight.test.ts/i.

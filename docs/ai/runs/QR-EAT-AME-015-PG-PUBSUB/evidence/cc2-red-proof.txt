@@ -1,0 +1,61 @@
+FAIL src/tests/postgres-pubsub-single-flight.test.ts
+  PostgreSQL pub/sub listener single-flight
+    ✓ shares one LISTEN client between concurrent cold subscribers (5 ms)
+    ✓ shares one in-flight initialize() pass (1 ms)
+    ✓ keeps channel coverage additive across differing channel sets (1 ms)
+    ✓ covers the 5-channel instrumentation set plus the 10-channel route set (2 ms)
+    ✓ releases a client whose first LISTEN fails so a retry rebuilds (16 ms)
+    ✓ emits one message per notification with one notification handler (12 ms)
+    ✓ resets the session on cleanup so the next subscribe re-LISTENs (1 ms)
+    ✓ clears the channel set on disconnect and re-issues LISTEN (1 ms)
+    ✓ releases the dead client when the reconnect budget is exhausted (1 ms)
+    ✓ subscribes the union when a larger set joins an in-flight smaller set (1 ms)
+    ✓ does not keep bookkeeping from a session whose NOTIFY connect failed (2 ms)
+    ✓ does not record channels when the session is closed mid-pass (1 ms)
+    ✕ does not publish a session abandoned by cleanup during connect (1 ms)
+    ✕ keeps the live session usable after a stale initialize pass rejects
+    ✓ retries only the remainder after a mid-pass LISTEN failure (1 ms)
+    ✓ collapses duplicate channel arguments into one LISTEN
+    ✓ keeps the SSE route on the expected ten channels without a connected gate (1 ms)
+
+  ● PostgreSQL pub/sub listener single-flight › does not publish a session abandoned by cleanup during connect
+
+    expect(received).rejects.toThrow()
+
+    Received promise resolved instead of rejected
+    Resolved to value: undefined
+
+      483 |     connectGate.resolve();
+      484 |
+    > 485 |     await expect(stalePass).rejects.toThrow(/abandoned/);
+          |           ^
+      486 |     await livePass;
+      487 |
+      488 |     const staleClient = createdClients()[0];
+
+      at expect (node_modules/expect/build/index.js:113:15)
+      at Object.expect (src/tests/postgres-pubsub-single-flight.test.ts:485:11)
+
+  ● PostgreSQL pub/sub listener single-flight › keeps the live session usable after a stale initialize pass rejects
+
+    expect(received).rejects.toThrow()
+
+    Received promise resolved instead of rejected
+    Resolved to value: undefined
+
+      523 |
+      524 |     connectGate.resolve();
+    > 525 |     await expect(stalePass).rejects.toThrow(/abandoned/);
+          |           ^
+      526 |
+      527 |     await pgPubSub.subscribe('channel_b');
+      528 |
+
+      at expect (node_modules/expect/build/index.js:113:15)
+      at Object.expect (src/tests/postgres-pubsub-single-flight.test.ts:525:11)
+
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 15 passed, 17 total
+Snapshots:   0 total
+Time:        0.37 s, estimated 1 s
+Ran all test suites matching /src\/tests\/postgres-pubsub-single-flight.test.ts/i.

@@ -1,0 +1,6 @@
+# Correction-cycle-1 post-fix listener sessions on the disposable database.
+# query: select count(*) from pg_stat_activity where datname='qreat_gate015' and query like 'LISTEN%';
+2
+# last LISTEN statement per session:
+LISTEN restaurant_notification
+LISTEN table_status_changed

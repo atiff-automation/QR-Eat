@@ -1,0 +1,46 @@
+FAIL src/tests/postgres-pubsub-single-flight.test.ts
+  PostgreSQL pub/sub listener single-flight
+    ✓ shares one LISTEN client between concurrent cold subscribers (7 ms)
+    ✓ shares one in-flight initialize() pass (1 ms)
+    ✓ keeps channel coverage additive across differing channel sets (1 ms)
+    ✓ covers the 5-channel instrumentation set plus the 10-channel route set (2 ms)
+    ✓ releases a client whose first LISTEN fails so a retry rebuilds (33 ms)
+    ✓ emits one message per notification with one notification handler (1 ms)
+    ✓ resets the session on cleanup so the next subscribe re-LISTENs (1 ms)
+    ✓ clears the channel set on disconnect and re-issues LISTEN (1 ms)
+    ✓ releases the dead client when the reconnect budget is exhausted (1 ms)
+    ✕ subscribes the union when a larger set joins an in-flight smaller set (4 ms)
+    ✓ does not keep bookkeeping from a session whose NOTIFY connect failed (2 ms)
+    ✓ does not record channels when the session is closed mid-pass (1 ms)
+    ✓ retries only the remainder after a mid-pass LISTEN failure (1 ms)
+    ✓ collapses duplicate channel arguments into one LISTEN (1 ms)
+    ✓ keeps the SSE route on the expected ten channels without a connected gate (1 ms)
+
+  ● PostgreSQL pub/sub listener single-flight › subscribes the union when a larger set joins an in-flight smaller set
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 2
+    + Received  + 0
+
+      Array [
+        "LISTEN channel_a",
+    -   "LISTEN channel_b",
+    -   "LISTEN channel_c",
+      ]
+
+      386 |
+      387 |     expect(createdClients()).toHaveLength(2);
+    > 388 |     expect(listenQueries(createdClients()[0])).toEqual([
+          |                                                ^
+      389 |       'LISTEN channel_a',
+      390 |       'LISTEN channel_b',
+      391 |       'LISTEN channel_c',
+
+      at Object.toEqual (src/tests/postgres-pubsub-single-flight.test.ts:388:48)
+
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 14 passed, 15 total
+Snapshots:   0 total
+Time:        0.431 s, estimated 1 s
+Ran all test suites matching /src\/tests\/postgres-pubsub-single-flight.test.ts/i.

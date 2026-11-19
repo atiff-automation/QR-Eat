@@ -21,7 +21,10 @@ Product-level work for the web/server repo. Android work lives in
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
 | AME-014 | contract | B3-S server add-on, cancellation, SSE/changes and `phase-b-counter-feed-v1` freeze | R3 | done | Verifier PASS (`REVIEW-02.md`); staging gate PASSED (`REVIEW-03.md`); merged `ab63894`; deployed `27852ccb…` SUCCESS, health UP, migrations applied, no seed |
-| AME-015 | reliability | Single-flight `pgPubSub.initialize()/subscribe()` for staff SSE | B3-S staging gate observation | Duplicate refresh frames under concurrent first connections; add duplicate-init regression test; run before pilot |
+| AME-015 | reliability | Single-flight `pgPubSub.initialize()/subscribe()` for staff SSE | R2 | done | Local commit, verifier PASS (`REVIEW-03.md`), `duplicateFrames` 2 → 0, tenant isolation intact. Not pushed or deployed; release remains a separate gate before pilot. Contract: `docs/ai/runs/QR-EAT-AME-015-PG-PUBSUB/TASK.md` |
+| AME-016 | reliability | Staff SSE reconnect drops per-connection `message` handlers | R2 | ready | Found during AME-015 planning: `cleanup()` → `removeAllListeners()` removes route handlers, so open streams stay connected but stop receiving after a successful reconnect. Plan separately; do not fold into AME-015 |
+| AME-017 | reliability | One LISTEN session per process instead of per module graph | R1 | deferred | Found during AME-015: Next bundles `instrumentation.ts` and the route separately, so each graph single-flights its own LISTEN client. Correctness is proven (one frame per connection); this only removes the extra idle session. Needs a shared module singleton; do not start without a plan |
+| AME-018 | reliability | NOTIFY client publication race with `cleanup()` | R1 | deferred | Found in AME-015 REVIEW-03 (N-6): `openNotifyClient()` publishes after its await, so cleanup inside an in-flight NOTIFY connect can adopt the abandoned client and orphan the replacement's, leaking one idle connection. No duplicate frames or state error. Gate publication on the session generation and close the abandoned client; plan before starting |
 
 
 ## Waiting

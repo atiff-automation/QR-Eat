@@ -1,0 +1,6 @@
+PASS 5.sse.delivered :: {"add":200,"cancel":200,"addSignals":2,"cancelSignals":2,"duplicateFrames":2,"typesA":["connection","order_created","order_created","order_status_changed","order_status_changed","kitchen_notification","kitchen_notification","order_items_added","order_items_added","order_cancelled","order_cancelled","table_status_changed","table_status_changed"]}
+FAIL 5.sse.delivered.exactly-once :: {"addSignals":2,"cancelSignals":2,"duplicateFrames":2}
+PASS 5.sse.tenant-isolated :: {"leaked":[],"typesB":["connection","table_status_changed","table_status_changed"]}
+FAIL 5.sse.additive-coverage :: {"frames":2,"type":"table_status_changed","note":"table_status_changed is not in the instrumentation channel list"}
+FAIL 5.sse.tenant-isolated.table-status :: {"tableBOnA":0,"tableBOnB":2}
+SUMMARY {"total":5,"failed":3,"duplicateFrames":2}
