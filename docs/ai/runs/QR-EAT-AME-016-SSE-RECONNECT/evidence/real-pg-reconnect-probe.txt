@@ -1,0 +1,11 @@
+$ AME016_DB_URL=<disposable local cluster> npx jest src/tests/__tmp_ame016_realpg.test.ts --runInBand
+PASS src/tests/__tmp_ame016_realpg.test.ts (5.546 s)
+  AME-016 disposable PostgreSQL reconnect probe
+    ✓ keeps an emitter listener across a terminated LISTEN backend (5275 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       1 passed, 1 total
+Snapshots:   0 total
+Time:        5.582 s
+Ran all test suites matching /src\/tests\/__tmp_ame016_realpg.test.ts/i.
+JEST_EXIT=0
