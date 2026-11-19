@@ -1,0 +1,7 @@
+🚀 [Server Startup] Initializing PostgreSQL pub/sub...
+✅ PostgreSQL LISTEN client connected
+✅ PostgreSQL NOTIFY client connected
+✅ [Server Startup] PostgreSQL pub/sub initialized successfully
+📡 [Server Startup] Listening for real-time events: {
+✅ PostgreSQL LISTEN client connected
+✅ PostgreSQL NOTIFY client connected

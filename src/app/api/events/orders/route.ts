@@ -221,23 +221,21 @@ async function setupPostgresSubscription(connectionId: string) {
   if (!connection) return;
 
   try {
-    // Initialize PostgreSQL pub/sub if not already done
-    if (!pgPubSub.isConnected()) {
-      await pgPubSub.initialize();
-      // Subscribe to all event channels
-      await pgPubSub.subscribe(
-        PG_EVENTS.ORDER_STATUS_CHANGED,
-        PG_EVENTS.ORDER_CREATED,
-        PG_EVENTS.ORDER_ITEMS_ADDED,
-        PG_EVENTS.ORDER_CANCELLED,
-        PG_EVENTS.ORDER_ITEM_STATUS_CHANGED,
-        PG_EVENTS.ORDER_RECALLED,
-        PG_EVENTS.ORDER_RECALL_CLEARED,
-        PG_EVENTS.KITCHEN_NOTIFICATION,
-        PG_EVENTS.RESTAURANT_NOTIFICATION,
-        PG_EVENTS.TABLE_STATUS_CHANGED
-      );
-    }
+    // Single-flight, additive subscription. This is deliberately unconditional:
+    // gating on `isConnected()` raced with concurrent first connections and
+    // skipped the route's extra channels when instrumentation subscribed first.
+    await pgPubSub.subscribe(
+      PG_EVENTS.ORDER_STATUS_CHANGED,
+      PG_EVENTS.ORDER_CREATED,
+      PG_EVENTS.ORDER_ITEMS_ADDED,
+      PG_EVENTS.ORDER_CANCELLED,
+      PG_EVENTS.ORDER_ITEM_STATUS_CHANGED,
+      PG_EVENTS.ORDER_RECALLED,
+      PG_EVENTS.ORDER_RECALL_CLEARED,
+      PG_EVENTS.KITCHEN_NOTIFICATION,
+      PG_EVENTS.RESTAURANT_NOTIFICATION,
+      PG_EVENTS.TABLE_STATUS_CHANGED
+    );
 
     // Handle incoming PostgreSQL notifications
     // Note: We use a single global listener and filter by connection

@@ -1,0 +1,71 @@
+{
+  "at": "2026-11-19T05:15:47.036Z",
+  "base": "http://127.0.0.1:3015",
+  "durationMs": 9124,
+  "total": 5,
+  "failed": 3,
+  "duplicateFrames": 2,
+  "tenantIsolated": true,
+  "results": [
+    {
+      "id": "5.sse.delivered",
+      "ok": true,
+      "detail": {
+        "add": 200,
+        "cancel": 200,
+        "addSignals": 2,
+        "cancelSignals": 2,
+        "duplicateFrames": 2,
+        "typesA": [
+          "connection",
+          "order_created",
+          "order_created",
+          "order_status_changed",
+          "order_status_changed",
+          "kitchen_notification",
+          "kitchen_notification",
+          "order_items_added",
+          "order_items_added",
+          "order_cancelled",
+          "order_cancelled",
+          "table_status_changed",
+          "table_status_changed"
+        ]
+      }
+    },
+    {
+      "id": "5.sse.delivered.exactly-once",
+      "ok": false,
+      "detail": {
+        "addSignals": 2,
+        "cancelSignals": 2,
+        "duplicateFrames": 2
+      }
+    },
+    {
+      "id": "5.sse.tenant-isolated",
+      "ok": true,
+      "detail": {
+        "leaked": [],
+        "typesB": ["connection", "table_status_changed", "table_status_changed"]
+      }
+    },
+    {
+      "id": "5.sse.additive-coverage",
+      "ok": false,
+      "detail": {
+        "frames": 2,
+        "type": "table_status_changed",
+        "note": "table_status_changed is not in the instrumentation channel list"
+      }
+    },
+    {
+      "id": "5.sse.tenant-isolated.table-status",
+      "ok": false,
+      "detail": {
+        "tableBOnA": 0,
+        "tableBOnB": 2
+      }
+    }
+  ]
+}

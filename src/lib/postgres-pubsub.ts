@@ -170,6 +170,20 @@ class PostgresPubSubManager extends EventEmitter {
   private listenClient: Client | null = null;
   private notifyClient: Client | null = null;
   private notifyConnect: Promise<Client> | null = null;
+  /** Shared in-flight `initialize()` pass so concurrent callers create one client. */
+  private initializePromise: Promise<void> | null = null;
+  /**
+   * Incremented by `cleanup()`. An initialize pass captures it before its
+   * awaits and refuses to publish if it changed, so an abandoned pass can never
+   * become a second live session.
+   */
+  private initializeGeneration = 0;
+  /** Serialized tail of the `subscribe()` passes (additive, one at a time). */
+  private subscriptionPromise: Promise<void> | null = null;
+  /** Channels `LISTEN`ed on the current LISTEN session. */
+  private readonly subscribedChannels = new Set<string>();
+  /** Identity of the published LISTEN session; null when there is none. */
+  private listenSessionToken: object | null = null;
   private isListening = false;
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
@@ -205,43 +219,108 @@ class PostgresPubSubManager extends EventEmitter {
   }
 
   /**
-   * Initialize PostgreSQL clients for pub/sub
+   * Initialize PostgreSQL clients for pub/sub.
+   *
+   * Single-flight: every concurrent caller shares one pass, so the process
+   * keeps at most one LISTEN client. `instrumentation.ts` and the SSE route can
+   * both call this on a cold server; the second call must not open a second
+   * listener (that produced duplicate frames).
    */
   async initialize(): Promise<void> {
     if (!process.env.DATABASE_URL) {
       throw new Error('DATABASE_URL environment variable is required');
     }
 
-    try {
-      // Create dedicated client for LISTEN operations
-      this.listenClient = new Client({
-        connectionString: process.env.DATABASE_URL,
-      });
+    if (this.initializePromise) {
+      return this.initializePromise;
+    }
 
-      await this.listenClient.connect();
+    // A LISTEN client already exists: never create a second one. Just make
+    // sure the NOTIFY side is up (it has its own independent gate).
+    if (this.listenClient) {
+      await this.connectNotifyClient();
+      this.reconnectAttempts = 0;
+      this.registerSignalHandlers();
+      return;
+    }
+
+    const generation = this.initializeGeneration;
+    const pass = this.openListenSession(generation);
+    this.initializePromise = pass;
+
+    try {
+      await pass;
+    } finally {
+      if (this.initializePromise === pass) {
+        this.initializePromise = null;
+      }
+    }
+  }
+
+  /**
+   * Open the single LISTEN session.
+   *
+   * The client and its session token are published only after the LISTEN
+   * `connect()` and the NOTIFY connect both succeed: a concurrent `subscribe()`
+   * either joins this pass or sees no session, never a half-initialized one.
+   * A failed or abandoned pass closes the client it created instead of leaving
+   * an orphan listener that would emit duplicate `message` events.
+   */
+  private async openListenSession(generation: number): Promise<void> {
+    const client = new Client({
+      connectionString: process.env.DATABASE_URL,
+    });
+    // Identity of this session. Subscribe passes record channels only while
+    // their captured token is still the current one.
+    const sessionToken = {};
+
+    try {
+      await client.connect();
       console.log('✅ PostgreSQL LISTEN client connected');
 
       // Set up notification handler
-      this.listenClient.on(
+      client.on(
         'notification',
         (msg: { channel: string; payload?: string }) => {
           this.handleNotification(msg);
         }
       );
 
-      // Handle connection errors
-      this.listenClient.on('error', (err: Error) => {
+      // Handle connection errors. Only the current session may react, so a
+      // released/replaced client cannot mute or re-enter the live one.
+      client.on('error', (err: Error) => {
         console.error('❌ PostgreSQL LISTEN client error:', err);
-        this.handleDisconnect();
+        if (this.listenClient === client) {
+          this.handleDisconnect();
+        }
       });
 
-      this.listenClient.on('end', () => {
+      client.on('end', () => {
         console.log('⚠️ PostgreSQL LISTEN client disconnected');
-        this.handleDisconnect();
+        if (this.listenClient === client) {
+          this.handleDisconnect();
+        }
       });
 
       // Create dedicated client for NOTIFY operations (non-blocking)
       await this.connectNotifyClient();
+
+      // A `cleanup()` may have run while this pass was connecting. Publishing
+      // now would leave a second live listener behind a newer session, so the
+      // pass abandons itself instead: the caller retries on a clean state.
+      if (generation !== this.initializeGeneration) {
+        throw new Error(
+          'PostgreSQL LISTEN session was abandoned before it was established'
+        );
+      }
+
+      // Both connects succeeded: publish the session and start from empty
+      // bookkeeping, so nothing from an earlier session can survive into this
+      // one.
+      this.subscribedChannels.clear();
+      this.isListening = false;
+      this.listenClient = client;
+      this.listenSessionToken = sessionToken;
 
       this.reconnectAttempts = 0;
 
@@ -249,8 +328,51 @@ class PostgresPubSubManager extends EventEmitter {
       this.registerSignalHandlers();
     } catch (error) {
       console.error('Failed to initialize PostgreSQL pub/sub:', error);
+
+      // Atomic failure: close and clear the client created by this pass so a
+      // later retry starts clean.
+      if (this.listenClient === client) {
+        this.listenClient = null;
+        this.listenSessionToken = null;
+      }
+
+      // Only reset session-wide state when no session is published. An
+      // abandoned pass must never clear the bookkeeping of the session that
+      // replaced it.
+      if (this.listenClient === null && this.listenSessionToken === null) {
+        this.isListening = false;
+        this.subscribedChannels.clear();
+      }
+
+      try {
+        await client.end();
+      } catch (closeError) {
+        console.error('Error closing failed LISTEN client:', closeError);
+      }
+
       throw error;
     }
+  }
+
+  /**
+   * Release the current LISTEN client without scheduling a reconnect.
+   *
+   * Used when the client can no longer be trusted (failed setup, exhausted
+   * reconnect budget) so the next `subscribe()` rebuilds instead of talking to
+   * a dead socket forever.
+   */
+  private releaseListenClient(): void {
+    const client = this.listenClient;
+    this.listenClient = null;
+    this.listenSessionToken = null;
+    this.isListening = false;
+    this.subscribedChannels.clear();
+
+    if (!client) return;
+
+    client.end().catch((error: Error) => {
+      console.error('Error closing dead LISTEN client:', error);
+    });
   }
 
   /**
@@ -302,25 +424,87 @@ class PostgresPubSubManager extends EventEmitter {
   }
 
   /**
-   * Subscribe to event channels
+   * Subscribe to event channels.
+   *
+   * Additive and serialized: concurrent callers queue behind one pass, only
+   * channels not yet `LISTEN`ed on this session are issued, and a channel is
+   * recorded only after its `LISTEN` succeeds. This keeps the union correct
+   * when `instrumentation.ts` (5 channels) and the SSE route (10 channels) both
+   * subscribe on the same process.
    */
   async subscribe(...channels: string[]): Promise<void> {
+    const previous = this.subscriptionPromise;
+    const pass = (
+      previous
+        ? previous.then(
+            () => undefined,
+            () => undefined
+          )
+        : Promise.resolve()
+    ).then(() => this.applySubscriptionPass(channels));
+
+    this.subscriptionPromise = pass;
+
+    try {
+      await pass;
+    } finally {
+      if (this.subscriptionPromise === pass) {
+        this.subscriptionPromise = null;
+      }
+    }
+  }
+
+  private async applySubscriptionPass(channels: string[]): Promise<void> {
     if (!this.listenClient) {
       await this.initialize();
     }
 
-    if (!this.listenClient) {
+    const client = this.listenClient;
+    const sessionToken = this.listenSessionToken;
+    if (!client || !sessionToken) {
       throw new Error('PostgreSQL LISTEN client not initialized');
     }
 
+    const pending = Array.from(new Set(channels)).filter(
+      (channel) => !this.subscribedChannels.has(channel)
+    );
+
+    const sessionIsCurrent = (): boolean =>
+      this.listenClient === client && this.listenSessionToken === sessionToken;
+
     try {
-      for (const channel of channels) {
-        await this.listenClient.query(`LISTEN ${channel}`);
+      for (const channel of pending) {
+        await client.query(`LISTEN ${channel}`);
+
+        if (!sessionIsCurrent()) {
+          // The session was closed or replaced while this LISTEN was in
+          // flight. Never write its bookkeeping into the next session.
+          throw new Error('PostgreSQL LISTEN session changed during subscribe');
+        }
+
+        this.subscribedChannels.add(channel);
         console.log(`🔔 Subscribed to channel: ${channel}`);
       }
-      this.isListening = true;
+
+      if (this.subscribedChannels.size > 0) {
+        this.isListening = true;
+      }
     } catch (error) {
       console.error('Failed to subscribe to channels:', error);
+
+      if (sessionIsCurrent()) {
+        this.isListening = this.subscribedChannels.size > 0;
+
+        if (this.subscribedChannels.size === 0) {
+          // Nothing is listening on this session. A failed first `LISTEN`
+          // means the socket is unusable, so release it and let the next call
+          // rebuild instead of retrying on a dead connection.
+          this.releaseListenClient();
+        }
+      }
+
+      // Channels that already succeeded stay in the set, so a later call
+      // retries only the remainder.
       throw error;
     }
   }
@@ -336,8 +520,10 @@ class PostgresPubSubManager extends EventEmitter {
     try {
       for (const channel of channels) {
         await this.listenClient.query(`UNLISTEN ${channel}`);
+        this.subscribedChannels.delete(channel);
         console.log(`🔕 Unsubscribed from channel: ${channel}`);
       }
+      this.isListening = this.subscribedChannels.size > 0;
     } catch (error) {
       console.error('Failed to unsubscribe from channels:', error);
     }
@@ -494,11 +680,18 @@ class PostgresPubSubManager extends EventEmitter {
    */
   private handleDisconnect(): void {
     this.isListening = false;
+    // The current LISTEN session is gone; a later subscribe() must re-issue
+    // LISTEN instead of assuming the channels are still active.
+    this.subscribedChannels.clear();
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.error(
         `❌ Max reconnect attempts (${this.maxReconnectAttempts}) reached. Giving up.`
       );
+      // Release the dead client so a later subscribe() can rebuild one. Without
+      // this the single-flight initialize() would early-return on the dead
+      // reference and the process would stay muted forever.
+      this.releaseListenClient();
       return;
     }
 
@@ -553,6 +746,13 @@ class PostgresPubSubManager extends EventEmitter {
       this.notifyClient = null;
     }
 
+    // Reset every session/gate so the next connection starts from scratch.
+    this.initializeGeneration += 1;
+    this.initializePromise = null;
+    this.subscriptionPromise = null;
+    this.notifyConnect = null;
+    this.listenSessionToken = null;
+    this.subscribedChannels.clear();
     this.isListening = false;
     this.removeAllListeners();
   }
