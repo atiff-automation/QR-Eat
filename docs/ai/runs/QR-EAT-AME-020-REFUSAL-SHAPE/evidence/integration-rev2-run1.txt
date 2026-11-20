@@ -1,0 +1,351 @@
+$ INTEGRATION_DATABASE_URL=<disposable loopback> npm run test:integration   # run 1
+
+> tabtep@0.1.0 test:integration
+> jest --config jest.integration.config.js
+
+  console.log
+    [integration] guarded database target: 127.0.0.1/qreat_integration (INTEGRATION_DATABASE_URL)
+
+      at Object.<anonymous> (src/tests/integration/support/setup.ts:34:9)
+
+  console.log
+    🔧 JWT_CONFIG initialized: { expiresIn: '1h', fromEnv: '1h', fallback: '30m', usingEnv: true }
+
+      at Object.log (src/lib/rbac/jwt.ts:35:9)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    🔧 parseExpiresIn called with: 1h
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:403:13)
+
+  console.log
+    ✅ parseExpiresIn: Parsed { amount: '1', unit: 'h', value: 1 }
+
+      at EnhancedJWTService.log [as parseExpiresIn] (src/lib/rbac/jwt.ts:413:13)
+
+  console.log
+    📦 [EventPersistence] Event stored: {
+      id: '7ac7e75a-5c8d-42af-9834-57bbacd2ace3',
+      type: 'order_status_changed',
+      restaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      timestamp: 2026-11-20T13:27:29.692Z
+    }
+
+      at EventPersistenceService.log [as storeEvent] (src/lib/event-persistence.ts:56:15)
+
+  console.log
+    ⚡ [PubSub] Lazy initialization triggered by notify()
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:577:15)
+
+  console.log
+    ✅ PostgreSQL NOTIFY client connected
+
+      at PostgresPubSubManager.log [as openNotifyClient] (src/lib/postgres-pubsub.ts:424:13)
+
+  console.log
+    ✅ [PubSub] Lazy initialization successful
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:581:17)
+
+  console.log
+    📢 [PubSub] Event published successfully: {
+      channel: 'order_status_changed',
+      eventType: 'order_status_changed',
+      eventId: 'a17dcb2f-b3ea-4486-a4f7-256a8c40d6ea',
+      timestamp: 1795181249691,
+      attempt: 1
+    }
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:622:17)
+
+  console.log
+    📦 [EventPersistence] Event stored: {
+      id: '37df5f37-cd44-4f71-8de1-abcfa651bf2d',
+      type: 'order_items_added',
+      restaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      timestamp: 2026-11-20T13:27:29.931Z
+    }
+
+      at EventPersistenceService.log [as storeEvent] (src/lib/event-persistence.ts:56:15)
+
+  console.log
+    📢 [PubSub] Event published successfully: {
+      channel: 'order_items_added',
+      eventType: 'order_status_changed',
+      eventId: '2c2ac900-b922-4b32-9c61-56af101cdb71',
+      timestamp: 1795181249930,
+      attempt: 1
+    }
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:622:17)
+
+  console.log
+    📦 [EventPersistence] Event stored: {
+      id: '0c5bd572-8cb1-4440-9636-0533ae799169',
+      type: 'order_cancelled',
+      restaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      timestamp: 2026-11-20T13:27:30.039Z
+    }
+
+      at EventPersistenceService.log [as storeEvent] (src/lib/event-persistence.ts:56:15)
+
+  console.log
+    📢 [PubSub] Event published successfully: {
+      channel: 'order_cancelled',
+      eventType: 'order_status_changed',
+      eventId: 'd57bd85b-de27-4742-8de2-cd587650b922',
+      timestamp: 1795181250038,
+      attempt: 1
+    }
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:622:17)
+
+  console.error
+    SSE setup error: Error: Authentication required
+        at requireAuth (/home/atiff/Desktop/QR-Eat/src/lib/tenant-context.ts:455:11)
+        at GET (/home/atiff/Desktop/QR-Eat/src/app/api/events/orders/route.ts:53:16)
+        at Object.<anonymous> (/home/atiff/Desktop/QR-Eat/src/tests/integration/tenant-isolation.it.ts:745:7)
+
+      159 |     });
+      160 |   } catch (error) {
+    > 161 |     console.error('SSE setup error:', error);
+          |             ^
+      162 |
+      163 |     // `requireAuth` throws a plain Error after writing the anonymous audit
+      164 |     // event; map that one case to 401 and keep genuine setup failures at 500.
+
+      at error (src/app/api/events/orders/route.ts:161:13)
+      at Object.<anonymous> (src/tests/integration/tenant-isolation.it.ts:745:7)
+
+  console.log
+    [SSE] New connection established: {
+      connectionId: '68a21895-734d-4045-89de-322fec53229d_1795181250276',
+      userId: '68a21895-734d-4045-89de-322fec53229d',
+      userType: 'staff',
+      restaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      totalConnections: 1,
+      catchupRequested: false,
+      since: undefined
+    }
+
+      at Object.log [as start] (src/app/api/events/orders/route.ts:103:17)
+
+  console.log
+    ✅ PostgreSQL LISTEN client connected
+
+      at PostgresPubSubManager.log [as openListenSession] (src/lib/postgres-pubsub.ts:286:15)
+
+  console.log
+    🔔 Subscribed to channel: order_status_changed
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_created
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_items_added
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_cancelled
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_item_status_changed
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_recalled
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: order_recall_cleared
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: kitchen_notification
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: restaurant_notification
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    🔔 Subscribed to channel: table_status_changed
+
+      at PostgresPubSubManager.log [as applySubscriptionPass] (src/lib/postgres-pubsub.ts:521:17)
+
+  console.log
+    📢 [PubSub] Event published successfully: {
+      channel: 'order_status_changed',
+      eventType: 'order_status_changed',
+      eventId: '8609e718-d88d-4fd4-8a2f-0571d0e10690',
+      timestamp: 1795181250481,
+      attempt: 1
+    }
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:622:17)
+
+  console.log
+    [SSE] Processing event for connection 68a21895-734d-4045-89de-322fec53229d_1795181250276: {
+      channel: 'order_status_changed',
+      eventType: 'order_status_changed',
+      eventId: '8609e718-d88d-4fd4-8a2f-0571d0e10690',
+      eventRestaurantId: 'b6c78f02-cff3-4040-a469-50cec102b4f9',
+      userRestaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      userType: 'staff'
+    }
+
+      at log (src/app/api/events/orders/route.ts:287:13)
+
+  console.log
+    [SSE] Event filtered out for connection 68a21895-734d-4045-89de-322fec53229d_1795181250276: {
+      reason: 'Permission check failed',
+      eventRestaurantId: 'b6c78f02-cff3-4040-a469-50cec102b4f9',
+      userRestaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      userType: 'staff'
+    }
+
+      at log (src/app/api/events/orders/route.ts:300:15)
+
+  console.log
+    [SSE] Processing event for connection 68a21895-734d-4045-89de-322fec53229d_1795181250276: {
+      channel: 'order_status_changed',
+      eventType: 'order_status_changed',
+      eventId: 'a17dcb2f-b3ea-4486-a4f7-256a8c40d6ea',
+      eventRestaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      userRestaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      userType: 'staff'
+    }
+
+      at log (src/app/api/events/orders/route.ts:287:13)
+
+  console.log
+    [SSE] Event delivered to connection 68a21895-734d-4045-89de-322fec53229d_1795181250276: {
+      type: 'order_status_changed',
+      eventId: 'a17dcb2f-b3ea-4486-a4f7-256a8c40d6ea'
+    }
+
+      at log (src/app/api/events/orders/route.ts:320:13)
+
+  console.log
+    📢 [PubSub] Event published successfully: {
+      channel: 'order_status_changed',
+      eventType: 'order_status_changed',
+      eventId: 'a17dcb2f-b3ea-4486-a4f7-256a8c40d6ea',
+      timestamp: 1795181250483,
+      attempt: 1
+    }
+
+      at PostgresPubSubManager.log [as notify] (src/lib/postgres-pubsub.ts:622:17)
+
+  console.log
+    [SSE] Cleaning up connection: {
+      connectionId: '68a21895-734d-4045-89de-322fec53229d_1795181250276',
+      userId: '68a21895-734d-4045-89de-322fec53229d',
+      userType: 'staff',
+      restaurantId: '0aab499e-0be0-4c2b-adfd-7df576b8f0db',
+      remainingConnections: 0
+    }
+
+      at log (src/app/api/events/orders/route.ts:362:13)
+
+  console.log
+    [SSE] Connection 68a21895-734d-4045-89de-322fec53229d_1795181250276 cleaned up successfully
+
+      at log (src/app/api/events/orders/route.ts:383:13)
+
+  console.log
+    ⚠️ PostgreSQL LISTEN client disconnected
+
+      at Client.log (src/lib/postgres-pubsub.ts:306:17)
+
+PASS src/tests/integration/tenant-isolation.it.ts
+  database guard
+    ✓ accepts the guarded target of this run (3 ms)
+    ✓ rejects a non-loopback host (18 ms)
+    ✓ rejects a production-looking database name (1 ms)
+    ✓ rejects an unset variable with an actionable message (1 ms)
+    ✓ never echoes credentials in the rejection message (1 ms)
+    ✓ rejects query parameters that can redirect a validated URL (1 ms)
+    ✓ still accepts an ordinary schema query parameter (1 ms)
+  two-tenant isolation
+    ✓ order read: own tenant works; cross-tenant is refused without order data (115 ms)
+    ✓ order status: own tenant works; cross-tenant and missing are identical 404s, B unchanged (94 ms)
+    ✓ order list returns only the caller tenant rows (46 ms)
+    ✓ counter change feed is tenant-scoped from a real cursor (47 ms)
+    ✓ add items: own order succeeds; cross-tenant is refused and B is unchanged (127 ms)
+    ✓ cancel: own order succeeds; cross-tenant is refused and B is unchanged (108 ms)
+    ✓ print tickets: own fetch and ack work; cross-tenant fetch/ack are refused (89 ms)
+    ✓ RBAC: a staff user without orders:write is refused, then succeeds when granted (115 ms)
+    ✓ staff-event filter fails closed for missing or foreign restaurants
+    ✓ staff-event route refuses anonymous connections (12 ms)
+    ✓ staff-event route delivers A events to an A connection and drops B events (241 ms)
+
+Test Suites: 1 passed, 1 total
+Tests:       18 passed, 18 total
+Snapshots:   0 total
+Time:        3.43 s
+Ran all test suites.
+integration run 1 exit: 0

@@ -75,7 +75,22 @@ export async function POST(
     if (denied) return denied;
     requireAuth(context);
     requirePermission(context!, 'payments', 'write');
-    await requireOrderAccess(orderId, context!);
+    try {
+      await requireOrderAccess(orderId, context!);
+    } catch (error) {
+      // Cross-tenant (403) and missing (404) are both 404 ORDER_NOT_FOUND so a
+      // tenant cannot probe another's order ids.
+      if (
+        error instanceof RBACError &&
+        (error.statusCode === 403 || error.statusCode === 404)
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found', code: 'ORDER_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
 
     const restaurantId = context!.restaurantId;
     if (!restaurantId) {

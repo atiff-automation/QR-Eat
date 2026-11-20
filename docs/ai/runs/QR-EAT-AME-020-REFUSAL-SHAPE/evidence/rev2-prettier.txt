@@ -1,0 +1,4 @@
+$ npx prettier --check <changed source/test files>
+Checking formatting...
+All matched files use Prettier code style!
+prettier exit: 0

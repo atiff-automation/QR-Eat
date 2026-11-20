@@ -1,0 +1,2 @@
+$ npx eslint <all changed order/SSE/test files>
+eslint exit: 0

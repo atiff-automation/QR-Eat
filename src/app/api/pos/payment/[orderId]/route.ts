@@ -19,6 +19,7 @@ import {
   requirePermission,
 } from '@/lib/tenant-context';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
+import { RBACError } from '@/lib/rbac/types';
 import {
   PAYMENT_STATUS,
   ORDER_STATUS,
@@ -55,7 +56,22 @@ export async function POST(
     requirePermission(context!, 'payments', 'write');
 
     // ✅ NEW: Validate resource access (IDOR protection)
-    await requireOrderAccess(orderId, context!);
+    try {
+      await requireOrderAccess(orderId, context!);
+    } catch (error) {
+      // Cross-tenant (403) and missing (404) are both 404 ORDER_NOT_FOUND so a
+      // tenant cannot probe another's order ids.
+      if (
+        error instanceof RBACError &&
+        (error.statusCode === 403 || error.statusCode === 404)
+      ) {
+        return NextResponse.json(
+          { success: false, error: 'Order not found', code: 'ORDER_NOT_FOUND' },
+          { status: 404 }
+        );
+      }
+      throw error;
+    }
 
     const { userId, userType } = context!;
 

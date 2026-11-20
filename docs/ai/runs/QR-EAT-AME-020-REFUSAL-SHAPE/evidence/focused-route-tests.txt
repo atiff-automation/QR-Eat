@@ -1,0 +1,9 @@
+PASS src/tests/order-get-route.test.ts
+PASS src/tests/counter-order-refusal-shape.test.ts
+PASS src/tests/events-orders-auth.test.ts
+
+Test Suites: 3 passed, 3 total
+Tests:       22 passed, 22 total
+Snapshots:   0 total
+Time:        0.796 s, estimated 1 s
+Ran all test suites matching /src\/tests\/order-get-route.test.ts|src\/tests\/events-orders-auth.test.ts|src\/tests\/counter-order-refusal-shape.test.ts/i.

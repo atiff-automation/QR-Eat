@@ -22,6 +22,12 @@ import {
   resolveOrderPrintAuthority,
 } from '@/lib/services/order-dispatch-service';
 
+const ORDER_NOT_FOUND_BODY = {
+  success: false,
+  error: 'Order not found',
+  code: 'ORDER_NOT_FOUND',
+} as const;
+
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,23 +45,6 @@ export async function PATCH(
 
     const { status, estimatedReadyTime } = await request.json();
     const { id: orderId } = await params;
-
-    if (status === ORDER_STATUS.SERVED) {
-      const activeRecall = await prisma.stationOrderRecall.findFirst({
-        where: { orderId, resolvedAt: null },
-        select: { id: true },
-      });
-      if (activeRecall) {
-        return NextResponse.json(
-          {
-            error:
-              'This ticket was recalled by the kitchen and cannot be served',
-            code: 'ORDER_RECALLED',
-          },
-          { status: 409 }
-        );
-      }
-    }
 
     // Validate status
     const validStatuses = Object.values(ORDER_STATUS);
@@ -89,7 +78,38 @@ export async function PATCH(
     });
 
     if (!currentOrder) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+    }
+
+    // Fail closed for every non-admin caller whose current restaurant is not
+    // the order's restaurant: a foreign id must be indistinguishable from a
+    // missing one. Platform-admin mutation behaviour is intentionally unchanged
+    // here and tracked as a separate policy question.
+    if (
+      !context.isAdmin &&
+      currentOrder.restaurantId !== context.restaurantId
+    ) {
+      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+    }
+
+    // The recall check is order-specific, so it runs only after the tenant
+    // boundary has been resolved. A cross-tenant SERVED probe must not learn
+    // anything from another tenant's recall rows.
+    if (status === ORDER_STATUS.SERVED) {
+      const activeRecall = await prisma.stationOrderRecall.findFirst({
+        where: { orderId, resolvedAt: null },
+        select: { id: true },
+      });
+      if (activeRecall) {
+        return NextResponse.json(
+          {
+            error:
+              'This ticket was recalled by the kitchen and cannot be served',
+            code: 'ORDER_RECALLED',
+          },
+          { status: 409 }
+        );
+      }
     }
 
     // Check if user has permission to update this order
