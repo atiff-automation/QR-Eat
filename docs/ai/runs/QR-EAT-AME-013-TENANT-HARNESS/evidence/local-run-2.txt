@@ -1,0 +1,25 @@
+QR-EAT-AME-013 — local integration run 2 (same database, immediately after run 1)
+Date: 2026-11-20
+Purpose: idempotence and deterministic cleanup.
+
+Command:
+  INTEGRATION_DATABASE_URL=<guarded loopback target> npm run test:integration
+
+Result: exit 0
+PASS src/tests/integration/tenant-isolation.it.ts
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Time:        2.497 s
+
+Post-run cleanup (tenant rows):
+restaurants=0
+orders=0
+order_events=0
+restaurant_changes=0
+audit_logs=0
+rbac_logs=0
+user_sessions=0
+order_modification_items=0
+
+The second consecutive run needed no manual reset: fixtures converged on the
+same slugs/emails/role names and the first run's cleanup left no tenant rows.

@@ -55,3 +55,50 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  integration:
+    name: Two-tenant isolation (PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qreat_integration
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d qreat_integration"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      CI: true
+      DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qreat_integration
+      INTEGRATION_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/qreat_integration
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Apply migrations to the disposable database
+        run: npx prisma migrate deploy
+
+      - name: Two-tenant isolation suite
+        run: npm run test:integration

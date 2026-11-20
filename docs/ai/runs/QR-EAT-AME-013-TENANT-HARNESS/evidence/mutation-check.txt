@@ -1,0 +1,62 @@
+QR-EAT-AME-013 — mutation check (D7): the suite fails when a tenant predicate is removed
+Date: 2026-11-20
+
+> Note (Lead, after REVIEW-02 L-01): this transcript predates correction cycle 1,
+> so the assertion line numbers it quotes belong to the cycle-0 suite. The
+> substantive result — 1 failed / 16 passed, cross-tenant read returned 200 — was
+> independently reproduced by both verifiers against the corrected suite
+> (`REVIEW-01.md`, `REVIEW-02.md`). The mutation itself is unchanged.
+
+Method: copy the real route file, remove only one tenant check, run the
+suite, capture the failure, restore the original byte-for-byte from the copy.
+
+Mutation applied to src/app/api/orders/[id]/route.ts (GET handler):
+  - removed: await requireOrderAccess(orderId, context!);  (first occurrence)
+  - the PATCH handler's identical check was left intact
+
+Command: INTEGRATION_DATABASE_URL=<guarded loopback target> npx jest --config jest.integration.config.js --runInBand
+
+Result: exit 1 — the cross-tenant assertion caught the regression:
+FAIL src/tests/integration/tenant-isolation.it.ts
+    ✓ accepts the guarded target of this run (2 ms)
+    ✓ rejects a non-loopback host (16 ms)
+    ✓ rejects a production-looking database name (1 ms)
+    ✓ rejects an unset variable with an actionable message (1 ms)
+    ✓ never echoes credentials in the rejection message (14 ms)
+    ✕ order read: own tenant works; cross-tenant is refused without order data (99 ms)
+    ✓ order list returns only the caller tenant rows (43 ms)
+    ✓ counter change feed is tenant-scoped from a real cursor (53 ms)
+    ✓ add items: own order succeeds; cross-tenant is refused and B is unchanged (127 ms)
+    ✓ cancel: own order succeeds; cross-tenant is refused and B is unchanged (109 ms)
+    ✓ print tickets: own fetch and ack work; cross-tenant fetch/ack are refused (95 ms)
+    ✓ RBAC: a staff user without orders:write is refused, then succeeds when granted (136 ms)
+    ✓ staff-event filter fails closed for missing or foreign restaurants (2 ms)
+    ✓ staff-event route refuses anonymous connections (21 ms)
+    ✓ staff-event route delivers A events to an A connection and drops B events (240 ms)
+  ● two-tenant isolation › order read: own tenant works; cross-tenant is refused without order data
+    Expected: not 200
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 16 passed, 17 total
+
+Failure detail:
+  ● two-tenant isolation › order read: own tenant works; cross-tenant is refused without order data
+
+    expect(received).not.toBe(expected) // Object.is equality
+
+    Expected: not 200
+
+      342 |     // The suite's security invariant: no order payload, no identifiers.
+    > 343 |     expect(cross.status).not.toBe(200);
+          |                              ^
+      344 |     expect([403, 404]).toContain(cross.status);
+      345 |     expect(cross.body.order).toBeUndefined();
+
+  The mutated route returned tenant B's order to tenant A's session with HTTP
+  200; the test failed on the first cross-tenant assertion. Unmutated runs pass.
+  This check was repeated against the final suite (post-format) with the same
+  result; the route file was restored byte-for-byte and `git diff` is empty.
+
+Restore verification:
+  cp <backup> src/app/api/orders/[id]/route.ts
+  git diff --stat -- 'src/app/api/orders/[id]/route.ts' -> (empty)
+  git status --porcelain | grep -E 'src/app|src/lib|prisma' -> (empty)
