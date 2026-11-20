@@ -1,0 +1,286 @@
+$ CI=true JWT_SECRET=<ephemeral> NEXTAUTH_SECRET=<ephemeral> NEXT_PUBLIC_APP_URL=http://localhost:3000 npm run build
+
+> tabtep@0.1.0 build
+> next build
+
+   ▲ Next.js 15.5.9
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ✓ (serwist) Bundling the service worker script with the URL '/sw.js' and the scope '/'...
+ ✓ Compiled successfully in 11.6s
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+   Generating static pages (0/144) ...
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+   Generating static pages (36/144) 
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+🔧 JWT_CONFIG initialized: { expiresIn: '5m', fromEnv: '5m', fallback: '30m', usingEnv: true }
+   Generating static pages (72/144) 
+   Generating static pages (108/144) 
+ ✓ Generating static pages (144/144)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                           Size  First Load JS
+┌ ○ /                                                178 B         112 kB
+├ ○ /_not-found                                      580 B         104 kB
+├ ○ /admin/dashboard                               5.06 kB         120 kB
+├ ○ /admin/permissions                             4.72 kB         129 kB
+├ ○ /admin/restaurants                              3.4 kB         118 kB
+├ ƒ /admin/restaurants/[id]/edit                   3.11 kB         118 kB
+├ ○ /admin/restaurants/new                         2.53 kB         120 kB
+├ ○ /admin/settings                                3.75 kB         118 kB
+├ ○ /admin/users                                   3.47 kB         118 kB
+├ ƒ /api/admin/analytics/roles                       580 B         104 kB
+├ ƒ /api/admin/analytics/roles/export                580 B         104 kB
+├ ƒ /api/admin/audit/user-roles                      580 B         104 kB
+├ ƒ /api/admin/audit/user-roles/export               580 B         104 kB
+├ ƒ /api/admin/database/index-stats                  580 B         104 kB
+├ ƒ /api/admin/expenses                              580 B         104 kB
+├ ƒ /api/admin/expenses/[id]                         580 B         104 kB
+├ ƒ /api/admin/expenses/categories                   580 B         104 kB
+├ ƒ /api/admin/expenses/categories/[id]              580 B         104 kB
+├ ƒ /api/admin/expenses/summary                      580 B         104 kB
+├ ƒ /api/admin/menu/bulk                             580 B         104 kB
+├ ƒ /api/admin/menu/categories                       580 B         104 kB
+├ ƒ /api/admin/menu/categories/[id]                  580 B         104 kB
+├ ƒ /api/admin/menu/export                           580 B         104 kB
+├ ƒ /api/admin/menu/import                           580 B         104 kB
+├ ƒ /api/admin/menu/items                            580 B         104 kB
+├ ƒ /api/admin/menu/items/[id]                       580 B         104 kB
+├ ƒ /api/admin/menu/items/[id]/availability          580 B         104 kB
+├ ƒ /api/admin/permissions                           580 B         104 kB
+├ ƒ /api/admin/reports/profit-loss                   580 B         104 kB
+├ ƒ /api/admin/restaurants                           580 B         104 kB
+├ ƒ /api/admin/role-templates                        580 B         104 kB
+├ ƒ /api/admin/role-templates/[template]             580 B         104 kB
+├ ƒ /api/admin/settings                              580 B         104 kB
+├ ƒ /api/admin/staff                                 580 B         104 kB
+├ ƒ /api/admin/staff/[id]                            580 B         104 kB
+├ ƒ /api/admin/staff/roles                           580 B         104 kB
+├ ƒ /api/admin/users                                 580 B         104 kB
+├ ƒ /api/admin/users/bulk                            580 B         104 kB
+├ ƒ /api/analytics/dashboard                         580 B         104 kB
+├ ƒ /api/auth/change-password                        580 B         104 kB
+├ ƒ /api/auth/login                                  580 B         104 kB
+├ ƒ /api/auth/logout                                 580 B         104 kB
+├ ƒ /api/auth/me                                     580 B         104 kB
+├ ƒ /api/auth/rbac-login                             580 B         104 kB
+├ ƒ /api/auth/rbac-logout                            580 B         104 kB
+├ ƒ /api/auth/rbac-me                                580 B         104 kB
+├ ƒ /api/auth/refresh                                580 B         104 kB
+├ ƒ /api/auth/reset-password                         580 B         104 kB
+├ ƒ /api/auth/security-log                           580 B         104 kB
+├ ƒ /api/auth/sessions                               580 B         104 kB
+├ ƒ /api/auth/sessions/[id]                          580 B         104 kB
+├ ƒ /api/auth/sessions/revoke-all                    580 B         104 kB
+├ ƒ /api/auth/staff-password-request                 580 B         104 kB
+├ ƒ /api/auth/switch-role                            580 B         104 kB
+├ ƒ /api/auth/validate-token                         580 B         104 kB
+├ ƒ /api/counter/bootstrap                           580 B         104 kB
+├ ƒ /api/counter/business-day                        580 B         104 kB
+├ ƒ /api/counter/business-day/cancel-close           580 B         104 kB
+├ ƒ /api/counter/business-day/close                  580 B         104 kB
+├ ƒ /api/counter/business-day/close/[id]             580 B         104 kB
+├ ƒ /api/counter/business-day/close/[id]/pdf         580 B         104 kB
+├ ƒ /api/counter/business-day/opening-float          580 B         104 kB
+├ ƒ /api/counter/business-day/start-close            580 B         104 kB
+├ ƒ /api/counter/changes                             580 B         104 kB
+├ ƒ /api/counter/loyalty/notice                      580 B         104 kB
+├ ƒ /api/counter/menu                                580 B         104 kB
+├ ƒ /api/counter/menu/availability                   580 B         104 kB
+├ ƒ /api/counter/menu/items/[itemId]/availability    580 B         104 kB
+├ ƒ /api/counter/offline/orders                      580 B         104 kB
+├ ƒ /api/counter/orders                              580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/bill               580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/member             580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/member/remove      580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/pay                580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/print-ack          580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/print-tickets      580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/send               580 B         104 kB
+├ ƒ /api/counter/orders/[orderId]/ticket             580 B         104 kB
+├ ƒ /api/counter/orders/quote                        580 B         104 kB
+├ ƒ /api/counter/payments                            580 B         104 kB
+├ ƒ /api/counter/payments/[key]                      580 B         104 kB
+├ ƒ /api/counter/pending                             580 B         104 kB
+├ ƒ /api/counter/reports/daily                       580 B         104 kB
+├ ƒ /api/counter/reports/day                         580 B         104 kB
+├ ƒ /api/counter/reports/day/blockers                580 B         104 kB
+├ ƒ /api/counter/reports/day/orders                  580 B         104 kB
+├ ƒ /api/counter/reports/day/sales                   580 B         104 kB
+├ ƒ /api/counter/reports/top-items                   580 B         104 kB
+├ ƒ /api/counter/stations/health                     580 B         104 kB
+├ ƒ /api/counter/tables                              580 B         104 kB
+├ ƒ /api/counter/tables/[tableId]/bill               580 B         104 kB
+├ ƒ /api/counter/tables/[tableId]/clear              580 B         104 kB
+├ ƒ /api/counter/tables/[tableId]/member             580 B         104 kB
+├ ƒ /api/counter/tables/[tableId]/member/remove      580 B         104 kB
+├ ƒ /api/counter/takeaway                            580 B         104 kB
+├ ƒ /api/cron/cleanup-events                         580 B         104 kB
+├ ƒ /api/debug-auth                                  580 B         104 kB
+├ ƒ /api/debug-staff                                 580 B         104 kB
+├ ƒ /api/devices                                     580 B         104 kB
+├ ƒ /api/devices/[id]                                580 B         104 kB
+├ ƒ /api/devices/[id]/code                           580 B         104 kB
+├ ƒ /api/devices/[id]/revoke                         580 B         104 kB
+├ ƒ /api/devices/pair                                580 B         104 kB
+├ ƒ /api/devices/provision                           580 B         104 kB
+├ ƒ /api/devices/token                               580 B         104 kB
+├ ƒ /api/events/orders                               580 B         104 kB
+├ ƒ /api/events/station                              580 B         104 kB
+├ ƒ /api/health                                      580 B         104 kB
+├ ƒ /api/jobs/cleanup-tables                         580 B         104 kB
+├ ƒ /api/kitchen/categories                          580 B         104 kB
+├ ƒ /api/kitchen/items/[id]/status                   580 B         104 kB
+├ ƒ /api/kitchen/orders                              580 B         104 kB
+├ ƒ /api/members/[id]                                580 B         104 kB
+├ ƒ /api/members/[id]/export                         580 B         104 kB
+├ ƒ /api/members/[id]/marketing-consent              580 B         104 kB
+├ ƒ /api/members/[id]/withdraw-consent               580 B         104 kB
+├ ƒ /api/members/export                              580 B         104 kB
+├ ƒ /api/members/search                              580 B         104 kB
+├ ƒ /api/menu/[restaurantId]                         580 B         104 kB
+├ ƒ /api/notifications                               580 B         104 kB
+├ ƒ /api/notifications/[id]                          580 B         104 kB
+├ ƒ /api/orders                                      580 B         104 kB
+├ ƒ /api/orders/[id]                                 580 B         104 kB
+├ ƒ /api/orders/[id]/items                           580 B         104 kB
+├ ƒ /api/orders/[id]/modify                          580 B         104 kB
+├ ƒ /api/orders/[id]/ready                           580 B         104 kB
+├ ƒ /api/orders/[id]/recall                          580 B         104 kB
+├ ƒ /api/orders/[id]/refund                          580 B         104 kB
+├ ƒ /api/orders/[id]/status                          580 B         104 kB
+├ ƒ /api/orders/[id]/void                            580 B         104 kB
+├ ƒ /api/orders/list                                 580 B         104 kB
+├ ƒ /api/orders/live                                 580 B         104 kB
+├ ƒ /api/orders/stats                                580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/orders               580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/orders/[orderId]     580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/orders/stats         580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/staff                580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/staff/[staffId]      580 B         104 kB
+├ ƒ /api/owner/restaurants/[id]/stats                580 B         104 kB
+├ ƒ /api/owner/staff/[id]/reset-password             580 B         104 kB
+├ ƒ /api/pos/payment/[orderId]                       580 B         104 kB
+├ ƒ /api/pos/payment/table/[tableId]                 580 B         104 kB
+├ ƒ /api/promotions                                  580 B         104 kB
+├ ƒ /api/promotions/[id]                             580 B         104 kB
+├ ƒ /api/push/subscribe                              580 B         104 kB
+├ ƒ /api/push/unsubscribe                            580 B         104 kB
+├ ƒ /api/push/update-subscription                    580 B         104 kB
+├ ƒ /api/qr/[token]                                  580 B         104 kB
+├ ƒ /api/qr/cart/[tableId]                           580 B         104 kB
+├ ƒ /api/qr/cart/[tableId]/clear                     580 B         104 kB
+├ ƒ /api/qr/cart/add                                 580 B         104 kB
+├ ƒ /api/qr/cart/items/[itemId]                      580 B         104 kB
+├ ƒ /api/qr/orders/create                            580 B         104 kB
+├ ƒ /api/qr/orders/quote                             580 B         104 kB
+├ ƒ /api/rbac-protected/restaurant-management        580 B         104 kB
+├ ƒ /api/receipt/[restaurantId]/[receiptNumber]      580 B         104 kB
+├ ƒ /api/reports/daily/orders                        580 B         104 kB
+├ ƒ /api/reports/loyalty                             580 B         104 kB
+├ ƒ /api/reports/sales                               580 B         104 kB
+├ ƒ /api/reports/z                                   580 B         104 kB
+├ ƒ /api/reservations                                580 B         104 kB
+├ ƒ /api/restaurants                                 580 B         104 kB
+├ ƒ /api/restaurants/[id]                            580 B         104 kB
+├ ƒ /api/restaurants/[id]/hours                      580 B         104 kB
+├ ƒ /api/restaurants/[id]/profile                    580 B         104 kB
+├ ƒ /api/restaurants/by-slug/[slug]/public           580 B         104 kB
+├ ƒ /api/restaurants/owner                           580 B         104 kB
+├ ƒ /api/restaurants/profile-options                 580 B         104 kB
+├ ƒ /api/settings/restaurant                         580 B         104 kB
+├ ƒ /api/settings/restaurant/business-day            580 B         104 kB
+├ ƒ /api/settings/restaurant/financial               580 B         104 kB
+├ ƒ /api/settings/restaurant/general                 580 B         104 kB
+├ ƒ /api/settings/restaurant/hours                   580 B         104 kB
+├ ƒ /api/settings/restaurant/loyalty                 580 B         104 kB
+├ ƒ /api/settings/restaurant/notifications           580 B         104 kB
+├ ƒ /api/settings/restaurant/payments                580 B         104 kB
+├ ƒ /api/settings/restaurant/qr-ordering             580 B         104 kB
+├ ƒ /api/settings/restaurant/receipt                 580 B         104 kB
+├ ƒ /api/settings/restaurant/system                  580 B         104 kB
+├ ƒ /api/staff-roles                                 580 B         104 kB
+├ ƒ /api/staff/preferences                           580 B         104 kB
+├ ƒ /api/staff/roles                                 580 B         104 kB
+├ ƒ /api/stations                                    580 B         104 kB
+├ ƒ /api/stations/[id]                               580 B         104 kB
+├ ƒ /api/stations/me/heartbeat                       580 B         104 kB
+├ ƒ /api/stations/me/print-ack                       580 B         104 kB
+├ ƒ /api/stations/me/settings                        580 B         104 kB
+├ ƒ /api/stations/me/snapshot                        580 B         104 kB
+├ ƒ /api/subdomain/redirect                          580 B         104 kB
+├ ƒ /api/tables                                      580 B         104 kB
+├ ƒ /api/tables/[id]                                 580 B         104 kB
+├ ƒ /api/tables/[id]/orders                          580 B         104 kB
+├ ƒ /api/tables/[id]/qr-code                         580 B         104 kB
+├ ƒ /api/tables/[id]/regenerate-qr                   580 B         104 kB
+├ ƒ /api/tables/[id]/status                          580 B         104 kB
+├ ƒ /api/tables/bulk                                 580 B         104 kB
+├ ƒ /api/tables/bulk-qr                              580 B         104 kB
+├ ƒ /api/upload/image                                580 B         104 kB
+├ ƒ /api/upload/image/[filename]                     580 B         104 kB
+├ ƒ /api/uploads/[filename]                          580 B         104 kB
+├ ○ /change-password                               2.93 kB         114 kB
+├ ○ /dashboard                                      106 kB         293 kB
+├ ○ /dashboard/expenses                              201 B         217 kB
+├ ○ /dashboard/members                              6.9 kB         139 kB
+├ ○ /dashboard/menu                                31.9 kB         170 kB
+├ ƒ /dashboard/orders                              2.33 kB         176 kB
+├ ○ /dashboard/orders/live                            5 kB         116 kB
+├ ○ /dashboard/promotions                          6.95 kB         142 kB
+├ ○ /dashboard/reports                               170 B         107 kB
+├ ○ /dashboard/reports/daily                       3.07 kB         155 kB
+├ ○ /dashboard/reports/loyalty                     3.69 kB         136 kB
+├ ○ /dashboard/reports/profit-loss                   198 B         179 kB
+├ ○ /dashboard/reports/z                           1.39 kB         116 kB
+├ ○ /dashboard/security                            3.93 kB         122 kB
+├ ○ /dashboard/settings                            18.1 kB         150 kB
+├ ○ /dashboard/staff                               6.22 kB         134 kB
+├ ○ /dashboard/stations                            7.52 kB         140 kB
+├ ○ /dashboard/tables                                21 kB         178 kB
+├ ○ /forgot-password                                2.6 kB         117 kB
+├ ○ /icon.png                                          0 B            0 B
+├ ○ /kitchen                                       8.24 kB         133 kB
+├ ○ /login                                         3.12 kB         124 kB
+├ ○ /manifest.webmanifest                            580 B         104 kB
+├ ○ /offline                                       1.77 kB         109 kB
+├ ○ /owner/dashboard                               2.67 kB         114 kB
+├ ○ /owner/expenses                                  201 B         217 kB
+├ ○ /owner/reports/profit-loss                       198 B         179 kB
+├ ƒ /qr/[token]                                    18.4 kB         159 kB
+├ ƒ /receipt/[receiptNumber]                       4.08 kB         124 kB
+├ ○ /reset-password                                3.03 kB         118 kB
+├ ○ /restaurant-not-found                          2.26 kB         109 kB
+├ ƒ /restaurant/[slug]                             2.81 kB         125 kB
+├ ○ /restaurants                                   3.23 kB         118 kB
+├ ○ /simple-login                                  1.07 kB         112 kB
+├ ○ /staff-password-help                            2.5 kB         117 kB
+└ ○ /test                                            480 B         104 kB
++ First Load JS shared by all                       103 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js            54.2 kB
+  ├ chunks/8827-8fba9fa856de6f46.js                47.2 kB
+  └ other shared chunks (total)                       2 kB
+
+
+ƒ Middleware                                       42.3 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

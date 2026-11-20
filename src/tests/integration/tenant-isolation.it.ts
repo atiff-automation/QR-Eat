@@ -20,6 +20,7 @@ import {
   GET as getOrderRoute,
 } from '@/app/api/orders/[id]/route';
 import { PATCH as updateOrderStatusRoute } from '@/app/api/orders/[id]/status/route';
+import { PATCH as modifyOrderRoute } from '@/app/api/orders/[id]/modify/route';
 import { POST as addItemsRoute } from '@/app/api/orders/[id]/items/route';
 import { GET as getChangesRoute } from '@/app/api/counter/changes/route';
 import { GET as getPrintTicketsRoute } from '@/app/api/counter/orders/[orderId]/print-tickets/route';
@@ -106,6 +107,23 @@ async function updateOrderStatus(
   );
 }
 
+async function modifyOrder(
+  orderId: string,
+  actor: TenantActor,
+  payload: unknown
+): Promise<RouteResult> {
+  return readResponse(
+    await modifyOrderRoute(
+      request(`/api/orders/${orderId}/modify`, {
+        token: actor.token,
+        method: 'PATCH',
+        body: payload,
+      }),
+      { params: Promise.resolve({ id: orderId }) }
+    )
+  );
+}
+
 async function addItems(
   orderId: string,
   actor: TenantActor,
@@ -178,6 +196,22 @@ function addItemsBody(version: number, menuItemId: string, key?: string) {
     reason: 'customer_request',
     customerNotified: true,
     items: [{ menuItemId, quantity: 1 }],
+  };
+}
+
+function modifyBody(version: number, itemId: string, newQuantity = 2) {
+  return {
+    reason: 'customer_request',
+    customerNotified: true,
+    version,
+    idempotencyKey: randomUUID(),
+    itemChanges: [
+      {
+        itemId,
+        action: 'update_quantity',
+        newQuantity,
+      },
+    ],
   };
 }
 
@@ -392,6 +426,32 @@ describe('two-tenant isolation', () => {
     expect(missing.body).toEqual(cross.body);
   });
 
+  it('order read: anonymous is an exact 401 and the own-tenant read still works', async () => {
+    // The refusal is audited with userId 'anonymous'; capture the exact row ids
+    // this request creates so cleanup can delete them.
+    const before = await snapshotAnonymousRbacLogIds();
+
+    const anonymous = await readResponse(
+      await getOrderRoute(request(`/api/orders/${A.order.id}`), {
+        params: Promise.resolve({ id: A.order.id }),
+      })
+    );
+
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toEqual({
+      error: 'Authentication required',
+      code: 'AUTHENTICATION_REQUIRED',
+    });
+
+    const claimed = await claimAnonymousRbacLogsCreatedSince(before);
+    expect(claimed.length).toBeGreaterThan(0);
+
+    // Positive control: the same route with a tenant token still returns data.
+    const own = await getOrder(A.order.id, A.cashier.token);
+    expect(own.status).toBe(200);
+    expect(own.body.order.id).toBe(A.order.id);
+  });
+
   it('order status: own tenant works; cross-tenant and missing are identical 404s, B unchanged', async () => {
     const beforeB = await prisma.order.findUniqueOrThrow({
       where: { id: B.order.id },
@@ -436,6 +496,83 @@ describe('two-tenant isolation', () => {
       select: { status: true },
     });
     expect(afterA.status).toBe('PREPARING');
+  });
+
+  it('order modify: own order works; cross-tenant and missing are identical 404s, B unchanged', async () => {
+    const beforeB = await prisma.order.findUniqueOrThrow({
+      where: { id: B.order.id },
+      select: {
+        status: true,
+        version: true,
+        items: { select: { id: true, quantity: true } },
+      },
+    });
+    const bItemId = beforeB.items[0]?.id;
+    if (!bItemId) {
+      throw new Error('Fixture order B has no items');
+    }
+
+    const cross = await modifyOrder(
+      B.order.id,
+      A.manager,
+      modifyBody(beforeB.version, bItemId)
+    );
+    const missing = await modifyOrder(
+      randomUUID(),
+      A.manager,
+      modifyBody(beforeB.version, bItemId)
+    );
+
+    const notFound = {
+      success: false,
+      error: 'Order not found',
+      code: 'ORDER_NOT_FOUND',
+    };
+    expect(cross.status).toBe(404);
+    expect(cross.body).toEqual(notFound);
+    expect(missing.status).toBe(404);
+    expect(missing.body).toEqual(cross.body);
+    expect(JSON.stringify(cross.body)).not.toContain(B.order.id);
+    expect(JSON.stringify(cross.body)).not.toContain(B.restaurantId);
+
+    // No write side effect on the other tenant.
+    expect(
+      await prisma.order.findUniqueOrThrow({
+        where: { id: B.order.id },
+        select: {
+          status: true,
+          version: true,
+          items: { select: { id: true, quantity: true } },
+        },
+      })
+    ).toEqual(beforeB);
+    expect(
+      await prisma.orderModification.count({ where: { orderId: B.order.id } })
+    ).toBe(0);
+
+    // Positive control: A's manager modifies A's own PENDING order.
+    const own = await createTenantOrder(A, {
+      status: 'PENDING',
+      withTicket: false,
+    });
+    const ownItem = await prisma.orderItem.findFirstOrThrow({
+      where: { orderId: own.id },
+      select: { id: true },
+    });
+    const modified = await modifyOrder(
+      own.id,
+      A.manager,
+      modifyBody(own.version, ownItem.id)
+    );
+    expect(modified.status).toBe(200);
+    expect(modified.body.success).toBe(true);
+    expect(modified.body.order.version).toBe(own.version + 1);
+
+    const updatedItem = await prisma.orderItem.findUniqueOrThrow({
+      where: { id: ownItem.id },
+      select: { quantity: true },
+    });
+    expect(updatedItem.quantity).toBe(2);
   });
 
   // ---------------------------------------------------------------------

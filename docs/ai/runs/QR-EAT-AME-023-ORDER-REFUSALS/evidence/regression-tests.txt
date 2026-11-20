@@ -1,0 +1,14 @@
+$ npx jest src/tests/order-get-route.test.ts src/tests/order-status-refusal-shape.test.ts src/tests/order-add-items-route.test.ts src/tests/order-cancel-route.test.ts src/tests/counter-print-tickets-route.test.ts src/tests/counter-print-ack-route.test.ts src/tests/order-ready-route.test.ts --runInBand
+PASS src/tests/order-get-route.test.ts
+PASS src/tests/order-add-items-route.test.ts
+PASS src/tests/order-status-refusal-shape.test.ts
+PASS src/tests/counter-print-ack-route.test.ts
+PASS src/tests/order-cancel-route.test.ts
+PASS src/tests/counter-print-tickets-route.test.ts
+PASS src/tests/order-ready-route.test.ts
+
+Test Suites: 7 passed, 7 total
+Tests:       91 passed, 91 total
+Snapshots:   0 total
+Time:        1.307 s
+Ran all test suites matching /src\/tests\/order-get-route.test.ts|src\/tests\/order-status-refusal-shape.test.ts|src\/tests\/order-add-items-route.test.ts|src\/tests\/order-cancel-route.test.ts|src\/tests\/counter-print-tickets-route.test.ts|src\/tests\/counter-print-ack-route.test.ts|src\/tests\/order-ready-route.test.ts/i.

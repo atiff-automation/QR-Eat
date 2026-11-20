@@ -21,12 +21,11 @@ import {
   OrderDispatchError,
   resolveOrderPrintAuthority,
 } from '@/lib/services/order-dispatch-service';
-
-const ORDER_NOT_FOUND_BODY = {
-  success: false,
-  error: 'Order not found',
-  code: 'ORDER_NOT_FOUND',
-} as const;
+import {
+  authenticationRequiredResponse,
+  isAuthenticationFailure,
+  orderNotFoundResponse,
+} from '@/lib/api/refusals';
 
 export async function PATCH(
   request: NextRequest,
@@ -37,10 +36,7 @@ export async function PATCH(
     const context = await getTenantContext(request);
 
     if (!context) {
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+      return authenticationRequiredResponse();
     }
 
     const { status, estimatedReadyTime } = await request.json();
@@ -78,7 +74,7 @@ export async function PATCH(
     });
 
     if (!currentOrder) {
-      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+      return orderNotFoundResponse();
     }
 
     // Fail closed for every non-admin caller whose current restaurant is not
@@ -89,7 +85,7 @@ export async function PATCH(
       !context.isAdmin &&
       currentOrder.restaurantId !== context.restaurantId
     ) {
-      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+      return orderNotFoundResponse();
     }
 
     // The recall check is order-specific, so it runs only after the tenant
@@ -494,6 +490,9 @@ export async function PATCH(
       message: `Order status updated to ${status}`,
     });
   } catch (error) {
+    if (isAuthenticationFailure(error)) {
+      return authenticationRequiredResponse();
+    }
     console.error('Failed to update order status:', error);
     return NextResponse.json(
       { error: 'Failed to update order status' },

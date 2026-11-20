@@ -12,10 +12,16 @@ import {
 } from '@/lib/validation/order-modification-schemas';
 import { calculateOrderTotals, PAYMENT_STATUS } from '@/lib/order-utils';
 import { requireOrderAccess } from '@/lib/rbac/resource-auth';
+import { RBACError } from '@/lib/rbac/types';
 import {
   acquireOrderModificationLocks,
   reapplyPromotionForModifiedOrder,
 } from '@/lib/services/loyalty-order-modify-service';
+import {
+  authenticationRequiredResponse,
+  isAuthenticationFailure,
+  orderNotFoundResponse,
+} from '@/lib/api/refusals';
 
 /**
  * PATCH /api/orders/[id]/modify
@@ -43,7 +49,19 @@ export async function PATCH(
     requirePermission(context!, 'orders', 'write');
 
     // ✅ NEW: Validate resource access (IDOR protection)
-    await requireOrderAccess(orderId, context!);
+    try {
+      await requireOrderAccess(orderId, context!);
+    } catch (error) {
+      // Cross-tenant (403), missing (404) and platform-admin rejection all look
+      // like a missing order, so a tenant cannot probe another's ids.
+      if (
+        error instanceof RBACError &&
+        (error.statusCode === 403 || error.statusCode === 404)
+      ) {
+        return orderNotFoundResponse();
+      }
+      throw error;
+    }
 
     // Parse and validate input
     const body = await request.json();
@@ -401,6 +419,10 @@ export async function PATCH(
       isDuplicate: result.isDuplicate,
     });
   } catch (error) {
+    if (isAuthenticationFailure(error)) {
+      return authenticationRequiredResponse();
+    }
+
     console.error('Failed to modify order:', error);
     console.error('Error details:', {
       message: error instanceof Error ? error.message : 'Unknown error',

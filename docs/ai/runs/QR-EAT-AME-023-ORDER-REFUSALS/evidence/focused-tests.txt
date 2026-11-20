@@ -1,0 +1,30 @@
+$ npx jest src/tests/api-refusals.test.ts src/tests/order-anonymous-auth.test.ts src/tests/order-modify-refusal-shape.test.ts --runInBand --verbose
+PASS src/tests/order-modify-refusal-shape.test.ts
+  PATCH /api/orders/{id}/modify refusal shape
+    ✓ returns the same 404 ORDER_NOT_FOUND body for a foreign and a missing order (11 ms)
+    ✓ keeps a permission denial at 403 (12 ms)
+    ✓ keeps validation at 400 after the access check passes (3 ms)
+    ✓ keeps a genuine unexpected failure at 500 (2 ms)
+
+PASS src/tests/order-anonymous-auth.test.ts
+  anonymous order requests
+    ✓ GET /api/orders/{id} returns the shared 401 (2 ms)
+    ✓ PATCH /api/orders/{id} returns the shared 401 (1 ms)
+    ✓ PATCH /api/orders/{id}/status returns the shared 401 (1 ms)
+    ✓ PATCH /api/orders/{id}/modify returns the shared 401 (1 ms)
+    ✓ POST /api/orders/{id}/ready returns the shared 401 (2 ms)
+    ✓ POST /api/orders/{id}/recall returns the shared 401 (1 ms)
+    ✓ routes the refusal through requireAuth so the anonymous audit event is written (2 ms)
+
+PASS src/tests/api-refusals.test.ts
+  shared refusal helper
+    ✓ recognises the authentication failure thrown by requireAuth (1 ms)
+    ✓ returns the shared 401 body (1 ms)
+    ✓ returns the shared order-not-found 404 body
+    ✓ keeps the order-not-found body free of order data (1 ms)
+
+Test Suites: 3 passed, 3 total
+Tests:       15 passed, 15 total
+Snapshots:   0 total
+Time:        0.702 s, estimated 1 s
+Ran all test suites matching /src\/tests\/api-refusals.test.ts|src\/tests\/order-anonymous-auth.test.ts|src\/tests\/order-modify-refusal-shape.test.ts/i.

@@ -12,12 +12,11 @@ import { RBACError } from '@/lib/rbac/types';
 import { getOrderAdjustmentPolicy } from '@/lib/orders/order-adjustment-policy';
 import { isOrderBusinessDayClosed } from '@/lib/orders/order-business-day';
 import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
-
-const ORDER_NOT_FOUND_BODY = {
-  success: false,
-  error: 'Order not found',
-  code: 'ORDER_NOT_FOUND',
-} as const;
+import {
+  authenticationRequiredResponse,
+  isAuthenticationFailure,
+  orderNotFoundResponse,
+} from '@/lib/api/refusals';
 
 /**
  * Normalise a cross-tenant order (403), a missing order (404) and a platform
@@ -37,7 +36,7 @@ async function refuseUnlessOrderAccess(
       error instanceof RBACError &&
       (error.statusCode === 403 || error.statusCode === 404)
     ) {
-      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+      return orderNotFoundResponse();
     }
     throw error;
   }
@@ -136,7 +135,7 @@ export async function GET(
     });
 
     if (!order) {
-      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+      return orderNotFoundResponse();
     }
 
     // Fetch user details for modifications
@@ -237,6 +236,10 @@ export async function GET(
     });
   } catch (error) {
     console.error('Order fetch error:', error);
+
+    if (isAuthenticationFailure(error)) {
+      return authenticationRequiredResponse();
+    }
 
     if (error instanceof RBACError) {
       return NextResponse.json(
@@ -342,6 +345,9 @@ export async function PATCH(
     return NextResponse.json(result);
   } catch (error) {
     console.error('Order update error:', error);
+    if (isAuthenticationFailure(error)) {
+      return authenticationRequiredResponse();
+    }
     if (error instanceof RBACError) {
       return NextResponse.json(
         { error: error.message, code: error.code },

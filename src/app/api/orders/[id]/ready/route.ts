@@ -28,6 +28,12 @@ import {
   ORDER_ACTION,
   saveReceipt,
 } from '@/lib/order-idempotency';
+import { getTokenFromRequest } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/tenant-context';
+import {
+  authenticationRequiredResponse,
+  isAuthenticationFailure,
+} from '@/lib/api/refusals';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +47,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // No credentials at all is an authentication failure, not a kitchen
+    // permission failure. requireAuth also writes the anonymous audit event.
+    if (!getTokenFromRequest(request)) {
+      requireAuth(null);
+    }
+
     const actor = await resolveKitchenActor(request);
     if (!actor) {
       return error(
@@ -338,6 +350,9 @@ export async function POST(
 
     return NextResponse.json(responseBody);
   } catch (caught) {
+    if (isAuthenticationFailure(caught)) {
+      return authenticationRequiredResponse();
+    }
     if (caught instanceof Error && caught.message === 'VERSION_CONFLICT') {
       return error(
         'The order changed while you were marking it ready',

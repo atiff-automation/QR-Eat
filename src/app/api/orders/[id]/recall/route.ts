@@ -24,6 +24,12 @@ import {
 } from '@/lib/recall';
 import { recordOrderRecalled } from '@/lib/order-events';
 import { PostgresEventManager } from '@/lib/postgres-pubsub';
+import { getTokenFromRequest } from '@/lib/auth-utils';
+import { requireAuth } from '@/lib/tenant-context';
+import {
+  authenticationRequiredResponse,
+  isAuthenticationFailure,
+} from '@/lib/api/refusals';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,6 +47,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // No credentials at all is an authentication failure, not a recall
+    // permission failure. requireAuth also writes the anonymous audit event.
+    if (!getTokenFromRequest(request)) {
+      requireAuth(null);
+    }
+
     if (!isRecallEnabled()) {
       return errorResponse(
         'Kitchen recall is not enabled',
@@ -297,6 +309,9 @@ export async function POST(
       order: result.order,
     });
   } catch (error) {
+    if (isAuthenticationFailure(error)) {
+      return authenticationRequiredResponse();
+    }
     if (error instanceof Error && error.message === 'VERSION_CONFLICT') {
       return errorResponse(
         'The order changed while you were recalling it',
