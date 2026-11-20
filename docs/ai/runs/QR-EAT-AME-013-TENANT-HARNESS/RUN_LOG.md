@@ -158,10 +158,24 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `76a24002-f404-43bb-b223-2bc89f877dff`, commit
+  `df4b6bf` (merge of `f92599e`), status `SUCCESS`, 2026-11-20.
+- CI (branch `feat/ame-013-tenant-harness`, commit `f92599e`): run
+  `44685856443` **success** — `verify` 1m47s (type-check, tests, build on Node 20)
+  and `integration` 53s (postgres:16 service, health check, `prisma migrate
+  deploy`, 17-test isolation suite). First real execution of the integration job.
+- Smoke test:
+  - `GET https://tabtep.app/api/health` → 200, `status: UP`,
+    `database: CONNECTED`, `env: production`, latency 19 ms, uptime 25 s.
+  - `GET https://tabtep.app/` → 200.
+  - `GET https://tabtep.app/api/events/orders` unauthenticated → 401.
+  - Startup log: pub/sub initialised, LISTEN client connected; error sweep
+    (`❌`, `Failed to publish`, `FATAL`) → 0.
+- Rollback: redeploy `1747e3c`. This release adds test infrastructure and CI only;
+  the application code is byte-identical to the previous deployment.
+- Monitoring: none added; the harness is CI-side. The next tenant-bearing route
+  should be added to `tenant-isolation.it.ts` as part of its own task.
 
 ## Lessons
 

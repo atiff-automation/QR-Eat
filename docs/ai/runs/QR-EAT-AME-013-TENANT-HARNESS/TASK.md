@@ -402,6 +402,12 @@ migration, seed, dependency or `jest.config.js` change; no `.env` or secret.
 above, plus pushing `feat/ame-013-tenant-harness` to run both CI jobs. Merge is
 not authorized until both are green.
 
+**Post-commit state:** commit `f92599e`; CI run `44685856443` **success** (verify
+1m47s, integration 53s — first run); merge `df4b6bf`; Railway deployment
+`76a24002-f404-43bb-b223-2bc89f877dff` `SUCCESS`; health UP, root 200, SSE 401,
+no migration, app code unchanged. Residual L-02 (anonymous RBAC attribution
+window) is recorded in `REVIEW-02.md`.
+
 ## Residual risks and follow-ups
 
 - **`AME-020` (found by this harness, `R2`).** `GET /api/orders/[id]` answers
