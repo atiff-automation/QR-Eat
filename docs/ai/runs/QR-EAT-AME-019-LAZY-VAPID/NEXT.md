@@ -8,48 +8,54 @@ Update at phase boundaries, before compaction, and before ending a session.
 Updated: 2026-11-20
 
 Task contract: `TASK.md`
-Task revision: 1 (planning; awaiting owner approval)
+Task revision: 1 (approved 2026-11-20)
 
-Current step: commit gate — awaiting owner authorization; then branch CI (AC5)
+Current step: complete (committed, CI green, merged and deployed)
 
 Last completed:
 
-- Revision 1 approved and implemented on `fix/ame-019-lazy-vapid`.
+- Revision 1 approved and implemented; verifier PASS WITH NOTES
+  (`REVIEW-01.md`), no blocker/high/medium.
 - VAPID configuration is lazy and cached; imports never throw; unconfigured or
   invalid sends are logged no-ops with no Prisma access; the configured path is
   unchanged.
-- Pre-fix build failure reproduced CI-faithfully (no `.env`, hard-linked
-  `node_modules`); post-fix no-VAPID build passes on Node 20.
-- `REVIEW-01.md`: PASS WITH NOTES (R-01–R-05), no blocker/high/medium.
-  R-01/R-04 fixed by the Lead; R-02/R-03/R-05 accepted as notes.
-- Full suite 1678 passed / 11 skipped; lint baseline unchanged.
-- No commit, push, deploy, migration or seed action.
+- Commit `5abad63`; branch CI `44644311211` **success** (AC5, Build included).
+- Merge `54993fe`; `main` CI `44647023835` **success** — first green `main` run in
+  recent history.
+- Railway deployment `589bd7a3-146e-4c10-8bd4-c28f1cdd0a17` `SUCCESS`; health UP,
+  database CONNECTED, root 200; no VAPID warnings in production logs.
+- No migration, seed or config change.
 
 In progress:
 
-- Nothing. Commit authorization pending.
+- Nothing.
 
 Next action:
 
-- On authorization: commit, push the branch, watch the CI run, and require
-  type-check + tests + Build green on Node 20 before any merge decision.
+- The pilot pre-gate decision (the two staff-feed reliability defects are fixed,
+  and CI is now trustworthy again).
+- Then `AME-013` (real Postgres two-tenant harness) if it is a pilot condition,
+  or `B3-C` in `../Tabtep-App` against the frozen contract.
+- `AME-017` remains deferred with its trigger conditions.
 
 Blockers:
 
-- AC5 requires the push.
+- None.
 
 Open decisions:
 
-- Merge/deploy after CI green (main auto-deploys; change is build-time only).
+- Whether the pilot pre-gate is satisfied now, or waits for `AME-013`.
+- When to start B3-C.
 
 Read first:
 
 - `TASK.md`
-- `RUN_LOG.md`
+- `REVIEW-01.md`
+- `RUN_LOG.md` (Release section)
 
 Do not:
 
-- Add secrets, inline a key or edit the CI workflow.
-- Merge, push to `main` or deploy without the required approval.
+- Start B3-C before the pilot pre-gate decision is recorded.
+- Change scope without a new task revision.
 - Print secrets or PII.
 - Trust chat memory over the files and live Git.

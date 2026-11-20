@@ -146,10 +146,26 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `589bd7a3-146e-4c10-8bd4-c28f1cdd0a17`, commit
+  `54993fe` (merge of `5abad63`), status `SUCCESS`, 2026-11-20.
+- AC5 CI gate: run `44644311211` on `fix/ame-019-lazy-vapid` (commit `5abad63`)
+  **success** — install, Prisma generate, type-check, tests, Build all green on
+  Node 20. First green `main` run in the recent history: `44647023835` on
+  `54993fe`, **success**, no failed steps.
+- Smoke test:
+  - `GET https://tabtep.app/api/health` → 200, `status: UP`,
+    `database: CONNECTED`, `env: production`, latency 12 ms, uptime 28 s.
+  - `GET https://tabtep.app/` → 200.
+  - Startup log: pub/sub initialised, LISTEN client connected.
+  - Log sweep for `VAPID configuration`, `Invalid VAPID`, `❌`,
+    `Failed to publish`, `FATAL` → 0 matches. Production supplies real VAPID
+    values, so push is configured rather than degraded; the no-op path is proven
+    only in tests and the CI build.
+- Rollback: redeploy `06807c2`; no migration, schema or config change.
+- Monitoring: the only runtime signal for a missing or malformed VAPID key is now
+  the single `[Push] VAPID configuration ... push notifications are disabled`
+  line. Alert on it if push availability matters.
 
 ## Lessons
 

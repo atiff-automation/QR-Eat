@@ -334,7 +334,10 @@ to run CI (AC5), and merge/deploy is a separate decision after a green run.
 above, plus pushing `fix/ame-019-lazy-vapid` to run the AC5 CI gate. Merge and
 deploy are not authorized until CI is green.
 
-**Post-commit state:** pending — recorded after the CI run.
+**Post-commit state:** commit `5abad63`; branch CI `44644311211` **success**
+(AC5); merge `54993fe` on `main`; main CI `44647023835` **success**; Railway
+deployment `589bd7a3-146e-4c10-8bd4-c28f1cdd0a17` `SUCCESS`, health UP, no
+migration.
 
 ## Residual risks and follow-ups
 
