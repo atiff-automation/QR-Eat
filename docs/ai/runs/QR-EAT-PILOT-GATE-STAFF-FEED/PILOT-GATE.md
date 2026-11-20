@@ -111,6 +111,7 @@ leak on the order surface today, and both are tracked with defined scope.
 | Decided by | Atiff |
 | Date | 2026-11-21 |
 | Conditions accepted | The §6 first-session checklist is executed and recorded on the first pilot session. Any duplicate-frame result or failure to resume after a database restart reopens the relevant AME item before the pilot continues. |
+| Condition status (2026-11-21) | **Technical equivalents executed in production** (see §9): exactly-once frames for create/add/cancel on two concurrent streams, and recovery after an administrator database restart with no client reconnect. Outstanding: the same observation on two real staff devices, plus the visual "row appears once" confirmation. |
 | Follow-ups started | `AME-024` (tables/restaurants), `AME-022` (admin policy) |
 | Not conditions | `AME-021` (RLS) is pre-scale; `AME-017` is cosmetic |
 
@@ -118,6 +119,44 @@ leak on the order surface today, and both are tracked with defined scope.
 the observation checklist is run on the first session and its result recorded.
 A duplicate refresh, or a stream that does not resume after a database restart,
 is a stop-and-reopen event, not a note.
+
+## 9. Production check — 2026-11-21
+
+Run against `https://tabtep.app` (deployment at `5dc8c8d` / `0425940`) with a
+signed-in owner session, driven through the authenticated browser. No
+credentials were written to chat, logs or evidence.
+
+**Method:** two concurrent `EventSource` connections to `/api/events/orders` from
+the same authenticated page; count frames by type per stream; trigger actions
+through the real API; then restart the Railway PostgreSQL service and repeat one
+action.
+
+| Step | Action | Result |
+|---|---|---|
+| 1 | Two concurrent streams open | Both `readyState=1`, one `connection` frame each, zero errors |
+| 2 | Create order (takeaway, routed to station) | `201`, status `CONFIRMED`, ticket `QUEUED`; each stream **exactly one** `order_created`, one `order_status_changed`, one `kitchen_notification` |
+| 3 | Add one item | `200`, version `2 → 3`; each stream **exactly one** `order_items_added` |
+| 4 | Cancel the order | `200`; each stream **exactly one** `order_cancelled` |
+| 5 | Restart the PostgreSQL service | Server log: `terminating connection due to administrator command`, `Attempting to reconnect (1/5)` ×2, then `PostgreSQL LISTEN client connected` ×2. Both streams stayed open (`readyState=1`, **zero** errors) |
+| 6 | Create order after the restart | `201`; each stream **exactly one** `order_created`, one `order_status_changed`, one `kitchen_notification`, **without reloading** |
+| 7 | Anonymous probes | `GET /api/orders` → 401; `GET /api/orders/{uuid}` → 401 `AUTHENTICATION_REQUIRED`; `GET /api/events/orders` → 401 |
+
+**Cleanup:** both created orders were cancelled (`200`); the streams were closed.
+No customer data, no PII, no credentials recorded.
+
+**What this proves:** exactly-once delivery on a live server, and recovery of the
+server-side listener after a real administrator restart, with the HTTP streams
+left intact.
+
+**What it does not prove:** the **cold-start** race (the server was warm; the
+duplicate defect needed two concurrent first connections on a cold process — that
+remains proven by the local two-tenant harness and the AME-015 module tests), and
+the visual two-device acceptance.
+
+**Observation for the backlog:** the restart produced **two** LISTEN reconnects,
+because Next bundles `instrumentation.ts` and the route as separate module graphs.
+That is the known `AME-017` condition, not a defect; it also confirms the fix
+holds in both graphs.
 
 ## 8. References
 
