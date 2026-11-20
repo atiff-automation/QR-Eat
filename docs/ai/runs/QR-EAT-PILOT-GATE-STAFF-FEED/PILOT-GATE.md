@@ -153,6 +153,13 @@ duplicate defect needed two concurrent first connections on a cold process — t
 remains proven by the local two-tenant harness and the AME-015 module tests), and
 the visual two-device acceptance.
 
+**Visual check attempted, not claimed:** a second browser tab on the web orders
+page was used to look for a duplicate row. The created takeaway order was not
+visible on that page at all (the API returned it), and the second tab showed a
+partial total after the database restart. Neither is evidence of duplicate frames;
+both are recorded as `AME-025` for investigation. The staff surface is the
+Android Counter, so this does not gate the pilot.
+
 **Observation for the backlog:** the restart produced **two** LISTEN reconnects,
 because Next bundles `instrumentation.ts` and the route as separate module graphs.
 That is the known `AME-017` condition, not a defect; it also confirms the fix
