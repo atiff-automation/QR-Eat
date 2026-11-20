@@ -16,10 +16,12 @@ Product-level work for the web/server repo. Android work lives in
 | ID | Area | Title | Risk | Status | Notes |
 |---|---|---|---|---|---|
 | AME-001 | security | Rotate exposed credentials and rewrite Git history | R3 | deferred | Accepted development risk; production gate before real users |
-| AME-002 | quality | Fix lint baseline (62 errors, 11 warnings) | R1 | ready | Separate task; do not mix with features |
+| AME-002 | quality | Fix lint baseline (61 errors, 11 warnings) | R1 | ready | Separate task; do not mix with features |
 | AME-003 | contract | Establish canonical API contract | R2 | in progress | Index created in `docs/PRODUCT/`; OpenAPI/typed clients still pending |
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
+| AME-013 | test-infra | Real Postgres two-tenant integration harness | R2 | correction | Verifier PASS WITH NOTES (`REVIEW-01.md`); R-01/R-02 in correction cycle 1. CI job added but unproven until the branch is pushed. Contract: `docs/ai/runs/QR-EAT-AME-013-TENANT-HARNESS/TASK.md` |
+| AME-020 | security | Normalise cross-tenant and anonymous refusals exposed by the AME-013 harness | R2 | ready | `GET /api/orders/[id]` returns 403 for another tenant's order vs 404 for a missing one (existence signal); `GET /api/events/orders` returns 500 without credentials instead of 401. Route/auth surface — do not start without approval |
 | AME-014 | contract | B3-S server add-on, cancellation, SSE/changes and `phase-b-counter-feed-v1` freeze | R3 | done | Verifier PASS (`REVIEW-02.md`); staging gate PASSED (`REVIEW-03.md`); merged `ab63894`; deployed `27852ccb…` SUCCESS, health UP, migrations applied, no seed |
 | AME-015 | reliability | Single-flight `pgPubSub.initialize()/subscribe()` for staff SSE | R2 | done | Verified PASS (`REVIEW-03.md`); commit `6a51d04`, merge `19cb485`, deployed `4657048f…` SUCCESS, health UP, no migration. Duplicate frames 2 → 0 in the local two-tenant harness; no production duplicate count claimed (no staff accounts). CI build red from missing VAPID secret (`AME-019`) |
 | AME-016 | reliability | Staff SSE reconnect drops per-connection `message` handlers | R2 | done | Verifier PASS (`REVIEW-01.md`); commit `312b09c`, merge `d6fc6ba`, deployed `8d457eb7…` SUCCESS, health UP, no migration. Reconnect survival proven at the module seam on a disposable PostgreSQL (1 frame post-fix, 0 pre-fix) |
@@ -35,7 +37,6 @@ Product-level work for the web/server repo. Android work lives in
 | AME-006 | Cross-repo contract change pilot | AME-003 | Freeze contract, then Tabtep session |
 | AME-007 | Tenant isolation T1–T7 remediation | AME-003, security review | Plan after contract baseline |
 | AME-012 | Audit-log retention/cleanup for print acks | AME-010 audit volume | Define schedule/retention; O-5 follow-up |
-| AME-013 | Real Postgres two-tenant integration harness | B3-S mocked-test scope | Add after B3-S; run before pilot/production; do not expand B3-S |
 
 ## Done
 

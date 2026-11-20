@@ -1,0 +1,74 @@
+QR-EAT-AME-013 — correction cycle 1, R-02 sentinel-survival proof
+Date: 2026-11-20
+Purpose: prove cleanup deletes by ownership, not by a time window. Rows owned by
+another actor/restaurant but dated inside the run must survive.
+
+Environment: fresh disposable PostgreSQL 16 cluster under /tmp/opencode
+(port 55434, trust auth, database qreat_integration, `prisma migrate deploy`,
+no `db:seed`). Never Railway, staging or a shared database.
+
+Sentinels inserted (all dated inside the old `createdAt >= startedAt` window):
+
+1. Mid-run sentinel pair — inserted by a background job 1.5 s after the suite
+   command started, so it landed while the suite was running.
+   security_events id=11111111-1111-4111-8111-111111111111
+     restaurantId=33333333-3333-4333-8333-333333333333 (foreign)
+     staffId=sentinel-actor-ame013, eventType=SENTINEL_AME013
+     createdAt=2026-11-20 11:49:48.096
+   rbac_logs id=22222222-2222-4222-8222-222222222222
+     userId=sentinel-actor-ame013, action=SECURITY_EVENT
+     createdAt=2026-11-20 11:49:48.096
+   Insert output: INSERT 0 1 (twice)
+
+2. Future-dated sentinel pair — inserted before run 2 with an explicit
+   `createdAt = now() + interval '1 hour'`, so it is unambiguously inside the
+   old `createdAt >= startedAt` predicate whatever the exact run start was.
+   security_events id=44444444-4444-4444-8444-444444444444
+     restaurantId=55555555-5555-4555-8555-555555555555 (foreign)
+     staffId=sentinel-actor-ame013, eventType=SENTINEL_AME013_FUTURE
+     createdAt=2026-11-20 12:50:02.159
+   rbac_logs id=66666666-6666-4666-8666-666666666666
+     userId=sentinel-actor-ame013, action=SECURITY_EVENT
+     createdAt=2026-11-20 12:50:02.159
+
+Run 1 (mid-run pair present):
+  INTEGRATION_DATABASE_URL=<guarded loopback target> npm run test:integration
+  PASS 17/17, 3.102 s, exit 0
+  security_sentinel=1
+  rbac_sentinel=1
+
+Run 2 (mid-run pair + future pair present):
+  INTEGRATION_DATABASE_URL=<guarded loopback target> npm run test:integration
+  PASS 17/17, 3.636 s, exit 0
+  mid_run_security=1
+  mid_run_rbac=1
+  future_security=1
+  future_rbac=1
+
+All four sentinels survived both runs. Under the previous cleanup code
+(`DELETE ... WHERE createdAt >= startedAt`) they would have been removed.
+
+Sentinel removal after the proof:
+  DELETE 2   (security_events where eventType like 'SENTINEL_AME013%')
+  DELETE 2   (rbac_logs where userId = 'sentinel-actor-ame013')
+
+Post-removal row scan on the same database:
+  - 40 tables have a `restaurantId` column; every one has 0 rows.
+  - Non-restaurant-scoped run tables all 0:
+      restaurants=0, restaurant_owners=0, staff=0, staff_roles=0,
+      user_sessions=0, order_items=0, order_modifications=0,
+      order_modification_items=0, station_categories=0, rbac_logs=0,
+      security_events=0, refresh_tokens=0
+  - Reference rows left in place (seed-defined RBAC templates used by the
+    fixture, plus rows seeded by migrations):
+      permissions=26
+      role_permissions=37
+        cashier=10, manager=23, kitchen_staff=3 (36 seed-template rows)
+        restaurant_owner=1 (pre-existing `restaurant_owner:menu:availability`
+        from migration 20261026160000, not created by this run)
+      _prisma_migrations=37
+
+Why the reference rows stay: they are the global RBAC definitions the fixture
+upserts (keys and membership now copied exactly from `prisma/seed.ts`), not
+tenant data. The manager template carries all 23 seed permissions; the three
+template counts match the seed exactly.

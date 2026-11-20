@@ -64,6 +64,38 @@ Known flaky tests:
 
 - None verified in this baseline run.
 
+## Testing
+
+Two suites, deliberately separate:
+
+| Suite | Command | Database | What it proves |
+|---|---|---|---|
+| Unit | `npm test -- --runInBand` | None — Prisma is mocked everywhere | Route and domain logic, error mapping, and tenant filters at the unit seam. Stays fast and database-free. |
+| Integration | `npm run test:integration` | Real disposable PostgreSQL | Two tenants with real rows: own-tenant order read/list/change-feed/write/tickets/RBAC succeed, and cross-tenant access is refused with positive controls. |
+
+Integration suite rules:
+
+- It reads `INTEGRATION_DATABASE_URL` only (never `DATABASE_URL` directly) and
+  refuses any host that is not loopback or any database name that does not match
+  `qreat_it*` or `*_integration`, before it connects or writes. Rejection
+  messages name the host and database only, never credentials.
+- Specs use `.it.ts` and `jest.integration.config.js` (`maxWorkers: 1`), so the
+  default `npm test` never picks them up.
+- Fixtures are synthetic (`@gate.invalid`, "Gate …" names) and the suite deletes
+  only the rows it created. A second consecutive run passes.
+- CI job `integration` runs it on every push against a health-checked
+  `postgres:16` service, independent of the `verify` job.
+
+Local run:
+
+```text
+initdb -D /tmp/<dir>/pg -A trust -U postgres --no-sync
+pg_ctl -D /tmp/<dir>/pg -o "-p 55434 -c listen_addresses=127.0.0.1 -c unix_socket_directories=/tmp/<dir>" start
+createdb -h 127.0.0.1 -p 55434 -U postgres qreat_integration
+DATABASE_URL=postgresql://postgres@127.0.0.1:55434/qreat_integration npx prisma migrate deploy
+INTEGRATION_DATABASE_URL=postgresql://postgres@127.0.0.1:55434/qreat_integration npm run test:integration
+```
+
 ## Architecture map
 
 | Path | Responsibility |

@@ -1,0 +1,46 @@
+QR-EAT-AME-013 — local integration run 1 (fresh disposable database)
+Date: 2026-11-20
+Branch: feat/ame-013-tenant-harness (base main 1747e3c)
+Node: v24.15.0
+Database target: loopback, database qreat_integration (no credentials recorded)
+
+Command:
+  INTEGRATION_DATABASE_URL=<guarded loopback target> npm run test:integration
+
+Result: exit 0
+PASS src/tests/integration/tenant-isolation.it.ts
+Test Suites: 1 passed, 1 total
+Tests:       17 passed, 17 total
+Time:        3.072 s
+
+Per-test list (same suite, verbose run):
+    ✓ accepts the guarded target of this run
+    ✓ rejects a non-loopback host
+    ✓ rejects a production-looking database name
+    ✓ rejects an unset variable with an actionable message
+    ✓ never echoes credentials in the rejection message
+    ✓ rejects query parameters that can redirect a validated URL
+    ✓ still accepts an ordinary schema query parameter
+    ✓ order read: own tenant works; cross-tenant is refused without order data
+    ✓ order list returns only the caller tenant rows
+    ✓ counter change feed is tenant-scoped from a real cursor
+    ✓ add items: own order succeeds; cross-tenant is refused and B is unchanged
+    ✓ cancel: own order succeeds; cross-tenant is refused and B is unchanged
+    ✓ print tickets: own fetch and ack work; cross-tenant fetch/ack are refused
+    ✓ RBAC: a staff user without orders:write is refused, then succeeds when granted
+    ✓ staff-event filter fails closed for missing or foreign restaurants
+    ✓ staff-event route refuses anonymous connections
+    ✓ staff-event route delivers A events to an A connection and drops B events
+
+Post-run cleanup (tenant rows):
+restaurants=0
+orders=0
+order_events=0
+restaurant_changes=0
+audit_logs=0
+rbac_logs=0
+user_sessions=0
+order_modification_items=0
+
+Note: permissions/role_permissions are canonical RBAC reference rows copied from
+prisma/seed.ts and upserted by the fixtures; they are intentionally not deleted.

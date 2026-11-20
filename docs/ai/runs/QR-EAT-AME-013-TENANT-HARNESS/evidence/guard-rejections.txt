@@ -1,0 +1,41 @@
+QR-EAT-AME-013 — database guard rejections (before any write)
+Date: 2026-11-20
+
+The guard runs in the Jest setupFiles phase, before any test module or
+database client is created. Each command below exits non-zero without
+connecting. All values used were throwaway; the fake password was checked
+to be absent from the output (0 occurrences).
+
+--- 1. Non-loopback host ---
+Command: INTEGRATION_DATABASE_URL=<fake-credential>@db.railway.internal:5432/qreat_integration npx jest --config jest.integration.config.js
+    IntegrationDatabaseGuardError: Refusing to run integration tests against host "db.railway.internal": the host must be loopback (localhost, 127.0.0.1 or ::1). INTEGRATION_DATABASE_URL must point at a disposable database, for example postgresql://<user>@127.0.0.1:5432/qreat_integration. The unit suite does not read it.
+Exit: 1
+
+--- 2. Loopback host, production-looking database name ---
+Command: INTEGRATION_DATABASE_URL=<fake-credential>@127.0.0.1:5432/qreat_production npx jest --config jest.integration.config.js
+    IntegrationDatabaseGuardError: Refusing to run integration tests against database "qreat_production" on "127.0.0.1": the name must match qreat_it* or *_integration (for example qreat_integration). INTEGRATION_DATABASE_URL must point at a disposable database, for example postgresql://<user>@127.0.0.1:5432/qreat_integration. The unit suite does not read it.
+Exit: 1
+
+--- 3. Host-override query parameter (valid host and name, redirected by ?host=) ---
+Command: INTEGRATION_DATABASE_URL=<fake-credential>@127.0.0.1:5432/qreat_integration?host=db.railway.internal npx jest --config jest.integration.config.js
+    IntegrationDatabaseGuardError: Refusing to run integration tests: query parameter "host" can redirect the connection and is not allowed in INTEGRATION_DATABASE_URL. INTEGRATION_DATABASE_URL must point at a disposable database, for example postgresql://<user>@127.0.0.1:5432/qreat_integration. The unit suite does not read it.
+Exit: 1
+
+--- 4. Variable unset ---
+Command: env -u INTEGRATION_DATABASE_URL npx jest --config jest.integration.config.js
+    IntegrationDatabaseGuardError: INTEGRATION_DATABASE_URL is not set. INTEGRATION_DATABASE_URL must point at a disposable database, for example postgresql://<user>@127.0.0.1:5432/qreat_integration. The unit suite does not read it.
+Exit: 1
+
+Credential leak check:
+  grep -c '<fake password>' on guard-host.log: 0 (expected 0)
+  grep -c '<fake password>' on guard-name.log: 0 (expected 0)
+  grep -c '<fake password>' on guard-redirect.log: 0 (expected 0)
+
+In-suite guard tests (pure functions, no connection):
+    ✓ accepts the guarded target of this run (3 ms)
+    ✓ rejects a non-loopback host (16 ms)
+    ✓ rejects a production-looking database name (1 ms)
+    ✓ rejects an unset variable with an actionable message (1 ms)
+    ✓ never echoes credentials in the rejection message (1 ms)
+    ✓ rejects query parameters that can redirect a validated URL
+    ✓ still accepts an ordinary schema query parameter
