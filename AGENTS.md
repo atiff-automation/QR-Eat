@@ -42,9 +42,10 @@ Keep business rules out of route handlers. Reuse existing domain services.
 ## Known baseline
 
 - Type-check passes.
-- Tests pass: 524 passed, 11 skipped at baseline.
+- Tests pass: 1678 passed, 11 skipped (139 suites passed, 1 skipped) at baseline
+  (includes the 11 AME-019 push-configuration tests).
 - Build passes.
-- Lint is red: 62 errors, 11 warnings. This is a pre-existing baseline.
+- Lint is red: 61 errors, 11 warnings. This is a pre-existing baseline.
 - Do not make whole-repo lint a hard gate until a separate cleanup task fixes it.
 - CI does not run lint yet.
 

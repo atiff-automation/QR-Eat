@@ -40,17 +40,18 @@ Seed:           npm run db:seed
 Production:     npm run start
 ```
 
-## Baseline — 2026-11-10
+## Baseline — 2026-11-20
 
-**Commit:** `5dd1b76` (clean 0.2.1 branch, after security cleanup)  
-**Branch:** `chore/ame-bootstrap-021`
+**Commit:** `06807c2` (`main`, before AME-019)
+**Branch:** `main` (counts measured on `fix/ame-019-lazy-vapid` before merge,
+including the 11 new AME-019 tests)
 
 | Check | Command | Result |
 |---|---|---|
 | Type-check | `npm run type-check` | PASS |
-| Test | `npm test -- --runInBand` | PASS — 57 suites, 524 tests, 11 skipped |
-| Build | `npm run build` | PASS |
-| Lint | `npm run lint` | FAIL — 62 errors, 11 warnings |
+| Test | `npm test -- --runInBand` | PASS — 140 suites (139 passed, 1 skipped), 1678 passed, 11 skipped tests |
+| Build | `npm run build` | PASS — including with no VAPID environment |
+| Lint | `npm run lint` | FAIL — 61 errors, 11 warnings |
 
 Known pre-existing failures:
 
@@ -157,7 +158,7 @@ not become the home of business rules.
   production or real-user access. Approval, conditions, and expiry:
   `docs/ai/AME_BOOTSTRAP.md` → Accepted development risk.
 - API contract is fragmented across QR-Eat and Tabtep-App docs.
-- Lint baseline is red (62 errors).
+- Lint baseline is red (61 errors).
 - Documentation drift: README says Next 14; package uses Next 15.
 - Tenant isolation gaps are documented in `Tabtep-App/docs/MASTER-REFERENCE.md`
   (T1–T7). Treat as security review input, not as fixed.

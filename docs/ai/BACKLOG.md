@@ -25,7 +25,7 @@ Product-level work for the web/server repo. Android work lives in
 | AME-016 | reliability | Staff SSE reconnect drops per-connection `message` handlers | R2 | done | Verifier PASS (`REVIEW-01.md`); commit `312b09c`, merge `d6fc6ba`, deployed `8d457eb7…` SUCCESS, health UP, no migration. Reconnect survival proven at the module seam on a disposable PostgreSQL (1 frame post-fix, 0 pre-fix) |
 | AME-017 | reliability | One LISTEN session per process instead of per module graph | R1 | deferred | Found during AME-015: Next bundles `instrumentation.ts` and the route separately, so each graph single-flights its own LISTEN client. Correctness is proven (one frame per connection); this only removes the extra idle session. Needs a shared module singleton; do not start without a plan |
 | AME-018 | reliability | NOTIFY client publication race with `cleanup()` | R1 | done | Shipped with AME-016 scope S4 (commit `312b09c`, deployed `8d457eb7…`): NOTIFY publication is ownership-gated, superseded clients are closed, and a waiting `notify()` gets the live client or a clean rejection instead of hanging |
-| AME-019 | ci | CI `Build` step fails: no `VAPID_PRIVATE_KEY` repository secret | R1 | ready | Every CI run (including `main`) fails at Build with “Missing VAPID configuration” while collecting page data for `/api/events/orders`. `gh secret list` is empty. Fix with a CI-only throwaway key secret or lazy VAPID init; never inline a real key |
+| AME-019 | ci | CI `Build` step fails: no `VAPID_PRIVATE_KEY` repository secret | R1 | in verification | Lazy VAPID configuration implemented; verifier PASS WITH NOTES (`REVIEW-01.md`). Awaiting commit + branch CI run (AC5). Contract: `docs/ai/runs/QR-EAT-AME-019-LAZY-VAPID/TASK.md` |
 
 
 ## Waiting

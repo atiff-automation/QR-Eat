@@ -11,25 +11,68 @@
  * - Batch sending with concurrency control
  * - Payload size validation (4KB limit)
  * - Comprehensive error logging
+ *
+ * VAPID configuration is resolved lazily on the first send attempt, never at
+ * module load, so importing this module (for example while `next build`
+ * collects page data) does not require runtime credentials. When configuration
+ * is missing or invalid, sends degrade to a logged no-op: `false` for a single
+ * subscription and `{sent: 0, failed: 0}` for batch/user sends.
  */
 
 import webpush from 'web-push';
 import { prisma } from '@/lib/database';
 
-// VAPID configuration
-const VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY!;
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!;
-const VAPID_SUBJECT = process.env.VAPID_SUBJECT!;
+const VAPID_ENV_VARS = [
+  'VAPID_PUBLIC_KEY',
+  'VAPID_PRIVATE_KEY',
+  'VAPID_SUBJECT',
+] as const;
 
-// Validate VAPID configuration on startup
-if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY || !VAPID_SUBJECT) {
-  throw new Error(
-    'Missing VAPID configuration. Please set VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, and VAPID_SUBJECT in .env'
-  );
+// Configured/not-configured outcome, resolved once per process on first send.
+// `undefined` means "not resolved yet"; a `false` result is cached so a missing
+// or invalid configuration logs once and every later send is a silent no-op.
+let vapidConfigured: boolean | undefined;
+
+/**
+ * Resolve and apply VAPID configuration exactly once per process.
+ *
+ * Reads the environment at call time, checks presence, and lets
+ * `webpush.setVapidDetails` validate key and subject format. Never throws:
+ * configuration problems are logged once and reported as `false`.
+ */
+function ensureVapidConfigured(): boolean {
+  if (vapidConfigured !== undefined) {
+    return vapidConfigured;
+  }
+
+  const publicKey = process.env.VAPID_PUBLIC_KEY;
+  const privateKey = process.env.VAPID_PRIVATE_KEY;
+  const subject = process.env.VAPID_SUBJECT;
+  const missing = VAPID_ENV_VARS.filter((name) => !process.env[name]);
+
+  if (!publicKey || !privateKey || !subject) {
+    console.warn(
+      `[Push] VAPID configuration missing (${missing.join(
+        ', '
+      )}); push notifications are disabled`
+    );
+    vapidConfigured = false;
+    return false;
+  }
+
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+    vapidConfigured = true;
+    return true;
+  } catch (error) {
+    console.error(
+      '[Push] Invalid VAPID configuration; push notifications are disabled:',
+      error instanceof Error ? error.message : error
+    );
+    vapidConfigured = false;
+    return false;
+  }
 }
-
-// Configure web-push with VAPID details
-webpush.setVapidDetails(VAPID_SUBJECT, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY);
 
 // Valid push service domains
 const VALID_PUSH_DOMAINS = [
@@ -109,6 +152,13 @@ class PushNotificationService {
     payload: NotificationPayload
   ): Promise<boolean> {
     try {
+      // Configuration is checked first: without it a send is a no-op, so an
+      // invalid endpoint must not delete the subscription and an oversized
+      // payload must not throw.
+      if (!ensureVapidConfigured()) {
+        return false;
+      }
+
       // Validate endpoint
       if (!this.isValidEndpoint(subscription.endpoint)) {
         console.warn(
@@ -166,6 +216,12 @@ class PushNotificationService {
     payload: NotificationPayload
   ): Promise<{ sent: number; failed: number }> {
     try {
+      // Config check before the fetch: an unconfigured process performs no
+      // queries and no writes, and returns the same no-op shape.
+      if (!ensureVapidConfigured()) {
+        return { sent: 0, failed: 0 };
+      }
+
       // Fetch all subscriptions for restaurant
       const subscriptions = await prisma.pushSubscription.findMany({
         where: { restaurantId },
@@ -236,6 +292,12 @@ class PushNotificationService {
     payload: NotificationPayload
   ): Promise<{ sent: number; failed: number }> {
     try {
+      // Config check before the fetch: an unconfigured process performs no
+      // queries and no writes, and returns the same no-op shape.
+      if (!ensureVapidConfigured()) {
+        return { sent: 0, failed: 0 };
+      }
+
       const subscriptions = await prisma.pushSubscription.findMany({
         where: {
           userId,
