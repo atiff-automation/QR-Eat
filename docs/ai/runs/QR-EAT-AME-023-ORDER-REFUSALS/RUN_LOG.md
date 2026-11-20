@@ -136,10 +136,34 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `636888ff-0236-4e42-bf8d-254e909a91da`, commit
+  `2eae635` (merge of `4c2ab2d`), status `SUCCESS`, 2026-11-21.
+- CI (branch `fix/ame-023-order-refusals`, commit `4c2ab2d`): run `44797626219`
+  **success** — `verify` (type-check, 1724 tests, build on Node 20) and
+  `integration` 50s (postgres:16, `migrate deploy`, 20 isolation assertions).
+- Smoke test (production):
+  - `GET /api/health` → 200, `UP`, database CONNECTED, latency 13 ms.
+  - `GET /` → 200.
+  - `GET /api/orders` unauthenticated → **401**.
+  - `GET /api/orders/{uuid}` unauthenticated → **401**
+    `{"error":"Authentication required","code":"AUTHENTICATION_REQUIRED"}` —
+    the direct confirmation of this task; it was a uniform `500` before.
+  - `GET /api/events/orders` unauthenticated → **401** (AME-020, unchanged).
+  - Startup log: pub/sub initialised; no anomalies observed.
+- Rollback: redeploy `6bca423`. Response-shape only; no migration, schema or
+  config change.
+- Monitoring: anonymous order reads now surface as 401 instead of 500, so 5xx
+  alerts stop firing on unauthenticated probes.
+
+### Outcome
+
+- Anonymous requests to the seven order routes are `401` with one shared body,
+  before any lookup, and the anonymous audit event behaviour is unchanged
+  (five routes log, `status` did not and still does not — recorded as L-01).
+- `modify` refusals are the same `404` as every other order route.
+- The S3 audit gives `AME-024` a concrete, reachability-aware scope: path-id
+  routes first, context-id routes are not caller-probeable.
 
 ## Lessons
 

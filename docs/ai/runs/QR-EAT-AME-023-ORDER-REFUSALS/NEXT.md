@@ -5,41 +5,54 @@ Bookmark only. TASK.md and live Git are authoritative.
 Update at phase boundaries, before compaction, and before ending a session.
 -->
 
-Updated: 2026-11-20
+Updated: 2026-11-21
 
 Task contract: `TASK.md`
-Task revision: 1 (planning; awaiting owner approval)
+Task revision: 1 (approved 2026-11-20)
 
-Current step: commit gate — awaiting owner authorization, then the CI gate
+Current step: complete (committed, both CI jobs green, merged and deployed)
 
 Last completed:
 
-- Revision 1 implemented and reviewed: `REVIEW-01.md` PASS WITH NOTES, no code
-  correction required.
-- Anonymous 401 on six order routes (cookie and Bearer verified); `modify`
-  refusals identical 404; audit event behaviour recorded (status writes none,
-  pre-existing).
-- Table/restaurant audit: 11 and 35 sites, with the path-id vs context-id
-  reachability distinction added to `AME-024`.
-- Local gates: 15 focused, 91 regression, 1724 full, integration 20/20 three
-  times.
-- No commit, push, CI run, deploy or shared-database action.
+- Revision 1 implemented and reviewed (`REVIEW-01.md` PASS WITH NOTES).
+- Shared response-only helper; anonymous 401 on the order routes (production
+  confirmed); `modify` refusals `404`; audit-event behaviour recorded (L-01).
+- Commit `4c2ab2d`; CI `44797626219` success (verify, integration 20 assertions);
+  merge `2eae635`; deployment `636888ff…` SUCCESS; health UP; anonymous order
+  read and SSE both `401` with the shared body; no migration.
+- S3 audit refined `AME-024`: path-id routes first; most restaurant sites pass
+  `context.restaurantId` and are not caller-probeable.
 
 In progress:
 
-- Nothing. Commit authorization pending.
+- Nothing.
 
 Next action:
 
-- On authorization: commit, push `fix/ame-023-order-refusals`, require both CI
-  jobs green, then the merge/deploy decision.
+- `AME-024` (`R2`, ready): table and `restaurants/[id]` refusal-shape
+  normalisation, starting with the path-id routes. Use the audit table.
+- Record the pilot pre-gate decision.
+- `AME-022` (`R3`, ready) is a policy decision: platform-admin business-data
+  mutation. `AME-021` (RLS) stays deferred.
 
 Blockers:
 
-- CI cannot run until the push.
+- None.
 
 Open decisions:
 
-- Merge after both jobs green.
-- `AME-024` should start with the path-id routes (`restaurants/[id]`, tables),
-  not the context-id ones.
+- Pilot pre-gate: is it satisfied now, or after `AME-024`?
+- `AME-022` admin policy.
+
+Read first:
+
+- `TASK.md`
+- `REVIEW-01.md`
+- `RUN_LOG.md` (Release section)
+
+Do not:
+
+- Treat table/restaurant refusal shapes as fixed; `AME-024` owns them.
+- Treat platform-admin status mutation as resolved; `AME-022`.
+- Print secrets or PII.
+- Trust chat memory over the files and live Git.

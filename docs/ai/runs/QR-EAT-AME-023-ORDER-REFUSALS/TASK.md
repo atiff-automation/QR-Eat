@@ -352,6 +352,11 @@ docs/ai/runs/QR-EAT-AME-023-ORDER-REFUSALS/evidence/integration-run2.txt
 above, plus pushing `fix/ame-023-order-refusals` to run both CI jobs. Merge is not
 authorized until both are green.
 
+**Post-commit state:** commit `4c2ab2d`; CI run `44797626219` **success**
+(verify, integration 20 assertions); merge `2eae635`; Railway deployment
+`636888ff-0236-4e42-bf8d-254e909a91da` `SUCCESS`; health UP; anonymous order read
+and SSE both `401` with the shared body; no migration.
+
 ## Residual risks and follow-ups
 
 - `AME-024`: table and restaurant refusal-shape normalisation, informed by the S3
