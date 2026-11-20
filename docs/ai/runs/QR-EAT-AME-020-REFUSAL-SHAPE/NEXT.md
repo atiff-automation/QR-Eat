@@ -8,35 +8,58 @@ Update at phase boundaries, before compaction, and before ending a session.
 Updated: 2026-11-20
 
 Task contract: `TASK.md`
-Task revision: 1 (planning; awaiting owner approval)
+Task revision: 2 (approved 2026-11-20)
 
-Current step: commit gate — awaiting owner authorization, then the CI gate
+Current step: complete (committed, both CI jobs green, merged and deployed)
 
 Last completed:
 
-- Revision 1 implemented and reviewed (`REVIEW-01.md`); revision 2 added the
-  status-route normalisation.
-- `REVIEW-02.md`: PASS WITH NOTES, F-1 closed, 16-route sweep found no remaining
-  order-id leak. R-01/R-02/R-03 and N-01–N-06 recorded.
-- Harness at 18 assertions; full suite 1709 passed / 11 skipped; integration
-  18/18 twice.
-- No commit, push, CI run, deploy or shared-database action.
+- Revision 1: order read/write refusal normalisation, SSE 401, four extra
+  call sites from the audit, harness tightened.
+- `REVIEW-01.md` PASS WITH NOTES → F-1 (status route leak) → revision 2.
+- Revision 2: status route identical 404, recall check moved behind the tenant
+  boundary, harness assertion added.
+- `REVIEW-02.md` PASS WITH NOTES: F-1 closed, 16-route sweep clean, four
+  mutation proofs.
+- Commit `e1e2da6`; CI `44748587813` success (verify 2m43s, integration 18
+  assertions); merge `8487f08`; deployment `8f775ad3…` SUCCESS; health UP, SSE
+  401, no migration.
+- Deploy smoke found a pre-existing anonymous 500 on `GET /api/orders/{id}`;
+  opened as `AME-023`.
 
 In progress:
 
-- Nothing. Commit authorization pending.
+- Nothing.
 
 Next action:
 
-- On authorization: commit, push `fix/ame-020-refusal-shape`, require both CI jobs
-  green, then the merge/deploy decision.
+- `AME-023` (`R2`, ready): fold the remaining refusal/status consistency into one
+  bounded task — `modify` 500→404, anonymous order-route 500→401, and the other
+  resource helpers' raw-403 pattern.
+- Record the pilot pre-gate decision (see below).
+- `AME-022` (`R3`, ready) is a policy decision: whether platform admins may
+  mutate tenant business data. Do not start without the owner's direction.
 
 Blockers:
 
-- CI cannot run until the push.
+- None.
 
 Open decisions:
 
-- Merge after both jobs green.
-- Platform-admin status mutation policy (tracked separately).
-- `modify` 500→404 follow-up; other resource helpers' refusal shape.
+- Pilot pre-gate: with AME-015/016/018/019/013/020 delivered and CI green, is the
+  gate satisfied before or after `AME-023`?
+- `AME-022` admin policy.
+- `AME-017` stays deferred; `AME-021` (RLS) stays deferred.
+
+Read first:
+
+- `TASK.md`
+- `REVIEW-02.md`
+- `RUN_LOG.md` (Release section)
+
+Do not:
+
+- Treat anonymous order-route 500s as fixed; `AME-023` owns that.
+- Treat platform-admin status mutation as resolved; `AME-022` owns the policy.
+- Print secrets or PII.
+- Trust chat memory over the files and live Git.

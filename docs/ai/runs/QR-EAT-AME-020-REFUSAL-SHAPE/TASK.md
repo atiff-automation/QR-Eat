@@ -401,6 +401,12 @@ or `.env` change.
 above, plus pushing `fix/ame-020-refusal-shape` to run both CI jobs. Merge is not
 authorized until both are green.
 
+**Post-commit state:** commit `e1e2da6`; CI run `44748587813` **success**
+(verify 2m43s, integration 18 assertions); merge `8487f08`; Railway deployment
+`8f775ad3-a60c-488e-875d-6c6a4a5d8e11` `SUCCESS`; health UP, SSE 401, no
+migration. Smoke found a pre-existing anonymous-500 on the order read route,
+recorded as `AME-023`.
+
 ## Residual risks and follow-ups
 
 - `AME-021` (RLS defense-in-depth) remains deferred.

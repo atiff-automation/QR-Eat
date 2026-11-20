@@ -147,10 +147,28 @@ Not verified:
 
 ## Release
 
-- Deployed: no
-- Smoke test: n/a
-- Rollback: n/a
-- Monitoring: n/a
+- Deployed: **yes** — Railway service `QR-Eat` (project `grand-tranquility`,
+  production), deployment `8f775ad3-a60c-488e-875d-6c6a4a5d8e11`, commit
+  `8487f08` (merge of `e1e2da6`), status `SUCCESS`, 2026-11-20.
+- CI (branch `fix/ame-020-refusal-shape`, commit `e1e2da6`): run `44748587813`
+  **success** — `verify` 2m43s (type-check, 1709 tests, build on Node 20) and
+  `integration` green (postgres:16, `migrate deploy`, 18 isolation assertions).
+- Smoke test:
+  - `GET https://tabtep.app/api/health` → 200, `UP`, database CONNECTED,
+    latency 6 ms, production.
+  - `GET https://tabtep.app/` → 200.
+  - `GET https://tabtep.app/api/events/orders` unauthenticated → **401** (the
+    defect this task fixed).
+  - `GET https://tabtep.app/api/orders` unauthenticated → 401.
+  - `GET https://tabtep.app/api/orders/{uuid}` unauthenticated → **500**
+    `{"error":"Failed to fetch order"}`. No existence leak (auth fails before the
+    order lookup, so every id is identical), but the status class is wrong and
+    inconsistent with the list route. **Pre-existing**, outside this task's D5
+    (which covered SSE only); opened as `AME-023`.
+  - Startup log: pub/sub initialised, LISTEN connected; error sweep 0 matches.
+- Rollback: redeploy `195a96d`. No migration, schema or config change.
+- Monitoring: 5xx on anonymous order reads will now show as 500 (pre-existing);
+  `AME-023` fixes that to 401.
 
 ## Lessons
 
