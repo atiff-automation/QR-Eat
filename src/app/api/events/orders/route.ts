@@ -159,6 +159,19 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('SSE setup error:', error);
+
+    // `requireAuth` throws a plain Error after writing the anonymous audit
+    // event; map that one case to 401 and keep genuine setup failures at 500.
+    if (
+      error instanceof Error &&
+      error.message.includes('Authentication required')
+    ) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'AUTHENTICATION_REQUIRED' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'Failed to setup real-time connection' },
       { status: 500 }

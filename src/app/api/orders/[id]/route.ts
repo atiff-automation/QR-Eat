@@ -13,6 +13,36 @@ import { getOrderAdjustmentPolicy } from '@/lib/orders/order-adjustment-policy';
 import { isOrderBusinessDayClosed } from '@/lib/orders/order-business-day';
 import { ACTIVE_RECALL_SELECT, recallFields } from '@/lib/counter/recall';
 
+const ORDER_NOT_FOUND_BODY = {
+  success: false,
+  error: 'Order not found',
+  code: 'ORDER_NOT_FOUND',
+} as const;
+
+/**
+ * Normalise a cross-tenant order (403), a missing order (404) and a platform
+ * admin rejection (403) to one indistinguishable refusal. The shared helper
+ * keeps its expressive 403/404 semantics; only the HTTP boundary hides
+ * existence from the caller.
+ */
+async function refuseUnlessOrderAccess(
+  orderId: string,
+  context: Parameters<typeof requireOrderAccess>[1]
+): Promise<NextResponse | null> {
+  try {
+    await requireOrderAccess(orderId, context);
+    return null;
+  } catch (error) {
+    if (
+      error instanceof RBACError &&
+      (error.statusCode === 403 || error.statusCode === 404)
+    ) {
+      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
+    }
+    throw error;
+  }
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -25,7 +55,8 @@ export async function GET(
     const { id: orderId } = await params;
 
     // ✅ NEW: Validate resource access (IDOR protection)
-    await requireOrderAccess(orderId, context!);
+    const refusal = await refuseUnlessOrderAccess(orderId, context!);
+    if (refusal) return refusal;
 
     // Single optimized query with all relations including modifications
     const order = await prisma.order.findUnique({
@@ -105,7 +136,7 @@ export async function GET(
     });
 
     if (!order) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      return NextResponse.json(ORDER_NOT_FOUND_BODY, { status: 404 });
     }
 
     // Fetch user details for modifications
@@ -238,7 +269,8 @@ export async function PATCH(
     const { id: orderId } = await params;
 
     // ✅ NEW: Validate resource access (IDOR protection)
-    await requireOrderAccess(orderId, context!);
+    const refusal = await refuseUnlessOrderAccess(orderId, context!);
+    if (refusal) return refusal;
     const { status, estimatedReadyTime } = await request.json();
 
     if (!status) {
@@ -315,6 +347,9 @@ export async function PATCH(
         { error: error.message, code: error.code },
         { status: error.statusCode }
       );
+    }
+    if (error instanceof Error && error.message.includes('Permission denied')) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
     }
     return NextResponse.json(
       { error: 'Failed to update order' },

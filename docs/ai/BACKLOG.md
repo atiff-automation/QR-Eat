@@ -21,7 +21,9 @@ Product-level work for the web/server repo. Android work lives in
 | AME-004 | docs | Resolve README/package and release-doc drift | R0 | ready | Next 14 vs 15; stale server commit |
 | AME-005 | pilot | First low-risk AME bug | R1 | ready | Non-auth, non-payment; after bootstrap |
 | AME-013 | test-infra | Real Postgres two-tenant integration harness | R2 | done | Verifier PASS (`REVIEW-02.md`), R-01/R-02 closed. Commit `f92599e`, merge `df4b6bf`, deployed `76a24002…` SUCCESS, health UP, no migration. CI runs `verify` and the new `integration` job (postgres:16) on every push |
-| AME-020 | security | Normalise cross-tenant and anonymous refusals exposed by the AME-013 harness | R2 | ready | `GET /api/orders/[id]` returns 403 for another tenant's order vs 404 for a missing one (existence signal); `GET /api/events/orders` returns 500 without credentials instead of 401. Route/auth surface — do not start without approval |
+| AME-007 | security | Tenant isolation T1–T7 remediation | R2 | done | Audited 2026-11-20: already delivered at `14b1641` (Phase A, T1/T2/T3/T4/T6) and `534612a` (Phase B, T7) per the upstream record and current code. T5 (RLS) split out as `AME-021`. Evidence: `docs/ai/runs/QR-EAT-AME-007-TENANT-VERIFY/` |
+| AME-020 | security | Normalise cross-tenant and anonymous refusals exposed by the AME-013 harness | R2 | in verification | Verifier PASS WITH NOTES (`REVIEW-01.md`); 10/10 `requireOrderAccess` callers safe. F-1: `PATCH /orders/[id]/status` still leaks 403 vs 404 and lets admins mutate status — owner decision pending. Contract: `docs/ai/runs/QR-EAT-AME-020-REFUSAL-SHAPE/TASK.md` |
+| AME-021 | security | Database-level RLS as defense-in-depth (T5) | R3 | deferred | Isolation is application-layer only; every route must use the helpers. Recorded by AME-007 verification (`docs/ai/runs/QR-EAT-AME-007-TENANT-VERIFY/`). Architectural: RLS policies, session variables, migration. Do not start without a design and approval |
 | AME-014 | contract | B3-S server add-on, cancellation, SSE/changes and `phase-b-counter-feed-v1` freeze | R3 | done | Verifier PASS (`REVIEW-02.md`); staging gate PASSED (`REVIEW-03.md`); merged `ab63894`; deployed `27852ccb…` SUCCESS, health UP, migrations applied, no seed |
 | AME-015 | reliability | Single-flight `pgPubSub.initialize()/subscribe()` for staff SSE | R2 | done | Verified PASS (`REVIEW-03.md`); commit `6a51d04`, merge `19cb485`, deployed `4657048f…` SUCCESS, health UP, no migration. Duplicate frames 2 → 0 in the local two-tenant harness; no production duplicate count claimed (no staff accounts). CI build red from missing VAPID secret (`AME-019`) |
 | AME-016 | reliability | Staff SSE reconnect drops per-connection `message` handlers | R2 | done | Verifier PASS (`REVIEW-01.md`); commit `312b09c`, merge `d6fc6ba`, deployed `8d457eb7…` SUCCESS, health UP, no migration. Reconnect survival proven at the module seam on a disposable PostgreSQL (1 frame post-fix, 0 pre-fix) |
@@ -35,7 +37,6 @@ Product-level work for the web/server repo. Android work lives in
 | ID | Title | Blocked by | Next action |
 |---|---|---|---|
 | AME-006 | Cross-repo contract change pilot | AME-003 | Freeze contract, then Tabtep session |
-| AME-007 | Tenant isolation T1–T7 remediation | AME-003, security review | Plan after contract baseline |
 | AME-012 | Audit-log retention/cleanup for print acks | AME-010 audit volume | Define schedule/retention; O-5 follow-up |
 
 ## Done

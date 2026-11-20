@@ -1,0 +1,6 @@
+$ npm run type-check
+
+> tabtep@0.1.0 type-check
+> tsc --noEmit
+
+exit: 0

@@ -19,6 +19,7 @@ import {
   DELETE as cancelOrderRoute,
   GET as getOrderRoute,
 } from '@/app/api/orders/[id]/route';
+import { PATCH as updateOrderStatusRoute } from '@/app/api/orders/[id]/status/route';
 import { POST as addItemsRoute } from '@/app/api/orders/[id]/items/route';
 import { GET as getChangesRoute } from '@/app/api/counter/changes/route';
 import { GET as getPrintTicketsRoute } from '@/app/api/counter/orders/[orderId]/print-tickets/route';
@@ -85,6 +86,23 @@ async function getOrder(orderId: string, token: string): Promise<RouteResult> {
     await getOrderRoute(request(`/api/orders/${orderId}`, { token }), {
       params: Promise.resolve({ id: orderId }),
     })
+  );
+}
+
+async function updateOrderStatus(
+  orderId: string,
+  actor: TenantActor,
+  body: unknown
+): Promise<RouteResult> {
+  return readResponse(
+    await updateOrderStatusRoute(
+      request(`/api/orders/${orderId}/status`, {
+        token: actor.token,
+        method: 'PATCH',
+        body,
+      }),
+      { params: Promise.resolve({ id: orderId }) }
+    )
   );
 }
 
@@ -357,23 +375,67 @@ describe('two-tenant isolation', () => {
     const cross = await getOrder(B.order.id, A.cashier.token);
     const missing = await getOrder(randomUUID(), A.cashier.token);
 
-    // The suite's security invariant: no order payload, no identifiers.
-    expect(cross.status).not.toBe(200);
-    expect([403, 404]).toContain(cross.status);
+    // Cross-tenant and genuinely missing orders are byte-identical refusals:
+    // same status, same body, no order data, no identifiers.
+    const notFound = {
+      success: false,
+      error: 'Order not found',
+      code: 'ORDER_NOT_FOUND',
+    };
+    expect(cross.status).toBe(404);
+    expect(cross.body).toEqual(notFound);
     expect(cross.body.order).toBeUndefined();
     expect(JSON.stringify(cross.body)).not.toContain(B.order.id);
     expect(JSON.stringify(cross.body)).not.toContain(B.restaurantId);
 
-    // A genuinely missing order is the not-found control.
     expect(missing.status).toBe(404);
-    expect(missing.body.order).toBeUndefined();
+    expect(missing.body).toEqual(cross.body);
+  });
 
-    // NOTE (implementation finding, recorded in the run log): on 2026-11-20
-    // the legacy `GET /api/orders/[id]` returned 403 FORBIDDEN for a
-    // cross-tenant id and 404 NOT_FOUND for a missing id, so the exact "same
-    // not-found shape" in TASK S3.1 is not met by the current route. The suite
-    // accepts either refusal shape, so normalising the route to 404 later
-    // keeps this test green. Changing the route is out of scope here.
+  it('order status: own tenant works; cross-tenant and missing are identical 404s, B unchanged', async () => {
+    const beforeB = await prisma.order.findUniqueOrThrow({
+      where: { id: B.order.id },
+      select: { status: true, version: true },
+    });
+
+    const cross = await updateOrderStatus(B.order.id, A.manager, {
+      status: 'PREPARING',
+    });
+    const missing = await updateOrderStatus(randomUUID(), A.manager, {
+      status: 'PREPARING',
+    });
+
+    const notFound = {
+      success: false,
+      error: 'Order not found',
+      code: 'ORDER_NOT_FOUND',
+    };
+    expect(cross.status).toBe(404);
+    expect(cross.body).toEqual(notFound);
+    expect(missing.status).toBe(404);
+    expect(missing.body).toEqual(cross.body);
+
+    // Refusal has no write side effect on the other tenant.
+    expect(
+      await prisma.order.findUniqueOrThrow({
+        where: { id: B.order.id },
+        select: { status: true, version: true },
+      })
+    ).toEqual(beforeB);
+
+    // Positive control: A's manager moves A's own order CONFIRMED -> PREPARING.
+    const own = await updateOrderStatus(A.order.id, A.manager, {
+      status: 'PREPARING',
+    });
+    expect(own.status).toBe(200);
+    expect(own.body.success).toBe(true);
+    expect(own.body.order.status).toBe('PREPARING');
+
+    const afterA = await prisma.order.findUniqueOrThrow({
+      where: { id: A.order.id },
+      select: { status: true },
+    });
+    expect(afterA.status).toBe('PREPARING');
   });
 
   // ---------------------------------------------------------------------
@@ -682,11 +744,13 @@ describe('two-tenant isolation', () => {
     const anonymous = await readResponse(
       await staffEventsRoute(request('/api/events/orders'))
     );
-    // The route fails closed: no session, no stream. Its generic catch maps the
-    // auth error to 500 rather than 401; the invariant this harness owns is
-    // that no event stream is opened.
-    expect(anonymous.status).toBeGreaterThanOrEqual(400);
-    expect(anonymous.status).not.toBe(200);
+    // The route fails closed: no session, no stream, and a clean 401 instead
+    // of the legacy generic 500.
+    expect(anonymous.status).toBe(401);
+    expect(anonymous.body).toEqual({
+      error: 'Authentication required',
+      code: 'AUTHENTICATION_REQUIRED',
+    });
 
     const claimed = await claimAnonymousRbacLogsCreatedSince(before);
     expect(claimed.length).toBeGreaterThan(0);
