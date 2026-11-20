@@ -174,5 +174,7 @@ holds in both graphs.
 - `docs/ai/runs/QR-EAT-AME-020-REFUSAL-SHAPE/`
 - `docs/ai/runs/QR-EAT-AME-023-ORDER-REFUSALS/`
 - `docs/ai/runs/QR-EAT-AME-007-TENANT-VERIFY/`
+- `docs/ai/runs/QR-EAT-B3-S-COUNTER-FEED/B3-C-HANDOFF.md` (post-freeze update
+  2026-11-21: `401`/`404` shapes, stream durability, two-device checklist)
 - `Tabtep-App/docs/MASTER-REFERENCE.md` (§4, §8) and
   `TENANT-ISOLATION-AUDIT.md`

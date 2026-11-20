@@ -5,6 +5,11 @@
 (merge `ab63894`, Railway `27852ccb…` SUCCESS, health UP, migrations applied,
 no seed). B3-C may start against the frozen contract.
 
+> **Post-freeze update appended 2026-11-21** — read the
+> “Post-freeze update” section at the end before implementing. The contract is
+> unchanged, but the server now returns `401`/`404` differently on order routes
+> and streams survive database reconnects.
+
 - **Contract:** `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`
 - **Contract ID:** `phase-b-counter-feed-v1` (additive to frozen
   `phase-b-print-v1`)
@@ -185,3 +190,116 @@ rely on this feed for recovery.
 - DO NOT run the seed in production; the migration is the production path.
 - Deployment requires explicit human authorization after verifier PASS and
   freeze.
+
+---
+
+# Post-freeze update — 2026-11-21
+
+**Read this before starting B3-C.** The contract did **not** change:
+`phase-b-counter-feed-v1` is still frozen at `4bf9d38`, with the same endpoints,
+types and payloads. What changed is server **reliability and refusal behaviour**
+after a set of reliability tasks. A client built only against the original
+handoff would still work, but it would handle two things badly: reconnects and
+`401`/`404` responses.
+
+## 1. What changed on the server since the freeze
+
+| Task | Merge | Client-visible effect |
+|---|---|---|
+| AME-015 | `19cb485` | One refresh signal per event per stream; duplicate frames removed |
+| AME-016 | `d6fc6ba` | Streams survive a server-side database reconnect; no client reconnect needed |
+| AME-018 | with AME-016 | NOTIFY connection lifecycle only; no client effect |
+| AME-019 | `54993fe` | Build/CI only; no client effect |
+| AME-013 | `df4b6bf` | Server-side isolation harness; no client effect |
+| AME-020 | `8487f08` | Cross-tenant and missing orders both `404 ORDER_NOT_FOUND`; anonymous staff stream `401` |
+| AME-023 | `2eae635` | Anonymous order requests `401`; `modify` refusals `404` |
+
+Live server: `main` `1cd18d0` (docs), application code `2eae635`, Railway health
+UP. All changes are additive to the frozen contract; no payload, type, ticket or
+ack semantics changed.
+
+## 2. What the Counter must now expect
+
+1. **The stream is durable.** After the server's database reconnects (a few
+   seconds), events resume on the **same open connection**. The client must not
+   need to reopen the stream or reload the screen. If a device goes silent after
+   a database restart, that is a defect to report — do not paper over it with a
+   client-side timer.
+2. **Exactly one refresh signal per action per stream.** If two
+   `order_items_added` or `order_cancelled` frames arrive for one action, report
+   it. Do **not** add debouncing to hide it; that would mask a server defect.
+3. **`401 AUTHENTICATION_REQUIRED`** for an anonymous or expired session on order
+   routes and on the staff stream. Treat it as "sign in again", never as a
+   server failure. Body: `{ "error": "Authentication required", "code":
+   "AUTHENTICATION_REQUIRED" }`.
+4. **`404 ORDER_NOT_FOUND`** for a foreign-tenant id **and** for an id that does
+   not exist. They are deliberately indistinguishable; do not expect `403` for
+   order ids, and do not show a different message for the two cases. Body:
+   `{ "success": false, "error": "Order not found", "code": "ORDER_NOT_FOUND" }`.
+5. **`403` still means a real permission denial** on the same routes (for
+   example a staff member without `orders:write`). It no longer means
+   "another tenant's order".
+6. **`409` business conflicts are unchanged**: `ORDER_VERSION_CONFLICT`,
+   `USE_CANCEL_ENDPOINT` (on `PATCH /status` with `CANCELLED`),
+   `ORDER_RECALLED` for a served-but-recalled ticket, idempotency conflicts.
+7. **`400` validation is unchanged**; a `5xx` is a genuine server failure and
+   should be reported with the request id.
+
+## 3. Two-device checklist for B3-C QA
+
+Run on **two physical devices**, same restaurant, two staff logins (cashier and
+manager are enough).
+
+| # | Action | Expect |
+|---|---|---|
+| 1 | Open the Counter order screen on both devices | Two live streams; no errors |
+| 2 | Create one order | Exactly one refresh per device; the order appears once |
+| 3 | Add one item | Exactly one `order_items_added` refresh per device |
+| 4 | Cancel the order | Exactly one `order_cancelled` refresh per device |
+| 5 | Restart the server's database (test environment) | Both devices keep their streams; within ~10 s a new order refreshes both **without re-login or reload** |
+| 6 | Sign out one device, then trigger an event | That device's stream refuses with `401`; the other device still receives |
+| 7 | Open a foreign order id (if a test id is available) | `404 ORDER_NOT_FOUND`, no data, same message as a missing id |
+
+Stop and report if: any action produces two refreshes, a device needs a reload
+after the database restart, a `403` appears for a foreign order id, or an
+anonymous stream returns `5xx`.
+
+## 4. Evidence to return to QR-Eat
+
+```text
+Date / time:
+Device models + OS + app version (commit):
+Restaurant:
+Create:   frames per device = / duplicates?
+Add:      frames per device = / duplicates?
+Cancel:   frames per device = / duplicates?
+DB restart at:
+  reconnected? (per device) / frames after restart =
+401 check (signed-out device):
+404 check (foreign id):
+Unexpected behaviour / logs:
+```
+
+Record counts, not impressions. Payloads contain no customer data; do not paste
+tokens or phone numbers into evidence.
+
+## 5. What not to do
+
+- Do not open a second staff stream or add an SSE `id:` cursor; the changes feed
+  remains the recovery path.
+- Do not add client retries or debouncing to compensate for duplicates.
+- Do not make the UI treat `404` as transient; it means "gone or not yours".
+- Do not assume `403` distinguishes tenants.
+- Do not change the frozen contract from the client side. If a server behaviour
+  looks wrong, return it to QR-Eat rather than adapting around it.
+
+## 6. References
+
+- Frozen contract: `docs/PRODUCT/COUNTER-FEED-CONTRACT.md`
+- Pilot gate and production evidence:
+  `docs/ai/runs/QR-EAT-PILOT-GATE-STAFF-FEED/PILOT-GATE.md`
+- Reliability evidence: `docs/ai/runs/QR-EAT-AME-015-PG-PUBSUB/`,
+  `QR-EAT-AME-016-SSE-RECONNECT/`
+- Refusal-shape evidence: `docs/ai/runs/QR-EAT-AME-020-REFUSAL-SHAPE/`,
+  `QR-EAT-AME-023-ORDER-REFUSALS/`
+- Isolation harness: `docs/ai/runs/QR-EAT-AME-013-TENANT-HARNESS/`
