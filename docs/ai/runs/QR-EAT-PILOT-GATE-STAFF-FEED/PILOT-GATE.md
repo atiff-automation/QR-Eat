@@ -112,7 +112,8 @@ leak on the order surface today, and both are tracked with defined scope.
 | Date | 2026-11-21 |
 | Conditions accepted | The §6 first-session checklist is executed and recorded on the first pilot session. Any duplicate-frame result or failure to resume after a database restart reopens the relevant AME item before the pilot continues. |
 | Condition status (2026-11-21) | **Technical equivalents executed in production** (see §9): exactly-once frames for create/add/cancel on two concurrent streams, and recovery after an administrator database restart with no client reconnect. Outstanding: the same observation on two real staff devices, plus the visual "row appears once" confirmation. |
-| Follow-ups started | `AME-024` (tables/restaurants), `AME-022` (admin policy) |
+| Pilot fallback | Customer QR ordering + manual paper. **No web POS** (see §10). |
+| Follow-ups started | `AME-024` (tables/restaurants), `AME-022` (admin policy), `AME-026` (web POS fallback decision) |
 | Not conditions | `AME-021` (RLS) is pre-scale; `AME-017` is cosmetic |
 
 **Conditions, verbatim:** the gate is open for a pilot **only** on the basis that
@@ -164,6 +165,27 @@ Android Counter, so this does not gate the pilot.
 because Next bundles `instrumentation.ts` and the route as separate module graphs.
 That is the known `AME-017` condition, not a defect; it also confirms the fix
 holds in both graphs.
+
+## 10. Pilot fallback posture (2026-11-21)
+
+D44/D50 in `Tabtep-App/docs/DECISIONS.md` assumed the existing web POS would
+remain as a fallback until the Counter survived a real pilot. That fallback does
+not exist in the code: the legacy cashier/POS UI was deleted on 2026-01-19
+(`918de58 feat: remove legacy cashier page`), and the web app is now back-office
+only (Dashboard, Orders view/adjust, Tables, Menu, Staff, Reports, Expenses,
+P&L, Stations, Security, Settings). The order API remains, and the Android
+Counter is its client.
+
+**For this pilot:**
+
+- The fallback is the **customer QR ordering flow plus manual paper**, not a web
+  order-entry screen.
+- **Accepted risk:** if the Counter app fails during the pilot, takeaway and
+  counter orders have no web screen to fall back to. The owner accepts this for
+  the pilot; it must not be carried into paying restaurants.
+- The superseding decision is recorded in `Tabtep-App/docs/DECISIONS.md` in the
+  B3-C session; `AME-026` tracks reconciling the web POS question (restore a
+  minimal fallback, or retire it formally) before paying restaurants.
 
 ## 8. References
 
